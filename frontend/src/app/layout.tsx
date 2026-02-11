@@ -9,6 +9,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "TimeIQ - Smart Scheduling",
   description: "Schedule meetings without the back-and-forth",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
