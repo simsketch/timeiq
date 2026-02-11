@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 
 import httpx
+import recurring_ical_events
 from icalendar import Calendar
 from sqlalchemy import and_, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,17 +35,23 @@ async def sync_ics_source(db: AsyncSession, source: CalendarSource) -> int:
         delete(CachedEvent).where(CachedEvent.calendar_source_id == source.id)
     )
 
-    for component in cal.walk():
-        if component.name != "VEVENT":
-            continue
+    # Expand recurring events over a 90-day window
+    now = datetime.now(timezone.utc)
+    window_start = now - timedelta(days=1)
+    window_end = now + timedelta(days=90)
 
+    expanded_events = recurring_ical_events.of(cal).between(
+        window_start, window_end
+    )
+
+    for component in expanded_events:
         dtstart = component.get("dtstart")
         dtend = component.get("dtend")
         if dtstart is None:
             continue
 
-        dtstart_val = dtstart.dt
-        dtend_val = dtend.dt if dtend else None
+        dtstart_val = dtstart.dt if hasattr(dtstart, "dt") else dtstart
+        dtend_val = (dtend.dt if hasattr(dtend, "dt") else dtend) if dtend else None
 
         # Determine if it's an all-day event
         is_all_day = not isinstance(dtstart_val, datetime)
