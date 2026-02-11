@@ -12,7 +12,8 @@ import {
   Zap,
   Shield,
   Mail,
-  Users
+  Users,
+  Phone
 } from "lucide-react";
 import { LogoIcon } from "@/components/logo";
 
@@ -403,6 +404,10 @@ export default function LandingPage() {
             <LogoIcon className="w-7 h-7" />
             <span className="text-lg font-bold text-gray-900">TimeIQ</span>
           </div>
+          <a href="tel:+15615039444" className="flex items-center justify-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors mb-2">
+            <Phone className="h-3.5 w-3.5" />
+            561.503.9444
+          </a>
           <p className="text-center text-gray-500 text-sm">
             &copy; 2026 TimeIQ. All rights reserved.
           </p>
