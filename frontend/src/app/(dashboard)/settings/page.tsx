@@ -111,14 +111,14 @@ export default function SettingsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground mt-2">
           Manage your account preferences
         </p>
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
-        <Card>
+        <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
           <CardHeader>
             <CardTitle>Profile</CardTitle>
           </CardHeader>
@@ -164,7 +164,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
           <CardHeader>
             <CardTitle>Your Booking Link</CardTitle>
           </CardHeader>

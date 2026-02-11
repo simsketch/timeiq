@@ -105,6 +105,35 @@ export default function CalendarsPage() {
     }
   }
 
+  const [syncingAll, setSyncingAll] = useState(false);
+
+  async function handleSyncAll() {
+    setSyncingAll(true);
+    try {
+      const token = await getToken();
+      const result = await apiFetch<{ synced: number; failed: number }>(
+        "/api/calendars/sync-all",
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      toast({
+        title: "Sync complete",
+        description: `${result.synced} calendar${result.synced !== 1 ? "s" : ""} synced${result.failed > 0 ? `, ${result.failed} failed` : ""}`,
+      });
+      fetchCalendars();
+    } catch (error: any) {
+      toast({
+        title: "Sync failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSyncingAll(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">Loading...</div>
@@ -113,14 +142,26 @@ export default function CalendarsPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">Calendar Connections</h1>
-        <p className="text-muted-foreground mt-2">
-          Connect calendars to check availability and prevent double bookings
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Calendar Connections</h1>
+          <p className="text-muted-foreground mt-2">
+            Connect calendars to check availability and prevent double bookings
+          </p>
+        </div>
+        {calendars.length > 0 && (
+          <Button
+            variant="outline"
+            onClick={handleSyncAll}
+            disabled={syncingAll}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${syncingAll ? "animate-spin" : ""}`} />
+            {syncingAll ? "Syncing..." : "Sync All"}
+          </Button>
+        )}
       </div>
 
-      <Card>
+      <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Add Calendar</CardTitle>
@@ -185,14 +226,14 @@ export default function CalendarsPage() {
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Connected Calendars</h2>
         {calendars.length === 0 ? (
-          <Card>
+          <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
             <CardContent className="py-8 text-center text-muted-foreground">
               No calendars connected yet
             </CardContent>
           </Card>
         ) : (
           calendars.map((calendar) => (
-            <Card key={calendar.id}>
+            <Card key={calendar.id} className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">

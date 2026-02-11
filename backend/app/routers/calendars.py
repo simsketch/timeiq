@@ -110,6 +110,32 @@ async def delete_calendar_source(
     await db.flush()
 
 
+@router.post("/sync-all")
+async def sync_all_calendars(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger a manual sync of all active calendar sources for the user."""
+    result = await db.execute(
+        select(CalendarSource).where(
+            CalendarSource.user_id == user.id,
+            CalendarSource.is_active.is_(True),
+        )
+    )
+    sources = result.scalars().all()
+
+    synced = 0
+    failed = 0
+    for source in sources:
+        try:
+            await sync_calendar_source(db, source)
+            synced += 1
+        except Exception:
+            failed += 1
+
+    return {"synced": synced, "failed": failed}
+
+
 @router.post("/{source_id}/sync", response_model=CalendarSourceResponse)
 async def sync_calendar(
     source_id: uuid.UUID,

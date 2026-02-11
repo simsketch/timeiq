@@ -74,7 +74,7 @@ export default function BookingsPage() {
 
   function BookingCard({ booking, showCancel }: { booking: Booking; showCancel?: boolean }) {
     return (
-      <Card>
+      <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
         <CardContent className="py-4">
           <div className="flex items-start justify-between">
             <div className="flex-1">
@@ -121,7 +121,7 @@ export default function BookingsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Bookings</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Bookings</h1>
         <p className="text-muted-foreground mt-2">
           View and manage your scheduled meetings
         </p>
@@ -140,7 +140,7 @@ export default function BookingsPage() {
 
         <TabsContent value="upcoming" className="space-y-4 mt-6">
           {upcomingBookings.length === 0 ? (
-            <Card>
+            <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
               <CardContent className="py-8 text-center text-muted-foreground">
                 No upcoming bookings
               </CardContent>
@@ -154,7 +154,7 @@ export default function BookingsPage() {
 
         <TabsContent value="past" className="space-y-4 mt-6">
           {pastBookings.length === 0 ? (
-            <Card>
+            <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
               <CardContent className="py-8 text-center text-muted-foreground">
                 No past bookings
               </CardContent>
@@ -168,7 +168,7 @@ export default function BookingsPage() {
 
         <TabsContent value="cancelled" className="space-y-4 mt-6">
           {cancelledBookings.length === 0 ? (
-            <Card>
+            <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
               <CardContent className="py-8 text-center text-muted-foreground">
                 No cancelled bookings
               </CardContent>

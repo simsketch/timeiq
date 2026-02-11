@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarPicker } from "@/components/booking/calendar-picker";
 import { TimeSlots } from "@/components/booking/time-slots";
 import { BookingForm } from "@/components/booking/booking-form";
@@ -92,7 +91,6 @@ export default function BookingFlowPage() {
 
     setBookingLoading(true);
     try {
-      // Find the selected slot object to get the full ISO datetime
       const selectedSlotObj = availableSlots.find(
         slot => format(new Date(slot.start), "h:mm a") === selectedSlot
       );
@@ -121,7 +119,7 @@ export default function BookingFlowPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
         <div className="text-muted-foreground">Loading...</div>
       </div>
     );
@@ -129,7 +127,7 @@ export default function BookingFlowPage() {
 
   if (error || !eventType) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-2">Event Type Not Found</h1>
           <p className="text-muted-foreground mb-4">
@@ -148,40 +146,41 @@ export default function BookingFlowPage() {
 
   if (bookingConfirmed) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
-        <Card className="max-w-md w-full mx-4">
-          <CardHeader className="text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="h-10 w-10 text-green-600" />
-            </div>
-            <CardTitle className="text-2xl">Booking Confirmed!</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-4">
-            <div>
-              <p className="font-medium mb-1">{eventType.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {selectedDate && format(selectedDate, "EEEE, MMMM d, yyyy")}
-              </p>
-              <p className="text-sm text-muted-foreground">{selectedSlot}</p>
-            </div>
+      <div className="min-h-screen bg-[#f5f5f7] relative overflow-hidden flex items-center justify-center">
+        <div className="absolute top-1/4 left-1/3 w-[400px] h-[400px] bg-green-200/30 rounded-full blur-3xl" />
+        <div className="max-w-md w-full mx-4 bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-black/[0.03] p-8 text-center relative">
+          <div className="w-16 h-16 bg-green-500/10 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-5">
+            <CheckCircle2 className="h-8 w-8 text-green-600" />
+          </div>
+          <h2 className="text-2xl font-bold tracking-tight mb-6">Booking Confirmed!</h2>
+          <div className="space-y-1 mb-6">
+            <p className="font-medium">{eventType.name}</p>
             <p className="text-sm text-muted-foreground">
-              A confirmation email has been sent to your email address.
+              {selectedDate && format(selectedDate, "EEEE, MMMM d, yyyy")}
             </p>
-            <Link href={`/book/${username}`}>
-              <Button variant="outline" className="w-full">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Profile
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+            <p className="text-sm text-muted-foreground">{selectedSlot}</p>
+          </div>
+          <p className="text-sm text-muted-foreground mb-6">
+            A confirmation email has been sent to your email address.
+          </p>
+          <Link href={`/book/${username}`}>
+            <Button variant="outline" className="w-full">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Profile
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-8">
-      <div className="container mx-auto px-4 max-w-5xl">
+    <div className="min-h-screen bg-[#f5f5f7] relative overflow-hidden py-8">
+      {/* Subtle mesh background */}
+      <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-blue-200/20 rounded-full blur-3xl" />
+      <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-purple-200/15 rounded-full blur-3xl" />
+
+      <div className="relative container mx-auto px-4 max-w-5xl">
         <Link href={`/book/${username}`}>
           <Button variant="ghost" className="mb-6">
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -190,19 +189,19 @@ export default function BookingFlowPage() {
         </Link>
 
         <div className="mb-8">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-3 mb-2">
             <div
-              className="w-3 h-3 rounded-full"
+              className="w-3 h-3 rounded-full ring-4 ring-white/50"
               style={{ backgroundColor: eventType.color }}
             />
-            <h1 className="text-3xl font-bold">{eventType.name}</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{eventType.name}</h1>
           </div>
           <div className="flex items-center gap-4 text-muted-foreground">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <Clock className="h-4 w-4" />
               <span>{eventType.duration_minutes} minutes</span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <Calendar className="h-4 w-4" />
               <span>Book with {eventType.host_name || username}</span>
             </div>
@@ -213,58 +212,44 @@ export default function BookingFlowPage() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Select a Date</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CalendarPicker
-                selectedDate={selectedDate}
-                onDateSelect={setSelectedDate}
-              />
-            </CardContent>
-          </Card>
+          <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-black/[0.03] p-6">
+            <h3 className="text-lg font-semibold tracking-tight mb-4">Select a Date</h3>
+            <CalendarPicker
+              selectedDate={selectedDate}
+              onDateSelect={setSelectedDate}
+            />
+          </div>
 
           <div className="space-y-6">
             {selectedDate ? (
               <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Available Times</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {format(selectedDate, "EEEE, MMMM d, yyyy")}
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <TimeSlots
-                      slots={availableSlots.map(slot => format(new Date(slot.start), "h:mm a"))}
-                      selectedSlot={selectedSlot}
-                      onSlotSelect={setSelectedSlot}
-                      loading={slotsLoading}
-                    />
-                  </CardContent>
-                </Card>
+                <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-black/[0.03] p-6">
+                  <h3 className="text-lg font-semibold tracking-tight mb-1">Available Times</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {format(selectedDate, "EEEE, MMMM d, yyyy")}
+                  </p>
+                  <TimeSlots
+                    slots={availableSlots.map(slot => format(new Date(slot.start), "h:mm a"))}
+                    selectedSlot={selectedSlot}
+                    onSlotSelect={setSelectedSlot}
+                    loading={slotsLoading}
+                  />
+                </div>
 
                 {selectedSlot && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Your Information</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <BookingForm
-                        onSubmit={handleBooking}
-                        loading={bookingLoading}
-                      />
-                    </CardContent>
-                  </Card>
+                  <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-black/[0.03] p-6">
+                    <h3 className="text-lg font-semibold tracking-tight mb-4">Your Information</h3>
+                    <BookingForm
+                      onSubmit={handleBooking}
+                      loading={bookingLoading}
+                    />
+                  </div>
                 )}
               </>
             ) : (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  Select a date to see available times
-                </CardContent>
-              </Card>
+              <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-black/[0.03] py-12 text-center text-muted-foreground">
+                Select a date to see available times
+              </div>
             )}
           </div>
         </div>

@@ -108,10 +108,10 @@ export default function DashboardPage() {
 
       {/* Stats grid */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
+        <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10">
                 <CalendarDays className="h-6 w-6 text-blue-500" />
               </div>
               <div>
@@ -124,10 +124,10 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-50">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/10">
                 <Clock className="h-6 w-6 text-purple-500" />
               </div>
               <div>
@@ -142,7 +142,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Upcoming meetings card */}
-      <Card>
+      <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -208,7 +208,7 @@ export default function DashboardPage() {
 
       {/* Share link card */}
       {profile && (
-        <Card className="border-dashed bg-gray-50">
+        <Card className="border-dashed bg-white/40 backdrop-blur-xl border-white/60 shadow-lg shadow-black/[0.02]">
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white">

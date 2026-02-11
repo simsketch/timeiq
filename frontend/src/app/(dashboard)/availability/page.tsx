@@ -128,13 +128,13 @@ export default function AvailabilityPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Availability</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Availability</h1>
         <p className="text-muted-foreground mt-2">
           Set your weekly working hours
         </p>
       </div>
 
-      <Card>
+      <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
         <CardHeader>
           <CardTitle>Weekly Hours</CardTitle>
         </CardHeader>

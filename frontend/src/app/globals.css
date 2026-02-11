@@ -115,3 +115,65 @@
   33% { transform: translate(20px, -25px) scale(1.15); }
   66% { transform: translate(-15px, 10px) scale(0.95); }
 }
+
+/* CTA section animated mesh blobs */
+.cta-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  will-change: transform;
+}
+.cta-blob-1 {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.4), rgba(99, 102, 241, 0.15));
+  top: -100px;
+  left: -80px;
+  animation: cta-drift-1 14s ease-in-out infinite;
+}
+.cta-blob-2 {
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.35), rgba(79, 70, 229, 0.1));
+  bottom: -80px;
+  right: -60px;
+  animation: cta-drift-2 18s ease-in-out infinite;
+}
+.cta-blob-3 {
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.3), rgba(59, 130, 246, 0.1));
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: cta-drift-3 20s ease-in-out infinite;
+}
+
+@keyframes cta-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(60px, 40px) scale(1.15); }
+  50% { transform: translate(20px, 80px) scale(1.05); }
+  75% { transform: translate(-40px, 30px) scale(0.95); }
+}
+@keyframes cta-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(-50px, -40px) scale(1.1); }
+  50% { transform: translate(-20px, -70px) scale(0.9); }
+  75% { transform: translate(30px, -20px) scale(1.05); }
+}
+@keyframes cta-drift-3 {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  33% { transform: translate(-40%, -60%) scale(1.2); }
+  66% { transform: translate(-60%, -40%) scale(0.85); }
+}
+
+/* How it works connector line */
+.steps-connector {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.2) 15%, rgba(139, 92, 246, 0.15) 50%, rgba(59, 130, 246, 0.2) 85%, transparent);
+  z-index: 0;
+}

@@ -205,161 +205,199 @@ export default function LandingPage() {
         </section>
 
         {/* How It Works Section */}
-        <section className="bg-gray-50 py-20 lg:py-32">
-          <div className="container mx-auto px-4 lg:px-8">
-            <div className="text-center mb-16">
-              <div className="text-sm font-semibold text-primary uppercase tracking-wider mb-4">
+        <section className="relative py-24 lg:py-36 overflow-hidden">
+          {/* Gradient mesh background */}
+          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-200/25 rounded-full blur-3xl" />
+          <div className="absolute top-1/3 right-1/5 w-[400px] h-[400px] bg-purple-200/20 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-1/2 w-[350px] h-[350px] bg-blue-300/15 rounded-full blur-3xl" />
+
+          <div className="relative container mx-auto px-4 lg:px-8">
+            <div className="text-center mb-20">
+              <Badge variant="secondary" className="text-blue-600 bg-blue-50/80 border-blue-100/60 backdrop-blur-sm mb-5">
                 How it works
-              </div>
+              </Badge>
               <h2 className="text-4xl lg:text-5xl font-bold tracking-tight text-gray-900">
                 Three steps to effortless scheduling
               </h2>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
-              {/* Step 1 */}
-              <Card className="p-8 border-0 shadow-sm">
-                <div className="w-14 h-14 border-2 border-blue-100 rounded-xl flex items-center justify-center mb-6">
-                  <Link2 className="h-7 w-7 text-primary" />
-                </div>
-                <div className="text-5xl font-bold text-primary mb-4">01</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">Share your link</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  Create your personalized booking page and share it with anyone.
-                  Set your availability once and you're done.
-                </p>
-              </Card>
+            <div className="relative">
+              {/* Connector line (desktop only) */}
+              <div className="hidden md:block steps-connector" />
 
-              {/* Step 2 */}
-              <Card className="p-8 border-0 shadow-sm">
-                <div className="w-14 h-14 border-2 border-blue-100 rounded-xl flex items-center justify-center mb-6">
-                  <Clock className="h-7 w-7 text-primary" />
+              <div className="grid md:grid-cols-3 gap-8 lg:gap-10 relative z-10">
+                {/* Step 1 */}
+                <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-blue-500/[0.05] p-8 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/[0.08] hover:scale-[1.02]">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10 backdrop-blur-sm">
+                      <Link2 className="h-6 w-6 text-blue-500" />
+                    </div>
+                    <Badge variant="secondary" className="text-xs bg-white/60 border-white/40 text-gray-500">
+                      Step 1
+                    </Badge>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-3">Share your link</h3>
+                  <p className="text-gray-600 leading-relaxed">
+                    Create your personalized booking page and share it with anyone.
+                    Set your availability once and you&apos;re done.
+                  </p>
                 </div>
-                <div className="text-5xl font-bold text-primary mb-4">02</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">They pick a time</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  Your guests see your real-time availability and choose a slot
-                  that works for everyone. No more email ping-pong.
-                </p>
-              </Card>
 
-              {/* Step 3 */}
-              <Card className="p-8 border-0 shadow-sm">
-                <div className="w-14 h-14 border-2 border-blue-100 rounded-xl flex items-center justify-center mb-6">
-                  <CheckCircle2 className="h-7 w-7 text-primary" />
+                {/* Step 2 */}
+                <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-blue-500/[0.05] p-8 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/[0.08] hover:scale-[1.02]">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/10 backdrop-blur-sm">
+                      <Clock className="h-6 w-6 text-purple-500" />
+                    </div>
+                    <Badge variant="secondary" className="text-xs bg-white/60 border-white/40 text-gray-500">
+                      Step 2
+                    </Badge>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-3">They pick a time</h3>
+                  <p className="text-gray-600 leading-relaxed">
+                    Your guests see your real-time availability and choose a slot
+                    that works for everyone. No more email ping-pong.
+                  </p>
                 </div>
-                <div className="text-5xl font-bold text-primary mb-4">03</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">You're booked</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  Both parties get instant confirmation and the meeting is
-                  automatically added to your calendars. Simple as that.
-                </p>
-              </Card>
+
+                {/* Step 3 */}
+                <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-blue-500/[0.05] p-8 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/[0.08] hover:scale-[1.02]">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-500/10 backdrop-blur-sm">
+                      <CheckCircle2 className="h-6 w-6 text-green-500" />
+                    </div>
+                    <Badge variant="secondary" className="text-xs bg-white/60 border-white/40 text-gray-500">
+                      Step 3
+                    </Badge>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-3">You&apos;re booked</h3>
+                  <p className="text-gray-600 leading-relaxed">
+                    Both parties get instant confirmation and the meeting is
+                    automatically added to your calendars. Simple as that.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Features Grid */}
-        <section className="py-20 lg:py-32">
-          <div className="container mx-auto px-4 lg:px-8">
-            <div className="text-center mb-16">
-              <div className="text-sm font-semibold text-primary uppercase tracking-wider mb-4">
+        {/* Features Section — Bento Grid */}
+        <section className="relative py-24 lg:py-36 overflow-hidden bg-[#f5f5f7]">
+          {/* Subtle mesh */}
+          <div className="absolute top-1/4 right-0 w-[450px] h-[450px] bg-indigo-200/15 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-1/3 w-[400px] h-[400px] bg-sky-200/15 rounded-full blur-3xl" />
+
+          <div className="relative container mx-auto px-4 lg:px-8">
+            <div className="text-center mb-20">
+              <Badge variant="secondary" className="text-blue-600 bg-blue-50/80 border-blue-100/60 backdrop-blur-sm mb-5">
                 Features
-              </div>
+              </Badge>
               <h2 className="text-4xl lg:text-5xl font-bold tracking-tight text-gray-900">
                 Everything you need to own your time
               </h2>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Feature 1 */}
-              <Card className="p-8 transition-all duration-300 hover:border-blue-100 hover:shadow-lg">
-                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center mb-5">
-                  <Calendar className="h-6 w-6 text-primary" />
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {/* Calendar sync — spans 2 cols on lg */}
+              <div className="lg:col-span-2 bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-blue-200/60 group">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 mb-5">
+                  <Calendar className="h-4 w-4 text-blue-500" />
+                  <span className="text-sm font-medium text-blue-600">Calendar sync</span>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Calendar sync</h3>
-                <p className="text-gray-600">
-                  Seamlessly sync with Google Calendar, Outlook, and iCal to prevent double bookings.
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Seamlessly connected</h3>
+                <p className="text-gray-600 leading-relaxed max-w-lg">
+                  Sync with Google Calendar, Outlook, and iCal to prevent double bookings.
+                  Your availability stays accurate across every platform, automatically.
                 </p>
-              </Card>
+              </div>
 
-              {/* Feature 2 */}
-              <Card className="p-8 transition-all duration-300 hover:border-blue-100 hover:shadow-lg">
-                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center mb-5">
-                  <Globe className="h-6 w-6 text-primary" />
+              {/* Timezone smart */}
+              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-purple-200/60 group">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 mb-5">
+                  <Globe className="h-4 w-4 text-purple-500" />
+                  <span className="text-sm font-medium text-purple-600">Timezone smart</span>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Timezone smart</h3>
-                <p className="text-gray-600">
-                  Automatically detect and display times in your guests' local timezones.
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Always local</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Automatically detect and display times in your guests&apos; local timezones.
                 </p>
-              </Card>
+              </div>
 
-              {/* Feature 3 */}
-              <Card className="p-8 transition-all duration-300 hover:border-blue-100 hover:shadow-lg">
-                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center mb-5">
-                  <Zap className="h-6 w-6 text-primary" />
+              {/* Instant confirmation */}
+              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-amber-200/60 group">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 mb-5">
+                  <Zap className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-medium text-amber-600">Instant confirmation</span>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Instant confirmation</h3>
-                <p className="text-gray-600">
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Zero delay</h3>
+                <p className="text-gray-600 leading-relaxed">
                   Get notified immediately when someone books time with you.
                 </p>
-              </Card>
+              </div>
 
-              {/* Feature 4 */}
-              <Card className="p-8 transition-all duration-300 hover:border-blue-100 hover:shadow-lg">
-                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center mb-5">
-                  <Shield className="h-6 w-6 text-primary" />
+              {/* Buffer times */}
+              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-emerald-200/60 group">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 mb-5">
+                  <Shield className="h-4 w-4 text-emerald-500" />
+                  <span className="text-sm font-medium text-emerald-600">Buffer times</span>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Buffer times</h3>
-                <p className="text-gray-600">
-                  Add padding between meetings to give yourself breathing room.
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Breathing room</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Add padding between meetings so you never feel back-to-back.
                 </p>
-              </Card>
+              </div>
 
-              {/* Feature 5 */}
-              <Card className="p-8 transition-all duration-300 hover:border-blue-100 hover:shadow-lg">
-                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center mb-5">
-                  <Mail className="h-6 w-6 text-primary" />
+              {/* Email notifications + Custom event types — wide card */}
+              <div className="lg:col-span-2 bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-rose-200/60 group">
+                <div className="grid sm:grid-cols-2 gap-8">
+                  <div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/10 mb-5">
+                      <Mail className="h-4 w-4 text-rose-500" />
+                      <span className="text-sm font-medium text-rose-600">Email notifications</span>
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Stay in the loop</h3>
+                    <p className="text-gray-600 leading-relaxed">
+                      Automated confirmations, reminders, and calendar invites for everyone involved.
+                    </p>
+                  </div>
+                  <div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-sky-500/10 mb-5">
+                      <Users className="h-4 w-4 text-sky-500" />
+                      <span className="text-sm font-medium text-sky-600">Custom event types</span>
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Your meetings, your way</h3>
+                    <p className="text-gray-600 leading-relaxed">
+                      Create different meeting types with unique durations, buffers, and settings.
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Email notifications</h3>
-                <p className="text-gray-600">
-                  Stay in the loop with automated email reminders and updates.
-                </p>
-              </Card>
-
-              {/* Feature 6 */}
-              <Card className="p-8 transition-all duration-300 hover:border-blue-100 hover:shadow-lg">
-                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center mb-5">
-                  <Users className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Custom event types</h3>
-                <p className="text-gray-600">
-                  Create different meeting types with unique durations and settings.
-                </p>
-              </Card>
+              </div>
             </div>
           </div>
         </section>
 
         {/* CTA Section */}
-        <section className="py-20 lg:py-32">
+        <section className="py-24 lg:py-36">
           <div className="container mx-auto px-4 lg:px-8">
-            <div className="relative overflow-hidden bg-gray-900 rounded-3xl p-12 lg:p-20">
-              {/* Background blur circles */}
-              <div className="absolute top-0 left-0 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
-              <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
+            <div className="relative overflow-hidden bg-gray-950 rounded-3xl p-12 lg:p-20">
+              {/* Animated mesh blobs */}
+              <div className="cta-blob cta-blob-1" />
+              <div className="cta-blob cta-blob-2" />
+              <div className="cta-blob cta-blob-3" />
 
-              <div className="relative text-center max-w-3xl mx-auto">
+              {/* Glass overlay */}
+              <div className="relative bg-white/[0.07] backdrop-blur-2xl border border-white/[0.1] rounded-3xl p-10 lg:p-16 text-center max-w-3xl mx-auto">
                 <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6 tracking-tight">
                   Ready to take control of your time?
                 </h2>
-                <p className="text-xl text-gray-300 mb-8">
+                <p className="text-lg text-gray-300 mb-10 leading-relaxed">
                   Join thousands of professionals who save hours every week with TimeIQ.
                   Start scheduling smarter today.
                 </p>
                 <Link href="/sign-up">
-                  <Button size="lg" variant="secondary" className="text-base px-8 bg-white text-gray-900 hover:bg-gray-100">
+                  <Button size="lg" className="text-base px-8 gap-2 bg-blue-500 hover:bg-blue-400 text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/30">
                     Get started free
+                    <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
               </div>
@@ -369,15 +407,15 @@ export default function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t bg-gray-50 py-12">
+      <footer className="bg-gray-50/80 backdrop-blur-sm border-t border-gray-200/50 py-10">
         <div className="container mx-auto px-4 lg:px-8">
-          <div className="flex items-center justify-center gap-2.5 mb-4">
+          <div className="flex items-center justify-center gap-2.5 mb-3">
             <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center">
               <Calendar className="h-4 w-4 text-white" />
             </div>
             <span className="text-lg font-bold text-gray-900">TimeIQ</span>
           </div>
-          <p className="text-center text-gray-600 text-sm">
+          <p className="text-center text-gray-500 text-sm">
             &copy; 2026 TimeIQ. All rights reserved.
           </p>
         </div>

@@ -182,7 +182,7 @@ export default function EventTypesPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Event Types</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Event Types</h1>
           <p className="text-muted-foreground mt-2">
             Create and manage your booking event types
           </p>
@@ -289,12 +289,12 @@ export default function EventTypesPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {eventTypes.map((eventType) => (
-          <Card key={eventType.id}>
+          <Card key={eventType.id} className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <div
-                    className="w-3 h-3 rounded-full"
+                    className="w-3 h-3 rounded-full ring-4 ring-white/50"
                     style={{ backgroundColor: eventType.color }}
                   />
                   <CardTitle className="text-lg">{eventType.name}</CardTitle>
