@@ -20,6 +20,7 @@ interface EventType {
   description: string | null;
   color: string;
   buffer_minutes: number;
+  host_name: string | null;
 }
 
 interface AvailableSlot {
@@ -32,7 +33,7 @@ export default function BookingFlowPage() {
   const eventSlug = params.eventSlug as string;
 
   const [eventType, setEventType] = useState<EventType | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -203,7 +204,7 @@ export default function BookingFlowPage() {
             </div>
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
-              <span>Book with {username}</span>
+              <span>Book with {eventType.host_name || username}</span>
             </div>
           </div>
           {eventType.description && (

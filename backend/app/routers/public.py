@@ -40,6 +40,7 @@ class PublicEventTypeDetail(BaseModel):
     description: Optional[str]
     color: str
     buffer_minutes: int
+    host_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -111,4 +112,6 @@ async def get_public_event_type(
             detail="Event type not found",
         )
 
-    return event_type
+    detail = PublicEventTypeDetail.model_validate(event_type)
+    detail.host_name = user.name
+    return detail
