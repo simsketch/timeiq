@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from zoneinfo import ZoneInfo
 
 import resend
 
@@ -19,9 +20,17 @@ def _init_resend() -> None:
     resend.api_key = settings.RESEND_API_KEY
 
 
-def _format_datetime(dt) -> str:
-    """Format datetime in a human-readable way."""
-    return dt.strftime("%A, %B %d, %Y at %I:%M %p %Z")
+def _format_datetime(dt, tz_name: str) -> str:
+    """Format datetime converted to the given timezone."""
+    local = dt.astimezone(ZoneInfo(tz_name))
+    # e.g. "Wednesday, February 11, 2026 at 08:00 AM EST"
+    return local.strftime("%A, %B %d, %Y at %I:%M %p %Z")
+
+
+def _format_time(dt, tz_name: str) -> str:
+    """Format just the time portion in the given timezone."""
+    local = dt.astimezone(ZoneInfo(tz_name))
+    return local.strftime("%I:%M %p %Z")
 
 
 async def send_booking_confirmation(
@@ -31,12 +40,13 @@ async def send_booking_confirmation(
 ) -> None:
     """
     Send booking confirmation emails to both the host and the visitor.
+    Each recipient sees the time in their own timezone.
     """
     _init_resend()
 
-    starts_str = _format_datetime(booking.starts_at)
-    ends_str = booking.ends_at.strftime("%I:%M %p %Z")
     host_name = host.name or host.email
+    host_tz = host.timezone or "UTC"
+    visitor_tz = booking.timezone or "UTC"
 
     # Generate ICS attachment
     ics_content = generate_booking_ics(
@@ -60,7 +70,9 @@ async def send_booking_confirmation(
         f"?token={booking.cancel_token}"
     )
 
-    # Email to visitor
+    # Email to visitor — show time in visitor's timezone
+    visitor_starts = _format_datetime(booking.starts_at, visitor_tz)
+    visitor_ends = _format_time(booking.ends_at, visitor_tz)
     try:
         resend.Emails.send(
             {
@@ -71,7 +83,7 @@ async def send_booking_confirmation(
                     f"<h2>Your booking is confirmed!</h2>"
                     f"<p><strong>Event:</strong> {event_type.name}</p>"
                     f"<p><strong>With:</strong> {host_name}</p>"
-                    f"<p><strong>When:</strong> {starts_str} - {ends_str}</p>"
+                    f"<p><strong>When:</strong> {visitor_starts} - {visitor_ends}</p>"
                     f"<p><strong>Duration:</strong> {event_type.duration_minutes} minutes</p>"
                     f"<br>"
                     f'<p>Need to cancel? <a href="{cancel_url}">Cancel this booking</a></p>'
@@ -88,7 +100,9 @@ async def send_booking_confirmation(
     except Exception as e:
         logger.error(f"Failed to send confirmation to visitor: {e}")
 
-    # Email to host
+    # Email to host — show time in host's timezone
+    host_starts = _format_datetime(booking.starts_at, host_tz)
+    host_ends = _format_time(booking.ends_at, host_tz)
     try:
         resend.Emails.send(
             {
@@ -99,7 +113,7 @@ async def send_booking_confirmation(
                     f"<h2>You have a new booking!</h2>"
                     f"<p><strong>Event:</strong> {event_type.name}</p>"
                     f"<p><strong>Guest:</strong> {booking.visitor_name} ({booking.visitor_email})</p>"
-                    f"<p><strong>When:</strong> {starts_str} - {ends_str}</p>"
+                    f"<p><strong>When:</strong> {host_starts} - {host_ends}</p>"
                     f"<p><strong>Duration:</strong> {event_type.duration_minutes} minutes</p>"
                     + (
                         f"<p><strong>Notes:</strong> {booking.visitor_notes}</p>"
@@ -130,10 +144,12 @@ async def send_cancellation_notice(
     """
     _init_resend()
 
-    starts_str = _format_datetime(booking.starts_at)
     host_name = host.name or host.email
+    host_tz = host.timezone or "UTC"
+    visitor_tz = booking.timezone or "UTC"
 
-    # Email to visitor
+    # Email to visitor — their timezone
+    visitor_starts = _format_datetime(booking.starts_at, visitor_tz)
     try:
         resend.Emails.send(
             {
@@ -145,14 +161,15 @@ async def send_cancellation_notice(
                     f"<p>The following booking has been cancelled:</p>"
                     f"<p><strong>Event:</strong> {event_type.name}</p>"
                     f"<p><strong>With:</strong> {host_name}</p>"
-                    f"<p><strong>Was scheduled for:</strong> {starts_str}</p>"
+                    f"<p><strong>Was scheduled for:</strong> {visitor_starts}</p>"
                 ),
             }
         )
     except Exception as e:
         logger.error(f"Failed to send cancellation to visitor: {e}")
 
-    # Email to host
+    # Email to host — their timezone
+    host_starts = _format_datetime(booking.starts_at, host_tz)
     try:
         resend.Emails.send(
             {
@@ -164,7 +181,7 @@ async def send_cancellation_notice(
                     f"<p>The following booking has been cancelled:</p>"
                     f"<p><strong>Event:</strong> {event_type.name}</p>"
                     f"<p><strong>Guest:</strong> {booking.visitor_name} ({booking.visitor_email})</p>"
-                    f"<p><strong>Was scheduled for:</strong> {starts_str}</p>"
+                    f"<p><strong>Was scheduled for:</strong> {host_starts}</p>"
                 ),
             }
         )

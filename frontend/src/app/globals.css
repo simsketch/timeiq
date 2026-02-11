@@ -66,3 +66,52 @@
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
 }
+
+/* Sidebar liquid glass blobs */
+.sidebar-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.5;
+  will-change: transform;
+}
+.sidebar-blob-1 {
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.35), rgba(99, 102, 241, 0.15));
+  top: -30px;
+  left: -40px;
+  animation: blob-drift-1 12s ease-in-out infinite;
+}
+.sidebar-blob-2 {
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.3), rgba(59, 130, 246, 0.1));
+  bottom: 20%;
+  right: -30px;
+  animation: blob-drift-2 15s ease-in-out infinite;
+}
+.sidebar-blob-3 {
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.25), rgba(59, 130, 246, 0.1));
+  bottom: -20px;
+  left: 20%;
+  animation: blob-drift-3 18s ease-in-out infinite;
+}
+
+@keyframes blob-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, 40px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.95); }
+}
+@keyframes blob-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-25px, -30px) scale(1.05); }
+  66% { transform: translate(15px, -15px) scale(0.9); }
+}
+@keyframes blob-drift-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(20px, -25px) scale(1.15); }
+  66% { transform: translate(-15px, 10px) scale(0.95); }
+}
