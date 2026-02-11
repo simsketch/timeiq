@@ -6,6 +6,9 @@ from uuid import UUID
 from icalendar import Calendar, Event, vText
 
 
+SERVICE_EMAIL = "bookings@timeiq.app"
+
+
 def generate_booking_ics(
     booking_id: UUID,
     summary: str,
@@ -19,6 +22,7 @@ def generate_booking_ics(
 ) -> str:
     """
     Generate an .ics file content string for a booking.
+    ORGANIZER must match the email sender for Gmail to render the inline event.
     """
     cal = Calendar()
     cal.add("prodid", "-//TimeIQ//Booking//EN")
@@ -35,10 +39,9 @@ def generate_booking_ics(
     event.add("description", description)
     event.add("status", "CONFIRMED")
 
-    # Organizer
-    organizer_name = host_name or host_email
-    organizer = vText(f"mailto:{host_email}")
-    event.add("organizer", organizer, parameters={"CN": organizer_name})
+    # Organizer must match the From address for Gmail compatibility
+    organizer = vText(f"mailto:{SERVICE_EMAIL}")
+    event.add("organizer", organizer, parameters={"CN": "TimeIQ"})
 
     # Attendee - visitor
     attendee = vText(f"mailto:{visitor_email}")
@@ -53,6 +56,7 @@ def generate_booking_ics(
     )
 
     # Attendee - host
+    organizer_name = host_name or host_email
     host_attendee = vText(f"mailto:{host_email}")
     event.add(
         "attendee",

@@ -80,7 +80,7 @@ async def send_booking_confirmation(
                     {
                         "filename": "invite.ics",
                         "content": ics_content,
-                        "content_type": "text/calendar",
+                        "content_type": "text/calendar; method=REQUEST",
                     }
                 ],
             }
@@ -111,7 +111,7 @@ async def send_booking_confirmation(
                     {
                         "filename": "invite.ics",
                         "content": ics_content,
-                        "content_type": "text/calendar",
+                        "content_type": "text/calendar; method=REQUEST",
                     }
                 ],
             }
