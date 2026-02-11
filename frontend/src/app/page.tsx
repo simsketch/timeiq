@@ -3,17 +3,18 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Calendar,
   Clock,
   CheckCircle2,
   ArrowRight,
   Link2,
+  Calendar,
   Globe,
   Zap,
   Shield,
   Mail,
   Users
 } from "lucide-react";
+import { LogoIcon } from "@/components/logo";
 
 export default function LandingPage() {
   // Calendar data for February 2026 (starts on Sunday, Monday-first week display)
@@ -63,9 +64,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm">
         <div className="container mx-auto px-4 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center">
-              <Calendar className="h-5 w-5 text-white" />
-            </div>
+            <LogoIcon />
             <span className="text-xl font-bold text-gray-900">TimeIQ</span>
           </div>
           <div className="flex items-center gap-3">
@@ -299,7 +298,7 @@ export default function LandingPage() {
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
               {/* Calendar sync — spans 2 cols on lg */}
-              <div className="lg:col-span-2 bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-blue-200/60 group">
+              <div className="lg:col-span-2 bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-blue-200/60">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 mb-5">
                   <Calendar className="h-4 w-4 text-blue-500" />
                   <span className="text-sm font-medium text-blue-600">Calendar sync</span>
@@ -312,7 +311,7 @@ export default function LandingPage() {
               </div>
 
               {/* Timezone smart */}
-              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-purple-200/60 group">
+              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-purple-200/60">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 mb-5">
                   <Globe className="h-4 w-4 text-purple-500" />
                   <span className="text-sm font-medium text-purple-600">Timezone smart</span>
@@ -324,7 +323,7 @@ export default function LandingPage() {
               </div>
 
               {/* Instant confirmation */}
-              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-amber-200/60 group">
+              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-amber-200/60">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 mb-5">
                   <Zap className="h-4 w-4 text-amber-500" />
                   <span className="text-sm font-medium text-amber-600">Instant confirmation</span>
@@ -335,39 +334,41 @@ export default function LandingPage() {
                 </p>
               </div>
 
-              {/* Buffer times */}
-              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-emerald-200/60 group">
+              {/* Buffer times — spans 2 cols on lg */}
+              <div className="lg:col-span-2 bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-emerald-200/60">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 mb-5">
                   <Shield className="h-4 w-4 text-emerald-500" />
                   <span className="text-sm font-medium text-emerald-600">Buffer times</span>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Breathing room</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  Add padding between meetings so you never feel back-to-back.
+                <p className="text-gray-600 leading-relaxed max-w-lg">
+                  Add padding between meetings so you never feel back-to-back. Configurable per event type.
                 </p>
               </div>
 
-              {/* Email notifications + Custom event types — wide card */}
-              <div className="lg:col-span-2 bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-rose-200/60 group">
-                <div className="grid sm:grid-cols-2 gap-8">
-                  <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/10 mb-5">
-                      <Mail className="h-4 w-4 text-rose-500" />
-                      <span className="text-sm font-medium text-rose-600">Email notifications</span>
-                    </div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Stay in the loop</h3>
-                    <p className="text-gray-600 leading-relaxed">
-                      Automated confirmations, reminders, and calendar invites for everyone involved.
-                    </p>
+              {/* Email notifications */}
+              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-rose-200/60">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/10 mb-5">
+                  <Mail className="h-4 w-4 text-rose-500" />
+                  <span className="text-sm font-medium text-rose-600">Email notifications</span>
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Stay in the loop</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Automated confirmations, reminders, and calendar invites for everyone.
+                </p>
+              </div>
+
+              {/* Custom event types — full width */}
+              <div className="lg:col-span-3 md:col-span-2 bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.01] hover:shadow-xl hover:border-sky-200/60">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-sky-500/10 shrink-0 self-start">
+                    <Users className="h-4 w-4 text-sky-500" />
+                    <span className="text-sm font-medium text-sky-600">Custom event types</span>
                   </div>
                   <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-sky-500/10 mb-5">
-                      <Users className="h-4 w-4 text-sky-500" />
-                      <span className="text-sm font-medium text-sky-600">Custom event types</span>
-                    </div>
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">Your meetings, your way</h3>
                     <p className="text-gray-600 leading-relaxed">
-                      Create different meeting types with unique durations, buffers, and settings.
+                      Create different meeting types with unique durations, buffers, and settings. From quick 15-minute chats to deep 90-minute sessions.
                     </p>
                   </div>
                 </div>
@@ -410,9 +411,7 @@ export default function LandingPage() {
       <footer className="bg-gray-50/80 backdrop-blur-sm border-t border-gray-200/50 py-10">
         <div className="container mx-auto px-4 lg:px-8">
           <div className="flex items-center justify-center gap-2.5 mb-3">
-            <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center">
-              <Calendar className="h-4 w-4 text-white" />
-            </div>
+            <LogoIcon className="w-7 h-7" />
             <span className="text-lg font-bold text-gray-900">TimeIQ</span>
           </div>
           <p className="text-center text-gray-500 text-sm">

@@ -11,6 +11,7 @@ import {
   BookOpen,
   Settings,
 } from "lucide-react";
+import { LogoIcon } from "@/components/logo";
 
 const routes = [
   {
@@ -64,9 +65,7 @@ export function Sidebar() {
       <div className="relative z-10 flex h-full flex-col py-6">
         <div className="px-6 mb-10">
           <Link href="/dashboard" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 flex items-center justify-center">
-              <Calendar className="h-5 w-5 text-blue-400" />
-            </div>
+            <LogoIcon />
             <span className="text-xl font-bold text-white tracking-tight">TimeIQ</span>
           </Link>
         </div>
