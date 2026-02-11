@@ -16,12 +16,12 @@ class CalendarSourceCreate(BaseModel):
 class CalendarSourceResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
-    calendar_type: str = Field(validation_alias="type")
+    type: str
     name: str
     google_calendar_id: Optional[str]
     ics_url: Optional[str]
     is_active: bool
-    last_synced: Optional[datetime] = Field(validation_alias="last_synced_at")
+    last_synced_at: Optional[datetime]
     created_at: datetime
 
-    model_config = {"from_attributes": True, "populate_by_name": True}
+    model_config = {"from_attributes": True}
