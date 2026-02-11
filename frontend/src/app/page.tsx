@@ -297,20 +297,17 @@ export default function LandingPage() {
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {/* Calendar sync — spans 2 cols on lg */}
-              <div className="lg:col-span-2 bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-blue-200/60">
+              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-blue-200/60">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 mb-5">
                   <Calendar className="h-4 w-4 text-blue-500" />
                   <span className="text-sm font-medium text-blue-600">Calendar sync</span>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Seamlessly connected</h3>
-                <p className="text-gray-600 leading-relaxed max-w-lg">
-                  Sync with Google Calendar, Outlook, and iCal to prevent double bookings.
-                  Your availability stays accurate across every platform, automatically.
+                <p className="text-gray-600 leading-relaxed">
+                  Sync with Google Calendar, Outlook, and iCal to prevent double bookings automatically.
                 </p>
               </div>
 
-              {/* Timezone smart */}
               <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-purple-200/60">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 mb-5">
                   <Globe className="h-4 w-4 text-purple-500" />
@@ -322,7 +319,6 @@ export default function LandingPage() {
                 </p>
               </div>
 
-              {/* Instant confirmation */}
               <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-amber-200/60">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 mb-5">
                   <Zap className="h-4 w-4 text-amber-500" />
@@ -334,19 +330,17 @@ export default function LandingPage() {
                 </p>
               </div>
 
-              {/* Buffer times — spans 2 cols on lg */}
-              <div className="lg:col-span-2 bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-emerald-200/60">
+              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-emerald-200/60">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 mb-5">
                   <Shield className="h-4 w-4 text-emerald-500" />
                   <span className="text-sm font-medium text-emerald-600">Buffer times</span>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Breathing room</h3>
-                <p className="text-gray-600 leading-relaxed max-w-lg">
-                  Add padding between meetings so you never feel back-to-back. Configurable per event type.
+                <p className="text-gray-600 leading-relaxed">
+                  Add padding between meetings so you never feel back-to-back.
                 </p>
               </div>
 
-              {/* Email notifications */}
               <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-rose-200/60">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/10 mb-5">
                   <Mail className="h-4 w-4 text-rose-500" />
@@ -358,20 +352,15 @@ export default function LandingPage() {
                 </p>
               </div>
 
-              {/* Custom event types — full width */}
-              <div className="lg:col-span-3 md:col-span-2 bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.01] hover:shadow-xl hover:border-sky-200/60">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-sky-500/10 shrink-0 self-start">
-                    <Users className="h-4 w-4 text-sky-500" />
-                    <span className="text-sm font-medium text-sky-600">Custom event types</span>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Your meetings, your way</h3>
-                    <p className="text-gray-600 leading-relaxed">
-                      Create different meeting types with unique durations, buffers, and settings. From quick 15-minute chats to deep 90-minute sessions.
-                    </p>
-                  </div>
+              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-sky-200/60">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-sky-500/10 mb-5">
+                  <Users className="h-4 w-4 text-sky-500" />
+                  <span className="text-sm font-medium text-sky-600">Custom event types</span>
                 </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Your meetings, your way</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Create different meeting types with unique durations, buffers, and settings.
+                </p>
               </div>
             </div>
           </div>

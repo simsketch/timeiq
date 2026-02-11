@@ -2,15 +2,23 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime, timedelta, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.auth import get_current_user
 from app.database import get_db
+from app.models.cached_event import CachedEvent
 from app.models.calendar_source import CalendarSource
 from app.models.user import User
-from app.schemas.calendar import CalendarSourceCreate, CalendarSourceResponse
+from app.schemas.calendar import (
+    CachedEventResponse,
+    CalendarSourceCreate,
+    CalendarSourceResponse,
+)
 from app.services.calendar_sync import sync_calendar_source
 
 router = APIRouter(prefix="/api/calendars", tags=["calendars"])
@@ -108,6 +116,44 @@ async def delete_calendar_source(
 
     await db.delete(source)
     await db.flush()
+
+
+@router.get("/cached-events", response_model=list[CachedEventResponse])
+async def list_cached_events(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    days: int = Query(default=30, ge=1, le=90),
+):
+    """List cached calendar events for the next N days (default 30)."""
+    now = datetime.now(timezone.utc)
+    window_end = datetime(
+        now.year, now.month, now.day, tzinfo=timezone.utc
+    ) + timedelta(days=days)
+
+    result = await db.execute(
+        select(CachedEvent)
+        .where(
+            CachedEvent.user_id == user.id,
+            CachedEvent.ends_at > now,
+            CachedEvent.starts_at < window_end,
+        )
+        .options(selectinload(CachedEvent.calendar_source))
+        .order_by(CachedEvent.starts_at.asc())
+    )
+    events = result.scalars().all()
+
+    return [
+        CachedEventResponse(
+            id=e.id,
+            calendar_source_id=e.calendar_source_id,
+            title=e.title,
+            starts_at=e.starts_at,
+            ends_at=e.ends_at,
+            is_all_day=e.is_all_day,
+            source_name=e.calendar_source.name if e.calendar_source else None,
+        )
+        for e in events
+    ]
 
 
 @router.post("/sync-all")

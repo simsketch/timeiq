@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { apiFetch } from "@/lib/api";
-import { Plus, Trash2, RefreshCw } from "lucide-react";
+import { Plus, Trash2, RefreshCw, CalendarDays, Clock } from "lucide-react";
 import { format } from "date-fns";
 
 interface Calendar {
@@ -20,25 +20,39 @@ interface Calendar {
   last_synced_at: string | null;
 }
 
+interface CachedEvent {
+  id: string;
+  calendar_source_id: string;
+  title: string | null;
+  starts_at: string;
+  ends_at: string;
+  is_all_day: boolean;
+  source_name: string | null;
+}
+
 export default function CalendarsPage() {
   const { getToken } = useAuth();
   const { toast } = useToast();
   const [calendars, setCalendars] = useState<Calendar[]>([]);
+  const [cachedEvents, setCachedEvents] = useState<CachedEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", ics_url: "" });
 
   useEffect(() => {
-    fetchCalendars();
+    fetchAll();
   }, []);
 
-  async function fetchCalendars() {
+  async function fetchAll() {
     try {
       const token = await getToken();
-      const data = await apiFetch<Calendar[]>("/api/calendars", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setCalendars(data);
+      const headers = { Authorization: `Bearer ${token}` };
+      const [cals, events] = await Promise.all([
+        apiFetch<Calendar[]>("/api/calendars", { headers }),
+        apiFetch<CachedEvent[]>("/api/calendars/cached-events?days=14", { headers }),
+      ]);
+      setCalendars(cals);
+      setCachedEvents(events);
     } catch (error) {
       console.error("Failed to fetch calendars:", error);
     } finally {
@@ -58,7 +72,7 @@ export default function CalendarsPage() {
       toast({ title: "Calendar added successfully" });
       setFormData({ name: "", ics_url: "" });
       setShowAddForm(false);
-      fetchCalendars();
+      fetchAll();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -77,7 +91,7 @@ export default function CalendarsPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast({ title: "Calendar removed" });
-      fetchCalendars();
+      fetchAll();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -95,7 +109,7 @@ export default function CalendarsPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast({ title: "Calendar synced successfully" });
-      fetchCalendars();
+      fetchAll();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -122,7 +136,7 @@ export default function CalendarsPage() {
         title: "Sync complete",
         description: `${result.synced} calendar${result.synced !== 1 ? "s" : ""} synced${result.failed > 0 ? `, ${result.failed} failed` : ""}`,
       });
-      fetchCalendars();
+      fetchAll();
     } catch (error: any) {
       toast({
         title: "Sync failed",
@@ -272,6 +286,62 @@ export default function CalendarsPage() {
               </CardContent>
             </Card>
           ))
+        )}
+      </div>
+
+      {/* Cached Events Debug View */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-xl font-semibold">Synced Events</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Events from your connected calendars that block availability (next 14 days)
+          </p>
+        </div>
+        {cachedEvents.length === 0 ? (
+          <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
+            <CardContent className="py-8 text-center text-muted-foreground">
+              <CalendarDays className="h-8 w-8 mx-auto mb-3 text-gray-300" />
+              No cached events found. Sync your calendars to import events.
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
+            <CardContent className="py-2">
+              <div className="divide-y">
+                {cachedEvents.map((event) => {
+                  const start = new Date(event.starts_at);
+                  const end = new Date(event.ends_at);
+                  return (
+                    <div key={event.id} className="flex items-start justify-between py-3 gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">
+                          {event.title || "(No title)"}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-sm text-muted-foreground">
+                            {format(start, "EEE, MMM d")}
+                          </span>
+                          {event.is_all_day ? (
+                            <Badge variant="secondary" className="text-xs">All day</Badge>
+                          ) : (
+                            <span className="text-sm text-muted-foreground flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {format(start, "h:mm a")} – {format(end, "h:mm a")}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {event.source_name && (
+                        <Badge variant="outline" className="text-xs shrink-0 mt-0.5">
+                          {event.source_name}
+                        </Badge>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

@@ -144,3 +144,40 @@ async def get_public_slots(
 
     slots = await get_available_slots(db, host, event_type, target_date)
     return [AvailableSlot(start=s) for s in slots]
+
+
+@router.get("/api/debug/slots")
+async def debug_slots(
+    date_str: str = Query(..., alias="date", description="Date in YYYY-MM-DD format"),
+    event_type_id: int = Query(..., alias="event_type_id"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Debug endpoint: shows full slot calculation diagnostics including
+    candidates, busy intervals, and rejection reasons.
+    """
+    result = await db.execute(
+        select(EventType).where(
+            and_(
+                EventType.id == event_type_id,
+                EventType.user_id == user.id,
+            )
+        )
+    )
+    event_type = result.scalar_one_or_none()
+    if event_type is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event type not found",
+        )
+
+    try:
+        target_date = date.fromisoformat(date_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid date format. Use YYYY-MM-DD.",
+        )
+
+    return await get_available_slots(db, user, event_type, target_date, debug=True)

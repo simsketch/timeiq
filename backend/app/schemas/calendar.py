@@ -25,3 +25,15 @@ class CalendarSourceResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class CachedEventResponse(BaseModel):
+    id: uuid.UUID
+    calendar_source_id: uuid.UUID
+    title: Optional[str]
+    starts_at: datetime
+    ends_at: datetime
+    is_all_day: bool
+    source_name: Optional[str] = None
+
+    model_config = {"from_attributes": True}

@@ -20,12 +20,17 @@ async def get_available_slots(
     host: User,
     event_type: EventType,
     target_date: date,
-) -> list[str]:
+    *,
+    debug: bool = False,
+) -> list[str] | dict:
     """
     Compute available time slots for a given host, event type, and date.
 
     Returns a list of ISO 8601 datetime strings representing available slot start times.
+    If debug=True, returns a dict with full diagnostic information.
     """
+    debug_info: dict = {}
+
     # Determine the day of week for the target date (Monday=0, Sunday=6)
     day_of_week = target_date.weekday()
 
@@ -41,6 +46,8 @@ async def get_available_slots(
     )
     rule = result.scalar_one_or_none()
     if rule is None:
+        if debug:
+            return {"error": f"No active availability rule for day_of_week={day_of_week}"}
         return []
 
     # Use the host's timezone
@@ -55,13 +62,28 @@ async def get_available_slots(
     duration = timedelta(minutes=event_type.duration_minutes)
     buffer = timedelta(minutes=event_type.buffer_minutes)
 
+    if debug:
+        debug_info["rule_start"] = rule_start.isoformat()
+        debug_info["rule_end"] = rule_end.isoformat()
+        debug_info["duration_minutes"] = event_type.duration_minutes
+        debug_info["buffer_minutes"] = event_type.buffer_minutes
+        debug_info["host_timezone"] = str(host_tz)
+
     candidates: list[datetime] = []
     current = rule_start
     while current + duration <= rule_end:
         candidates.append(current)
         current += duration
 
+    if debug:
+        debug_info["total_candidates"] = len(candidates)
+        if candidates:
+            debug_info["first_candidate"] = candidates[0].isoformat()
+            debug_info["last_candidate"] = candidates[-1].isoformat()
+
     if not candidates:
+        if debug:
+            return debug_info
         return []
 
     # 3. Get the full window in UTC for querying
@@ -103,17 +125,48 @@ async def get_available_slots(
             (bk.starts_at - buffer, bk.ends_at + buffer)
         )
 
+    if debug:
+        debug_info["cached_events"] = [
+            {
+                "title": ev.title,
+                "starts_at": ev.starts_at.isoformat(),
+                "ends_at": ev.ends_at.isoformat(),
+            }
+            for ev in cached_events
+        ]
+        debug_info["existing_bookings"] = [
+            {
+                "starts_at": bk.starts_at.isoformat(),
+                "ends_at": bk.ends_at.isoformat(),
+                "status": bk.status,
+            }
+            for bk in existing_bookings
+        ]
+        debug_info["busy_intervals"] = [
+            {"start": s.isoformat(), "end": e.isoformat()}
+            for s, e in busy_intervals
+        ]
+
     # 7. Filter candidates
     available: list[str] = []
+    rejected: list[dict] = []
+    now_utc = datetime.now(timezone.utc)
+
     for slot_start in candidates:
         slot_start_utc = slot_start.astimezone(timezone.utc)
         slot_end_utc = (slot_start + duration).astimezone(timezone.utc)
 
-        # Check buffer: the buffered slot window
-        buffered_start = slot_start_utc - buffer
-        buffered_end = slot_end_utc + buffer
+        # Don't allow booking in the past
+        if slot_start_utc <= now_utc:
+            if debug:
+                rejected.append({
+                    "slot": slot_start.isoformat(),
+                    "reason": "in_the_past",
+                })
+            continue
 
         is_free = True
+        conflict_reason = None
         for busy_start, busy_end in busy_intervals:
             # Ensure busy times are tz-aware for comparison
             if busy_start.tzinfo is None:
@@ -121,19 +174,25 @@ async def get_available_slots(
             if busy_end.tzinfo is None:
                 busy_end = busy_end.replace(tzinfo=timezone.utc)
 
-            # Check overlap between buffered slot and busy interval
+            # Check overlap between slot and busy interval
             if slot_start_utc < busy_end and slot_end_utc > busy_start:
                 is_free = False
+                conflict_reason = f"conflicts with {busy_start.isoformat()} - {busy_end.isoformat()}"
                 break
 
         if not is_free:
-            continue
-
-        # Don't allow booking in the past
-        if slot_start_utc <= datetime.now(timezone.utc):
+            if debug:
+                rejected.append({
+                    "slot": slot_start.isoformat(),
+                    "reason": conflict_reason,
+                })
             continue
 
         available.append(slot_start.isoformat())
+
+    if debug:
+        debug_info["available_count"] = len(available)
+        debug_info["rejected"] = rejected
 
     # 8. Apply max_bookings_per_day limit
     if event_type.max_bookings_per_day is not None:
@@ -158,7 +217,14 @@ async def get_available_slots(
         current_count = count_result.scalar() or 0
         remaining = event_type.max_bookings_per_day - current_count
         if remaining <= 0:
+            if debug:
+                debug_info["max_bookings_reached"] = True
+                return debug_info
             return []
         available = available[:remaining]
+
+    if debug:
+        debug_info["slots"] = available
+        return debug_info
 
     return available
