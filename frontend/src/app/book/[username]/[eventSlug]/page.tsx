@@ -7,7 +7,7 @@ import { TimeSlots } from "@/components/booking/time-slots";
 import { BookingForm } from "@/components/booking/booking-form";
 import { apiFetch } from "@/lib/api";
 import { format } from "date-fns";
-import { Calendar, Clock, CheckCircle2, ArrowLeft } from "lucide-react";
+import { Calendar, Clock, CheckCircle2, ArrowLeft, MapPin } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -17,6 +17,7 @@ interface EventType {
   slug: string;
   duration_minutes: number;
   description: string | null;
+  location: string | null;
   color: string;
   buffer_minutes: number;
   host_name: string | null;
@@ -159,6 +160,17 @@ export default function BookingFlowPage() {
               {selectedDate && format(selectedDate, "EEEE, MMMM d, yyyy")}
             </p>
             <p className="text-sm text-muted-foreground">{selectedSlot}</p>
+            {eventType.location && (
+              <p className="text-sm text-muted-foreground">
+                {eventType.location.startsWith("http://") || eventType.location.startsWith("https://") ? (
+                  <a href={eventType.location} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                    {eventType.location}
+                  </a>
+                ) : (
+                  eventType.location
+                )}
+              </p>
+            )}
           </div>
           <p className="text-sm text-muted-foreground mb-6">
             A confirmation email has been sent to your email address.
@@ -196,7 +208,7 @@ export default function BookingFlowPage() {
             />
             <h1 className="text-3xl font-bold tracking-tight">{eventType.name}</h1>
           </div>
-          <div className="flex items-center gap-4 text-muted-foreground">
+          <div className="flex items-center gap-4 text-muted-foreground flex-wrap">
             <div className="flex items-center gap-1.5">
               <Clock className="h-4 w-4" />
               <span>{eventType.duration_minutes} minutes</span>
@@ -205,6 +217,18 @@ export default function BookingFlowPage() {
               <Calendar className="h-4 w-4" />
               <span>Book with {eventType.host_name || username}</span>
             </div>
+            {eventType.location && (
+              <div className="flex items-center gap-1.5">
+                <MapPin className="h-4 w-4" />
+                {eventType.location.startsWith("http://") || eventType.location.startsWith("https://") ? (
+                  <a href={eventType.location} target="_blank" rel="noopener noreferrer" className="hover:underline text-primary">
+                    {eventType.location.replace(/^https?:\/\//, "").split("/")[0]}
+                  </a>
+                ) : (
+                  <span>{eventType.location}</span>
+                )}
+              </div>
+            )}
           </div>
           {eventType.description && (
             <p className="mt-2 text-muted-foreground">{eventType.description}</p>

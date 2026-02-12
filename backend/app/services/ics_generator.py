@@ -19,6 +19,7 @@ def generate_booking_ics(
     host_email: str,
     visitor_name: str,
     visitor_email: str,
+    location: str | None = None,
 ) -> str:
     """
     Generate an .ics file content string for a booking.
@@ -38,6 +39,11 @@ def generate_booking_ics(
     event.add("summary", summary)
     event.add("description", description)
     event.add("status", "CONFIRMED")
+
+    if location:
+        event.add("location", location)
+        if location.startswith("http://") or location.startswith("https://"):
+            event.add("url", location)
 
     # Organizer must match the From address for Gmail compatibility
     organizer = vText(f"mailto:{SERVICE_EMAIL}")

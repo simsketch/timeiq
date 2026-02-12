@@ -34,6 +34,7 @@ interface EventType {
   slug: string;
   duration_minutes: number;
   description: string | null;
+  location: string | null;
   color: string;
   is_active: boolean;
   buffer_minutes: number;
@@ -57,6 +58,7 @@ export default function EventTypesPage() {
     name: "",
     duration_minutes: 30,
     description: "",
+    location: "",
     color: COLOR_OPTIONS[0],
     buffer_minutes: 0,
     max_bookings_per_day: "",
@@ -86,6 +88,7 @@ export default function EventTypesPage() {
       const token = await getToken();
       const payload = {
         ...formData,
+        location: formData.location || null,
         max_bookings_per_day: formData.max_bookings_per_day ? parseInt(formData.max_bookings_per_day) : null,
       };
 
@@ -148,6 +151,7 @@ export default function EventTypesPage() {
       name: eventType.name,
       duration_minutes: eventType.duration_minutes,
       description: eventType.description || "",
+      location: eventType.location || "",
       color: eventType.color,
       buffer_minutes: eventType.buffer_minutes,
       max_bookings_per_day: eventType.max_bookings_per_day?.toString() || "",
@@ -161,6 +165,7 @@ export default function EventTypesPage() {
       name: "",
       duration_minutes: 30,
       description: "",
+      location: "",
       color: COLOR_OPTIONS[0],
       buffer_minutes: 0,
       max_bookings_per_day: "",
@@ -241,6 +246,16 @@ export default function EventTypesPage() {
                   />
                 </div>
                 <div>
+                  <Label htmlFor="location">Meeting Link / Location</Label>
+                  <Input
+                    id="location"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    placeholder="Zoom URL, Google Meet link, phone, or address"
+                    maxLength={500}
+                  />
+                </div>
+                <div>
                   <Label>Color</Label>
                   <div className="flex gap-2 mt-2">
                     {COLOR_OPTIONS.map((color) => (
@@ -311,6 +326,11 @@ export default function EventTypesPage() {
               </p>
               {eventType.description && (
                 <p className="text-sm mb-4">{eventType.description}</p>
+              )}
+              {eventType.location && (
+                <p className="text-sm text-muted-foreground mb-4 truncate" title={eventType.location}>
+                  {eventType.location}
+                </p>
               )}
               <div className="flex gap-2">
                 <Button

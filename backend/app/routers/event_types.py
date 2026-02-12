@@ -70,6 +70,7 @@ async def create_event_type(
         slug=slug,
         name=payload.name,
         description=payload.description,
+        location=payload.location,
         duration_minutes=payload.duration_minutes,
         color=payload.color,
         is_active=payload.is_active,

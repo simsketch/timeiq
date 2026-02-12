@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, Calendar } from "lucide-react";
+import { Clock, Calendar, MapPin } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 interface EventType {
@@ -13,6 +13,7 @@ interface EventType {
   slug: string;
   duration_minutes: number;
   description: string | null;
+  location: string | null;
   color: string;
 }
 
@@ -114,6 +115,12 @@ export default function BookingProfilePage() {
                     <Clock className="h-4 w-4" />
                     <span className="text-sm">{eventType.duration_minutes} minutes</span>
                   </div>
+                  {eventType.location && (
+                    <div className="flex items-center gap-2 text-muted-foreground mb-3">
+                      <MapPin className="h-4 w-4" />
+                      <span className="text-sm truncate">{eventType.location.startsWith("http") ? eventType.location.replace(/^https?:\/\//, "").split("/")[0] : eventType.location}</span>
+                    </div>
+                  )}
                   {eventType.description && (
                     <p className="text-sm text-muted-foreground leading-relaxed">
                       {eventType.description}

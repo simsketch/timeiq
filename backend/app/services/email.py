@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from html import escape as html_escape
 from zoneinfo import ZoneInfo
 
 import resend
@@ -63,7 +64,17 @@ async def send_booking_confirmation(
         host_email=host.email,
         visitor_name=booking.visitor_name,
         visitor_email=booking.visitor_email,
+        location=event_type.location,
     )
+
+    # Build location HTML snippet for emails
+    location_html = ""
+    if event_type.location:
+        loc = html_escape(event_type.location)
+        if event_type.location.startswith(("http://", "https://")):
+            location_html = f'<p><strong>Location:</strong> <a href="{loc}">{loc}</a></p>'
+        else:
+            location_html = f"<p><strong>Location:</strong> {loc}</p>"
 
     cancel_url = (
         f"{settings.FRONTEND_URL}/bookings/{booking.id}/cancel"
@@ -85,7 +96,8 @@ async def send_booking_confirmation(
                     f"<p><strong>With:</strong> {host_name}</p>"
                     f"<p><strong>When:</strong> {visitor_starts} - {visitor_ends}</p>"
                     f"<p><strong>Duration:</strong> {event_type.duration_minutes} minutes</p>"
-                    f"<br>"
+                    + location_html
+                    + f"<br>"
                     f'<p>Need to cancel? <a href="{cancel_url}">Cancel this booking</a></p>'
                 ),
                 "attachments": [
@@ -115,8 +127,9 @@ async def send_booking_confirmation(
                     f"<p><strong>Guest:</strong> {booking.visitor_name} ({booking.visitor_email})</p>"
                     f"<p><strong>When:</strong> {host_starts} - {host_ends}</p>"
                     f"<p><strong>Duration:</strong> {event_type.duration_minutes} minutes</p>"
+                    + location_html
                     + (
-                        f"<p><strong>Notes:</strong> {booking.visitor_notes}</p>"
+                        f"<p><strong>Notes:</strong> {html_escape(booking.visitor_notes)}</p>"
                         if booking.visitor_notes
                         else ""
                     )

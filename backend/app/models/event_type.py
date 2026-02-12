@@ -37,6 +37,7 @@ class EventType(Base):
     slug: Mapped[str] = mapped_column(String(200), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    location: Mapped[str | None] = mapped_column(Text, nullable=True)
     duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     color: Mapped[str] = mapped_column(
         String(20), nullable=False, default="#3B82F6"

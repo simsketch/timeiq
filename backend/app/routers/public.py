@@ -20,6 +20,7 @@ class PublicEventType(BaseModel):
     slug: str
     duration_minutes: int
     description: Optional[str]
+    location: Optional[str]
     color: str
 
     model_config = {"from_attributes": True}
@@ -38,6 +39,7 @@ class PublicEventTypeDetail(BaseModel):
     slug: str
     duration_minutes: int
     description: Optional[str]
+    location: Optional[str]
     color: str
     buffer_minutes: int
     host_name: Optional[str] = None
