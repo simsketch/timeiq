@@ -32,12 +32,12 @@ interface EventType {
   id: number;
   name: string;
   slug: string;
-  duration_minutes: number;
+  duration: number;
   description: string | null;
   location: string | null;
   color: string;
   is_active: boolean;
-  buffer_minutes: number;
+  buffer_time: number;
   max_bookings_per_day: number | null;
 }
 
@@ -149,11 +149,11 @@ export default function EventTypesPage() {
     setEditingId(eventType.id);
     setFormData({
       name: eventType.name,
-      duration_minutes: eventType.duration_minutes,
+      duration_minutes: eventType.duration,
       description: eventType.description || "",
       location: eventType.location || "",
       color: eventType.color,
-      buffer_minutes: eventType.buffer_minutes,
+      buffer_minutes: eventType.buffer_time,
       max_bookings_per_day: eventType.max_bookings_per_day?.toString() || "",
     });
     setDialogOpen(true);
@@ -322,7 +322,7 @@ export default function EventTypesPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                {eventType.duration_minutes} minutes
+                {eventType.duration} minutes
               </p>
               {eventType.description && (
                 <p className="text-sm mb-4">{eventType.description}</p>
