@@ -16,6 +16,7 @@ import {
   Phone
 } from "lucide-react";
 import { LogoIcon } from "@/components/logo";
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 
 export default function LandingPage() {
   // Calendar data for February 2026 (starts on Sunday, Monday-first week display)
@@ -69,12 +70,20 @@ export default function LandingPage() {
             <span className="text-xl font-bold text-gray-900">TimeIQ</span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/sign-in">
-              <Button variant="ghost">Sign in</Button>
-            </Link>
-            <Link href="/sign-up">
-              <Button>Get started</Button>
-            </Link>
+            <SignedOut>
+              <Link href="/sign-in">
+                <Button variant="ghost">Sign in</Button>
+              </Link>
+              <Link href="/sign-up">
+                <Button>Get started</Button>
+              </Link>
+            </SignedOut>
+            <SignedIn>
+              <Link href="/dashboard">
+                <Button variant="ghost">Dashboard</Button>
+              </Link>
+              <UserButton afterSignOutUrl="/" />
+            </SignedIn>
           </div>
         </div>
       </header>

@@ -37,6 +37,7 @@ export default function DashboardPage() {
   const { getToken } = useAuth();
   const [stats, setStats] = useState<Stats>({ upcoming_bookings: 0, total_event_types: 0 });
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
+  const [pastBookings, setPastBookings] = useState<Booking[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -48,11 +49,18 @@ export default function DashboardPage() {
         const headers = { Authorization: `Bearer ${token}` };
         const [statsData, bookingsData, profileData] = await Promise.all([
           apiFetch<Stats>("/api/dashboard/stats", { headers }),
-          apiFetch<Booking[]>("/api/bookings?status=confirmed&limit=5", { headers }),
+          apiFetch<Booking[]>("/api/bookings?status=confirmed", { headers }),
           apiFetch<UserProfile>("/api/me", { headers }),
         ]);
         setStats(statsData);
-        setUpcomingBookings(bookingsData);
+
+        const now = new Date();
+        const upcoming = bookingsData.filter(b => new Date(b.starts_at) >= now);
+        const past = bookingsData
+          .filter(b => new Date(b.starts_at) < now)
+          .reverse(); // most recent past first
+        setUpcomingBookings(upcoming.slice(0, 5));
+        setPastBookings(past.slice(0, 5));
         setProfile(profileData);
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
@@ -105,6 +113,45 @@ export default function DashboardPage() {
           </Link>
         </Button>
       </div>
+
+      {/* Share link card — moved to top */}
+      {profile && (
+        <Card className="border-dashed bg-white/40 backdrop-blur-xl border-white/60 shadow-lg shadow-black/[0.02]">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white">
+                <ExternalLink className="h-5 w-5 text-gray-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-muted-foreground mb-1">
+                  Your booking link
+                </p>
+                <p className="text-sm font-mono truncate">
+                  timeiq.app/book/{profile.username}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={copyLink}
+                className="shrink-0"
+              >
+                {copied ? (
+                  <>
+                    <Check className="mr-2 h-4 w-4" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats grid */}
       <div className="grid gap-4 md:grid-cols-2">
@@ -206,40 +253,51 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Share link card */}
-      {profile && (
-        <Card className="border-dashed bg-white/40 backdrop-blur-xl border-white/60 shadow-lg shadow-black/[0.02]">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white">
-                <ExternalLink className="h-5 w-5 text-gray-600" />
+      {/* Past meetings card */}
+      {pastBookings.length > 0 && (
+        <Card className="bg-white/50 backdrop-blur-xl border-white/60 shadow-lg shadow-black/[0.02]">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-muted-foreground">Past meetings</CardTitle>
+                <CardDescription>Recently completed meetings</CardDescription>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-muted-foreground mb-1">
-                  Your booking link
-                </p>
-                <p className="text-sm font-mono truncate">
-                  timeiq.app/book/{profile.username}
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={copyLink}
-                className="shrink-0"
-              >
-                {copied ? (
-                  <>
-                    <Check className="mr-2 h-4 w-4" />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy
-                  </>
-                )}
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/bookings">
+                  View all
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
               </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y">
+              {pastBookings.map((booking) => (
+                <div
+                  key={booking.id}
+                  className="flex items-center justify-between py-4 first:pt-0 last:pb-0 opacity-60"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-500">
+                      {getInitials(booking.visitor_name)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{booking.visitor_name}</p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {booking.visitor_email}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 ml-4">
+                    <p className="text-sm font-medium">
+                      {format(new Date(booking.starts_at), "MMM d, yyyy")}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {format(new Date(booking.starts_at), "h:mm a")}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
