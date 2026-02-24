@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["cron"])
 
 
-@router.post("/api/cron/sync-calendars")
+@router.get("/api/cron/sync-calendars")
 async def cron_sync_calendars(
     authorization: str = Header(..., description="Bearer <CRON_SECRET>"),
 ):
