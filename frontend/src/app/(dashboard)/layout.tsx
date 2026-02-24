@@ -24,7 +24,15 @@ export default async function DashboardLayout({
       </div>
       <main className="flex-1 md:pl-72">
         <div className="h-full overflow-y-auto">
-          <div className="mx-auto max-w-6xl p-8">{children}</div>
+          <div className="flex items-center justify-end px-8 pt-6 pb-0">
+            <UserButton
+              afterSignOutUrl="/"
+              appearance={{
+                elements: { avatarBox: "h-9 w-9" },
+              }}
+            />
+          </div>
+          <div className="mx-auto max-w-6xl px-8 pb-8">{children}</div>
         </div>
       </main>
     </div>

@@ -30,7 +30,7 @@ async def list_bookings(
     query = (
         select(Booking)
         .where(Booking.host_user_id == user.id)
-        .order_by(Booking.starts_at.desc())
+        .order_by(Booking.starts_at.asc())
     )
     if status_filter:
         query = query.where(Booking.status == status_filter)
