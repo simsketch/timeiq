@@ -105,7 +105,7 @@ async def send_booking_confirmation(
             {
                 "from": FROM_EMAIL,
                 "to": [booking.visitor_email],
-                "subject": f"Confirmed: {event_type.name} with {host_name}",
+                "subject": f"Confirmed: {host_name} 1:1",
                 "html": (
                     f"<h2>Your booking is confirmed!</h2>"
                     f"<p><strong>Event:</strong> {event_type.name}</p>"
@@ -136,7 +136,7 @@ async def send_booking_confirmation(
             {
                 "from": FROM_EMAIL,
                 "to": [host.email],
-                "subject": f"New booking: {event_type.name} with {booking.visitor_name}",
+                "subject": f"New booking: {booking.visitor_name} 1:1",
                 "html": (
                     f"<h2>You have a new booking!</h2>"
                     f"<p><strong>Event:</strong> {event_type.name}</p>"
@@ -184,7 +184,7 @@ async def send_cancellation_notice(
             {
                 "from": FROM_EMAIL,
                 "to": [booking.visitor_email],
-                "subject": f"Cancelled: {event_type.name} with {host_name}",
+                "subject": f"Cancelled: {host_name} 1:1",
                 "html": (
                     f"<h2>Booking Cancelled</h2>"
                     f"<p>The following booking has been cancelled:</p>"
@@ -204,7 +204,7 @@ async def send_cancellation_notice(
             {
                 "from": FROM_EMAIL,
                 "to": [host.email],
-                "subject": f"Cancelled: {event_type.name} with {booking.visitor_name}",
+                "subject": f"Cancelled: {booking.visitor_name} 1:1",
                 "html": (
                     f"<h2>Booking Cancelled</h2>"
                     f"<p>The following booking has been cancelled:</p>"
