@@ -52,7 +52,7 @@ async def send_booking_confirmation(
     # Generate separate ICS for each recipient so the calendar summary is personalised
     visitor_ics = generate_booking_ics(
         booking_id=booking.id,
-        summary=f"{event_type.name} with {host_name}",
+        summary=f"{host_name} 1:1",
         description=(
             f"Booking with {host_name}\n"
             f"Event: {event_type.name}\n"
@@ -68,7 +68,7 @@ async def send_booking_confirmation(
     )
     host_ics = generate_booking_ics(
         booking_id=booking.id,
-        summary=f"{event_type.name} with {booking.visitor_name}",
+        summary=f"{booking.visitor_name} 1:1",
         description=(
             f"Booking with {booking.visitor_name}\n"
             f"Event: {event_type.name}\n"
