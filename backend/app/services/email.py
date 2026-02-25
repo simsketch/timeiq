@@ -49,10 +49,26 @@ async def send_booking_confirmation(
     host_tz = host.timezone or "UTC"
     visitor_tz = booking.timezone or "UTC"
 
-    # Generate ICS attachment
-    ics_content = generate_booking_ics(
+    # Generate separate ICS for each recipient so the calendar summary is personalised
+    visitor_ics = generate_booking_ics(
         booking_id=booking.id,
         summary=f"{event_type.name} with {host_name}",
+        description=(
+            f"Booking with {host_name}\n"
+            f"Event: {event_type.name}\n"
+            f"Duration: {event_type.duration_minutes} minutes"
+        ),
+        starts_at=booking.starts_at,
+        ends_at=booking.ends_at,
+        host_name=host.name,
+        host_email=host.email,
+        visitor_name=booking.visitor_name,
+        visitor_email=booking.visitor_email,
+        location=event_type.location,
+    )
+    host_ics = generate_booking_ics(
+        booking_id=booking.id,
+        summary=f"{event_type.name} with {booking.visitor_name}",
         description=(
             f"Booking with {booking.visitor_name}\n"
             f"Event: {event_type.name}\n"
@@ -103,7 +119,7 @@ async def send_booking_confirmation(
                 "attachments": [
                     {
                         "filename": "invite.ics",
-                        "content": ics_content,
+                        "content": visitor_ics,
                         "content_type": "text/calendar; method=REQUEST",
                     }
                 ],
@@ -137,7 +153,7 @@ async def send_booking_confirmation(
                 "attachments": [
                     {
                         "filename": "invite.ics",
-                        "content": ics_content,
+                        "content": host_ics,
                         "content_type": "text/calendar; method=REQUEST",
                     }
                 ],
