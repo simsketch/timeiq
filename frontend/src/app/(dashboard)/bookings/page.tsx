@@ -40,14 +40,18 @@ export default function BookingsPage() {
       const token = await getToken();
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [upcoming, past, cancelled] = await Promise.all([
+      const [confirmed, completed, cancelled] = await Promise.all([
         apiFetch<Booking[]>("/api/bookings?status=confirmed", { headers }),
         apiFetch<Booking[]>("/api/bookings?status=completed", { headers }),
         apiFetch<Booking[]>("/api/bookings?status=cancelled", { headers }),
       ]);
 
+      const now = new Date();
+      const upcoming = confirmed.filter(b => new Date(b.starts_at) >= now);
+      const pastConfirmed = confirmed.filter(b => new Date(b.starts_at) < now).reverse();
+
       setUpcomingBookings(upcoming);
-      setPastBookings(past);
+      setPastBookings([...pastConfirmed, ...completed]);
       setCancelledBookings(cancelled);
     } catch (error) {
       console.error("Failed to fetch bookings:", error);

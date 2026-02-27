@@ -211,7 +211,7 @@ export default function EventTypesPage() {
               New Event Type
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <form onSubmit={handleSubmit}>
               <DialogHeader>
                 <DialogTitle>{editingId ? "Edit" : "Create"} Event Type</DialogTitle>
