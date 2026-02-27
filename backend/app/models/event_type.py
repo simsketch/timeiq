@@ -49,6 +49,9 @@ class EventType(Base):
     max_bookings_per_day: Mapped[int | None] = mapped_column(
         Integer, nullable=True
     )
+    collect_phone: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    collect_company: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    collect_reason: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

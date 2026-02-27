@@ -39,6 +39,9 @@ interface EventType {
   is_active: boolean;
   buffer_time: number;
   max_bookings_per_day: number | null;
+  collect_phone: boolean;
+  collect_company: boolean;
+  collect_reason: boolean;
 }
 
 const DURATION_OPTIONS = [15, 30, 45, 60, 90];
@@ -62,6 +65,9 @@ export default function EventTypesPage() {
     color: COLOR_OPTIONS[0],
     buffer_minutes: 0,
     max_bookings_per_day: "",
+    collect_phone: false,
+    collect_company: false,
+    collect_reason: false,
   });
 
   useEffect(() => {
@@ -155,6 +161,9 @@ export default function EventTypesPage() {
       color: eventType.color,
       buffer_minutes: eventType.buffer_time,
       max_bookings_per_day: eventType.max_bookings_per_day?.toString() || "",
+      collect_phone: eventType.collect_phone,
+      collect_company: eventType.collect_company,
+      collect_reason: eventType.collect_reason,
     });
     setDialogOpen(true);
   }
@@ -169,6 +178,9 @@ export default function EventTypesPage() {
       color: COLOR_OPTIONS[0],
       buffer_minutes: 0,
       max_bookings_per_day: "",
+      collect_phone: false,
+      collect_company: false,
+      collect_reason: false,
     });
   }
 
@@ -292,6 +304,33 @@ export default function EventTypesPage() {
                     placeholder="Leave empty for unlimited"
                     min="1"
                   />
+                </div>
+                <div className="space-y-3 pt-2">
+                  <Label className="text-sm font-medium">Collect from guests</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="collect_phone" className="text-sm font-normal">Phone number</Label>
+                    <Switch
+                      id="collect_phone"
+                      checked={formData.collect_phone}
+                      onCheckedChange={(checked) => setFormData({ ...formData, collect_phone: checked })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="collect_company" className="text-sm font-normal">Company name</Label>
+                    <Switch
+                      id="collect_company"
+                      checked={formData.collect_company}
+                      onCheckedChange={(checked) => setFormData({ ...formData, collect_company: checked })}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="collect_reason" className="text-sm font-normal">Reason for meeting</Label>
+                    <Switch
+                      id="collect_reason"
+                      checked={formData.collect_reason}
+                      onCheckedChange={(checked) => setFormData({ ...formData, collect_reason: checked })}
+                    />
+                  </div>
                 </div>
               </div>
               <DialogFooter>

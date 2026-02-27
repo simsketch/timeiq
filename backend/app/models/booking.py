@@ -32,6 +32,9 @@ class Booking(Base):
     visitor_name: Mapped[str] = mapped_column(String(255), nullable=False)
     visitor_email: Mapped[str] = mapped_column(String(320), nullable=False)
     visitor_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    visitor_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    visitor_company: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    visitor_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     starts_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
@@ -47,6 +50,9 @@ class Booking(Base):
     )
     cancelled_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    rescheduled_from_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

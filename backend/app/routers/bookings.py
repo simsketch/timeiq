@@ -163,6 +163,9 @@ async def create_public_booking(
         visitor_name=payload.visitor_name,
         visitor_email=payload.visitor_email,
         visitor_notes=payload.visitor_notes,
+        visitor_phone=payload.visitor_phone,
+        visitor_company=payload.visitor_company,
+        visitor_reason=payload.visitor_reason,
         starts_at=starts_at,
         ends_at=ends_at,
         timezone=payload.timezone,
@@ -177,6 +180,172 @@ async def create_public_booking(
     await send_booking_confirmation(booking, event_type, host)
 
     return booking
+
+
+@router.get("/api/public/bookings/{booking_id}")
+async def get_booking_for_reschedule(
+    booking_id: uuid.UUID,
+    token: str = Query(..., description="Cancellation token"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Public endpoint: Get booking details for rescheduling."""
+    result = await db.execute(
+        select(Booking).where(
+            Booking.id == booking_id,
+            Booking.cancel_token == token,
+        )
+    )
+    booking = result.scalar_one_or_none()
+    if booking is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Booking not found",
+        )
+
+    # Load event type and host to build the reschedule URL info
+    et_result = await db.execute(
+        select(EventType).where(EventType.id == booking.event_type_id)
+    )
+    event_type = et_result.scalar_one_or_none()
+    host_result = await db.execute(
+        select(User).where(User.id == booking.host_user_id)
+    )
+    host = host_result.scalar_one_or_none()
+
+    return {
+        "id": str(booking.id),
+        "visitor_name": booking.visitor_name,
+        "visitor_email": booking.visitor_email,
+        "visitor_notes": booking.visitor_notes,
+        "visitor_phone": booking.visitor_phone,
+        "visitor_company": booking.visitor_company,
+        "visitor_reason": booking.visitor_reason,
+        "starts_at": booking.starts_at.isoformat(),
+        "ends_at": booking.ends_at.isoformat(),
+        "status": booking.status,
+        "event_slug": event_type.slug if event_type else None,
+        "username": host.username if host else None,
+        "event_type_name": event_type.name if event_type else None,
+        "duration_minutes": event_type.duration_minutes if event_type else None,
+    }
+
+
+@router.post(
+    "/api/public/bookings/{booking_id}/reschedule",
+    response_model=BookingPublicResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def reschedule_booking(
+    booking_id: uuid.UUID,
+    payload: BookingCreate,
+    token: str = Query(..., description="Cancellation token"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Public endpoint: Reschedule a booking — cancels the old one and creates a new one.
+    Uses the same cancel_token for auth.
+    """
+    # Find the original booking
+    result = await db.execute(
+        select(Booking).where(
+            Booking.id == booking_id,
+            Booking.cancel_token == token,
+        )
+    )
+    old_booking = result.scalar_one_or_none()
+    if old_booking is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Booking not found or invalid token",
+        )
+
+    if old_booking.status != "confirmed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only confirmed bookings can be rescheduled",
+        )
+
+    # Load event type and host
+    et_result = await db.execute(
+        select(EventType).where(EventType.id == old_booking.event_type_id)
+    )
+    event_type = et_result.scalar_one_or_none()
+    if event_type is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event type not found",
+        )
+
+    host_result = await db.execute(
+        select(User).where(User.id == old_booking.host_user_id)
+    )
+    host = host_result.scalar_one_or_none()
+    if host is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Host not found",
+        )
+
+    # Calculate new time
+    starts_at = payload.starts_at
+    if starts_at.tzinfo is None:
+        starts_at = starts_at.replace(tzinfo=timezone.utc)
+    ends_at = starts_at + timedelta(minutes=event_type.duration_minutes)
+
+    if starts_at <= datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot book a slot in the past",
+        )
+
+    # Check conflicts (excluding the old booking being cancelled)
+    conflict_result = await db.execute(
+        select(Booking).where(
+            and_(
+                Booking.host_user_id == host.id,
+                Booking.status == "confirmed",
+                Booking.id != old_booking.id,
+                Booking.starts_at < ends_at,
+                Booking.ends_at > starts_at,
+            )
+        )
+    )
+    if conflict_result.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This time slot is no longer available",
+        )
+
+    # Cancel the old booking
+    old_booking.status = "cancelled"
+    old_booking.cancelled_at = datetime.now(timezone.utc)
+
+    # Create the new booking
+    new_cancel_token = secrets.token_urlsafe(32)
+    new_booking = Booking(
+        event_type_id=event_type.id,
+        host_user_id=host.id,
+        visitor_name=payload.visitor_name,
+        visitor_email=payload.visitor_email,
+        visitor_notes=payload.visitor_notes,
+        visitor_phone=payload.visitor_phone,
+        visitor_company=payload.visitor_company,
+        visitor_reason=payload.visitor_reason,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        timezone=payload.timezone,
+        status="confirmed",
+        cancel_token=new_cancel_token,
+        rescheduled_from_id=old_booking.id,
+    )
+    db.add(new_booking)
+    await db.flush()
+    await db.refresh(new_booking)
+
+    # Send confirmation for the new booking
+    await send_booking_confirmation(new_booking, event_type, host)
+
+    return new_booking
 
 
 @router.post(

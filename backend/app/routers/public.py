@@ -43,6 +43,9 @@ class PublicEventTypeDetail(BaseModel):
     color: str
     buffer_minutes: int
     host_name: Optional[str] = None
+    collect_phone: bool = False
+    collect_company: bool = False
+    collect_reason: bool = False
 
     model_config = {"from_attributes": True}
 

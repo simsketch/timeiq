@@ -17,6 +17,9 @@ interface Booking {
   ends_at: string;
   status: string;
   visitor_notes: string | null;
+  visitor_phone: string | null;
+  visitor_company: string | null;
+  visitor_reason: string | null;
   event_type_id: number;
 }
 
@@ -91,8 +94,23 @@ export default function BookingsPage() {
                 {format(new Date(booking.starts_at), "h:mm a")} -{" "}
                 {format(new Date(booking.ends_at), "h:mm a")}
               </p>
+              {booking.visitor_phone && (
+                <p className="text-sm mt-1 text-muted-foreground">
+                  Phone: {booking.visitor_phone}
+                </p>
+              )}
+              {booking.visitor_company && (
+                <p className="text-sm mt-1 text-muted-foreground">
+                  Company: {booking.visitor_company}
+                </p>
+              )}
+              {booking.visitor_reason && (
+                <p className="text-sm mt-1 text-muted-foreground">
+                  Reason: {booking.visitor_reason}
+                </p>
+              )}
               {booking.visitor_notes && (
-                <p className="text-sm mt-2 text-muted-foreground">
+                <p className="text-sm mt-1 text-muted-foreground">
                   Note: {booking.visitor_notes}
                 </p>
               )}

@@ -96,6 +96,10 @@ async def send_booking_confirmation(
         f"{settings.FRONTEND_URL}/bookings/{booking.id}/cancel"
         f"?token={booking.cancel_token}"
     )
+    reschedule_url = (
+        f"{settings.FRONTEND_URL}/bookings/{booking.id}/reschedule"
+        f"?token={booking.cancel_token}"
+    )
 
     # Email to visitor — show time in visitor's timezone
     visitor_starts = _format_datetime(booking.starts_at, visitor_tz)
@@ -114,7 +118,8 @@ async def send_booking_confirmation(
                     f"<p><strong>Duration:</strong> {event_type.duration_minutes} minutes</p>"
                     + location_html
                     + f"<br>"
-                    f'<p>Need to cancel? <a href="{cancel_url}">Cancel this booking</a></p>'
+                    f'<p>Need to change the time? <a href="{reschedule_url}">Reschedule</a>'
+                    f' | <a href="{cancel_url}">Cancel</a></p>'
                 ),
                 "attachments": [
                     {
