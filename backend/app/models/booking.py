@@ -34,7 +34,7 @@ class Booking(Base):
     visitor_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     visitor_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     visitor_company: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    visitor_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    visitor_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     starts_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )

@@ -40,8 +40,11 @@ interface EventType {
   buffer_time: number;
   max_bookings_per_day: number | null;
   collect_phone: boolean;
+  require_phone: boolean;
   collect_company: boolean;
-  collect_reason: boolean;
+  require_company: boolean;
+  collect_url: boolean;
+  require_url: boolean;
 }
 
 const DURATION_OPTIONS = [15, 30, 45, 60, 90];
@@ -66,8 +69,11 @@ export default function EventTypesPage() {
     buffer_minutes: 0,
     max_bookings_per_day: "",
     collect_phone: false,
+    require_phone: false,
     collect_company: false,
-    collect_reason: false,
+    require_company: false,
+    collect_url: false,
+    require_url: false,
   });
 
   useEffect(() => {
@@ -162,8 +168,11 @@ export default function EventTypesPage() {
       buffer_minutes: eventType.buffer_time,
       max_bookings_per_day: eventType.max_bookings_per_day?.toString() || "",
       collect_phone: eventType.collect_phone,
+      require_phone: eventType.require_phone,
       collect_company: eventType.collect_company,
-      collect_reason: eventType.collect_reason,
+      require_company: eventType.require_company,
+      collect_url: eventType.collect_url,
+      require_url: eventType.require_url,
     });
     setDialogOpen(true);
   }
@@ -179,8 +188,11 @@ export default function EventTypesPage() {
       buffer_minutes: 0,
       max_bookings_per_day: "",
       collect_phone: false,
+      require_phone: false,
       collect_company: false,
-      collect_reason: false,
+      require_company: false,
+      collect_url: false,
+      require_url: false,
     });
   }
 
@@ -307,29 +319,65 @@ export default function EventTypesPage() {
                 </div>
                 <div className="space-y-3 pt-2">
                   <Label className="text-sm font-medium">Collect from guests</Label>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="collect_phone" className="text-sm font-normal">Phone number</Label>
-                    <Switch
-                      id="collect_phone"
-                      checked={formData.collect_phone}
-                      onCheckedChange={(checked) => setFormData({ ...formData, collect_phone: checked })}
-                    />
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="collect_phone" className="text-sm font-normal">Phone number</Label>
+                      <Switch
+                        id="collect_phone"
+                        checked={formData.collect_phone}
+                        onCheckedChange={(checked) => setFormData({ ...formData, collect_phone: checked, ...(!checked && { require_phone: false }) })}
+                      />
+                    </div>
+                    {formData.collect_phone && (
+                      <div className="flex items-center justify-between pl-4">
+                        <Label htmlFor="require_phone" className="text-xs text-muted-foreground">Required</Label>
+                        <Switch
+                          id="require_phone"
+                          checked={formData.require_phone}
+                          onCheckedChange={(checked) => setFormData({ ...formData, require_phone: checked })}
+                        />
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="collect_company" className="text-sm font-normal">Company name</Label>
-                    <Switch
-                      id="collect_company"
-                      checked={formData.collect_company}
-                      onCheckedChange={(checked) => setFormData({ ...formData, collect_company: checked })}
-                    />
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="collect_company" className="text-sm font-normal">Company name</Label>
+                      <Switch
+                        id="collect_company"
+                        checked={formData.collect_company}
+                        onCheckedChange={(checked) => setFormData({ ...formData, collect_company: checked, ...(!checked && { require_company: false }) })}
+                      />
+                    </div>
+                    {formData.collect_company && (
+                      <div className="flex items-center justify-between pl-4">
+                        <Label htmlFor="require_company" className="text-xs text-muted-foreground">Required</Label>
+                        <Switch
+                          id="require_company"
+                          checked={formData.require_company}
+                          onCheckedChange={(checked) => setFormData({ ...formData, require_company: checked })}
+                        />
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="collect_reason" className="text-sm font-normal">Reason for meeting</Label>
-                    <Switch
-                      id="collect_reason"
-                      checked={formData.collect_reason}
-                      onCheckedChange={(checked) => setFormData({ ...formData, collect_reason: checked })}
-                    />
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="collect_url" className="text-sm font-normal">Website / LinkedIn URL</Label>
+                      <Switch
+                        id="collect_url"
+                        checked={formData.collect_url}
+                        onCheckedChange={(checked) => setFormData({ ...formData, collect_url: checked, ...(!checked && { require_url: false }) })}
+                      />
+                    </div>
+                    {formData.collect_url && (
+                      <div className="flex items-center justify-between pl-4">
+                        <Label htmlFor="require_url" className="text-xs text-muted-foreground">Required</Label>
+                        <Switch
+                          id="require_url"
+                          checked={formData.require_url}
+                          onCheckedChange={(checked) => setFormData({ ...formData, require_url: checked })}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

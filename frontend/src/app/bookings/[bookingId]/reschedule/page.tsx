@@ -18,7 +18,7 @@ interface BookingDetails {
   visitor_notes: string | null;
   visitor_phone: string | null;
   visitor_company: string | null;
-  visitor_reason: string | null;
+  visitor_url: string | null;
   starts_at: string;
   ends_at: string;
   status: string;
@@ -39,8 +39,11 @@ interface EventType {
   buffer_minutes: number;
   host_name: string | null;
   collect_phone: boolean;
+  require_phone: boolean;
   collect_company: boolean;
-  collect_reason: boolean;
+  require_company: boolean;
+  collect_url: boolean;
+  require_url: boolean;
 }
 
 interface AvailableSlot {
@@ -133,7 +136,7 @@ export default function ReschedulePage() {
             visitor_notes: formData.notes || null,
             visitor_phone: formData.phone || null,
             visitor_company: formData.company || null,
-            visitor_reason: formData.reason || null,
+            visitor_url: formData.url || null,
             starts_at: selectedSlotObj.start,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           }),
@@ -272,15 +275,18 @@ export default function ReschedulePage() {
                       onSubmit={handleReschedule}
                       loading={bookingLoading}
                       collectPhone={eventType?.collect_phone}
+                      requirePhone={eventType?.require_phone}
                       collectCompany={eventType?.collect_company}
-                      collectReason={eventType?.collect_reason}
+                      requireCompany={eventType?.require_company}
+                      collectUrl={eventType?.collect_url}
+                      requireUrl={eventType?.require_url}
                       defaultValues={{
                         name: booking.visitor_name,
                         email: booking.visitor_email,
                         notes: booking.visitor_notes || "",
                         phone: booking.visitor_phone || "",
                         company: booking.visitor_company || "",
-                        reason: booking.visitor_reason || "",
+                        url: booking.visitor_url || "",
                       }}
                       submitLabel="Confirm Reschedule"
                     />

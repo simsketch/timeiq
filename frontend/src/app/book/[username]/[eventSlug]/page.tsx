@@ -22,8 +22,11 @@ interface EventType {
   buffer_minutes: number;
   host_name: string | null;
   collect_phone: boolean;
+  require_phone: boolean;
   collect_company: boolean;
-  collect_reason: boolean;
+  require_company: boolean;
+  collect_url: boolean;
+  require_url: boolean;
 }
 
 interface AvailableSlot {
@@ -107,7 +110,7 @@ export default function BookingFlowPage() {
           visitor_notes: formData.notes || null,
           visitor_phone: formData.phone || null,
           visitor_company: formData.company || null,
-          visitor_reason: formData.reason || null,
+          visitor_url: formData.url || null,
           starts_at: selectedSlotObj.start,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
@@ -269,8 +272,11 @@ export default function BookingFlowPage() {
                       onSubmit={handleBooking}
                       loading={bookingLoading}
                       collectPhone={eventType.collect_phone}
+                      requirePhone={eventType.require_phone}
                       collectCompany={eventType.collect_company}
-                      collectReason={eventType.collect_reason}
+                      requireCompany={eventType.require_company}
+                      collectUrl={eventType.collect_url}
+                      requireUrl={eventType.require_url}
                     />
                   </div>
                 )}

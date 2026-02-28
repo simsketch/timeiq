@@ -17,8 +17,11 @@ class EventTypeCreate(BaseModel):
     buffer_minutes: int = Field(default=0, ge=0, le=120, alias="buffer_time")
     max_bookings_per_day: Optional[int] = Field(default=None, ge=1)
     collect_phone: bool = False
+    require_phone: bool = False
     collect_company: bool = False
-    collect_reason: bool = False
+    require_company: bool = False
+    collect_url: bool = False
+    require_url: bool = False
 
     model_config = {"populate_by_name": True}
 
@@ -34,8 +37,11 @@ class EventTypeUpdate(BaseModel):
     buffer_minutes: Optional[int] = Field(default=None, ge=0, le=120, alias="buffer_time")
     max_bookings_per_day: Optional[int] = Field(default=None, ge=1)
     collect_phone: Optional[bool] = None
+    require_phone: Optional[bool] = None
     collect_company: Optional[bool] = None
-    collect_reason: Optional[bool] = None
+    require_company: Optional[bool] = None
+    collect_url: Optional[bool] = None
+    require_url: Optional[bool] = None
 
     model_config = {"populate_by_name": True}
 
@@ -53,8 +59,11 @@ class EventTypeResponse(BaseModel):
     buffer_time: int = Field(validation_alias="buffer_minutes")
     max_bookings_per_day: Optional[int]
     collect_phone: bool = False
+    require_phone: bool = False
     collect_company: bool = False
-    collect_reason: bool = False
+    require_company: bool = False
+    collect_url: bool = False
+    require_url: bool = False
     created_at: datetime
     updated_at: datetime
 

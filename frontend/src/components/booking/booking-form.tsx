@@ -12,15 +12,18 @@ export interface BookingFormData {
   notes: string;
   phone: string;
   company: string;
-  reason: string;
+  url: string;
 }
 
 interface BookingFormProps {
   onSubmit: (data: BookingFormData) => void;
   loading?: boolean;
   collectPhone?: boolean;
+  requirePhone?: boolean;
   collectCompany?: boolean;
-  collectReason?: boolean;
+  requireCompany?: boolean;
+  collectUrl?: boolean;
+  requireUrl?: boolean;
   defaultValues?: Partial<BookingFormData>;
   submitLabel?: string;
 }
@@ -29,8 +32,11 @@ export function BookingForm({
   onSubmit,
   loading = false,
   collectPhone = false,
+  requirePhone = false,
   collectCompany = false,
-  collectReason = false,
+  requireCompany = false,
+  collectUrl = false,
+  requireUrl = false,
   defaultValues,
   submitLabel = "Confirm Booking",
 }: BookingFormProps) {
@@ -40,7 +46,7 @@ export function BookingForm({
     notes: defaultValues?.notes || "",
     phone: defaultValues?.phone || "",
     company: defaultValues?.company || "",
-    reason: defaultValues?.reason || "",
+    url: defaultValues?.url || "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -75,41 +81,41 @@ export function BookingForm({
 
       {collectPhone && (
         <div>
-          <Label htmlFor="phone">Phone number *</Label>
+          <Label htmlFor="phone">Phone number{requirePhone ? " *" : ""}</Label>
           <Input
             id="phone"
             type="tel"
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             placeholder="(555) 123-4567"
-            required
+            required={requirePhone}
           />
         </div>
       )}
 
       {collectCompany && (
         <div>
-          <Label htmlFor="company">Company *</Label>
+          <Label htmlFor="company">Company{requireCompany ? " *" : ""}</Label>
           <Input
             id="company"
             value={formData.company}
             onChange={(e) => setFormData({ ...formData, company: e.target.value })}
             placeholder="Your company"
-            required
+            required={requireCompany}
           />
         </div>
       )}
 
-      {collectReason && (
+      {collectUrl && (
         <div>
-          <Label htmlFor="reason">What is this meeting about? *</Label>
-          <Textarea
-            id="reason"
-            value={formData.reason}
-            onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-            placeholder="Brief description of what you'd like to discuss"
-            rows={2}
-            required
+          <Label htmlFor="url">Website / LinkedIn URL{requireUrl ? " *" : ""}</Label>
+          <Input
+            id="url"
+            type="url"
+            value={formData.url}
+            onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+            placeholder="https://linkedin.com/in/yourprofile"
+            required={requireUrl}
           />
         </div>
       )}

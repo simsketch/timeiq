@@ -19,7 +19,7 @@ interface Booking {
   visitor_notes: string | null;
   visitor_phone: string | null;
   visitor_company: string | null;
-  visitor_reason: string | null;
+  visitor_url: string | null;
   event_type_id: number;
 }
 
@@ -108,9 +108,9 @@ export default function BookingsPage() {
                   Company: {booking.visitor_company}
                 </p>
               )}
-              {booking.visitor_reason && (
+              {booking.visitor_url && (
                 <p className="text-sm mt-1 text-muted-foreground">
-                  Reason: {booking.visitor_reason}
+                  URL: <a href={booking.visitor_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{booking.visitor_url}</a>
                 </p>
               )}
               {booking.visitor_notes && (
