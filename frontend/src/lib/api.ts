@@ -4,6 +4,21 @@ let userSynced = false;
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
+
+  // Sync user from Clerk once per session on first authenticated request
+  const authHeader = (options?.headers as Record<string, string>)?.Authorization;
+  if (!userSynced && authHeader && !path.includes("/api/me/sync")) {
+    userSynced = true;
+    const syncUrl = `${API_BASE}/api/me/sync`;
+    fetch(syncUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authHeader,
+      },
+    }).catch(() => {}); // fire-and-forget
+  }
+
   const res = await fetch(url, {
     ...options,
     headers: {
@@ -14,13 +29,11 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: "Request failed" }));
 
-    // Auto-sync user on first "User not found" error, then retry the original request
+    // Retry once on "User not found" in case sync hasn't completed yet
     if (
       res.status === 404 &&
-      error.detail?.includes("User not found") &&
-      !userSynced
+      error.detail?.includes("User not found")
     ) {
-      userSynced = true;
       const syncUrl = `${API_BASE}/api/me/sync`;
       const syncRes = await fetch(syncUrl, {
         method: "POST",
@@ -30,7 +43,6 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
         },
       });
       if (syncRes.ok) {
-        // Retry the original request
         return apiFetch<T>(path, options);
       }
     }

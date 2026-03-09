@@ -64,12 +64,6 @@ async def sync_current_user(
     Fetches user info from the Clerk API and creates/updates the local record.
     This is a fallback for when the Clerk webhook hasn't fired yet.
     """
-    # Check if user already exists
-    result = await db.execute(select(User).where(User.clerk_id == clerk_id))
-    user = result.scalar_one_or_none()
-    if user is not None:
-        return user
-
     # Fetch user details from Clerk API
     async with httpx.AsyncClient() as client:
         resp = await client.get(
@@ -98,6 +92,26 @@ async def sync_current_user(
     last_name = data.get("last_name") or ""
     name = f"{first_name} {last_name}".strip() or None
 
+    image_url = data.get("image_url")
+
+    # Check if user already exists
+    result = await db.execute(select(User).where(User.clerk_id == clerk_id))
+    user = result.scalar_one_or_none()
+
+    if user is not None:
+        # Update existing user with latest Clerk data
+        if email:
+            user.email = email
+        if name:
+            user.name = name
+        if image_url is not None:
+            user.image_url = image_url
+        user.updated_at = datetime.now(timezone.utc)
+        await db.flush()
+        await db.refresh(user)
+        logger.info(f"Re-synced user {user.username} (clerk_id={clerk_id})")
+        return user
+
     clerk_username = data.get("username")
     username = clerk_username.lower() if clerk_username else _derive_username(email)
 
@@ -117,7 +131,7 @@ async def sync_current_user(
         email=email,
         name=name,
         username=username,
-        image_url=data.get("image_url"),
+        image_url=image_url,
     )
     db.add(user)
     await db.flush()
