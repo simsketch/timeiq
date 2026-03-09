@@ -18,6 +18,7 @@ import { apiFetch } from "@/lib/api";
 import { Copy } from "lucide-react";
 
 interface UserSettings {
+  name: string;
   username: string;
   timezone: string;
 }
@@ -45,6 +46,7 @@ export default function SettingsPage() {
   const { user } = useUser();
   const { toast } = useToast();
   const [settings, setSettings] = useState<UserSettings>({
+    name: "",
     username: "",
     timezone: "America/New_York",
   });
@@ -66,6 +68,7 @@ export default function SettingsPage() {
       console.error("Failed to fetch settings:", error);
       // Set defaults
       setSettings({
+        name: user?.fullName || "",
         username: user?.username || user?.id || "",
         timezone: "America/New_York",
       });
@@ -123,6 +126,21 @@ export default function SettingsPage() {
             <CardTitle>Profile</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="name">Display Name</Label>
+              <Input
+                id="name"
+                value={settings.name}
+                onChange={(e) =>
+                  setSettings({ ...settings, name: e.target.value })
+                }
+                placeholder="Your full name"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                This is the name shown to guests in emails and calendar invites
+              </p>
+            </div>
+
             <div>
               <Label htmlFor="username">Username</Label>
               <Input

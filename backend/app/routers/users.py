@@ -37,6 +37,7 @@ class UserResponse(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    name: Optional[str] = None
     username: Optional[str] = None
     timezone: Optional[str] = None
 
@@ -138,6 +139,9 @@ async def update_me(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if payload.name is not None:
+        user.name = payload.name.strip() or None
+
     if payload.username is not None:
         # Validate username format
         if not re.match(r'^[a-zA-Z0-9_-]+$', payload.username):
