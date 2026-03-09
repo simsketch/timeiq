@@ -99,11 +99,7 @@ async def sync_current_user(
     user = result.scalar_one_or_none()
 
     if user is not None:
-        # Update existing user with latest Clerk data
-        if email:
-            user.email = email
-        if name:
-            user.name = name
+        # Only sync image from Clerk — name is user-configurable
         if image_url is not None:
             user.image_url = image_url
         user.updated_at = datetime.now(timezone.utc)
