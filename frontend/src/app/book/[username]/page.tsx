@@ -138,6 +138,11 @@ export default function BookingProfilePage() {
             <Link href="/" className="text-primary hover:underline font-medium">
               TimeIQ
             </Link>
+            , a{" "}
+            <a href="https://yoyocode.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">
+              Yoyo Code
+            </a>{" "}
+            creation
           </p>
         </div>
       </div>
