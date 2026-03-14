@@ -80,7 +80,7 @@ export default function LandingPage() {
             </SignedOut>
             <SignedIn>
               <Link href="/dashboard">
-                <Button variant="ghost">Dashboard</Button>
+                <Button variant="ghost" className="cursor-pointer">Dashboard</Button>
               </Link>
               <UserButton afterSignOutUrl="/" />
             </SignedIn>

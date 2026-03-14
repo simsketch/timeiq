@@ -97,7 +97,7 @@ export default function BookingProfilePage() {
             No event types available at the moment
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className={`grid gap-4 ${profile.event_types.length === 1 ? "max-w-md mx-auto" : "md:grid-cols-2"}`}>
             {profile.event_types.map((eventType) => (
               <Link
                 key={eventType.id}
