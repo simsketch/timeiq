@@ -1,11 +1,19 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
+import { Instrument_Serif } from "next/font/google";
 import Script from "next/script";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const instrumentSerif = Instrument_Serif({
+  weight: "400",
+  style: ["normal", "italic"],
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "TimeIQ - Smart Scheduling",
@@ -22,7 +30,10 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en">
+      <html
+        lang="en"
+        className={`${GeistSans.variable} ${GeistMono.variable} ${instrumentSerif.variable}`}
+      >
         <head>
           <Script
             src="https://www.googletagmanager.com/gtag/js?id=G-J3Q5ZW2PGP"
@@ -37,7 +48,7 @@ export default function RootLayout({
             `}
           </Script>
         </head>
-        <body className={inter.className}>
+        <body className="font-sans antialiased">
           {children}
           <Toaster />
         </body>

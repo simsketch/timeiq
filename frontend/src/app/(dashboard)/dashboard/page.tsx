@@ -116,7 +116,7 @@ export default function DashboardPage() {
 
       {/* Share link card — moved to top */}
       {profile && (
-        <Card className="border-dashed bg-white/40 backdrop-blur-xl border-white/60 shadow-lg shadow-black/[0.02]">
+        <Card className="border-dashed">
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white">
@@ -155,7 +155,7 @@ export default function DashboardPage() {
 
       {/* Stats grid */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10">
@@ -171,7 +171,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/10">
@@ -189,7 +189,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Upcoming meetings card */}
-      <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
+      <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -255,7 +255,7 @@ export default function DashboardPage() {
 
       {/* Past meetings card */}
       {pastBookings.length > 0 && (
-        <Card className="bg-white/50 backdrop-blur-xl border-white/60 shadow-lg shadow-black/[0.02]">
+        <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>

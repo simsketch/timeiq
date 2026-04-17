@@ -37,3 +37,4 @@ alembic/versions/__pycache__/
 # Misc
 .history/
 *.log
+.vercel

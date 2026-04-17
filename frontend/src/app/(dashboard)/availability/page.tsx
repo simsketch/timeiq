@@ -134,7 +134,7 @@ export default function AvailabilityPage() {
         </p>
       </div>
 
-      <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
+      <Card>
         <CardHeader>
           <CardTitle>Weekly Hours</CardTitle>
         </CardHeader>

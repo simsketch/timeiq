@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Clock,
   CheckCircle2,
@@ -13,74 +11,66 @@ import {
   Shield,
   Mail,
   Users,
-  Phone
+  Phone,
 } from "lucide-react";
 import { LogoIcon } from "@/components/logo";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 
 export default function LandingPage() {
-  // Calendar data for February 2026 (starts on Sunday, Monday-first week display)
   const calendarDays = [
-    { day: "", blank: true },
-    { day: "", blank: true },
-    { day: "", blank: true },
-    { day: "", blank: true },
-    { day: "", blank: true },
-    { day: "", blank: true },
-    { day: "1", blank: false },
-    { day: "2", blank: false },
-    { day: "3", blank: false },
-    { day: "4", blank: false },
-    { day: "5", blank: false },
-    { day: "6", blank: false },
-    { day: "7", blank: false },
-    { day: "8", blank: false },
-    { day: "9", blank: false },
-    { day: "10", blank: false },
-    { day: "11", blank: false, highlighted: true },
-    { day: "12", blank: false },
-    { day: "13", blank: false },
-    { day: "14", blank: false },
-    { day: "15", blank: false },
-    { day: "16", blank: false },
-    { day: "17", blank: false },
-    { day: "18", blank: false },
-    { day: "19", blank: false },
-    { day: "20", blank: false },
-    { day: "21", blank: false },
-    { day: "22", blank: false },
-    { day: "23", blank: false },
-    { day: "24", blank: false },
-    { day: "25", blank: false },
-    { day: "26", blank: false },
-    { day: "27", blank: false },
-    { day: "28", blank: false },
+    ...Array(6).fill({ day: "", blank: true }),
+    ...Array.from({ length: 28 }, (_, i) => ({
+      day: String(i + 1),
+      blank: false,
+      highlighted: i + 1 === 11,
+    })),
     { day: "", blank: true },
   ];
 
-  const timeSlots = ["9:00 AM", "10:00 AM", "11:00 AM", "2:00 PM"];
+  const timeSlots = ["9:00", "10:00", "11:00", "2:00"];
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm">
-        <div className="container mx-auto px-4 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Global aurora mesh — drifts behind everything */}
+      <div className="aurora-bg" aria-hidden />
+      <div className="grain" aria-hidden />
+
+      {/* Glass nav */}
+      <header className="sticky top-0 z-50">
+        <div className="absolute inset-x-0 top-0 h-full bg-gradient-to-b from-white/70 via-white/40 to-transparent backdrop-blur-xl border-b border-white/40" />
+        <div className="relative container mx-auto px-6 lg:px-10 py-4 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5 group">
             <LogoIcon />
-            <span className="text-xl font-bold text-gray-900">TimeIQ</span>
-          </div>
-          <div className="flex items-center gap-3">
+            <span className="text-xl font-semibold tracking-tight">
+              TimeIQ
+            </span>
+          </Link>
+          <nav className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
+            <a href="#how" className="hover:text-foreground transition-colors">
+              How it works
+            </a>
+            <a
+              href="#features"
+              className="hover:text-foreground transition-colors"
+            >
+              Features
+            </a>
+          </nav>
+          <div className="flex items-center gap-2">
             <SignedOut>
               <Link href="/sign-in">
                 <Button variant="ghost">Sign in</Button>
               </Link>
               <Link href="/sign-up">
-                <Button>Get started</Button>
+                <Button variant="default">
+                  Get started
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
               </Link>
             </SignedOut>
             <SignedIn>
               <Link href="/dashboard">
-                <Button variant="ghost" className="cursor-pointer">Dashboard</Button>
+                <Button variant="ghost">Dashboard</Button>
               </Link>
               <UserButton afterSignOutUrl="/" />
             </SignedIn>
@@ -89,82 +79,105 @@ export default function LandingPage() {
       </header>
 
       <main>
-        {/* Hero Section */}
-        <section className="relative overflow-hidden bg-gradient-to-b from-blue-50/70 to-white">
-          {/* Background blur circle */}
-          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-400/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
+        {/* ================================================================
+             HERO
+             ================================================================ */}
+        <section className="relative">
+          <div className="container mx-auto px-6 lg:px-10 pt-20 lg:pt-28 pb-24 lg:pb-36">
+            <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+              <div className="lg:col-span-7 space-y-8">
+                <div className="reveal reveal-1">
+                  <span className="inline-flex items-center gap-2 glass rounded-full px-3.5 py-1.5 text-xs font-medium text-foreground/80">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--aurora-1))] shadow-[0_0_12px_hsl(var(--aurora-1))]" />
+                    Smart scheduling, thoughtfully designed
+                  </span>
+                </div>
 
-          <div className="container mx-auto px-4 lg:px-8 py-20 lg:py-32">
-            <div className="grid lg:grid-cols-5 gap-12 lg:gap-16 items-center relative">
-              {/* Left side - Content */}
-              <div className="lg:col-span-3 space-y-8">
-                <Badge variant="secondary" className="text-blue-600 bg-blue-50 border-blue-100 hover:bg-blue-50">
-                  Smart scheduling for modern teams
-                </Badge>
-
-                <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tighter text-gray-900">
-                  Schedule meetings without{" "}
-                  <span className="text-primary">the back-and-forth</span>
+                <h1 className="reveal reveal-2 text-[3.25rem] sm:text-6xl lg:text-[5.5rem] leading-[0.95] tracking-[-0.035em] text-balance">
+                  <span className="font-display">Schedule meetings</span>
+                  <br />
+                  <span className="font-display-italic text-aurora">
+                    without the chase.
+                  </span>
                 </h1>
 
-                <p className="text-xl text-gray-600 max-w-2xl leading-relaxed">
-                  Share your availability, let others book time with you instantly,
-                  and never play email tag again. TimeIQ makes scheduling effortless.
+                <p className="reveal reveal-3 text-lg lg:text-xl text-muted-foreground max-w-2xl leading-relaxed text-pretty">
+                  Share your availability, let others book time with you
+                  instantly, and never play email tag again. TimeIQ makes
+                  scheduling feel like a breath of air.
                 </p>
 
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="reveal reveal-4 flex flex-col sm:flex-row gap-3">
                   <Link href="/sign-up">
-                    <Button size="lg" className="text-base px-8 gap-2">
+                    <Button variant="aurora" size="xl">
                       Start for free
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
                   <Link href="/sign-in">
-                    <Button size="lg" variant="outline" className="text-base px-8">
+                    <Button variant="glass" size="xl">
                       Sign in
                     </Button>
                   </Link>
                 </div>
+
+                <div className="reveal reveal-5 flex items-center gap-5 pt-2 text-xs text-muted-foreground/80">
+                  <span className="inline-flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
+                    No credit card
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
+                    2-minute setup
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
+                    Free forever plan
+                  </span>
+                </div>
               </div>
 
-              {/* Right side - Mock Booking UI */}
-              <div className="lg:col-span-2 hidden lg:block relative">
-                <div className="relative animate-[float_6s_ease-in-out_infinite]">
-                  <Card className="p-6 rounded-2xl shadow-2xl shadow-blue-500/20 rotate-1 hover:rotate-0 transition-transform duration-500 bg-white border-blue-100">
-                    {/* User info */}
+              {/* Floating glass booking card */}
+              <div className="lg:col-span-5 hidden lg:block relative reveal reveal-3">
+                <div className="relative animate-[float_7s_ease-in-out_infinite]">
+                  <div className="glass glass-chroma rounded-[1.75rem] p-7 rotate-[1.5deg] hover:rotate-0 transition-transform duration-700">
                     <div className="flex items-center gap-3 mb-6">
-                      <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+                      <div className="h-11 w-11 rounded-full bg-[linear-gradient(135deg,hsl(var(--aurora-5)),hsl(var(--aurora-1)))] flex items-center justify-center text-white font-semibold text-sm shadow-lg shadow-[hsl(var(--aurora-1))]/25">
                         EZ
                       </div>
                       <div>
-                        <div className="font-semibold text-gray-900">Elon Zito</div>
-                        <div className="text-sm text-gray-600">30 min meeting</div>
+                        <div className="font-semibold">Elon Zito</div>
+                        <div className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
+                          30 min meeting
+                        </div>
                       </div>
                     </div>
 
-                    {/* Calendar header */}
-                    <div className="mb-4">
-                      <div className="text-sm font-semibold text-gray-900 mb-3">February 2026</div>
-
-                      {/* Day headers */}
-                      <div className="grid grid-cols-7 gap-1 mb-2">
-                        {["M", "T", "W", "T", "F", "S", "S"].map((day, i) => (
-                          <div key={i} className="text-center text-xs font-medium text-gray-500">
-                            {day}
+                    <div className="mb-5">
+                      <div className="flex items-baseline justify-between mb-3">
+                        <div className="text-sm font-medium">February 2026</div>
+                        <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
+                          EST · UTC−5
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-7 gap-1 mb-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">
+                        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+                          <div key={i} className="text-center">
+                            {d}
                           </div>
                         ))}
                       </div>
-
-                      {/* Calendar grid */}
                       <div className="grid grid-cols-7 gap-1">
                         {calendarDays.map((item, index) => (
                           <div
                             key={index}
-                            className={`
-                              aspect-square flex items-center justify-center text-sm rounded-md
-                              ${item.blank ? "" : "hover:bg-gray-100 cursor-pointer"}
-                              ${item.highlighted ? "bg-primary text-white font-semibold hover:bg-primary" : "text-gray-700"}
-                            `}
+                            className={`aspect-square flex items-center justify-center text-xs rounded-lg font-medium transition-colors ${
+                              item.blank
+                                ? ""
+                                : item.highlighted
+                                ? "bg-foreground text-background shadow-[0_4px_14px_-2px_hsl(var(--foreground)/0.35)]"
+                                : "text-foreground/80 hover:bg-foreground/[0.06]"
+                            }`}
                           >
                             {item.day}
                           </div>
@@ -172,20 +185,19 @@ export default function LandingPage() {
                       </div>
                     </div>
 
-                    {/* Time slots */}
-                    <div className="mb-6 space-y-2">
-                      <div className="text-sm font-semibold text-gray-900 mb-3">Select time</div>
+                    <div className="mb-6">
+                      <div className="text-sm font-medium mb-2.5">
+                        Available times
+                      </div>
                       <div className="grid grid-cols-2 gap-2">
                         {timeSlots.map((time, index) => (
                           <button
                             key={index}
-                            className={`
-                              px-4 py-2 text-sm rounded-lg font-medium transition-colors
-                              ${index === 0
-                                ? "bg-primary text-white"
-                                : "border border-gray-200 text-gray-700 hover:border-blue-300"
-                              }
-                            `}
+                            className={`h-9 rounded-lg text-sm font-mono tabular-nums transition-colors ${
+                              index === 0
+                                ? "bg-foreground text-background"
+                                : "glass text-foreground/80 hover:text-foreground"
+                            }`}
                           >
                             {time}
                           </button>
@@ -193,18 +205,20 @@ export default function LandingPage() {
                       </div>
                     </div>
 
-                    {/* Confirm button */}
-                    <Button className="w-full">Confirm booking</Button>
-                  </Card>
+                    <Button variant="aurora" className="w-full">
+                      Confirm booking
+                    </Button>
+                  </div>
 
-                  {/* Floating notification */}
-                  <div className="absolute -bottom-4 -left-4 bg-white rounded-lg shadow-lg border border-green-200 px-4 py-3 flex items-center gap-2">
-                    <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                      <CheckCircle2 className="h-3 w-3 text-white" />
+                  <div className="absolute -bottom-5 -left-6 glass rounded-xl px-4 py-2.5 flex items-center gap-2.5 rotate-[-4deg]">
+                    <div className="h-6 w-6 rounded-full bg-[hsl(var(--aurora-4))] flex items-center justify-center">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-white" />
                     </div>
-                    <div className="text-sm">
-                      <span className="font-semibold text-gray-900">Booking confirmed!</span>
-                      <span className="text-gray-500 ml-1">Just now</span>
+                    <div className="text-xs">
+                      <div className="font-semibold">Booking confirmed</div>
+                      <div className="text-muted-foreground text-[10px] font-mono uppercase tracking-wider">
+                        Just now
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -213,189 +227,180 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* How It Works Section */}
-        <section className="relative py-24 lg:py-36 overflow-hidden">
-          {/* Gradient mesh background */}
-          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-200/25 rounded-full blur-3xl" />
-          <div className="absolute top-1/3 right-1/5 w-[400px] h-[400px] bg-purple-200/20 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-1/2 w-[350px] h-[350px] bg-blue-300/15 rounded-full blur-3xl" />
-
-          <div className="relative container mx-auto px-4 lg:px-8">
-            <div className="text-center mb-20">
-              <Badge variant="secondary" className="text-blue-600 bg-blue-50/80 border-blue-100/60 backdrop-blur-sm mb-5">
+        {/* ================================================================
+             HOW IT WORKS
+             ================================================================ */}
+        <section id="how" className="relative py-24 lg:py-36">
+          <div className="container mx-auto px-6 lg:px-10">
+            <div className="max-w-2xl mb-20">
+              <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
                 How it works
-              </Badge>
-              <h2 className="text-4xl lg:text-5xl font-bold tracking-tight text-gray-900">
-                Three steps to effortless scheduling
+              </div>
+              <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
+                <span className="font-display">Three steps to</span>{" "}
+                <span className="font-display-italic text-aurora">
+                  effortless
+                </span>{" "}
+                <span className="font-display">scheduling.</span>
               </h2>
             </div>
 
-            <div className="relative">
-              {/* Connector line (desktop only) */}
-              <div className="hidden md:block steps-connector" />
-
-              <div className="grid md:grid-cols-3 gap-8 lg:gap-10 relative z-10">
-                {/* Step 1 */}
-                <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-blue-500/[0.05] p-8 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/[0.08] hover:scale-[1.02]">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10 backdrop-blur-sm">
-                      <Link2 className="h-6 w-6 text-blue-500" />
-                    </div>
-                    <Badge variant="secondary" className="text-xs bg-white/60 border-white/40 text-gray-500">
-                      Step 1
-                    </Badge>
+            <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+              {[
+                {
+                  step: "01",
+                  title: "Share your link",
+                  icon: Link2,
+                  color: "var(--aurora-1)",
+                  desc: "Create your personalized booking page and share it with anyone. Set your availability once and you're done.",
+                },
+                {
+                  step: "02",
+                  title: "They pick a time",
+                  icon: Clock,
+                  color: "var(--aurora-2)",
+                  desc: "Your guests see real-time availability and choose a slot that works for everyone. No more email ping-pong.",
+                },
+                {
+                  step: "03",
+                  title: "You're booked",
+                  icon: CheckCircle2,
+                  color: "var(--aurora-4)",
+                  desc: "Instant confirmation for both parties, auto-added to calendars, ICS attachments included. Simple as that.",
+                },
+              ].map((item, i) => (
+                <div
+                  key={i}
+                  className="glass glass-hover rounded-[1.5rem] p-8 relative"
+                >
+                  <div
+                    className="font-display text-[4.5rem] leading-none text-transparent bg-clip-text mb-8"
+                    style={{
+                      backgroundImage: `linear-gradient(135deg, hsl(${item.color}), hsl(${item.color} / 0.3))`,
+                    }}
+                  >
+                    {item.step}
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-3">Share your link</h3>
-                  <p className="text-gray-600 leading-relaxed">
-                    Create your personalized booking page and share it with anyone.
-                    Set your availability once and you&apos;re done.
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <div
+                      className="h-8 w-8 rounded-lg flex items-center justify-center"
+                      style={{
+                        backgroundColor: `hsl(${item.color} / 0.12)`,
+                      }}
+                    >
+                      <item.icon
+                        className="h-4 w-4"
+                        style={{ color: `hsl(${item.color})` }}
+                      />
+                    </div>
+                    <h3 className="text-lg font-semibold tracking-tight">
+                      {item.title}
+                    </h3>
+                  </div>
+                  <p className="text-muted-foreground leading-relaxed text-[15px] text-pretty">
+                    {item.desc}
                   </p>
                 </div>
-
-                {/* Step 2 */}
-                <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-blue-500/[0.05] p-8 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/[0.08] hover:scale-[1.02]">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/10 backdrop-blur-sm">
-                      <Clock className="h-6 w-6 text-purple-500" />
-                    </div>
-                    <Badge variant="secondary" className="text-xs bg-white/60 border-white/40 text-gray-500">
-                      Step 2
-                    </Badge>
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-3">They pick a time</h3>
-                  <p className="text-gray-600 leading-relaxed">
-                    Your guests see your real-time availability and choose a slot
-                    that works for everyone. No more email ping-pong.
-                  </p>
-                </div>
-
-                {/* Step 3 */}
-                <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-blue-500/[0.05] p-8 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/[0.08] hover:scale-[1.02]">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-500/10 backdrop-blur-sm">
-                      <CheckCircle2 className="h-6 w-6 text-green-500" />
-                    </div>
-                    <Badge variant="secondary" className="text-xs bg-white/60 border-white/40 text-gray-500">
-                      Step 3
-                    </Badge>
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-3">You&apos;re booked</h3>
-                  <p className="text-gray-600 leading-relaxed">
-                    Both parties get instant confirmation and the meeting is
-                    automatically added to your calendars. Simple as that.
-                  </p>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* Features Section — Bento Grid */}
-        <section className="relative py-24 lg:py-36 overflow-hidden bg-[#f5f5f7]">
-          {/* Subtle mesh */}
-          <div className="absolute top-1/4 right-0 w-[450px] h-[450px] bg-indigo-200/15 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-1/3 w-[400px] h-[400px] bg-sky-200/15 rounded-full blur-3xl" />
-
-          <div className="relative container mx-auto px-4 lg:px-8">
-            <div className="text-center mb-20">
-              <Badge variant="secondary" className="text-blue-600 bg-blue-50/80 border-blue-100/60 backdrop-blur-sm mb-5">
-                Features
-              </Badge>
-              <h2 className="text-4xl lg:text-5xl font-bold tracking-tight text-gray-900">
-                Everything you need to own your time
-              </h2>
-            </div>
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-blue-200/60">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 mb-5">
-                  <Calendar className="h-4 w-4 text-blue-500" />
-                  <span className="text-sm font-medium text-blue-600">Calendar sync</span>
+        {/* ================================================================
+             FEATURES — editorial asymmetric grid
+             ================================================================ */}
+        <section id="features" className="relative py-24 lg:py-36">
+          <div className="container mx-auto px-6 lg:px-10">
+            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between mb-16 gap-6">
+              <div className="max-w-2xl">
+                <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
+                  Features
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Seamlessly connected</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  Sync with Google Calendar, Outlook, and iCal to prevent double bookings automatically.
-                </p>
-              </div>
-
-              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-purple-200/60">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 mb-5">
-                  <Globe className="h-4 w-4 text-purple-500" />
-                  <span className="text-sm font-medium text-purple-600">Timezone smart</span>
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Always local</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  Automatically detect and display times in your guests&apos; local timezones.
-                </p>
-              </div>
-
-              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-amber-200/60">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 mb-5">
-                  <Zap className="h-4 w-4 text-amber-500" />
-                  <span className="text-sm font-medium text-amber-600">Instant confirmation</span>
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Zero delay</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  Get notified immediately when someone books time with you.
-                </p>
-              </div>
-
-              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-emerald-200/60">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 mb-5">
-                  <Shield className="h-4 w-4 text-emerald-500" />
-                  <span className="text-sm font-medium text-emerald-600">Buffer times</span>
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Breathing room</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  Add padding between meetings so you never feel back-to-back.
-                </p>
-              </div>
-
-              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-rose-200/60">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/10 mb-5">
-                  <Mail className="h-4 w-4 text-rose-500" />
-                  <span className="text-sm font-medium text-rose-600">Email notifications</span>
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Stay in the loop</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  Automated confirmations, reminders, and calendar invites for everyone.
-                </p>
-              </div>
-
-              <div className="bg-white/50 backdrop-blur-xl border border-white/70 rounded-2xl shadow-lg shadow-black/[0.03] p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:border-sky-200/60">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-sky-500/10 mb-5">
-                  <Users className="h-4 w-4 text-sky-500" />
-                  <span className="text-sm font-medium text-sky-600">Custom event types</span>
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Your meetings, your way</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  Create different meeting types with unique durations, buffers, and settings.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* CTA Section */}
-        <section className="py-24 lg:py-36">
-          <div className="container mx-auto px-4 lg:px-8">
-            <div className="relative overflow-hidden bg-gray-950 rounded-3xl p-12 lg:p-20">
-              {/* Animated mesh blobs */}
-              <div className="cta-blob cta-blob-1" />
-              <div className="cta-blob cta-blob-2" />
-              <div className="cta-blob cta-blob-3" />
-
-              {/* Glass overlay */}
-              <div className="relative bg-white/[0.07] backdrop-blur-2xl border border-white/[0.1] rounded-3xl p-10 lg:p-16 text-center max-w-3xl mx-auto">
-                <h2 className="text-4xl lg:text-5xl font-bold text-white mb-6 tracking-tight">
-                  Ready to take control of your time?
+                <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
+                  <span className="font-display">Everything you need to</span>{" "}
+                  <span className="font-display-italic text-aurora">
+                    own your time.
+                  </span>
                 </h2>
-                <p className="text-lg text-gray-300 mb-10 leading-relaxed">
-                  Join thousands of professionals who save hours every week with TimeIQ.
+              </div>
+            </div>
+
+            <div className="grid grid-cols-6 auto-rows-[minmax(180px,auto)] gap-5">
+              {/* Feature 1 — wide */}
+              <FeatureCard
+                className="col-span-6 lg:col-span-4"
+                icon={Calendar}
+                color="var(--aurora-1)"
+                label="Calendar sync"
+                title="Seamlessly connected."
+                description="Sync with Google Calendar, Outlook, and iCal to prevent double bookings automatically. One source of truth for every meeting."
+                large
+              />
+              <FeatureCard
+                className="col-span-6 md:col-span-3 lg:col-span-2"
+                icon={Globe}
+                color="var(--aurora-2)"
+                label="Timezone smart"
+                title="Always local."
+                description="Automatically detect and display times in your guests' local timezones."
+              />
+              <FeatureCard
+                className="col-span-6 md:col-span-3 lg:col-span-2"
+                icon={Zap}
+                color="var(--aurora-3)"
+                label="Instant"
+                title="Zero delay."
+                description="Get notified the moment someone books with you."
+              />
+              <FeatureCard
+                className="col-span-6 md:col-span-3 lg:col-span-2"
+                icon={Shield}
+                color="var(--aurora-5)"
+                label="Buffer times"
+                title="Breathing room."
+                description="Add padding between meetings so you never feel back-to-back."
+              />
+              <FeatureCard
+                className="col-span-6 lg:col-span-2"
+                icon={Mail}
+                color="var(--aurora-4)"
+                label="Email"
+                title="In the loop."
+                description="Automated confirmations, reminders, and calendar invites for everyone."
+              />
+              <FeatureCard
+                className="col-span-6 lg:col-span-4"
+                icon={Users}
+                color="var(--aurora-1)"
+                label="Event types"
+                title="Your meetings, your way."
+                description="Create different meeting types with unique durations, buffers, intake fields, and settings — all from one dashboard."
+                large
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* ================================================================
+             CTA — dark glass panel over aurora
+             ================================================================ */}
+        <section className="py-24 lg:py-36">
+          <div className="container mx-auto px-6 lg:px-10">
+            <div className="relative overflow-hidden rounded-[2rem] lg:rounded-[2.5rem] aurora-bg-dark p-12 lg:p-20 text-center">
+              <div className="grain opacity-20" aria-hidden />
+              <div className="relative max-w-3xl mx-auto">
+                <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-white text-balance">
+                  <span className="font-display">Ready to take control of</span>{" "}
+                  <span className="font-display-italic bg-gradient-to-r from-white via-[hsl(var(--aurora-4))] to-[hsl(var(--aurora-2))] bg-clip-text text-transparent">
+                    your time?
+                  </span>
+                </h2>
+                <p className="text-lg text-white/70 mt-7 mb-10 leading-relaxed text-pretty">
+                  Join thousands of professionals who save hours every week.
                   Start scheduling smarter today.
                 </p>
                 <Link href="/sign-up">
-                  <Button size="lg" className="text-base px-8 gap-2 bg-blue-500 hover:bg-blue-400 text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/30">
+                  <Button variant="aurora" size="xl">
                     Get started free
                     <ArrowRight className="h-4 w-4" />
                   </Button>
@@ -406,22 +411,77 @@ export default function LandingPage() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-gray-50/80 backdrop-blur-sm border-t border-gray-200/50 py-10">
-        <div className="container mx-auto px-4 lg:px-8">
-          <div className="flex items-center justify-center gap-2.5 mb-3">
-            <LogoIcon className="w-7 h-7" />
-            <span className="text-lg font-bold text-gray-900">TimeIQ</span>
+      <footer className="relative border-t border-foreground/5">
+        <div className="container mx-auto px-6 lg:px-10 py-12">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-2.5">
+              <LogoIcon className="w-6 h-6" />
+              <span className="font-semibold tracking-tight">TimeIQ</span>
+              <span className="text-muted-foreground/70 text-sm font-mono tabular-nums">
+                · &copy; 2026
+              </span>
+            </div>
+            <a
+              href="tel:+15615039444"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors font-mono tabular-nums"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              561.503.9444
+            </a>
           </div>
-          <a href="tel:+15615039444" className="flex items-center justify-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors mb-2">
-            <Phone className="h-3.5 w-3.5" />
-            561.503.9444
-          </a>
-          <p className="text-center text-gray-500 text-sm">
-            &copy; 2026 TimeIQ. All rights reserved.
-          </p>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function FeatureCard({
+  icon: Icon,
+  color,
+  label,
+  title,
+  description,
+  className,
+  large,
+}: {
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  color: string;
+  label: string;
+  title: string;
+  description: string;
+  className?: string;
+  large?: boolean;
+}) {
+  return (
+    <div
+      className={`glass glass-hover rounded-[1.5rem] p-7 flex flex-col justify-between gap-6 ${className || ""}`}
+    >
+      <div>
+        <div
+          className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-mono uppercase tracking-[0.15em] mb-5"
+          style={{
+            backgroundColor: `hsl(${color} / 0.1)`,
+            color: `hsl(${color})`,
+          }}
+        >
+          <Icon className="h-3 w-3" />
+          {label}
+        </div>
+        <h3
+          className={`font-display tracking-[-0.02em] leading-[1.05] mb-3 ${
+            large ? "text-4xl lg:text-5xl" : "text-2xl lg:text-3xl"
+          }`}
+        >
+          {title}
+        </h3>
+        <p
+          className={`text-muted-foreground leading-relaxed text-pretty ${
+            large ? "text-[15px] lg:text-base max-w-xl" : "text-sm"
+          }`}
+        >
+          {description}
+        </p>
+      </div>
     </div>
   );
 }

@@ -175,7 +175,7 @@ export default function CalendarsPage() {
         )}
       </div>
 
-      <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
+      <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Add Calendar</CardTitle>
@@ -240,14 +240,14 @@ export default function CalendarsPage() {
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Connected Calendars</h2>
         {calendars.length === 0 ? (
-          <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
+          <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
               No calendars connected yet
             </CardContent>
           </Card>
         ) : (
           calendars.map((calendar) => (
-            <Card key={calendar.id} className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
+            <Card key={calendar.id}>
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
@@ -298,14 +298,14 @@ export default function CalendarsPage() {
           </p>
         </div>
         {cachedEvents.length === 0 ? (
-          <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
+          <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
               <CalendarDays className="h-8 w-8 mx-auto mb-3 text-gray-300" />
               No cached events found. Sync your calendars to import events.
             </CardContent>
           </Card>
         ) : (
-          <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
+          <Card>
             <CardContent className="py-2">
               <div className="divide-y">
                 {cachedEvents.map((event) => {

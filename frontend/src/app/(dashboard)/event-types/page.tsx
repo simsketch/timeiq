@@ -388,7 +388,7 @@ export default function EventTypesPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {eventTypes.map((eventType) => (
-          <Card key={eventType.id} className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
+          <Card key={eventType.id}>
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">

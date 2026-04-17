@@ -205,7 +205,7 @@ export default function SettingsPage() {
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
-        <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
+        <Card>
           <CardHeader>
             <CardTitle>Profile</CardTitle>
           </CardHeader>
@@ -266,7 +266,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
+        <Card>
           <CardHeader>
             <CardTitle>Your Booking Link</CardTitle>
           </CardHeader>
@@ -296,7 +296,7 @@ export default function SettingsPage() {
         </Button>
       </form>
 
-      <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
+      <Card>
         <CardHeader>
           <CardTitle>Calendar Subscription</CardTitle>
         </CardHeader>
