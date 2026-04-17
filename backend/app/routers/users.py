@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import logging
 import re
+import secrets
 import uuid
 from datetime import datetime, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,6 +46,31 @@ class UserUpdate(BaseModel):
 class DashboardStats(BaseModel):
     upcoming_bookings: int
     total_event_types: int
+
+
+class FeedSettings(BaseModel):
+    url: str
+    webcal_url: str
+    obfuscate: bool
+
+
+class FeedSettingsUpdate(BaseModel):
+    obfuscate: bool
+
+
+def _ensure_feed_token(user: User) -> str:
+    if not user.feed_token:
+        user.feed_token = secrets.token_urlsafe(32)
+    return user.feed_token
+
+
+def _build_feed_urls(request: Request, token: str) -> tuple[str, str]:
+    base = str(request.base_url).rstrip("/")
+    https_url = f"{base}/api/public/feed/{token}.ics"
+    webcal_url = https_url.replace("https://", "webcal://").replace(
+        "http://", "webcal://"
+    )
+    return https_url, webcal_url
 
 
 def _derive_username(email: str) -> str:
@@ -214,4 +240,65 @@ async def get_dashboard_stats(
     return DashboardStats(
         upcoming_bookings=upcoming_count,
         total_event_types=et_count,
+    )
+
+
+@router.get("/api/me/feed", response_model=FeedSettings)
+async def get_feed_settings(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the user's ICS subscription URL and privacy setting.
+
+    Lazily provisions a feed token the first time it's requested.
+    """
+    token = _ensure_feed_token(user)
+    await db.flush()
+    await db.refresh(user)
+    https_url, webcal_url = _build_feed_urls(request, token)
+    return FeedSettings(
+        url=https_url,
+        webcal_url=webcal_url,
+        obfuscate=user.feed_obfuscate,
+    )
+
+
+@router.patch("/api/me/feed", response_model=FeedSettings)
+async def update_feed_settings(
+    payload: FeedSettingsUpdate,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Toggle feed privacy (obfuscate event names)."""
+    user.feed_obfuscate = payload.obfuscate
+    token = _ensure_feed_token(user)
+    user.updated_at = datetime.now(timezone.utc)
+    await db.flush()
+    await db.refresh(user)
+    https_url, webcal_url = _build_feed_urls(request, token)
+    return FeedSettings(
+        url=https_url,
+        webcal_url=webcal_url,
+        obfuscate=user.feed_obfuscate,
+    )
+
+
+@router.post("/api/me/feed/regenerate", response_model=FeedSettings)
+async def regenerate_feed_token(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rotate the feed token — old subscription links stop working."""
+    user.feed_token = secrets.token_urlsafe(32)
+    user.updated_at = datetime.now(timezone.utc)
+    await db.flush()
+    await db.refresh(user)
+    https_url, webcal_url = _build_feed_urls(request, user.feed_token)
+    return FeedSettings(
+        url=https_url,
+        webcal_url=webcal_url,
+        obfuscate=user.feed_obfuscate,
     )

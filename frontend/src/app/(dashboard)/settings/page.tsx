@@ -13,14 +13,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { apiFetch } from "@/lib/api";
-import { Copy } from "lucide-react";
+import { Copy, RefreshCw } from "lucide-react";
 
 interface UserSettings {
   name: string;
   username: string;
   timezone: string;
+}
+
+interface FeedSettings {
+  url: string;
+  webcal_url: string;
+  obfuscate: boolean;
 }
 
 const TIMEZONES = [
@@ -52,10 +59,87 @@ export default function SettingsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [feed, setFeed] = useState<FeedSettings | null>(null);
+  const [feedBusy, setFeedBusy] = useState(false);
 
   useEffect(() => {
     fetchSettings();
+    fetchFeed();
   }, []);
+
+  async function fetchFeed() {
+    try {
+      const token = await getToken();
+      const data = await apiFetch<FeedSettings>("/api/me/feed", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setFeed(data);
+    } catch (error) {
+      console.error("Failed to fetch feed settings:", error);
+    }
+  }
+
+  async function toggleObfuscate(value: boolean) {
+    if (!feed) return;
+    const prev = feed;
+    setFeed({ ...feed, obfuscate: value });
+    setFeedBusy(true);
+    try {
+      const token = await getToken();
+      const data = await apiFetch<FeedSettings>("/api/me/feed", {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ obfuscate: value }),
+      });
+      setFeed(data);
+      toast({
+        title: value ? "Event names hidden" : "Event names visible",
+      });
+    } catch (error: any) {
+      setFeed(prev);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setFeedBusy(false);
+    }
+  }
+
+  async function regenerateFeed() {
+    if (
+      !confirm(
+        "Regenerate the subscription link? The old link will stop working in any calendar that uses it.",
+      )
+    ) {
+      return;
+    }
+    setFeedBusy(true);
+    try {
+      const token = await getToken();
+      const data = await apiFetch<FeedSettings>("/api/me/feed/regenerate", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setFeed(data);
+      toast({ title: "New link generated" });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setFeedBusy(false);
+    }
+  }
+
+  function copyFeedLink() {
+    if (!feed) return;
+    navigator.clipboard.writeText(feed.url);
+    toast({ title: "Subscription link copied" });
+  }
 
   async function fetchSettings() {
     try {
@@ -211,6 +295,72 @@ export default function SettingsPage() {
           {saving ? "Saving..." : "Save Settings"}
         </Button>
       </form>
+
+      <Card className="bg-white/70 backdrop-blur-xl border-white/80 shadow-lg shadow-black/[0.03]">
+        <CardHeader>
+          <CardTitle>Calendar Subscription</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Subscribe to a read-only feed of your bookings and synced external
+            events. Add this URL to Google Calendar, Apple Calendar, or any app
+            that supports ICS subscriptions.
+          </p>
+
+          {feed ? (
+            <>
+              <div className="flex gap-2">
+                <Input value={feed.url} readOnly className="flex-1" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={copyFeedLink}
+                  title="Copy link"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={regenerateFeed}
+                  disabled={feedBusy}
+                  title="Generate a new link (revokes the old one)"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="text-xs text-muted-foreground">
+                One-click subscribe:{" "}
+                <a
+                  href={feed.webcal_url}
+                  className="underline underline-offset-2"
+                >
+                  open in calendar app
+                </a>
+              </div>
+
+              <div className="flex items-start justify-between gap-4 pt-2 border-t">
+                <div>
+                  <Label htmlFor="obfuscate">Hide event names</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    When enabled, all events show as &ldquo;Busy&rdquo; with no
+                    title, description, location, or attendees.
+                  </p>
+                </div>
+                <Switch
+                  id="obfuscate"
+                  checked={feed.obfuscate}
+                  onCheckedChange={toggleObfuscate}
+                  disabled={feedBusy}
+                />
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, String, Text
+from sqlalchemy import Boolean, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,6 +29,12 @@ class User(Base):
         String(100), nullable=False, default="America/New_York"
     )
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    feed_token: Mapped[str | None] = mapped_column(
+        String(64), unique=True, nullable=True
+    )
+    feed_obfuscate: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
