@@ -338,9 +338,104 @@
 }
 
 /* ==========================================================================
-   Keep a float keyframe for the hero mock card
+   Hero float system — multi-axis drift, counter-phase chips, ground shadow,
+   mouse-parallax tilt
    ========================================================================== */
 
+/* Main card: a long, loose orbit that nudges on two axes and rolls slightly.
+   Easing is custom so the motion never lands on rigid min/max beats. */
+@keyframes float-hero {
+  0%   { transform: translate3d(0, 0, 0) rotate(1.5deg); }
+  25%  { transform: translate3d(-3px, -8px, 0) rotate(1.15deg); }
+  50%  { transform: translate3d(2px, -14px, 0) rotate(0.6deg); }
+  75%  { transform: translate3d(4px, -6px, 0) rotate(1deg); }
+  100% { transform: translate3d(0, 0, 0) rotate(1.5deg); }
+}
+
+/* Confirmation chip: counter-phase + its own rotation — reads as a separate
+   element with its own gravity rather than a rigid child of the card. */
+@keyframes float-chip {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-4deg); }
+  50%      { transform: translate3d(-3px, 6px, 0) rotate(-6.5deg); }
+}
+
+/* Synced pill (top-right): a slower, smaller drift, offset phase. */
+@keyframes float-pill {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(3deg); }
+  50%      { transform: translate3d(3px, -5px, 0) rotate(5deg); }
+}
+
+/* Ground shadow breathes in sync with the lift — subtler shadow when up,
+   wider/darker when down. Gives the card a sense of real weight. */
+@keyframes shadow-breathe {
+  0%, 100% { opacity: 0.55; transform: translateX(-50%) scale(1); }
+  50%      { opacity: 0.3;  transform: translateX(-50%) scale(0.9); }
+}
+
+/* Ambient aurora halo behind the card — breathes slowly, a touch of hue drift. */
+@keyframes halo-breathe {
+  0%, 100% { opacity: 0.6; transform: scale(1) rotate(0deg); filter: blur(60px); }
+  50%      { opacity: 0.9; transform: scale(1.08) rotate(6deg); filter: blur(72px); }
+}
+
+.hero-float {
+  will-change: transform;
+  animation: float-hero 9s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.hero-float-chip {
+  will-change: transform;
+  animation: float-chip 5.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.hero-float-pill {
+  will-change: transform;
+  animation: float-pill 7s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.hero-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: -36px;
+  width: 72%;
+  height: 32px;
+  border-radius: 50%;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(17, 18, 35, 0.55), transparent 70%);
+  filter: blur(14px);
+  pointer-events: none;
+  animation: shadow-breathe 9s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+.hero-halo {
+  position: absolute;
+  inset: -14% -10%;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  background:
+    radial-gradient(45% 45% at 30% 30%, hsl(var(--aurora-1) / 0.35), transparent 70%),
+    radial-gradient(50% 50% at 70% 40%, hsl(var(--aurora-4) / 0.32), transparent 70%),
+    radial-gradient(40% 40% at 55% 80%, hsl(var(--aurora-2) / 0.3), transparent 70%);
+  animation: halo-breathe 12s ease-in-out infinite;
+}
+
+/* Back-plane depth card — sits behind the main card at a mirrored tilt,
+   adds a sense of stacked glass. */
+.hero-backcard {
+  position: absolute;
+  inset: 14px -10px 14px 10px;
+  z-index: -1;
+  border-radius: 1.75rem;
+  transform: rotate(-3deg);
+  background: linear-gradient(135deg, rgba(255,255,255,0.55), rgba(255,255,255,0.2));
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 30px 60px -30px rgba(17, 18, 35, 0.3);
+  opacity: 0.75;
+}
+
+/* Legacy float keyframe kept so existing usages don't break. */
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-10px); }
@@ -375,4 +470,6 @@
   }
   .shimmer:hover::before { animation: none; }
   .reveal { animation: none; opacity: 1; transform: none; }
+  .hero-float, .hero-float-chip, .hero-float-pill,
+  .hero-shadow, .hero-halo { animation: none !important; }
 }

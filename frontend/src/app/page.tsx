@@ -139,8 +139,18 @@ export default function LandingPage() {
 
               {/* Floating glass booking card */}
               <div className="lg:col-span-5 hidden lg:block relative reveal reveal-3">
-                <div className="relative animate-[float_7s_ease-in-out_infinite]">
-                  <div className="glass glass-chroma rounded-[1.75rem] p-7 rotate-[1.5deg] hover:rotate-0 transition-transform duration-700">
+                {/* Ambient aurora halo behind the whole composition */}
+                <div className="hero-halo" aria-hidden />
+
+                {/* Ground shadow — lives outside the float so it breathes against the card */}
+                <div className="hero-shadow" aria-hidden />
+
+                {/* The float orbit wraps the card + its satellites so they all drift together */}
+                <div className="relative hero-float">
+                  {/* Stacked back-card gives a second layer of glass depth */}
+                  <div className="hero-backcard" aria-hidden />
+
+                  <div className="glass glass-chroma rounded-[1.75rem] p-7 transition-transform duration-700 hover:scale-[1.015]">
                     <div className="flex items-center gap-3 mb-6">
                       <div className="h-11 w-11 rounded-full bg-[linear-gradient(135deg,hsl(var(--aurora-5)),hsl(var(--aurora-1)))] flex items-center justify-center text-white font-semibold text-sm shadow-lg shadow-[hsl(var(--aurora-1))]/25">
                         EZ
@@ -210,14 +220,30 @@ export default function LandingPage() {
                     </Button>
                   </div>
 
-                  <div className="absolute -bottom-5 -left-6 glass rounded-xl px-4 py-2.5 flex items-center gap-2.5 rotate-[-4deg]">
-                    <div className="h-6 w-6 rounded-full bg-[hsl(var(--aurora-4))] flex items-center justify-center">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                  {/* Top-right "Synced" pill — counter-phase drift */}
+                  <div className="absolute -top-4 -right-4 hero-float-pill">
+                    <div className="glass rounded-full pl-2 pr-3.5 py-1.5 flex items-center gap-2">
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-[hsl(var(--aurora-2))] opacity-60 animate-ping" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-[hsl(var(--aurora-2))]" />
+                      </span>
+                      <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-foreground/80">
+                        Calendar synced
+                      </span>
                     </div>
-                    <div className="text-xs">
-                      <div className="font-semibold">Booking confirmed</div>
-                      <div className="text-muted-foreground text-[10px] font-mono uppercase tracking-wider">
-                        Just now
+                  </div>
+
+                  {/* Bottom-left "Booking confirmed" chip — counter-phase drift */}
+                  <div className="absolute -bottom-5 -left-6 hero-float-chip">
+                    <div className="glass rounded-xl px-4 py-2.5 flex items-center gap-2.5">
+                      <div className="h-6 w-6 rounded-full bg-[hsl(var(--aurora-4))] flex items-center justify-center shadow-[0_6px_18px_-4px_hsl(var(--aurora-4)/0.6)]">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                      </div>
+                      <div className="text-xs">
+                        <div className="font-semibold">Booking confirmed</div>
+                        <div className="text-muted-foreground text-[10px] font-mono uppercase tracking-wider">
+                          Just now
+                        </div>
                       </div>
                     </div>
                   </div>
