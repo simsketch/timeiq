@@ -30,7 +30,7 @@
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --font-display: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {
@@ -81,14 +81,18 @@
   }
   .font-display {
     font-family: var(--font-display);
-    font-weight: 600;
-    letter-spacing: -0.035em;
+    font-weight: 700;
+    letter-spacing: -0.03em;
   }
   .font-display-italic {
     font-family: var(--font-display);
     font-style: italic;
-    font-weight: 500;
-    letter-spacing: -0.035em;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    /* Prevent bg-clip-text from cropping italic descenders / tails when combined
+       with tight tracking + gradient text. The extra pad extends the element's
+       content box so the painted gradient covers the full glyph. */
+    padding-right: 0.12em;
   }
   .font-mono {
     font-family: var(--font-mono);
