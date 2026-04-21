@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, Calendar, MapPin } from "lucide-react";
+import { Clock, Calendar, MapPin, ArrowRight } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { LogoIcon } from "@/components/logo";
 
 interface EventType {
   id: number;
@@ -48,18 +48,25 @@ export default function BookingProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="relative min-h-screen overflow-hidden flex items-center justify-center">
+        <div className="aurora-bg aurora-bg-soft" aria-hidden />
+        <div className="grain" aria-hidden />
+        <div className="relative flex items-center gap-2 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+          <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--aurora-1))] animate-pulse" />
+          Loading
+        </div>
       </div>
     );
   }
 
   if (error || !profile) {
     return (
-      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">User Not Found</h1>
-          <p className="text-muted-foreground">
+      <div className="relative min-h-screen overflow-hidden flex items-center justify-center px-6">
+        <div className="aurora-bg aurora-bg-soft" aria-hidden />
+        <div className="grain" aria-hidden />
+        <div className="relative glass rounded-[1.5rem] p-10 text-center max-w-md">
+          <h1 className="text-3xl font-display mb-3">Not found</h1>
+          <p className="text-muted-foreground text-sm">
             The booking page you&apos;re looking for doesn&apos;t exist.
           </p>
         </div>
@@ -67,62 +74,124 @@ export default function BookingProfilePage() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[#f5f5f7] relative overflow-hidden">
-      {/* Subtle mesh background */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-200/30 rounded-full blur-3xl" />
-      <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-purple-200/20 rounded-full blur-3xl" />
+  const displayName = profile.name || profile.username;
+  const initials = displayName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 
-      <div className="relative container mx-auto px-4 py-16 max-w-4xl">
-        <div className="text-center mb-12">
-          {profile.image_url ? (
-            <img
-              src={profile.image_url}
-              alt={profile.name || profile.username}
-              className="w-20 h-20 rounded-full mx-auto mb-4 border-2 border-white/80 shadow-lg"
+  return (
+    <div className="relative min-h-screen overflow-hidden">
+      <div className="aurora-bg aurora-bg-soft" aria-hidden />
+      <div className="grain" aria-hidden />
+
+      <div className="relative container mx-auto px-6 lg:px-10 py-16 lg:py-24 max-w-4xl">
+        {/* Host header */}
+        <div className="flex flex-col items-center text-center mb-14 reveal reveal-1">
+          <div className="relative mb-6">
+            {/* Aurora halo behind avatar */}
+            <div
+              aria-hidden
+              className="absolute inset-0 -m-4 rounded-full opacity-70"
+              style={{
+                background:
+                  "radial-gradient(50% 50% at 50% 50%, hsl(var(--aurora-1) / 0.45), transparent 70%)",
+                filter: "blur(22px)",
+              }}
             />
-          ) : (
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/20">
-              <Calendar className="h-10 w-10 text-white" />
-            </div>
-          )}
-          <h1 className="text-4xl font-bold tracking-tight mb-2">{profile.name || profile.username}</h1>
-          <p className="text-muted-foreground">
-            Choose a meeting type to schedule time together
+            {profile.image_url ? (
+              <img
+                src={profile.image_url}
+                alt={displayName}
+                className="relative w-24 h-24 rounded-full ring-1 ring-white/60 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.25)]"
+              />
+            ) : (
+              <div className="relative w-24 h-24 rounded-full bg-[linear-gradient(135deg,hsl(var(--aurora-5)),hsl(var(--aurora-1)))] flex items-center justify-center text-white font-semibold text-2xl ring-1 ring-white/60 shadow-[0_20px_50px_-20px_hsl(var(--aurora-1)/0.6)]">
+                {initials}
+              </div>
+            )}
+          </div>
+
+          <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-muted-foreground/70 mb-3">
+            Book time with
+          </div>
+          <h1 className="font-display text-5xl lg:text-6xl tracking-[-0.025em] leading-[1.02] mb-4">
+            {displayName}
+          </h1>
+          <p className="text-muted-foreground text-base max-w-md">
+            Choose a meeting type below to see my available times.
           </p>
         </div>
 
+        {/* Event types */}
         {profile.event_types.length === 0 ? (
-          <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-black/[0.03] p-12 text-center text-muted-foreground">
-            No event types available at the moment
+          <div className="glass rounded-[1.5rem] p-14 text-center reveal reveal-2">
+            <p className="text-muted-foreground">
+              No event types are available right now.
+            </p>
           </div>
         ) : (
-          <div className={`grid gap-4 ${profile.event_types.length === 1 ? "max-w-md mx-auto" : "md:grid-cols-2"}`}>
+          <div
+            className={`grid gap-5 reveal reveal-2 ${
+              profile.event_types.length === 1
+                ? "max-w-lg mx-auto"
+                : "md:grid-cols-2"
+            }`}
+          >
             {profile.event_types.map((eventType) => (
               <Link
                 key={eventType.id}
                 href={`/book/${username}/${eventType.slug}`}
+                className="group"
               >
-                <div className="group h-full bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-black/[0.03] p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-200/60 cursor-pointer">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div
-                      className="w-3 h-3 rounded-full ring-4 ring-white/50"
-                      style={{ backgroundColor: eventType.color }}
-                    />
-                    <h3 className="text-xl font-semibold tracking-tight">{eventType.name}</h3>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground mb-3">
-                    <Clock className="h-4 w-4" />
-                    <span className="text-sm">{eventType.duration_minutes} minutes</span>
-                  </div>
-                  {eventType.location && (
-                    <div className="flex items-center gap-2 text-muted-foreground mb-3">
-                      <MapPin className="h-4 w-4" />
-                      <span className="text-sm truncate">{eventType.location.startsWith("http") ? eventType.location.replace(/^https?:\/\//, "").split("/")[0] : eventType.location}</span>
+                <div
+                  className="relative h-full glass glass-hover rounded-[1.5rem] p-7 overflow-hidden"
+                  style={
+                    {
+                      "--accent": eventType.color,
+                    } as React.CSSProperties
+                  }
+                >
+                  {/* Left accent bar */}
+                  <div
+                    aria-hidden
+                    className="absolute left-0 top-6 bottom-6 w-[3px] rounded-r-full opacity-80 group-hover:opacity-100 transition-opacity"
+                    style={{ backgroundColor: eventType.color }}
+                  />
+
+                  <div className="flex items-start justify-between gap-4 mb-4">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-display text-2xl lg:text-3xl tracking-[-0.015em] leading-[1.1] mb-2">
+                        {eventType.name}
+                      </h3>
+                      <div className="flex items-center gap-4 text-xs font-mono uppercase tracking-[0.15em] text-muted-foreground">
+                        <span className="inline-flex items-center gap-1.5">
+                          <Clock className="h-3 w-3" />
+                          {eventType.duration_minutes} min
+                        </span>
+                        {eventType.location && (
+                          <span className="inline-flex items-center gap-1.5 truncate">
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            <span className="truncate normal-case tracking-normal font-sans text-[13px]">
+                              {eventType.location.startsWith("http")
+                                ? eventType.location
+                                    .replace(/^https?:\/\//, "")
+                                    .split("/")[0]
+                                : eventType.location}
+                            </span>
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  )}
+                    <ArrowRight
+                      className="h-5 w-5 text-foreground/30 shrink-0 mt-1 transition-all duration-300 group-hover:text-foreground group-hover:translate-x-0.5"
+                    />
+                  </div>
+
                   {eventType.description && (
-                    <p className="text-sm text-muted-foreground leading-relaxed">
+                    <p className="text-sm text-muted-foreground leading-relaxed text-pretty">
                       {eventType.description}
                     </p>
                   )}
@@ -132,18 +201,28 @@ export default function BookingProfilePage() {
           </div>
         )}
 
-        <div className="text-center mt-12">
-          <p className="text-sm text-muted-foreground">
+        {/* Footer */}
+        <div className="flex items-center justify-center gap-2 mt-16 pt-10 border-t border-foreground/5 reveal reveal-3">
+          <LogoIcon className="w-4 h-4" />
+          <span className="text-xs text-muted-foreground">
             Powered by{" "}
-            <Link href="/" className="text-primary hover:underline font-medium">
+            <Link
+              href="/"
+              className="font-medium text-foreground/80 hover:text-foreground transition-colors"
+            >
               TimeIQ
             </Link>
             , a{" "}
-            <a href="https://yoyocode.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">
+            <a
+              href="https://yoyocode.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-foreground/80 hover:text-foreground transition-colors"
+            >
               Yoyo Code
             </a>{" "}
             creation
-          </p>
+          </span>
         </div>
       </div>
     </div>

@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface TimeSlotsProps {
@@ -19,34 +18,43 @@ export function TimeSlots({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">Loading available times...</p>
+        <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+          <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--aurora-1))] animate-pulse" />
+          Checking availability
+        </div>
       </div>
     );
   }
 
   if (slots.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">No available times for this date</p>
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <p className="text-sm text-muted-foreground mb-1">No times available</p>
+        <p className="text-xs text-muted-foreground/70">Try another date</p>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2 max-h-96 overflow-y-auto pr-2">
-      {slots.map((slot) => (
-        <Button
-          key={slot}
-          variant={selectedSlot === slot ? "default" : "outline"}
-          className={cn(
-            "w-full",
-            selectedSlot === slot && "bg-primary text-primary-foreground"
-          )}
-          onClick={() => onSlotSelect(slot)}
-        >
-          {slot}
-        </Button>
-      ))}
+    <div className="grid grid-cols-2 gap-2 max-h-[22rem] overflow-y-auto pr-1">
+      {slots.map((slot) => {
+        const isSelected = selectedSlot === slot;
+        return (
+          <button
+            key={slot}
+            type="button"
+            onClick={() => onSlotSelect(slot)}
+            className={cn(
+              "relative h-11 rounded-xl text-sm font-mono tabular-nums transition-all duration-300 ease-out",
+              isSelected
+                ? "bg-foreground text-background shadow-[0_6px_20px_-6px_hsl(var(--foreground)/0.5)] scale-[1.02]"
+                : "border border-foreground/10 bg-background/40 backdrop-blur-md text-foreground/80 hover:text-foreground hover:border-foreground/20 hover:bg-background/60"
+            )}
+          >
+            {slot}
+          </button>
+        );
+      })}
     </div>
   );
 }
