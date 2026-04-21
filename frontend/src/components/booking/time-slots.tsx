@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { ClockLoader } from "@/components/ui/clock-loader";
 
 interface TimeSlotsProps {
   slots: string[];
@@ -18,10 +19,7 @@ export function TimeSlots({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
-          <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--aurora-1))] animate-pulse" />
-          Checking availability
-        </div>
+        <ClockLoader size="md" label="Checking availability" />
       </div>
     );
   }

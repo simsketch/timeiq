@@ -15,6 +15,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { apiFetch } from "@/lib/api";
+import { ClockLoader } from "@/components/ui/clock-loader";
 
 interface AvailabilityRule {
   id?: number;
@@ -121,7 +122,9 @@ export default function AvailabilityPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">Loading...</div>
+      <div className="flex items-center justify-center h-[60vh]">
+        <ClockLoader size="lg" label="Loading availability" />
+      </div>
     );
   }
 

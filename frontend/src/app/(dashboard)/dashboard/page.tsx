@@ -12,6 +12,7 @@ import {
 import { apiFetch } from "@/lib/api";
 import { format } from "date-fns";
 import Link from "next/link";
+import { ClockLoader } from "@/components/ui/clock-loader";
 
 interface Booking {
   id: number;
@@ -88,8 +89,8 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="flex items-center justify-center h-[60vh]">
+        <ClockLoader size="lg" label="Loading your dashboard" />
       </div>
     );
   }

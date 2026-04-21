@@ -11,6 +11,7 @@ import { Calendar, Clock, CheckCircle2, ArrowLeft, MapPin, ExternalLink } from "
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { LogoIcon } from "@/components/logo";
+import { ClockLoader } from "@/components/ui/clock-loader";
 
 interface EventType {
   id: number;
@@ -125,16 +126,7 @@ export default function BookingFlowPage() {
   }
 
   if (loading) {
-    return (
-      <div className="relative min-h-screen overflow-hidden flex items-center justify-center">
-        <div className="aurora-bg aurora-bg-soft" aria-hidden />
-        <div className="grain" aria-hidden />
-        <div className="relative flex items-center gap-2 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
-          <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--aurora-1))] animate-pulse" />
-          Loading
-        </div>
-      </div>
-    );
+    return <ClockLoader fullscreen size="lg" label="Preparing your booking" />;
   }
 
   if (error || !eventType) {

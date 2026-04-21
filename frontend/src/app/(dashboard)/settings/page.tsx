@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { apiFetch } from "@/lib/api";
 import { Copy, RefreshCw } from "lucide-react";
+import { ClockLoader } from "@/components/ui/clock-loader";
 
 interface UserSettings {
   name: string;
@@ -191,7 +192,9 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">Loading...</div>
+      <div className="flex items-center justify-center h-[60vh]">
+        <ClockLoader size="lg" label="Loading settings" />
+      </div>
     );
   }
 
@@ -357,7 +360,10 @@ export default function SettingsPage() {
               </div>
             </>
           ) : (
-            <p className="text-sm text-muted-foreground">Loading...</p>
+            <div className="flex items-center gap-3 py-2">
+              <ClockLoader size="sm" />
+              <p className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">Loading feed</p>
+            </div>
           )}
         </CardContent>
       </Card>

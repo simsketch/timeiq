@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { Calendar, Clock, CheckCircle2, ArrowLeft, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ClockLoader } from "@/components/ui/clock-loader";
 
 interface BookingDetails {
   id: string;
@@ -151,11 +152,7 @@ export default function ReschedulePage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
+    return <ClockLoader fullscreen size="lg" label="Loading booking" />;
   }
 
   if (error || !booking || !token) {

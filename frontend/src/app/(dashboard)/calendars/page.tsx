@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { apiFetch } from "@/lib/api";
 import { Plus, Trash2, RefreshCw, CalendarDays, Clock } from "lucide-react";
 import { format } from "date-fns";
+import { ClockLoader } from "@/components/ui/clock-loader";
 
 interface Calendar {
   id: number;
@@ -150,7 +151,9 @@ export default function CalendarsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">Loading...</div>
+      <div className="flex items-center justify-center h-[60vh]">
+        <ClockLoader size="lg" label="Loading calendars" />
+      </div>
     );
   }
 

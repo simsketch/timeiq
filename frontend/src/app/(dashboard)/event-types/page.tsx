@@ -27,6 +27,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { apiFetch } from "@/lib/api";
 import { Plus, Copy, Edit, Trash2 } from "lucide-react";
+import { ClockLoader } from "@/components/ui/clock-loader";
 
 interface EventType {
   id: number;
@@ -204,7 +205,11 @@ export default function EventTypesPage() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <ClockLoader size="lg" label="Loading event types" />
+      </div>
+    );
   }
 
   return (

@@ -38,3 +38,4 @@ alembic/versions/__pycache__/
 .history/
 *.log
 .vercel
+.playwright-mcp/

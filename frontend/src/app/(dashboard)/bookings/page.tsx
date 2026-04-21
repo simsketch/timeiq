@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { apiFetch } from "@/lib/api";
 import { format } from "date-fns";
+import { ClockLoader } from "@/components/ui/clock-loader";
 
 interface Booking {
   id: number;
@@ -136,7 +137,9 @@ export default function BookingsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">Loading...</div>
+      <div className="flex items-center justify-center h-[60vh]">
+        <ClockLoader size="lg" label="Loading bookings" />
+      </div>
     );
   }
 
