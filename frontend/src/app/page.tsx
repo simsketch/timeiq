@@ -138,7 +138,7 @@ export default function LandingPage() {
               </div>
 
               {/* Floating glass booking card */}
-              <div className="lg:col-span-5 hidden lg:block relative reveal reveal-3">
+              <div className="lg:col-span-5 relative reveal reveal-3 mt-4 lg:mt-0 mx-auto w-full max-w-md lg:max-w-none">
                 {/* Ambient aurora halo behind the whole composition */}
                 <div className="hero-halo" aria-hidden />
 
@@ -440,9 +440,21 @@ export default function LandingPage() {
       <footer className="relative border-t border-foreground/5">
         <div className="container mx-auto px-6 lg:px-10 py-12">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-2.5">
+            <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center sm:justify-start sm:text-left">
               <LogoIcon className="w-6 h-6" />
               <span className="font-semibold tracking-tight">TimeIQ</span>
+              <span className="text-sm text-muted-foreground">
+                , another{" "}
+                <a
+                  href="https://yoyocode.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-foreground/80 hover:text-foreground underline-offset-4 hover:underline transition-colors"
+                >
+                  Yoyo Code
+                </a>{" "}
+                creation
+              </span>
               <span className="text-muted-foreground/70 text-sm font-mono tabular-nums">
                 · &copy; 2026
               </span>
