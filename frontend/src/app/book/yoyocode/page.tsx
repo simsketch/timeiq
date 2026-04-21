@@ -152,7 +152,7 @@ export default function YoyoCodeBookingPage() {
             </p>
           </div>
         ) : (
-          <div className="relative w-full h-[320px] sm:h-[380px] md:h-[520px] lg:h-[680px] max-w-6xl mx-auto">
+          <div className="relative w-full md:h-[520px] lg:h-[680px] max-w-6xl mx-auto">
             <YoyoCodePlayground
               eventTypes={profile.event_types}
               onSelect={(event) => router.push(`/book/yoyocode/${event.slug}`)}

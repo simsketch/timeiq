@@ -290,6 +290,114 @@ export function YoyoCodePlayground({ eventTypes, onSelect }: Props) {
   const startOffset = visible.length === 4 ? -70 : visible.length === 3 ? -60 : -90;
   const angles = visible.map((_, i) => startOffset + step * i);
 
+  /* ------------------------------------------------------------------ */
+  /*                    Mobile layout: clock + stacked cards            */
+  /* ------------------------------------------------------------------ */
+  if (!showCards) {
+    return (
+      <div
+        ref={stageRef}
+        className="relative w-full select-none"
+      >
+        {/* Ambient glow */}
+        <div
+          aria-hidden
+          className="absolute left-1/2 rounded-full blur-3xl opacity-60 pointer-events-none"
+          style={{
+            top: "180px",
+            width: "min(90%, 480px)",
+            aspectRatio: "1",
+            transform: "translate(-50%, -50%)",
+            background:
+              "conic-gradient(from 45deg, hsl(var(--aurora-1) / 0.45), hsl(var(--aurora-5) / 0.4), hsl(var(--aurora-4) / 0.4), hsl(var(--aurora-2) / 0.3), hsl(var(--aurora-1) / 0.45))",
+          }}
+        />
+
+        <div className="relative flex flex-col items-center pt-2">
+          {/* Clock hero */}
+          <div style={{ width: "min(72%, 320px)", aspectRatio: 1 }}>
+            <ClockFace />
+          </div>
+
+          {/* Stacked event cards — parity with desktop orbit */}
+          <div
+            className="w-full max-w-md flex flex-col gap-3 mt-8 px-2"
+            style={{
+              opacity: mounted ? 1 : 0,
+              transform: mounted ? "translateY(0)" : "translateY(12px)",
+              transition: "opacity 0.6s ease, transform 0.6s ease",
+              transitionDelay: "200ms",
+            }}
+          >
+            {visible.map((event, i) => (
+              <button
+                key={event.id}
+                type="button"
+                onClick={() => onSelect(event)}
+                className="relative w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[hsl(var(--aurora-1))] rounded-[1.25rem] active:scale-[0.98] transition-transform"
+                style={{
+                  opacity: mounted ? 1 : 0,
+                  transform: mounted ? "translateY(0)" : "translateY(8px)",
+                  transition: "opacity 0.5s ease, transform 0.5s ease",
+                  transitionDelay: `${280 + i * 70}ms`,
+                }}
+                aria-label={`Book ${event.name} — ${event.duration_minutes} minutes`}
+              >
+                <div
+                  className="relative glass rounded-[1.25rem] px-5 py-4 overflow-hidden"
+                  style={{
+                    boxShadow: `0 18px 40px -18px ${event.color}40, 0 6px 14px -6px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255,255,255,0.4)`,
+                  }}
+                >
+                  <div
+                    aria-hidden
+                    className="absolute left-0 top-4 bottom-4 w-[3px] rounded-r-full"
+                    style={{
+                      background: `linear-gradient(180deg, ${event.color}, ${event.color}99)`,
+                    }}
+                  />
+                  <div
+                    aria-hidden
+                    className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-2xl opacity-40"
+                    style={{
+                      background: `radial-gradient(closest-side, ${event.color}, transparent)`,
+                    }}
+                  />
+                  <div className="relative pl-3 flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-display text-[17px] leading-tight tracking-[-0.015em] text-pretty mb-1.5">
+                        {event.name}
+                      </div>
+                      <div className="flex items-center gap-3 text-[10px] font-mono uppercase tracking-[0.22em] text-muted-foreground">
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="h-2.5 w-2.5" />
+                          {event.duration_minutes} min
+                        </span>
+                        {event.location && (
+                          <span className="truncate normal-case tracking-normal font-sans text-[11px] text-muted-foreground/80 max-w-[160px]">
+                            {event.location.startsWith("http")
+                              ? event.location
+                                  .replace(/^https?:\/\//, "")
+                                  .split("/")[0]
+                              : event.location}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <ArrowUpRight className="h-4 w-4 shrink-0 text-foreground/40" />
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*                    Desktop layout: orbital cards                   */
+  /* ------------------------------------------------------------------ */
   return (
     <div
       ref={stageRef}
