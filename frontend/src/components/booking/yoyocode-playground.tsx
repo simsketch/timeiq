@@ -1,558 +1,518 @@
 "use client";
 
-import { Canvas, useFrame, useThree, ThreeEvent } from "@react-three/fiber";
-import {
-  Float,
-  OrthographicCamera,
-  Html,
-  ContactShadows,
-  Sparkles,
-} from "@react-three/drei";
-import { useRef, useState, useMemo, useEffect } from "react";
-import * as THREE from "three";
+import { useEffect, useRef, useState } from "react";
+import { Clock, ArrowUpRight } from "lucide-react";
 
 export interface PlaygroundEventType {
   id: number;
   name: string;
   slug: string;
   duration_minutes: number;
+  description: string | null;
+  location: string | null;
   color: string;
 }
 
-interface YoyoCodePlaygroundProps {
+interface Props {
   eventTypes: PlaygroundEventType[];
   onSelect: (event: PlaygroundEventType) => void;
 }
 
 /* -------------------------------------------------------------------------- */
-/*                                 Clock core                                 */
+/*                                  Clock                                     */
 /* -------------------------------------------------------------------------- */
 
-function IsometricClock() {
-  const hour = useRef<THREE.Group>(null);
-  const minute = useRef<THREE.Group>(null);
-  const second = useRef<THREE.Group>(null);
+function ClockFace() {
+  const hourRef = useRef<SVGGElement>(null);
+  const minuteRef = useRef<SVGGElement>(null);
+  const secondRef = useRef<SVGGElement>(null);
 
-  useFrame((_, delta) => {
-    if (hour.current) hour.current.rotation.z -= delta * 0.06;
-    if (minute.current) minute.current.rotation.z -= delta * 0.7;
-    if (second.current) second.current.rotation.z -= delta * 1.8;
-  });
-
-  // Tick positions — 12 marks around face (XY plane, upright)
-  const ticks = useMemo(() => {
-    return Array.from({ length: 12 }, (_, i) => {
-      const a = (i / 12) * Math.PI * 2;
-      return {
-        x: Math.sin(a) * 1.35,
-        y: Math.cos(a) * 1.35,
-        major: i % 3 === 0,
-      };
-    });
-  }, []);
-
-  // Clock is upright (face in XY plane, normal along +Z) and slightly tilted
-  // backward for a dynamic isometric read. Float gives it a gentle idle bob.
-  return (
-    <Float speed={1.1} rotationIntensity={0.12} floatIntensity={0.3}>
-      <group position={[0, 1.6, 0]} rotation={[-0.08, 0.25, 0]}>
-        {/* Back plate (closes the cylinder so light doesn't bleed through) */}
-        <mesh position={[0, 0, -0.08]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[1.48, 1.48, 0.05, 96]} />
-          <meshStandardMaterial
-            color="#f3f0ff"
-            metalness={0.1}
-            roughness={0.6}
-          />
-        </mesh>
-        {/* Dial face — opaque enamel so ticks + hands read cleanly */}
-        <mesh position={[0, 0, -0.04]}>
-          <circleGeometry args={[1.42, 96]} />
-          <meshStandardMaterial
-            color="#faf8ff"
-            metalness={0.05}
-            roughness={0.5}
-          />
-        </mesh>
-        {/* Soft inner radial vignette */}
-        <mesh position={[0, 0, -0.039]}>
-          <circleGeometry args={[1.42, 96]} />
-          <meshBasicMaterial
-            color="#ede9fe"
-            transparent
-            opacity={0.45}
-          />
-        </mesh>
-
-        {/* Outer aurora bezel */}
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[1.5, 0.08, 32, 128]} />
-          <meshStandardMaterial
-            color="#6366f1"
-            emissive="#8b5cf6"
-            emissiveIntensity={0.75}
-            metalness={0.95}
-            roughness={0.12}
-          />
-        </mesh>
-
-        {/* Secondary bezel ring — aurora gradient-feeling accent */}
-        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-          <torusGeometry args={[1.42, 0.03, 24, 96]} />
-          <meshStandardMaterial
-            color="#22d3ee"
-            emissive="#22d3ee"
-            emissiveIntensity={0.5}
-            metalness={0.9}
-            roughness={0.2}
-          />
-        </mesh>
-
-        {/* Glass crystal (thin transparent cover — gives depth + reflections) */}
-        <mesh position={[0, 0, 0.03]}>
-          <circleGeometry args={[1.42, 96]} />
-          <meshPhysicalMaterial
-            color="#ffffff"
-            transmission={0.95}
-            thickness={0.15}
-            roughness={0.05}
-            clearcoat={1}
-            clearcoatRoughness={0.02}
-            ior={1.45}
-            reflectivity={0.6}
-            transparent
-            opacity={0.5}
-          />
-        </mesh>
-
-        {/* Inner hairline accent */}
-        <mesh position={[0, 0, 0.045]}>
-          <ringGeometry args={[1.18, 1.21, 96]} />
-          <meshBasicMaterial color="#6366f1" transparent opacity={0.35} />
-        </mesh>
-        <mesh position={[0, 0, 0.045]}>
-          <ringGeometry args={[0.62, 0.64, 64]} />
-          <meshBasicMaterial color="#a78bfa" transparent opacity={0.22} />
-        </mesh>
-
-        {/* Tick marks (upright, facing camera) */}
-        {ticks.map((t, i) => (
-          <mesh key={i} position={[t.x, t.y, 0.05]}>
-            <sphereGeometry args={[t.major ? 0.065 : 0.035, 16, 16]} />
-            <meshStandardMaterial
-              color={t.major ? "#6366f1" : "#94a3b8"}
-              emissive={t.major ? "#6366f1" : "#000000"}
-              emissiveIntensity={t.major ? 0.6 : 0}
-            />
-          </mesh>
-        ))}
-
-        {/* Hour hand — rotates around Z, pointing up by default */}
-        <group ref={hour} position={[0, 0, 0.09]}>
-          <mesh position={[0, 0.38, 0]}>
-            <boxGeometry args={[0.1, 0.82, 0.06]} />
-            <meshStandardMaterial
-              color="#1a1a2e"
-              metalness={0.55}
-              roughness={0.22}
-            />
-          </mesh>
-        </group>
-
-        {/* Minute hand */}
-        <group ref={minute} position={[0, 0, 0.11]}>
-          <mesh position={[0, 0.58, 0]}>
-            <boxGeometry args={[0.065, 1.22, 0.06]} />
-            <meshStandardMaterial
-              color="#6366f1"
-              emissive="#6366f1"
-              emissiveIntensity={0.45}
-            />
-          </mesh>
-        </group>
-
-        {/* Second hand (accent) */}
-        <group ref={second} position={[0, 0, 0.13]}>
-          <mesh position={[0, 0.62, 0]}>
-            <boxGeometry args={[0.025, 1.32, 0.035]} />
-            <meshStandardMaterial
-              color="#f97316"
-              emissive="#f97316"
-              emissiveIntensity={1.1}
-            />
-          </mesh>
-          {/* Counterweight */}
-          <mesh position={[0, -0.18, 0]}>
-            <boxGeometry args={[0.06, 0.32, 0.035]} />
-            <meshStandardMaterial
-              color="#f97316"
-              emissive="#f97316"
-              emissiveIntensity={0.9}
-            />
-          </mesh>
-        </group>
-
-        {/* Pivot */}
-        <mesh position={[0, 0, 0.15]}>
-          <cylinderGeometry args={[0.14, 0.14, 0.06, 32]} />
-          <meshStandardMaterial
-            color="#ffffff"
-            metalness={0.85}
-            roughness={0.12}
-          />
-        </mesh>
-        <mesh position={[0, 0, 0.18]}>
-          <cylinderGeometry args={[0.05, 0.05, 0.04, 24]} />
-          <meshStandardMaterial
-            color="#6366f1"
-            emissive="#6366f1"
-            emissiveIntensity={0.7}
-          />
-        </mesh>
-      </group>
-    </Float>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*                            Orbiting event card                             */
-/* -------------------------------------------------------------------------- */
-
-function OrbitingEvent({
-  event,
-  index,
-  total,
-  onSelect,
-}: {
-  event: PlaygroundEventType;
-  index: number;
-  total: number;
-  onSelect: (e: PlaygroundEventType) => void;
-}) {
-  const groupRef = useRef<THREE.Group>(null);
-  const [hovered, setHovered] = useState(false);
-  const [down, setDown] = useState(false);
-  const baseAngle = (index / Math.max(total, 1)) * Math.PI * 2;
-  // Slightly elongated orbit: wider on X than Y so it reads from iso angle
-  const radiusX = 3.6;
-  const radiusY = 1.4;
-  const targetScale = useRef(1);
-
-  useFrame((state) => {
-    if (!groupRef.current) return;
-    const t = state.clock.elapsedTime * 0.22 + baseAngle;
-    // Orbit lives in a tilted plane around the clock center (0, 1.6, 0)
-    const ox = Math.cos(t) * radiusX;
-    const oy = Math.sin(t) * radiusY;
-    groupRef.current.position.x = ox;
-    groupRef.current.position.y = 1.6 + oy;
-    // Push chips behind/in front depending on angle for parallax depth
-    groupRef.current.position.z = Math.sin(t) * 0.6;
-
-    // Card always faces the camera (billboard on Y)
-    groupRef.current.rotation.y = 0;
-    groupRef.current.rotation.z =
-      Math.sin(state.clock.elapsedTime * 0.7 + baseAngle) * 0.05;
-
-    // Scale spring
-    targetScale.current = down ? 0.94 : hovered ? 1.15 : 1;
-    groupRef.current.scale.lerp(
-      new THREE.Vector3(
-        targetScale.current,
-        targetScale.current,
-        targetScale.current
-      ),
-      0.15
-    );
-  });
-
-  const handleOver = (e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation();
-    setHovered(true);
-    document.body.style.cursor = "pointer";
-  };
-  const handleOut = (e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation();
-    setHovered(false);
-    setDown(false);
-    document.body.style.cursor = "";
-  };
-  const handleDown = (e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation();
-    setDown(true);
-  };
-  const handleUp = (e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation();
-    setDown(false);
-  };
-  const handleClick = (e: ThreeEvent<MouseEvent>) => {
-    e.stopPropagation();
-    onSelect(event);
-  };
-
-  return (
-    <group
-      ref={groupRef}
-      onPointerOver={handleOver}
-      onPointerOut={handleOut}
-      onPointerDown={handleDown}
-      onPointerUp={handleUp}
-      onClick={handleClick}
-    >
-      {/* Card body (glass) */}
-      <mesh>
-        <boxGeometry args={[1.6, 0.78, 0.12]} />
-        <meshPhysicalMaterial
-          color="#ffffff"
-          transmission={0.85}
-          thickness={0.35}
-          roughness={0.08}
-          clearcoat={1}
-          clearcoatRoughness={0.04}
-          ior={1.35}
-          transparent
-          opacity={0.96}
-        />
-      </mesh>
-
-      {/* Back glow plane when hovered */}
-      <mesh position={[0, 0, -0.08]}>
-        <planeGeometry args={[1.9, 1.05]} />
-        <meshBasicMaterial
-          color={event.color}
-          transparent
-          opacity={hovered ? 0.35 : 0.12}
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
-
-      {/* Front accent tint on hover */}
-      <mesh position={[0, 0, 0.061]}>
-        <planeGeometry args={[1.6, 0.78]} />
-        <meshBasicMaterial
-          color={event.color}
-          transparent
-          opacity={hovered ? 0.14 : 0}
-        />
-      </mesh>
-
-      {/* Accent bar */}
-      <mesh position={[-0.75, 0, 0.065]}>
-        <boxGeometry args={[0.05, 0.62, 0.008]} />
-        <meshStandardMaterial
-          color={event.color}
-          emissive={event.color}
-          emissiveIntensity={hovered ? 1.6 : 0.65}
-        />
-      </mesh>
-
-      {/* Label overlay — screen-space HTML, no 3D transform, predictable sizing */}
-      <Html
-        position={[0, 0, 0.07]}
-        center
-        zIndexRange={[20, 10]}
-        pointerEvents="none"
-      >
-        <div
-          className="pointer-events-none select-none flex flex-col items-center gap-1.5"
-          style={{ width: 170 }}
-        >
-          <div
-            className="font-display leading-tight tracking-[-0.02em] text-center text-pretty"
-            style={{ color: "#0b0b14", fontSize: 19, fontWeight: 700 }}
-          >
-            {event.name}
-          </div>
-          <div
-            className="font-mono uppercase rounded-full"
-            style={{
-              color: "#ffffff",
-              background: `linear-gradient(135deg, ${event.color}, ${event.color}cc)`,
-              boxShadow: `0 4px 12px -4px ${event.color}aa`,
-              fontSize: 9.5,
-              letterSpacing: "0.22em",
-              padding: "2.5px 9px",
-            }}
-          >
-            {event.duration_minutes} min
-          </div>
-        </div>
-      </Html>
-    </group>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*                                Ground disc                                 */
-/* -------------------------------------------------------------------------- */
-
-function GroundDisc() {
-  return (
-    <group position={[0, -0.4, 0]}>
-      {/* Hazy base */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[5.5, 64]} />
-        <meshBasicMaterial color="#e0e7ff" transparent opacity={0.18} />
-      </mesh>
-      {/* Aurora ring rings */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]}>
-        <ringGeometry args={[2.0, 2.03, 96]} />
-        <meshBasicMaterial color="#a78bfa" transparent opacity={0.5} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]}>
-        <ringGeometry args={[3.2, 3.23, 96]} />
-        <meshBasicMaterial color="#22d3ee" transparent opacity={0.4} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.003, 0]}>
-        <ringGeometry args={[4.4, 4.43, 96]} />
-        <meshBasicMaterial color="#ec4899" transparent opacity={0.25} />
-      </mesh>
-    </group>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*                               Scene root                                   */
-/* -------------------------------------------------------------------------- */
-
-function SceneRoot({ eventTypes, onSelect }: YoyoCodePlaygroundProps) {
-  const root = useRef<THREE.Group>(null);
-  const { pointer } = useThree();
-
-  useFrame(() => {
-    if (!root.current) return;
-    root.current.rotation.y = THREE.MathUtils.lerp(
-      root.current.rotation.y,
-      pointer.x * 0.15,
-      0.05
-    );
-    root.current.rotation.x = THREE.MathUtils.lerp(
-      root.current.rotation.x,
-      pointer.y * -0.06,
-      0.05
-    );
-  });
-
-  // Prefer at least 4 chips for visual density
-  const chips = useMemo(() => {
-    if (eventTypes.length === 0) return [];
-    const out: PlaygroundEventType[] = [...eventTypes];
-    while (out.length < 4) out.push(...eventTypes);
-    return out.slice(0, Math.max(4, eventTypes.length));
-  }, [eventTypes]);
-
-  return (
-    <group ref={root}>
-      <IsometricClock />
-      <GroundDisc />
-      <ContactShadows
-        position={[0, -0.38, 0]}
-        opacity={0.5}
-        scale={10}
-        blur={2.6}
-        far={4}
-        resolution={512}
-      />
-      {chips.map((event, i) => (
-        <OrbitingEvent
-          key={`${event.id}-${i}`}
-          event={event}
-          index={i}
-          total={chips.length}
-          onSelect={onSelect}
-        />
-      ))}
-      <Sparkles
-        count={70}
-        scale={[9, 5, 9]}
-        size={4}
-        speed={0.35}
-        color="#a78bfa"
-        opacity={0.7}
-        position={[0, 1.8, 0]}
-      />
-      <Sparkles
-        count={30}
-        scale={[6, 3, 6]}
-        size={2.2}
-        speed={0.6}
-        color="#22d3ee"
-        opacity={0.55}
-        position={[0, 2, 0]}
-      />
-    </group>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*                             Isometric camera                               */
-/* -------------------------------------------------------------------------- */
-
-function IsoCamera() {
-  const ref = useRef<THREE.OrthographicCamera>(null);
-  const { size } = useThree();
   useEffect(() => {
-    if (!ref.current) return;
-    ref.current.lookAt(0, 1.4, 0);
-    ref.current.updateProjectionMatrix();
+    let raf = 0;
+    const tick = () => {
+      const now = new Date();
+      const ms = now.getMilliseconds() / 1000;
+      const s = now.getSeconds() + ms;
+      const m = now.getMinutes() + s / 60;
+      const h = (now.getHours() % 12) + m / 60;
+      if (hourRef.current)
+        hourRef.current.style.transform = `rotate(${h * 30}deg)`;
+      if (minuteRef.current)
+        minuteRef.current.style.transform = `rotate(${m * 6}deg)`;
+      if (secondRef.current)
+        secondRef.current.style.transform = `rotate(${s * 6}deg)`;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, []);
-  // Tuned zooms so full composition breathes without cropping chips
-  const zoom = size.width < 720 ? 54 : size.width < 1100 ? 68 : 82;
+
+  const ticks = Array.from({ length: 60 }, (_, i) => i);
+
   return (
-    <OrthographicCamera
-      ref={ref}
-      makeDefault
-      position={[7, 5.5, 9]}
-      zoom={zoom}
-      near={0.1}
-      far={100}
-    />
+    <svg
+      viewBox="0 0 200 200"
+      className="w-full h-full drop-shadow-[0_30px_40px_rgba(99,102,241,0.35)]"
+      style={{ transformStyle: "preserve-3d" }}
+    >
+      <defs>
+        <linearGradient id="bezel-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="hsl(280 80% 64%)" />
+          <stop offset="40%" stopColor="hsl(248 82% 62%)" />
+          <stop offset="100%" stopColor="hsl(192 90% 58%)" />
+        </linearGradient>
+        <radialGradient id="face-grad" cx="50%" cy="40%" r="65%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="70%" stopColor="#f5f3ff" />
+          <stop offset="100%" stopColor="#ede9fe" />
+        </radialGradient>
+        <radialGradient id="face-shine" cx="30%" cy="20%" r="40%">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.9)" />
+          <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+        </radialGradient>
+        <filter id="hand-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="1.2" />
+        </filter>
+      </defs>
+
+      {/* Outer aurora ring */}
+      <circle
+        cx="100"
+        cy="100"
+        r="94"
+        fill="none"
+        stroke="url(#bezel-grad)"
+        strokeWidth="6"
+      />
+      {/* Inner bezel step */}
+      <circle
+        cx="100"
+        cy="100"
+        r="89"
+        fill="none"
+        stroke="rgba(255,255,255,0.9)"
+        strokeWidth="1"
+      />
+      {/* Dial */}
+      <circle cx="100" cy="100" r="86" fill="url(#face-grad)" />
+      {/* Glass shine */}
+      <ellipse
+        cx="78"
+        cy="70"
+        rx="55"
+        ry="35"
+        fill="url(#face-shine)"
+        opacity="0.8"
+      />
+
+      {/* Minute ticks */}
+      {ticks.map((i) => {
+        const angle = (i * 6 * Math.PI) / 180;
+        const isMajor = i % 5 === 0;
+        const inner = isMajor ? 74 : 80;
+        const outer = 84;
+        const x1 = 100 + Math.sin(angle) * inner;
+        const y1 = 100 - Math.cos(angle) * inner;
+        const x2 = 100 + Math.sin(angle) * outer;
+        const y2 = 100 - Math.cos(angle) * outer;
+        return (
+          <line
+            key={i}
+            x1={x1}
+            y1={y1}
+            x2={x2}
+            y2={y2}
+            stroke={isMajor ? "hsl(248 45% 22%)" : "hsl(232 15% 70%)"}
+            strokeWidth={isMajor ? 1.8 : 0.8}
+            strokeLinecap="round"
+          />
+        );
+      })}
+
+      {/* Hour numerals (12, 3, 6, 9) */}
+      {[
+        { n: "12", x: 100, y: 30 },
+        { n: "3", x: 170, y: 104 },
+        { n: "6", x: 100, y: 176 },
+        { n: "9", x: 30, y: 104 },
+      ].map(({ n, x, y }) => (
+        <text
+          key={n}
+          x={x}
+          y={y}
+          textAnchor="middle"
+          fontFamily="var(--font-display)"
+          fontWeight="600"
+          fontSize="11"
+          fill="hsl(248 45% 22%)"
+        >
+          {n}
+        </text>
+      ))}
+
+      {/* Brand mark below pivot */}
+      <text
+        x="100"
+        y="128"
+        textAnchor="middle"
+        fontFamily="var(--font-mono)"
+        fontSize="5.2"
+        letterSpacing="2"
+        fill="hsl(248 20% 55%)"
+      >
+        TIMEIQ · YOYOCODE
+      </text>
+
+      {/* Hour hand */}
+      <g
+        ref={hourRef}
+        style={{
+          transformOrigin: "100px 100px",
+          transition: "none",
+        }}
+      >
+        <rect
+          x="97"
+          y="45"
+          width="6"
+          height="58"
+          rx="3"
+          fill="hsl(232 40% 12%)"
+          filter="url(#hand-glow)"
+        />
+      </g>
+      {/* Minute hand */}
+      <g
+        ref={minuteRef}
+        style={{ transformOrigin: "100px 100px", transition: "none" }}
+      >
+        <rect
+          x="97.5"
+          y="22"
+          width="5"
+          height="82"
+          rx="2.5"
+          fill="hsl(248 70% 40%)"
+        />
+      </g>
+      {/* Second hand */}
+      <g
+        ref={secondRef}
+        style={{ transformOrigin: "100px 100px", transition: "none" }}
+      >
+        <rect
+          x="99.3"
+          y="18"
+          width="1.4"
+          height="88"
+          rx="0.7"
+          fill="hsl(24 94% 54%)"
+        />
+        <rect
+          x="98.5"
+          y="104"
+          width="3"
+          height="18"
+          rx="1.5"
+          fill="hsl(24 94% 54%)"
+        />
+        <circle cx="100" cy="100" r="4" fill="hsl(24 94% 54%)" />
+      </g>
+
+      {/* Pivot cap */}
+      <circle cx="100" cy="100" r="3.5" fill="#ffffff" />
+      <circle cx="100" cy="100" r="1.8" fill="hsl(248 70% 40%)" />
+    </svg>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/*                              Canvas wrapper                                */
+/*                              Stage + cards                                 */
 /* -------------------------------------------------------------------------- */
 
-export function YoyoCodePlayground({
-  eventTypes,
-  onSelect,
-}: YoyoCodePlaygroundProps) {
+export function YoyoCodePlayground({ eventTypes, onSelect }: Props) {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const [hovered, setHovered] = useState<number | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [showCards, setShowCards] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const desktop = window.matchMedia("(min-width: 820px)");
+    const updateDesktop = () => setShowCards(desktop.matches);
+    updateDesktop();
+    desktop.addEventListener("change", updateDesktop);
+
+    if (reduced.matches) {
+      return () => desktop.removeEventListener("change", updateDesktop);
+    }
+
+    const el = stageRef.current;
+    if (!el) return () => desktop.removeEventListener("change", updateDesktop);
+    let raf = 0;
+    const target = { x: 0, y: 0 };
+    const current = { x: 0, y: 0 };
+    const onMove = (e: MouseEvent) => {
+      const r = el.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width - 0.5;
+      const py = (e.clientY - r.top) / r.height - 0.5;
+      target.x = Math.max(-0.5, Math.min(0.5, py)) * -10;
+      target.y = Math.max(-0.5, Math.min(0.5, px)) * 14;
+    };
+    const onLeave = () => {
+      target.x = 0;
+      target.y = 0;
+    };
+    const loop = () => {
+      current.x += (target.x - current.x) * 0.08;
+      current.y += (target.y - current.y) * 0.08;
+      setTilt({ x: current.x, y: current.y });
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseleave", onLeave);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseleave", onLeave);
+      desktop.removeEventListener("change", updateDesktop);
+    };
+  }, []);
+
+  // Evenly distribute cards around the clock (angles in deg from 12 o'clock)
+  const visible = eventTypes.slice(0, Math.min(6, eventTypes.length));
+  const step = 360 / Math.max(visible.length, 1);
+  // Starting offset chosen per-count so layouts look balanced and avoid
+  // placing a card directly behind the "12 o'clock" numeral.
+  const startOffset = visible.length === 4 ? -70 : visible.length === 3 ? -60 : -90;
+  const angles = visible.map((_, i) => startOffset + step * i);
+
   return (
-    <Canvas
-      dpr={[1, 1.75]}
-      gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-      style={{ background: "transparent" }}
+    <div
+      ref={stageRef}
+      className="relative w-full h-full flex items-center justify-center overflow-visible select-none"
+      style={{ perspective: 1400 }}
     >
-      <IsoCamera />
-
-      {/* Lighting rig */}
-      <ambientLight intensity={0.6} />
-      <directionalLight
-        position={[5, 8, 5]}
-        intensity={1.3}
-        color="#ffffff"
-      />
-      <pointLight
-        position={[-4, 3, 3]}
-        intensity={16}
-        color="#ec4899"
-        distance={12}
-      />
-      <pointLight
-        position={[4, 3, -4]}
-        intensity={16}
-        color="#22d3ee"
-        distance={12}
-      />
-      <pointLight
-        position={[0, 5, 0]}
-        intensity={10}
-        color="#a78bfa"
-        distance={10}
+      {/* Ambient glow behind scene */}
+      <div
+        aria-hidden
+        className="absolute left-1/2 top-1/2 rounded-full blur-3xl opacity-70 pointer-events-none"
+        style={{
+          width: "min(85%, 780px)",
+          aspectRatio: "1",
+          transform: "translate(-50%, -50%)",
+          background:
+            "conic-gradient(from 45deg, hsl(var(--aurora-1) / 0.5), hsl(var(--aurora-5) / 0.45), hsl(var(--aurora-4) / 0.45), hsl(var(--aurora-2) / 0.35), hsl(var(--aurora-1) / 0.5))",
+        }}
       />
 
-      <SceneRoot eventTypes={eventTypes} onSelect={onSelect} />
-    </Canvas>
+      <div
+        className="relative"
+        style={{
+          width: "min(90%, 720px)",
+          aspectRatio: "1",
+          transformStyle: "preserve-3d",
+          transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
+          transition: "transform 0.15s ease-out",
+        }}
+      >
+        {/* Constellation lines (desktop only) */}
+        {showCards && (
+          <svg
+            viewBox="-360 -360 720 720"
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            style={{ transform: "translateZ(20px)" }}
+          >
+            {visible.map((event, i) => {
+              const a = ((angles[i] - 90) * Math.PI) / 180;
+              const r = 285;
+              const x = Math.cos(a) * r;
+              const y = Math.sin(a) * r;
+              const isHover = hovered === event.id;
+              return (
+                <line
+                  key={event.id}
+                  x1={0}
+                  y1={0}
+                  x2={x}
+                  y2={y}
+                  stroke={event.color}
+                  strokeWidth={isHover ? 1.5 : 0.8}
+                  strokeDasharray={isHover ? "6 4" : "3 7"}
+                  opacity={isHover ? 0.75 : 0.3}
+                  style={{ transition: "all 0.4s ease" }}
+                />
+              );
+            })}
+          </svg>
+        )}
+
+        {/* Orbit rings (desktop only) */}
+        {showCards && (
+          <>
+            <div
+              aria-hidden
+              className="absolute left-1/2 top-1/2 rounded-full border border-dashed pointer-events-none"
+              style={{
+                width: "80%",
+                aspectRatio: "1",
+                borderColor: "hsl(var(--aurora-1) / 0.22)",
+                transform: "translate(-50%, -50%) translateZ(5px)",
+              }}
+            />
+            <div
+              aria-hidden
+              className="absolute left-1/2 top-1/2 rounded-full border pointer-events-none"
+              style={{
+                width: "56%",
+                aspectRatio: "1",
+                borderColor: "hsl(var(--aurora-4) / 0.18)",
+                transform: "translate(-50%, -50%) translateZ(8px)",
+              }}
+            />
+          </>
+        )}
+
+        {/* Clock at center — larger on mobile since it's the whole hero */}
+        <div
+          className="absolute left-1/2 top-1/2 will-change-transform"
+          style={{
+            width: showCards ? "min(38%, 280px)" : "min(78%, 360px)",
+            aspectRatio: "1",
+            transform: "translate(-50%, -50%) translateZ(80px)",
+            transition: "width 0.4s ease",
+          }}
+        >
+          <ClockFace />
+        </div>
+
+        {/* Event cards at fixed orbital positions (desktop only) */}
+        {showCards && visible.map((event, i) => {
+          const a = angles[i];
+          const rad = ((a - 90) * Math.PI) / 180;
+          const orbit = 40; // % of container
+          const leftPct = 50 + Math.cos(rad) * orbit;
+          const topPct = 50 + Math.sin(rad) * orbit;
+          const z = 60 + (i % 2) * 30;
+          const isHover = hovered === event.id;
+          const delay = mounted ? i * 90 + 200 : 0;
+
+          return (
+            <button
+              key={event.id}
+              type="button"
+              onClick={() => onSelect(event)}
+              onMouseEnter={() => setHovered(event.id)}
+              onMouseLeave={() => setHovered(null)}
+              onFocus={() => setHovered(event.id)}
+              onBlur={() => setHovered(null)}
+              className="absolute text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[hsl(var(--aurora-1))] rounded-[1.25rem]"
+              style={{
+                left: `${leftPct}%`,
+                top: `${topPct}%`,
+                transform: `translate(-50%, -50%) translateZ(${
+                  isHover ? z + 30 : z
+                }px) scale(${isHover ? 1.06 : 1})`,
+                transformStyle: "preserve-3d",
+                transition:
+                  "transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.6s ease",
+                opacity: mounted ? 1 : 0,
+                transitionDelay: `${delay}ms`,
+                willChange: "transform",
+              }}
+              aria-label={`Book ${event.name} — ${event.duration_minutes} minutes`}
+            >
+              <div
+                className="relative glass rounded-[1.25rem] px-5 py-4 w-[220px] overflow-hidden"
+                style={{
+                  boxShadow: isHover
+                    ? `0 30px 60px -20px ${event.color}80, 0 8px 20px -8px rgba(15, 23, 42, 0.15), inset 0 1px 0 rgba(255,255,255,0.6)`
+                    : `0 18px 40px -18px ${event.color}40, 0 6px 14px -6px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255,255,255,0.4)`,
+                  transition: "box-shadow 0.4s cubic-bezier(0.22, 1, 0.36, 1)",
+                }}
+              >
+                {/* Accent bar */}
+                <div
+                  aria-hidden
+                  className="absolute left-0 top-4 bottom-4 w-[3px] rounded-r-full"
+                  style={{
+                    background: `linear-gradient(180deg, ${event.color}, ${event.color}99)`,
+                    boxShadow: isHover ? `0 0 12px ${event.color}` : "none",
+                    transition: "box-shadow 0.4s ease",
+                  }}
+                />
+                {/* Hover tint */}
+                <div
+                  aria-hidden
+                  className="absolute inset-0 rounded-[1.25rem] transition-opacity duration-500"
+                  style={{
+                    background: `radial-gradient(120% 100% at 0% 0%, ${event.color}22, transparent 60%)`,
+                    opacity: isHover ? 1 : 0,
+                  }}
+                />
+                {/* Corner shine on hover */}
+                <div
+                  aria-hidden
+                  className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-2xl transition-opacity duration-500"
+                  style={{
+                    background: `radial-gradient(closest-side, ${event.color}, transparent)`,
+                    opacity: isHover ? 0.5 : 0,
+                  }}
+                />
+
+                <div className="relative pl-3">
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <div className="font-display text-[17px] leading-tight tracking-[-0.015em] text-pretty">
+                      {event.name}
+                    </div>
+                    <ArrowUpRight
+                      className="h-4 w-4 shrink-0 mt-0.5 transition-all duration-400"
+                      style={{
+                        color: isHover ? event.color : "hsl(var(--foreground) / 0.3)",
+                        transform: isHover
+                          ? "translate(2px, -2px)"
+                          : "translate(0, 0)",
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 text-[10px] font-mono uppercase tracking-[0.22em] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <Clock className="h-2.5 w-2.5" />
+                      {event.duration_minutes} min
+                    </span>
+                    {event.location && (
+                      <span className="truncate normal-case tracking-normal font-sans text-[11px] text-muted-foreground/80 max-w-[110px]">
+                        {event.location.startsWith("http")
+                          ? event.location.replace(/^https?:\/\//, "").split("/")[0]
+                          : event.location}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Anchor dot on the orbit line */}
+              <div
+                aria-hidden
+                className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full"
+                style={{
+                  left: "50%",
+                  top: "50%",
+                  width: isHover ? 10 : 6,
+                  height: isHover ? 10 : 6,
+                  background: event.color,
+                  boxShadow: `0 0 ${isHover ? 16 : 6}px ${event.color}`,
+                  transform: "translate(-50%, -50%) translateZ(-20px)",
+                  transition: "all 0.4s ease",
+                }}
+              />
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
