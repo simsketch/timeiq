@@ -201,3 +201,61 @@ async def get_public_event_type(
     detail = PublicEventTypeDetail.model_validate(event_type)
     detail.host_name = user.name
     return detail
+
+
+# ---------------------------------------------------------------------------
+# Public invoice pages (token-addressed, no auth)
+# ---------------------------------------------------------------------------
+
+from app.models.invoice import Invoice  # noqa: E402
+from app.schemas.invoice import InvoiceLineResponse, PublicInvoiceResponse  # noqa: E402
+from app.services.invoice_pdf import build_invoice_pdf  # noqa: E402
+
+
+async def _public_invoice(token: str, db: AsyncSession) -> tuple[Invoice, User]:
+    result = await db.execute(
+        select(Invoice)
+        .options(selectinload(Invoice.lines), selectinload(Invoice.user))
+        .where(Invoice.public_token == token)
+    )
+    invoice = result.scalar_one_or_none()
+    if invoice is None or invoice.status == "void":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found"
+        )
+    return invoice, invoice.user
+
+
+@router.get("/invoices/{token}", response_model=PublicInvoiceResponse)
+async def public_invoice(token: str, db: AsyncSession = Depends(get_db)):
+    invoice, sender = await _public_invoice(token, db)
+    return PublicInvoiceResponse(
+        number=invoice.number,
+        status=invoice.status,
+        issue_date=invoice.issue_date,
+        due_date=invoice.due_date,
+        period_start=invoice.period_start,
+        period_end=invoice.period_end,
+        currency=invoice.currency,
+        hourly_rate=invoice.hourly_rate,
+        subtotal=invoice.subtotal,
+        client_name=invoice.client_name,
+        client_contact_name=invoice.client_contact_name,
+        client_billing_email=invoice.client_billing_email,
+        client_address=invoice.client_address,
+        notes=invoice.notes,
+        sender_name=sender.name or sender.email,
+        sender_email=sender.email,
+        lines=[InvoiceLineResponse.model_validate(l) for l in invoice.lines],
+    )
+
+
+@router.get("/invoices/{token}/pdf")
+async def public_invoice_pdf(token: str, db: AsyncSession = Depends(get_db)):
+    invoice, sender = await _public_invoice(token, db)
+    pdf = build_invoice_pdf(invoice, sender.name or sender.email, sender.email)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{invoice.number}.pdf"'},
+    )

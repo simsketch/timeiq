@@ -221,3 +221,44 @@ async def send_cancellation_notice(
         )
     except Exception as e:
         logger.error(f"Failed to send cancellation to host: {e}")
+
+
+def send_invoice(invoice, pdf_bytes: bytes, sender: User, hosted_url: str) -> None:
+    """Email an invoice PDF to the client's billing email. Raises RuntimeError on failure."""
+    import base64
+
+    from app.services.invoice_pdf import fmt_date, fmt_money
+
+    _init_resend()
+    sender_name = sender.name or sender.email
+    greeting_name = invoice.client_contact_name or invoice.client_name
+    amount = fmt_money(invoice.subtotal, invoice.currency)
+    try:
+        resend.Emails.send(
+            {
+                "from": FROM_EMAIL,
+                "to": [invoice.client_billing_email],
+                "reply_to": sender.email,
+                "subject": f"Invoice {invoice.number} from {sender_name}",
+                "html": (
+                    f"<p>Hi {html_escape(greeting_name)},</p>"
+                    f"<p>Please find attached invoice <strong>{html_escape(invoice.number)}</strong> "
+                    f"for {html_escape(fmt_date(invoice.period_start))} to "
+                    f"{html_escape(fmt_date(invoice.period_end))}.</p>"
+                    f"<p><strong>Amount due:</strong> {html_escape(amount)}<br/>"
+                    f"<strong>Due date:</strong> {html_escape(fmt_date(invoice.due_date))}</p>"
+                    f'<p><a href="{hosted_url}">View invoice online</a></p>'
+                    f"<p>Thank you,<br/>{html_escape(sender_name)}</p>"
+                ),
+                "attachments": [
+                    {
+                        "filename": f"{invoice.number}.pdf",
+                        "content": base64.b64encode(pdf_bytes).decode("ascii"),
+                        "content_type": "application/pdf",
+                    }
+                ],
+            }
+        )
+    except Exception as exc:
+        logger.error("Failed to send invoice %s: %s", invoice.number, exc)
+        raise RuntimeError("Failed to send invoice email") from exc
