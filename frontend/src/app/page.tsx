@@ -21,6 +21,7 @@ import {
 import { LogoIcon } from "@/components/logo";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { PricingCard } from "@/components/billing/pricing-card";
+import { FounderPill } from "@/components/billing/founder-pill";
 
 export default function LandingPage() {
   const calendarDays = [
@@ -67,12 +68,7 @@ export default function LandingPage() {
             >
               Invoicing
             </a>
-            <a
-              href="#pricing"
-              className="hover:text-foreground transition-colors"
-            >
-              Pricing
-            </a>
+            <FounderPill href="/pricing" compact />
           </nav>
           <div className="flex items-center gap-2">
             <SignedOut>
@@ -105,10 +101,7 @@ export default function LandingPage() {
             <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
               <div className="lg:col-span-7 space-y-8">
                 <div className="reveal reveal-1">
-                  <span className="inline-flex items-center gap-2 glass rounded-full px-3.5 py-1.5 text-xs font-medium text-foreground/80">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--aurora-1))] shadow-[0_0_12px_hsl(var(--aurora-1))]" />
-                    Smart scheduling, thoughtfully designed
-                  </span>
+                  <FounderPill href="#pricing" />
                 </div>
 
                 <h1 className="reveal reveal-2 text-[3.25rem] sm:text-6xl lg:text-[5.5rem] leading-[0.95] tracking-[-0.035em] text-balance">
@@ -153,6 +146,32 @@ export default function LandingPage() {
                     <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
                     Cancel anytime
                   </span>
+                </div>
+
+                {/* Social proof */}
+                <div className="reveal reveal-5 flex flex-wrap items-center gap-x-6 gap-y-3 pt-4 border-t border-foreground/[0.06]">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-full bg-[linear-gradient(135deg,hsl(var(--aurora-5)),hsl(var(--aurora-1)))] flex items-center justify-center text-white font-semibold text-xs shadow-lg shadow-[hsl(var(--aurora-1))]/25">
+                      EZ
+                    </div>
+                    <p className="text-sm text-muted-foreground max-w-xs leading-snug">
+                      Built by{" "}
+                      <a href="https://yoyocode.com" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground/85 hover:text-foreground">
+                        Yoyo Code
+                      </a>{" "}
+                      and used every week to book, track, and bill real client work.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4 text-[11px] font-mono uppercase tracking-[0.15em] text-muted-foreground/80">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Shield className="h-3.5 w-3.5" />
+                      Stripe checkout
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5" />
+                      Google Calendar
+                    </span>
+                  </div>
                 </div>
               </div>
 
