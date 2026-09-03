@@ -38,6 +38,20 @@ class User(Base):
     next_invoice_number: Mapped[int] = mapped_column(
         Integer, nullable=False, default=1, server_default="1"
     )
+    # Billing
+    stripe_customer_id: Mapped[str | None] = mapped_column(
+        String(255), unique=True, nullable=True
+    )
+    stripe_subscription_id: Mapped[str | None] = mapped_column(
+        String(255), unique=True, nullable=True
+    )
+    subscription_status: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="none", server_default="none"
+    )
+    subscription_plan: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    subscription_current_period_end: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

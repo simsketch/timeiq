@@ -25,6 +25,12 @@ class Settings:
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
     BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:8000")
     CRON_SECRET: str = os.getenv("CRON_SECRET", "")
+    # Billing (Stripe). Leave STRIPE_SECRET_KEY empty to disable the paywall.
+    STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "")
+    STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    STRIPE_PRICE_FOUNDER: str = os.getenv("STRIPE_PRICE_FOUNDER", "")
+    STRIPE_PRICE_STANDARD: str = os.getenv("STRIPE_PRICE_STANDARD", "")
+    FOUNDER_SEATS: int = int(os.getenv("FOUNDER_SEATS", "100"))
     VERCEL_ENV: str = os.getenv("VERCEL_ENV", "")
 
     @property

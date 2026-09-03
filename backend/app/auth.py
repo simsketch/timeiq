@@ -115,11 +115,14 @@ async def get_current_user_clerk_id(request: Request) -> str:
         )
 
 
-async def get_current_user(
+async def get_current_user_unrestricted(
     clerk_id: str = Depends(get_current_user_clerk_id),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Look up the User record from the database using the clerk_id."""
+    """Look up the User record from the database using the clerk_id.
+
+    Does not check the subscription. Use for profile, sync, and billing routes.
+    """
     result = await db.execute(
         select(User).where(User.clerk_id == clerk_id)
     )
@@ -128,5 +131,19 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found. Please ensure your account has been synced.",
+        )
+    return user
+
+
+async def get_current_user(
+    user: User = Depends(get_current_user_unrestricted),
+) -> User:
+    """Current user, additionally requiring an entitled subscription when billing is on."""
+    from app.services import billing
+
+    if billing.enabled() and not billing.is_entitled(user):
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="subscription_required",
         )
     return user

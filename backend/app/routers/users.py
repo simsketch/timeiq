@@ -13,7 +13,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
-from app.auth import get_current_user, get_current_user_clerk_id
+from app.auth import get_current_user_clerk_id
+from app.auth import get_current_user_unrestricted as get_current_user
 from app.config import settings
 from app.database import get_db
 from app.models.user import User

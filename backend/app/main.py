@@ -24,6 +24,7 @@ from app.models import (  # noqa: F401
 )
 from app.routers import (
     availability,
+    billing,
     bookings,
     calendars,
     clients,
@@ -72,6 +73,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(webhooks.router)
+app.include_router(billing.router)
 app.include_router(users.router)
 app.include_router(event_types.router)
 app.include_router(availability.router)
