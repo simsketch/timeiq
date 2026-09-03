@@ -54,13 +54,21 @@ def upsert_env(values: dict[str, str]) -> None:
     ENV_PATH.write_text("\n".join(out) + "\n")
 
 
+# Stripe Tax code for SaaS (business use). Required when Managed Payments or
+# Stripe Tax is enabled; harmless otherwise.
+TAX_CODE = "txcd_10103001"
+
+
 def find_or_create_product() -> stripe.Product:
     for p in stripe.Product.list(active=True, limit=100).auto_paging_iter():
         if p.name == "TimeIQ":
+            if p.tax_code != TAX_CODE:
+                p = stripe.Product.modify(p.id, tax_code=TAX_CODE)
             return p
     return stripe.Product.create(
         name="TimeIQ",
         description="Scheduling, time tracking, and invoicing in one calm workspace.",
+        tax_code=TAX_CODE,
     )
 
 

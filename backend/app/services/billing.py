@@ -23,6 +23,13 @@ PLAN_STANDARD = "standard"
 _price_cache: dict[str, dict[str, Any]] = {}
 
 
+def _d(obj: Any) -> Any:
+    """Plain-dict view of a Stripe object (or pass through dicts, e.g. in tests)."""
+    if isinstance(obj, stripe.StripeObject):
+        return obj.to_dict()  # recursive in stripe-python >= 7
+    return obj
+
+
 def enabled() -> bool:
     return bool(settings.STRIPE_SECRET_KEY)
 
@@ -61,7 +68,7 @@ async def choose_price(db: AsyncSession) -> tuple[str, str]:
 def _price(price_id: str) -> dict[str, Any]:
     if price_id not in _price_cache:
         _init()
-        p = stripe.Price.retrieve(price_id)
+        p = _d(stripe.Price.retrieve(price_id))
         _price_cache[price_id] = {
             "cents": p["unit_amount"],
             "currency": p["currency"].upper(),
@@ -155,6 +162,7 @@ def _period_end(sub: Any) -> datetime | None:
 
 def apply_subscription(user: User, sub: Any) -> None:
     """Copy the relevant bits of a Stripe Subscription onto the user."""
+    sub = _d(sub)
     items = sub.get("items", {}).get("data", [])
     price_id = items[0]["price"]["id"] if items else None
     user.stripe_subscription_id = sub["id"]
@@ -168,7 +176,7 @@ def apply_subscription(user: User, sub: Any) -> None:
 async def confirm_checkout(user: User, session_id: str) -> None:
     """Apply the subscription from a completed Checkout Session right away."""
     _init()
-    session = stripe.checkout.Session.retrieve(session_id, expand=["subscription"])
+    session = _d(stripe.checkout.Session.retrieve(session_id, expand=["subscription"]))
     if session.get("client_reference_id") != str(user.id):
         raise ValueError("Checkout session does not belong to this user")
     sub = session.get("subscription")
@@ -179,8 +187,10 @@ async def confirm_checkout(user: User, session_id: str) -> None:
 
 async def handle_webhook(payload: bytes, sig_header: str | None) -> None:
     _init()
-    event = stripe.Webhook.construct_event(
-        payload, sig_header or "", settings.STRIPE_WEBHOOK_SECRET
+    event = _d(
+        stripe.Webhook.construct_event(
+            payload, sig_header or "", settings.STRIPE_WEBHOOK_SECRET
+        )
     )
     etype = event["type"]
     obj = event["data"]["object"]
@@ -206,7 +216,7 @@ async def handle_webhook(payload: bytes, sig_header: str | None) -> None:
         logger.info("Stripe event %s without subscription; ignoring", etype)
         return
 
-    sub = stripe.Subscription.retrieve(subscription_id)
+    sub = _d(stripe.Subscription.retrieve(subscription_id))
     async with async_session() as db:
         query = select(User)
         if user_id:
