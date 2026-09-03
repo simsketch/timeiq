@@ -12,13 +12,14 @@ import { apiFetch } from "@/lib/api";
 import { BillingStatus, PLAN_LABEL } from "@/lib/billing";
 
 function SuccessInner() {
-  const { getToken } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
   const params = useSearchParams();
   const sessionId = params.get("session_id");
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
     if (!sessionId) {
       setError("Missing checkout session");
       return;
@@ -37,7 +38,7 @@ function SuccessInner() {
         setError(e.message || "Could not confirm your subscription");
       }
     })();
-  }, [sessionId, getToken]);
+  }, [isLoaded, isSignedIn, sessionId, getToken]);
 
   return (
     <div className="relative min-h-screen flex items-center justify-center px-6">

@@ -18,7 +18,7 @@ const INCLUDED = [
 ];
 
 export function PricingCard({ compact = false }: { compact?: boolean }) {
-  const { isSignedIn, getToken } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [pricing, setPricing] = useState<PricingInfo | null>(null);
@@ -38,6 +38,7 @@ export function PricingCard({ compact = false }: { compact?: boolean }) {
 
   async function subscribe() {
     track("InitiateCheckout", { value: price / 100, currency });
+    if (!isLoaded) return;
     if (!isSignedIn) {
       router.push("/sign-up?redirect_url=/billing/checkout");
       return;

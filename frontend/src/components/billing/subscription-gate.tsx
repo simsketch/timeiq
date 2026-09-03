@@ -11,10 +11,11 @@ import { BillingStatus, fetchBillingStatus } from "@/lib/billing";
  * entitled, shows the paywall instead of the page.
  */
 export function SubscriptionGate({ children }: { children: React.ReactNode }) {
-  const { getToken } = useAuth();
+  const { isLoaded, getToken } = useAuth();
   const [status, setStatus] = useState<BillingStatus | null | "error">(null);
 
   useEffect(() => {
+    if (!isLoaded) return;
     let cancelled = false;
     (async () => {
       try {
@@ -29,7 +30,7 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [getToken]);
+  }, [isLoaded, getToken]);
 
   if (status === null) {
     return (
