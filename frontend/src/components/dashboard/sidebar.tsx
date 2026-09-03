@@ -10,6 +10,9 @@ import {
   CalendarDays,
   BookOpen,
   Settings,
+  Timer,
+  Users,
+  Receipt,
 } from "lucide-react";
 import { LogoIcon } from "@/components/logo";
 
@@ -19,6 +22,9 @@ const routes = [
   { label: "Availability", icon: Clock, href: "/availability" },
   { label: "Calendars", icon: CalendarDays, href: "/calendars" },
   { label: "Bookings", icon: BookOpen, href: "/bookings" },
+  { label: "Time", icon: Timer, href: "/time" },
+  { label: "Clients", icon: Users, href: "/clients" },
+  { label: "Invoices", icon: Receipt, href: "/invoices" },
   { label: "Settings", icon: Settings, href: "/settings" },
 ];
 
