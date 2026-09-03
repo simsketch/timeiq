@@ -21,7 +21,13 @@ import stripe  # noqa: E402
 
 from app.config import settings  # noqa: E402
 
-ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env.local"  # repo root, same file app.config loads
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
+# Write next to wherever the secret key lives: backend/.env.local if present, else repo root.
+ENV_PATH = (
+    _BACKEND_DIR / ".env.local"
+    if (_BACKEND_DIR / ".env.local").exists()
+    else _BACKEND_DIR.parent / ".env.local"
+)
 WEBHOOK_EVENTS = [
     "checkout.session.completed",
     "customer.subscription.created",
@@ -101,7 +107,7 @@ def main() -> None:
     args = ap.parse_args()
 
     if not settings.STRIPE_SECRET_KEY:
-        sys.exit("STRIPE_SECRET_KEY is not set (add it to the repo-root .env.local)")
+        sys.exit("STRIPE_SECRET_KEY is not set (add it to backend/.env.local)")
     stripe.api_key = settings.STRIPE_SECRET_KEY
     mode = "TEST" if settings.STRIPE_SECRET_KEY.startswith("sk_test") else "LIVE"
 

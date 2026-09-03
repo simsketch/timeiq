@@ -6,10 +6,16 @@ from functools import lru_cache
 
 from dotenv import load_dotenv
 
-# Load .env.local only when it exists (local dev); on Vercel env vars are injected directly
-_env_path = Path(__file__).resolve().parent.parent.parent / ".env.local"
-if _env_path.exists():
-    load_dotenv(_env_path)
+# Load .env.local files only when they exist (local dev); on Vercel env vars are
+# injected directly. The repo-root file is shared with the frontend; backend/.env.local
+# holds backend-only values and wins on conflicts.
+_backend_dir = Path(__file__).resolve().parent.parent
+for _env_path, _override in (
+    (_backend_dir.parent / ".env.local", False),
+    (_backend_dir / ".env.local", True),
+):
+    if _env_path.exists():
+        load_dotenv(_env_path, override=_override)
 
 
 class Settings:
@@ -26,7 +32,10 @@ class Settings:
     BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:8000")
     CRON_SECRET: str = os.getenv("CRON_SECRET", "")
     # Billing (Stripe). Leave STRIPE_SECRET_KEY empty to disable the paywall.
-    STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "")
+    # STRIPE_SECRET_KEY wins; *_TEST is a convenience for local dev files.
+    STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY") or os.getenv(
+        "STRIPE_SECRET_KEY_TEST", ""
+    )
     STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
     STRIPE_PRICE_FOUNDER: str = os.getenv("STRIPE_PRICE_FOUNDER", "")
     STRIPE_PRICE_STANDARD: str = os.getenv("STRIPE_PRICE_STANDARD", "")
