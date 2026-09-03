@@ -80,6 +80,7 @@ app.include_router(calendars.router)
 app.include_router(clients.router)
 app.include_router(time_entries.router)
 app.include_router(invoices.router)
+app.include_router(invoices.public_router)  # before public.router: see invoices.py
 app.include_router(google_auth.router)
 app.include_router(public.router)
 app.include_router(cron.router)

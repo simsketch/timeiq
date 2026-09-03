@@ -19,16 +19,22 @@ from app.models.user import User
 from app.routers.clients import get_owned_client
 from app.schemas.invoice import (
     InvoiceCreate,
+    InvoiceLineResponse,
     InvoicePreview,
     InvoiceResponse,
     InvoiceSummary,
     InvoiceUpdate,
+    PublicInvoiceResponse,
 )
 from app.services.email import send_invoice
 from app.services.invoice_pdf import build_invoice_pdf
 from app.services.invoicing import format_invoice_number, line_amount
 
 router = APIRouter(tags=["invoices"])
+
+# Token-addressed, unauthenticated routes. Registered in main.py ahead of the
+# generic public router so its /{username}/{event_slug} route can't shadow these.
+public_router = APIRouter(prefix="/api/public/invoices", tags=["public"])
 
 
 async def get_owned_invoice(
@@ -298,3 +304,47 @@ async def download_pdf(
 ):
     invoice = await get_owned_invoice(db, user, invoice_id)
     return pdf_response(invoice, user, "attachment")
+
+
+async def _public_invoice(token: str, db: AsyncSession) -> tuple[Invoice, User]:
+    result = await db.execute(
+        select(Invoice)
+        .options(selectinload(Invoice.lines), selectinload(Invoice.user))
+        .where(Invoice.public_token == token)
+    )
+    invoice = result.scalar_one_or_none()
+    if invoice is None or invoice.status == "void":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found"
+        )
+    return invoice, invoice.user
+
+
+@public_router.get("/{token}", response_model=PublicInvoiceResponse)
+async def public_invoice(token: str, db: AsyncSession = Depends(get_db)):
+    invoice, sender = await _public_invoice(token, db)
+    return PublicInvoiceResponse(
+        number=invoice.number,
+        status=invoice.status,
+        issue_date=invoice.issue_date,
+        due_date=invoice.due_date,
+        period_start=invoice.period_start,
+        period_end=invoice.period_end,
+        currency=invoice.currency,
+        hourly_rate=invoice.hourly_rate,
+        subtotal=invoice.subtotal,
+        client_name=invoice.client_name,
+        client_contact_name=invoice.client_contact_name,
+        client_billing_email=invoice.client_billing_email,
+        client_address=invoice.client_address,
+        notes=invoice.notes,
+        sender_name=sender.name or sender.email,
+        sender_email=sender.email,
+        lines=[InvoiceLineResponse.model_validate(l) for l in invoice.lines],
+    )
+
+
+@public_router.get("/{token}/pdf")
+async def public_invoice_pdf(token: str, db: AsyncSession = Depends(get_db)):
+    invoice, sender = await _public_invoice(token, db)
+    return pdf_response(invoice, sender, "inline")
