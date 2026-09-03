@@ -10,7 +10,7 @@ import {
   isToday,
   startOfWeek,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, Copy, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Copy, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -101,6 +101,9 @@ export default function TimePage() {
   const [addForm, setAddForm] = useState({ client_id: "", description: "" });
   const [savingCells, setSavingCells] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  // Inline row editing (client + task name)
+  const [editRowKey, setEditRowKey] = useState<string | null>(null);
+  const [rowEdit, setRowEdit] = useState({ client_id: "", description: "" });
 
   const load = useCallback(
     async (silent = false) => {
@@ -248,6 +251,63 @@ export default function TimePage() {
     setExtraRows((prev) => ({ ...prev, [wk]: [...(prev[wk] ?? []), row] }));
     setAddForm({ client_id: addForm.client_id, description: "" });
     setAddOpen(false);
+  }
+
+  function startRowEdit(row: Row) {
+    setEditRowKey(row.key);
+    setRowEdit({ client_id: row.client_id, description: row.description });
+  }
+
+  async function saveRowEdit(row: Row) {
+    const client = clients.find((c) => c.id === rowEdit.client_id);
+    const description = rowEdit.description.trim();
+    if (!client || !description) return;
+    const changed = client.id !== row.client_id || description !== row.description;
+    if (!changed) {
+      setEditRowKey(null);
+      return;
+    }
+    const newKey = rowKey(client.id, description);
+    if (rows.some((r) => r.key === newKey && r.key !== row.key)) {
+      toast({ title: "That client and task already have a row this week", variant: "destructive" });
+      return;
+    }
+    const rowEntries = entries.filter((e) => rowKey(e.client_id, e.description) === row.key);
+    const unbilled = rowEntries.filter((e) => !e.invoice_id);
+    const billed = rowEntries.length - unbilled.length;
+    setBusy(true);
+    try {
+      const token = await getToken();
+      const headers = authHeaders(token);
+      await Promise.all(
+        unbilled.map((e) =>
+          apiFetch(`/api/time-entries/${e.id}`, {
+            method: "PATCH",
+            headers,
+            body: JSON.stringify({ client_id: client.id, description }),
+          })
+        )
+      );
+      const wk = iso(weekStart);
+      setExtraRows((prev) => ({
+        ...prev,
+        [wk]: (prev[wk] ?? []).map((r) =>
+          r.key === row.key ? { key: newKey, client_id: client.id, client_name: client.name, description } : r
+        ),
+      }));
+      if (billed > 0) {
+        toast({
+          title: `Updated ${unbilled.length} entr${unbilled.length === 1 ? "y" : "ies"}`,
+          description: `${billed} billed entr${billed === 1 ? "y" : "ies"} kept the original task because it's on an invoice.`,
+        });
+      }
+      setEditRowKey(null);
+      await load(true);
+    } catch (e: any) {
+      toast({ title: "Update failed", description: e.message, variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function deleteRow(row: Row) {
@@ -415,9 +475,59 @@ export default function TimePage() {
                     </tr>
                   )}
                   {rows.map((row) => (
-                    <tr key={row.key} className="border-b border-border/60 last:border-0">
-                      <td className="px-4 py-2 font-medium truncate max-w-[14rem]">{row.client_name}</td>
-                      <td className="px-2 py-2 text-muted-foreground truncate max-w-[18rem]">{row.description}</td>
+                    <tr key={row.key} className="group border-b border-border/60 last:border-0">
+                      {editRowKey === row.key ? (
+                        <>
+                          <td className="px-3 py-1.5">
+                            <Select value={rowEdit.client_id} onValueChange={(v) => setRowEdit({ ...rowEdit, client_id: v })}>
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="Client" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {clients.map((c) => (
+                                  <SelectItem key={c.id} value={c.id}>
+                                    {c.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <div className="flex items-center gap-1">
+                              <Input
+                                autoFocus
+                                className="h-9"
+                                value={rowEdit.description}
+                                onChange={(e) => setRowEdit({ ...rowEdit, description: e.target.value })}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveRowEdit(row);
+                                  if (e.key === "Escape") setEditRowKey(null);
+                                }}
+                              />
+                              <Button size="icon" variant="ghost" aria-label="Save row" disabled={busy} onClick={() => saveRowEdit(row)}>
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" aria-label="Cancel" onClick={() => setEditRowKey(null)}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-4 py-2 font-medium truncate max-w-[14rem]">
+                            <button type="button" className="text-left hover:underline underline-offset-4" onClick={() => startRowEdit(row)}>
+                              {row.client_name}
+                            </button>
+                          </td>
+                          <td className="px-2 py-2 text-muted-foreground truncate max-w-[18rem]">
+                            <button type="button" className="inline-flex items-center gap-1.5 text-left hover:text-foreground" onClick={() => startRowEdit(row)}>
+                              {row.description}
+                              <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-60 transition-opacity" />
+                            </button>
+                          </td>
+                        </>
+                      )}
                       {days.map((d) => (
                         <td key={iso(d)} className="px-1 py-1.5 text-center">
                           <HourCell
