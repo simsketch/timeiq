@@ -97,14 +97,14 @@ export default function LandingPage() {
              HERO
              ================================================================ */}
         <section className="relative">
-          <div className="container mx-auto px-6 lg:px-10 pt-20 lg:pt-28 pb-24 lg:pb-36">
+          <div className="container mx-auto px-6 lg:px-10 pt-10 lg:pt-14 pb-24 lg:pb-36">
             <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
               <div className="lg:col-span-7 space-y-8">
                 <div className="reveal reveal-1">
                   <FounderPill href="#pricing" />
                 </div>
 
-                <h1 className="reveal reveal-2 text-[3.25rem] sm:text-6xl lg:text-[5.5rem] leading-[0.95] tracking-[-0.035em] text-balance">
+                <h1 className="reveal reveal-2 text-[3.25rem] sm:text-6xl lg:text-[5rem] leading-[0.95] tracking-[-0.035em] text-balance">
                   <span className="font-display">Schedule meetings</span>
                   <br />
                   <span className="font-display-italic text-aurora">
