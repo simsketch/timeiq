@@ -4,11 +4,9 @@ Goal: find out whether strangers will pay for TimeIQ. Budget $5/day for 14 days 
 
 ## Before launch (checklist)
 
-1. **Stripe live mode**
-   - Run `STRIPE_SECRET_KEY=sk_live_... .venv/bin/python scripts/stripe_setup.py` from `backend/` and copy the two price ids it prints.
-   - In Stripe Dashboard → Developers → Webhooks, add endpoint `https://<backend-domain>/api/webhooks/stripe` with events `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`. Copy the signing secret.
-   - In Stripe Dashboard → Settings → Billing → Customer portal, enable the portal and allow cancellation.
-   - Set on the **backend** Vercel project: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_FOUNDER`, `STRIPE_PRICE_STANDARD`, `FOUNDER_SEATS=100`. Redeploy.
+1. **Stripe live mode** (done 2026-09-03: live product, prices, webhook, and portal exist; price ids and seat count are on Vercel)
+   - Still needed on the **backend** Vercel project: `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`, added from your terminal, then redeploy.
+   - `scripts/stripe_setup.py` is idempotent; rerun it any time to repair the product, prices, webhook, or portal config.
    - Test once with a real card at $5, then refund yourself from the Stripe dashboard if you like. Confirm the success page says "You're in" and Settings shows the Billing card.
 2. **Meta Pixel**
    - Events Manager → Create pixel → copy the id. Set `NEXT_PUBLIC_META_PIXEL_ID` on the **frontend** Vercel project and redeploy.
@@ -16,11 +14,21 @@ Goal: find out whether strangers will pay for TimeIQ. Budget $5/day for 14 days 
 3. **Clerk production keys** are still dev keys in prod (see memory note). Swap them before spending money, since dev keys cap sign-ups and show a dev banner.
 4. Confirm the landing page loads fast on mobile. Most ad traffic is mobile.
 
+## What the market is doing (researched 2026-09-03)
+
+- **Calendly barely runs paid social.** Its growth came from the booking link itself (every invite is an ad), a freemium tier, and LinkedIn content, which drove about 60 percent of its referral traffic. There is no Calendly ad creative to copy, and matching an incumbent's hooks is a losing move anyway: mid-2026 Meta practitioners report that "hooks matching competitors get ignored, regardless of quality."
+- **The cheap end of the market sells on price shock.** TidyCal ($29 lifetime, 200k signups via AppSumo) and ZCal ($49 lifetime) win with a single number that sounds wrong. "$5 a year" belongs in that lane, so lead with the price and treat the feature list as support.
+- **What is scaling on Meta right now**: static images still carry 60 to 70 percent of conversions; the "322" test (3 creatives, 2 headlines, 2 primary texts, 12 combinations in one ad set) beats spreading budget across many ad sets; one primary text short (about 180 characters) and one long enough to need "see more"; hook shapes that keep working are "If you..." and "How to know if..."; listicle-style landing pages converted cheaper than product pages ($62 vs $85 per purchase in one account).
+- **Small-budget rules**: Meta needs about 50 conversion events or 7 days to leave the learning phase, and every edit resets it. Check on day 8, not day 2. Scale by at most 20 percent a day once cost per purchase is under target. Founders reporting $5/day tests describe it as enough for retargeting or a single-message test, not for broad prospecting, so keep exactly one ad set.
+- **Creative enhancement settings**: turn off Meta's text generation, enhanced CTA, and 3D animation; leave on visual touch-ups, relevant comments, and sitelinks.
+
+Sources: Foundation Inc and Sacra case studies on Calendly, Indie Hackers threads on $5/day SaaS tests, TidyCal and ZCal AppSumo listings, What Marketing Works July 2026 Meta report.
+
 ## Campaign structure
 
 - **Objective**: Sales (conversion), optimized for the `Purchase` event. If Meta refuses to optimize on Purchase because of low volume in week one, run week one on `InitiateCheckout`, then switch.
 - **Budget**: $5/day, campaign budget, 14 days. Do not touch it for the first 4 days; the algorithm needs the data.
-- **One ad set, three ads.** Let Meta pick the winner.
+- **One ad set, "322" ads**: one ad using the three creatives below with the two headlines and two primary texts listed for it, so Meta tests 12 combinations without splitting the budget. If Ads Manager forces a single ad, run the three ads below instead.
 - **Placements**: Advantage+ (automatic). Feeds and Reels will get most of it.
 - **Landing URL**: `https://<frontend-domain>/?utm_source=facebook&utm_medium=paid&utm_campaign=founder100&utm_content={{ad.name}}`
 
@@ -35,7 +43,9 @@ Pick one and keep it broad. Small budgets do badly with narrow targeting.
 
 ## Ads
 
-Use one static image or a 10 second screen recording of the timesheet turning into an invoice. Text on the creative: **"$5 a year. Yes, a year."** in the display font over the aurora background. Keep the logo small.
+Three static images (images, not a mix with video): (1) **"$5 a year. Yes, a year."** in the display font over the aurora background, (2) a clean screenshot of the timesheet grid with the invoice chip, (3) the pricing card cropped to "$5 / year · 100 of 100 spots left". Keep the logo small. Lead with the price everywhere; that is the one thing Calendly cannot say.
+
+Short primary text (for the 322 pairing): **If you book calls, log hours, and send invoices, you are paying three apps. TimeIQ does all three for $5 a year. First 100 people lock it in for life.**
 
 ### Ad 1: Price anchor
 
