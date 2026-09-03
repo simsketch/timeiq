@@ -15,7 +15,11 @@ from app.models import (  # noqa: F401
     Booking,
     CachedEvent,
     CalendarSource,
+    Client,
     EventType,
+    Invoice,
+    InvoiceLine,
+    TimeEntry,
     User,
 )
 from app.routers import (

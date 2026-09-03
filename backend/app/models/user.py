@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, String, Text
+from sqlalchemy import Boolean, DateTime, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -35,6 +35,9 @@ class User(Base):
     feed_obfuscate: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False
     )
+    next_invoice_number: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default="1"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -65,4 +68,10 @@ class User(Base):
         back_populates="host",
         cascade="all, delete-orphan",
         foreign_keys="Booking.host_user_id",
+    )
+    clients = relationship(
+        "Client", back_populates="user", cascade="all, delete-orphan"
+    )
+    invoices = relationship(
+        "Invoice", back_populates="user", cascade="all, delete-orphan"
     )
