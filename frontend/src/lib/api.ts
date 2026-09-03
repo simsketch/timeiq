@@ -29,6 +29,12 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: "Request failed" }));
 
+    // Subscription lapsed or missing: send them to pricing.
+    if (res.status === 402 && typeof window !== "undefined") {
+      window.location.href = "/pricing?reason=subscription";
+      throw new Error("Subscription required");
+    }
+
     // Retry once on "User not found" in case sync hasn't completed yet
     if (
       res.status === 404 &&

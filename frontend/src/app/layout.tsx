@@ -5,6 +5,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import Script from "next/script";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/toaster";
+import { MetaPixel } from "@/components/meta-pixel";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -51,6 +52,7 @@ export default function RootLayout({
         <body className="font-sans antialiased">
           {children}
           <Toaster />
+          <MetaPixel />
         </body>
       </html>
     </ClerkProvider>

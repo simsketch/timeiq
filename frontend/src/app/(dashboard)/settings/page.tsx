@@ -16,7 +16,9 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { apiFetch } from "@/lib/api";
-import { Copy, RefreshCw } from "lucide-react";
+import { Copy, RefreshCw, CreditCard } from "lucide-react";
+import Link from "next/link";
+import { BillingStatus, PLAN_LABEL, fetchBillingStatus, openPortal } from "@/lib/billing";
 import { ClockLoader } from "@/components/ui/clock-loader";
 
 interface UserSettings {
@@ -62,11 +64,34 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [feed, setFeed] = useState<FeedSettings | null>(null);
   const [feedBusy, setFeedBusy] = useState(false);
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [portalBusy, setPortalBusy] = useState(false);
 
   useEffect(() => {
     fetchSettings();
     fetchFeed();
+    fetchBilling();
   }, []);
+
+  async function fetchBilling() {
+    try {
+      const token = await getToken();
+      setBilling(await fetchBillingStatus(token));
+    } catch (error) {
+      console.error("Failed to fetch billing status:", error);
+    }
+  }
+
+  async function manageBilling() {
+    setPortalBusy(true);
+    try {
+      const token = await getToken();
+      window.location.href = await openPortal(token);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      setPortalBusy(false);
+    }
+  }
 
   async function fetchFeed() {
     try {
@@ -367,6 +392,59 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {billing?.enabled && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Billing</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="text-sm space-y-1">
+                <p>
+                  <span className="text-muted-foreground">Plan:</span>{" "}
+                  <span className="font-medium">
+                    {billing.status === "complimentary"
+                      ? "Complimentary"
+                      : billing.plan
+                      ? PLAN_LABEL[billing.plan]
+                      : "None"}
+                  </span>
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Status:</span>{" "}
+                  <span className="font-medium capitalize">{billing.status.replace("_", " ")}</span>
+                </p>
+                {billing.current_period_end && (
+                  <p>
+                    <span className="text-muted-foreground">
+                      {billing.status === "canceled" ? "Access until:" : "Renews:"}
+                    </span>{" "}
+                    <span className="font-medium">
+                      {new Date(billing.current_period_end).toLocaleDateString(undefined, {
+                        year: "numeric", month: "long", day: "numeric",
+                      })}
+                    </span>
+                  </p>
+                )}
+              </div>
+              {billing.has_customer ? (
+                <Button variant="outline" onClick={manageBilling} disabled={portalBusy}>
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  {portalBusy ? "Opening…" : "Manage billing"}
+                </Button>
+              ) : billing.status !== "complimentary" ? (
+                <Button asChild>
+                  <Link href="/pricing">Subscribe</Link>
+                </Button>
+              ) : null}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Invoices, payment method, and cancellation are handled in the Stripe billing portal.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

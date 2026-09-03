@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { LogoIcon } from "@/components/logo";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { PricingCard } from "@/components/billing/pricing-card";
 
 export default function LandingPage() {
   const calendarDays = [
@@ -65,6 +66,12 @@ export default function LandingPage() {
               className="hover:text-foreground transition-colors"
             >
               Invoicing
+            </a>
+            <a
+              href="#pricing"
+              className="hover:text-foreground transition-colors"
+            >
+              Pricing
             </a>
           </nav>
           <div className="flex items-center gap-2">
@@ -120,9 +127,9 @@ export default function LandingPage() {
                 </p>
 
                 <div className="reveal reveal-4 flex flex-col sm:flex-row gap-3">
-                  <Link href="/sign-up">
+                  <Link href="/sign-up?redirect_url=/billing/checkout">
                     <Button variant="aurora" size="xl">
-                      Start for free
+                      Get started for $5/year
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
@@ -136,7 +143,7 @@ export default function LandingPage() {
                 <div className="reveal reveal-5 flex items-center gap-5 pt-2 text-xs text-muted-foreground/80">
                   <span className="inline-flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
-                    No credit card
+                    $5/year founder price
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
@@ -144,7 +151,7 @@ export default function LandingPage() {
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
-                    Free forever plan
+                    Cancel anytime
                   </span>
                 </div>
               </div>
@@ -601,6 +608,30 @@ export default function LandingPage() {
         </section>
 
         {/* ================================================================
+             PRICING
+             ================================================================ */}
+        <section id="pricing" className="relative py-24 lg:py-36">
+          <div className="container mx-auto px-6 lg:px-10">
+            <div className="text-center max-w-2xl mx-auto mb-12">
+              <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
+                Pricing
+              </div>
+              <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
+                <span className="font-display">One plan.</span>{" "}
+                <span className="font-display-italic text-aurora">
+                  Stupid cheap.
+                </span>
+              </h2>
+              <p className="text-lg text-muted-foreground mt-6 text-pretty">
+                The first 100 subscribers lock in $5 a year for life. Everyone
+                after that pays $29. Still less than most tools charge a month.
+              </p>
+            </div>
+            <PricingCard />
+          </div>
+        </section>
+
+        {/* ================================================================
              CTA — dark glass panel over aurora
              ================================================================ */}
         <section className="py-24 lg:py-36">
@@ -616,11 +647,11 @@ export default function LandingPage() {
                 </h2>
                 <p className="text-lg text-white/70 mt-7 mb-10 leading-relaxed text-pretty">
                   Book meetings, log your hours, and send invoices from one
-                  calm workspace. Start today, free.
+                  calm workspace. Founder spots are limited.
                 </p>
-                <Link href="/sign-up">
+                <Link href="/sign-up?redirect_url=/billing/checkout">
                   <Button variant="aurora" size="xl">
-                    Get started free
+                    Claim your founder spot
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
