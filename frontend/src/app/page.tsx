@@ -12,6 +12,11 @@ import {
   Mail,
   Users,
   Phone,
+  Timer,
+  Receipt,
+  Sparkles,
+  BadgeCheck,
+  FileText,
 } from "lucide-react";
 import { LogoIcon } from "@/components/logo";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
@@ -54,6 +59,12 @@ export default function LandingPage() {
               className="hover:text-foreground transition-colors"
             >
               Features
+            </a>
+            <a
+              href="#invoicing"
+              className="hover:text-foreground transition-colors"
+            >
+              Invoicing
             </a>
           </nav>
           <div className="flex items-center gap-2">
@@ -103,8 +114,9 @@ export default function LandingPage() {
 
                 <p className="reveal reveal-3 text-lg lg:text-xl text-muted-foreground max-w-2xl leading-relaxed text-pretty">
                   Share your availability, let others book time with you
-                  instantly, and never play email tag again. TimeIQ makes
-                  scheduling feel like a breath of air.
+                  instantly, and never play email tag again. Then log your
+                  hours and send the invoice from the same place. TimeIQ makes
+                  scheduling and billing feel like a breath of air.
                 </p>
 
                 <div className="reveal reveal-4 flex flex-col sm:flex-row gap-3">
@@ -408,6 +420,187 @@ export default function LandingPage() {
         </section>
 
         {/* ================================================================
+             TIME & INVOICING
+             ================================================================ */}
+        <section id="invoicing" className="relative py-24 lg:py-36">
+          <div className="container mx-auto px-6 lg:px-10">
+            <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center mb-16 lg:mb-20">
+              <div className="lg:col-span-5 space-y-6">
+                <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+                  Time &amp; invoicing
+                </div>
+                <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
+                  <span className="font-display">Log the hours.</span>
+                  <br />
+                  <span className="font-display-italic text-aurora">
+                    Send the invoice.
+                  </span>
+                  <br />
+                  <span className="font-display">Get paid.</span>
+                </h2>
+                <p className="text-lg text-muted-foreground leading-relaxed text-pretty">
+                  Meetings are only half the job. TimeIQ gives you a weekly
+                  timesheet for the work in between, then turns those hours
+                  into a polished invoice with one click.
+                </p>
+                <ul className="space-y-2.5 text-sm text-foreground/80">
+                  {[
+                    "Weekly grid with per-day cells that save as you type",
+                    "Clients with their own rate, currency, and payment terms",
+                    "PDF invoices emailed with a shareable online copy",
+                    "Hours lock once billed, so invoices stay true",
+                  ].map((line) => (
+                    <li key={line} className="flex items-start gap-2.5">
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--aurora-1))]" />
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Timesheet mock */}
+              <div className="lg:col-span-7 relative mx-auto w-full">
+                <div className="hero-halo" aria-hidden />
+                <div className="relative">
+                  <div className="glass glass-chroma rounded-[1.75rem] p-5 sm:p-7">
+                    <div className="flex items-center justify-between mb-5">
+                      <div>
+                        <div className="text-sm font-medium">Timesheet</div>
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                          8 – 14 June
+                        </div>
+                      </div>
+                      <div className="glass rounded-full px-3 py-1 text-[10px] font-mono uppercase tracking-[0.15em] text-foreground/80">
+                        16h 30m this week
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto -mx-2 px-2">
+                      <table className="w-full min-w-[30rem] text-xs">
+                        <thead>
+                          <tr className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground/70">
+                            <th className="text-left font-medium pb-2 pr-2">Client · task</th>
+                            {["Mon", "Tue", "Wed", "Thu", "Fri"].map((d) => (
+                              <th key={d} className="font-medium pb-2 w-[3.6rem] text-center">
+                                {d}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            { client: "Acme Corp", task: "Platform support", cells: ["", "2h", "", "", ""] },
+                            { client: "Northwind", task: "Performance calc", cells: ["2h", "2h", "4h 30m", "3h", "2h"] },
+                            { client: "Project Canada", task: "Support", cells: ["1h", "", "", "", ""] },
+                          ].map((row) => (
+                            <tr key={row.task}>
+                              <td className="py-1.5 pr-2">
+                                <div className="font-medium truncate">{row.client}</div>
+                                <div className="text-muted-foreground truncate">{row.task}</div>
+                              </td>
+                              {row.cells.map((c, i) => (
+                                <td key={i} className="py-1.5 px-0.5">
+                                  <div
+                                    className={`h-8 rounded-lg flex items-center justify-center font-mono tabular-nums ${
+                                      c
+                                        ? "bg-foreground text-background shadow-[0_4px_14px_-2px_hsl(var(--foreground)/0.35)]"
+                                        : "glass text-transparent"
+                                    }`}
+                                  >
+                                    {c || "0"}
+                                  </div>
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="text-[10px] font-mono text-muted-foreground">
+                            <td className="pt-2 pr-2 uppercase tracking-wider">Total</td>
+                            {["3h", "4h", "4h 30m", "3h", "2h"].map((t, i) => (
+                              <td key={i} className="pt-2 text-center tabular-nums">
+                                {t}
+                              </td>
+                            ))}
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Invoice chip */}
+                  <div className="absolute -bottom-5 -right-3 sm:-right-6 hero-float-chip">
+                    <div className="glass rounded-xl px-4 py-2.5 flex items-center gap-2.5">
+                      <div className="h-6 w-6 rounded-full bg-[hsl(var(--aurora-1))] flex items-center justify-center shadow-[0_6px_18px_-4px_hsl(var(--aurora-1)/0.6)]">
+                        <Receipt className="h-3.5 w-3.5 text-white" />
+                      </div>
+                      <div className="text-xs">
+                        <div className="font-semibold">INV-0007 sent</div>
+                        <div className="text-muted-foreground text-[10px] font-mono uppercase tracking-wider">
+                          $2,475.00 · due in 30 days
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-6 auto-rows-[minmax(180px,auto)] gap-5">
+              <FeatureCard
+                className="col-span-6 lg:col-span-4"
+                icon={Timer}
+                color="var(--aurora-2)"
+                label="Timesheet"
+                title="A week at a glance."
+                description="Rows are a client and a task, columns are the days. Type hours straight into the grid, copy last week's rows forward, and see daily and weekly totals as you go."
+                large
+              />
+              <FeatureCard
+                className="col-span-6 md:col-span-3 lg:col-span-2"
+                icon={Users}
+                color="var(--aurora-1)"
+                label="Clients"
+                title="Rates that stick."
+                description="Each client carries its own hourly rate, currency, billing contact, and payment terms."
+              />
+              <FeatureCard
+                className="col-span-6 md:col-span-3 lg:col-span-2"
+                icon={Sparkles}
+                color="var(--aurora-3)"
+                label="Suggestions"
+                title="Pulled from your calendar."
+                description="Match keywords to synced events and import them as time entries in a click."
+              />
+              <FeatureCard
+                className="col-span-6 md:col-span-3 lg:col-span-2"
+                icon={BadgeCheck}
+                color="var(--aurora-4)"
+                label="Status"
+                title="Draft, sent, paid."
+                description="Track every invoice through its life and mark it paid when the money lands."
+              />
+              <FeatureCard
+                className="col-span-6 lg:col-span-2"
+                icon={FileText}
+                color="var(--aurora-5)"
+                label="Hosted copy"
+                title="A link that lasts."
+                description="Every invoice gets a private web page with a download button, so clients always have the latest copy."
+              />
+              <FeatureCard
+                className="col-span-6"
+                icon={Receipt}
+                color="var(--aurora-1)"
+                label="Invoices"
+                title="From hours to invoice in one click."
+                description="Pick a client and a period. TimeIQ gathers the unbilled hours, numbers the invoice, snapshots the rate, builds the PDF, and emails it to your client with a link to view it online."
+                large
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* ================================================================
              CTA — dark glass panel over aurora
              ================================================================ */}
         <section className="py-24 lg:py-36">
@@ -422,8 +615,8 @@ export default function LandingPage() {
                   </span>
                 </h2>
                 <p className="text-lg text-white/70 mt-7 mb-10 leading-relaxed text-pretty">
-                  Join thousands of professionals who save hours every week.
-                  Start scheduling smarter today.
+                  Book meetings, log your hours, and send invoices from one
+                  calm workspace. Start today, free.
                 </p>
                 <Link href="/sign-up">
                   <Button variant="aurora" size="xl">
