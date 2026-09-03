@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { cn } from "@/lib/utils";
 
 interface LogoIconProps {
@@ -5,6 +6,12 @@ interface LogoIconProps {
 }
 
 export function LogoIcon({ className }: LogoIconProps) {
+  // Unique gradient ids per instance. The icon renders several times per page
+  // (mobile nav, drawer, sidebar) and a shared id would resolve to whichever
+  // instance comes first in the DOM, which may be display:none and then the
+  // gradients don't paint.
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const id = (name: string) => `${name}-${uid}`;
   return (
     <svg
       viewBox="0 0 40 40"
@@ -14,7 +21,7 @@ export function LogoIcon({ className }: LogoIconProps) {
     >
       <defs>
         <linearGradient
-          id="logo-bg"
+          id={id("logo-bg")}
           x1="2"
           y1="2"
           x2="38"
@@ -26,7 +33,7 @@ export function LogoIcon({ className }: LogoIconProps) {
           <stop offset="100%" stopColor="hsl(192 90% 58%)" />
         </linearGradient>
         <linearGradient
-          id="logo-shine"
+          id={id("logo-shine")}
           x1="4"
           y1="4"
           x2="22"
@@ -36,12 +43,12 @@ export function LogoIcon({ className }: LogoIconProps) {
           <stop offset="0%" stopColor="white" stopOpacity="0.45" />
           <stop offset="100%" stopColor="white" stopOpacity="0" />
         </linearGradient>
-        <radialGradient id="logo-inner" cx="0.5" cy="0.35" r="0.65">
+        <radialGradient id={id("logo-inner")} cx="0.5" cy="0.35" r="0.65">
           <stop offset="0%" stopColor="white" stopOpacity="0.28" />
           <stop offset="100%" stopColor="white" stopOpacity="0" />
         </radialGradient>
         <linearGradient
-          id="logo-face"
+          id={id("logo-face")}
           x1="12"
           y1="10"
           x2="28"
@@ -54,11 +61,11 @@ export function LogoIcon({ className }: LogoIconProps) {
       </defs>
 
       {/* Base aurora rounded square */}
-      <rect x="2" y="2" width="36" height="36" rx="11" fill="url(#logo-bg)" />
+      <rect x="2" y="2" width="36" height="36" rx="11" fill={`url(#${id("logo-bg")})`} />
       {/* Top-left specular shine */}
-      <rect x="2" y="2" width="36" height="36" rx="11" fill="url(#logo-shine)" />
+      <rect x="2" y="2" width="36" height="36" rx="11" fill={`url(#${id("logo-shine")})`} />
       {/* Ambient inner glow */}
-      <rect x="2" y="2" width="36" height="36" rx="11" fill="url(#logo-inner)" />
+      <rect x="2" y="2" width="36" height="36" rx="11" fill={`url(#${id("logo-inner")})`} />
       {/* Thin top highlight */}
       <path
         d="M11 3.5 H29 a7.5 7.5 0 0 1 7.5 7.5"
@@ -70,7 +77,7 @@ export function LogoIcon({ className }: LogoIconProps) {
       />
 
       {/* Clock face (glass disc) */}
-      <circle cx="20" cy="20.5" r="9.5" fill="url(#logo-face)" />
+      <circle cx="20" cy="20.5" r="9.5" fill={`url(#${id("logo-face")})`} />
       <circle
         cx="20"
         cy="20.5"
