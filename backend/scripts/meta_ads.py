@@ -71,6 +71,37 @@ CREATIVES = [
         ),
         "description": "Booking pages, timesheets, PDF invoices.",
     },
+    # AI-generated style (gpt-image-2), same three angles, for a creative-style A/B.
+    {
+        "name": "D-desk-ai",
+        "image": CREATIVES_DIR / "ad-D-desk-1080.png",
+        "headline": "Scheduling, timesheets, and invoices. $5/year.",
+        "body": (
+            "If you book calls, log hours, and send invoices, you are paying three apps. "
+            "TimeIQ does all three for $5 a year. First 100 people lock it in for life."
+        ),
+        "description": "Founding member price, locked forever. Cancel anytime.",
+    },
+    {
+        "name": "E-three-apps-ai",
+        "image": CREATIVES_DIR / "ad-E-three-apps-1080.png",
+        "headline": "One app. $5 a year.",
+        "body": (
+            "Calendly for booking. Toggl for hours. FreshBooks for invoices. Or one calm app "
+            "that does all three for $5 a year."
+        ),
+        "description": "Scheduling, timesheets, invoices. Cancel anytime.",
+    },
+    {
+        "name": "F-founder-ai",
+        "image": CREATIVES_DIR / "ad-F-founder-1080.png",
+        "headline": "100 founder spots. $5 a year.",
+        "body": (
+            "We priced our scheduling + invoicing app at $5 a year for the first 100 people. "
+            "Not a typo. We want users, not a spreadsheet of trials."
+        ),
+        "description": "Founder price locked for life.",
+    },
 ]
 
 TARGETING = {
