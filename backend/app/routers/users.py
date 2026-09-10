@@ -6,8 +6,12 @@ import secrets
 import uuid
 from datetime import datetime, timezone
 
+import csv
+import io
+import zipfile
+
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -305,3 +309,95 @@ async def regenerate_feed_token(
         webcal_url=webcal_url,
         obfuscate=user.feed_obfuscate,
     )
+
+
+# ---------------------------------------------------------------------------
+# Data export and account deletion (promised in the privacy policy)
+# ---------------------------------------------------------------------------
+
+
+def _csv(rows: list[dict]) -> str:
+    buf = io.StringIO()
+    if rows:
+        w = csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+    return buf.getvalue()
+
+
+@router.get("/api/me/export")
+async def export_my_data(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Everything the user created, as a zip of CSVs plus a profile.json."""
+    import json
+
+    from app.models.client import Client
+    from app.models.invoice import Invoice, InvoiceLine
+    from app.models.time_entry import TimeEntry
+
+    clients = (await db.execute(select(Client).where(Client.user_id == user.id).order_by(Client.name))).scalars().all()
+    client_name = {c.id: c.name for c in clients}
+    entries = (await db.execute(select(TimeEntry).where(TimeEntry.user_id == user.id).order_by(TimeEntry.entry_date))).scalars().all()
+    invoices = (await db.execute(select(Invoice).where(Invoice.user_id == user.id).order_by(Invoice.created_at))).scalars().all()
+    inv_number = {i.id: i.number for i in invoices}
+    lines = (await db.execute(select(InvoiceLine).where(InvoiceLine.invoice_id.in_([i.id for i in invoices])).order_by(InvoiceLine.line_date))).scalars().all() if invoices else []
+    bookings = (await db.execute(select(Booking).where(Booking.host_user_id == user.id).order_by(Booking.starts_at))).scalars().all()
+    event_types = (await db.execute(select(EventType).where(EventType.user_id == user.id))).scalars().all()
+    et_name = {e.id: e.name for e in event_types}
+
+    files = {
+        "profile.json": json.dumps({"username": user.username, "email": user.email, "name": user.name, "timezone": user.timezone, "exported_at": datetime.now(timezone.utc).isoformat()}, indent=2),
+        "clients.csv": _csv([{"name": c.name, "contact_name": c.contact_name or "", "billing_email": c.billing_email or "", "address": c.address or "", "hourly_rate": str(c.hourly_rate), "currency": c.currency, "payment_terms_days": c.payment_terms_days} for c in clients]),
+        "time_entries.csv": _csv([{"date": e.entry_date.isoformat(), "client": client_name.get(e.client_id, ""), "hours": str(e.hours), "description": e.description, "invoice": inv_number.get(e.invoice_id, "") if e.invoice_id else ""} for e in entries]),
+        "invoices.csv": _csv([{"number": i.number, "client": i.client_name, "status": i.status, "issue_date": i.issue_date.isoformat(), "due_date": i.due_date.isoformat(), "period_start": i.period_start.isoformat(), "period_end": i.period_end.isoformat(), "currency": i.currency, "subtotal": str(i.subtotal), "sent_at": i.sent_at.isoformat() if i.sent_at else "", "paid_at": i.paid_at.isoformat() if i.paid_at else ""} for i in invoices]),
+        "invoice_lines.csv": _csv([{"invoice": inv_number.get(l.invoice_id, ""), "date": l.line_date.isoformat(), "description": l.description, "hours": str(l.hours), "rate": str(l.rate), "amount": str(l.amount)} for l in lines]),
+        "bookings.csv": _csv([{"event_type": et_name.get(b.event_type_id, ""), "visitor_name": b.visitor_name, "visitor_email": b.visitor_email, "starts_at": b.starts_at.isoformat(), "ends_at": b.ends_at.isoformat(), "timezone": b.timezone, "status": b.status, "company": b.visitor_company or "", "notes": b.visitor_notes or ""} for b in bookings]),
+    }
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for name, content in files.items():
+            z.writestr(name, content)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="timeiq-export-{stamp}.zip"'},
+    )
+
+
+@router.delete("/api/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_my_account(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cancel billing, remove the Clerk user, and delete every row we hold.
+
+    Order matters: Stripe first (so no renewal fires), then Clerk (so the
+    session dies), then our rows (cascade). If Clerk deletion fails we stop
+    before touching our data so the account stays consistent.
+    """
+    from app.services import billing
+
+    if billing.enabled() and user.stripe_subscription_id and user.subscription_status in billing.PAID_STATUSES:
+        try:
+            import stripe
+
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            stripe.Subscription.cancel(user.stripe_subscription_id)
+        except Exception as exc:  # keep going; a dangling test/live sub is recoverable in Stripe
+            logger.error("Stripe cancel during account deletion failed for %s: %s", user.email, exc)
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        resp = await client.delete(
+            f"https://api.clerk.com/v1/users/{user.clerk_id}",
+            headers={"Authorization": f"Bearer {settings.CLERK_SECRET_KEY}"},
+        )
+    if resp.status_code not in (200, 204, 404):
+        logger.error("Clerk delete failed for %s: %s %s", user.email, resp.status_code, resp.text[:200])
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Could not remove sign-in account")
+
+    await db.delete(user)
+    await db.flush()
+    logger.info("Deleted account %s", user.email)

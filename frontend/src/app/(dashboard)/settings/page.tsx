@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useAuth, useUser, useClerk } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { apiFetch } from "@/lib/api";
-import { Copy, RefreshCw, CreditCard } from "lucide-react";
+import { Copy, RefreshCw, CreditCard, Download, Trash2 } from "lucide-react";
+import { API_BASE } from "@/lib/invoicing";
 import Link from "next/link";
 import { BillingStatus, PLAN_LABEL, fetchBillingStatus, openPortal } from "@/lib/billing";
 import { ClockLoader } from "@/components/ui/clock-loader";
@@ -54,7 +56,46 @@ const TIMEZONES = [
 export default function SettingsPage() {
   const { getToken } = useAuth();
   const { user } = useUser();
+  const { signOut } = useClerk();
+  const router = useRouter();
   const { toast } = useToast();
+  const [exporting, setExporting] = useState(false);
+  const [deleteText, setDeleteText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  async function exportData() {
+    setExporting(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/api/me/export`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Export failed");
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = res.headers.get("content-disposition")?.match(/filename="([^"]+)"/)?.[1] ?? "timeiq-export.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast({ title: "Export failed", description: error.message, variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function deleteAccount() {
+    if (deleteText !== "DELETE") return;
+    if (!confirm("This permanently deletes your account, bookings, time entries, clients, and invoices. Continue?")) return;
+    setDeleting(true);
+    try {
+      const token = await getToken();
+      await apiFetch("/api/me", { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      await signOut();
+      router.push("/");
+    } catch (error: any) {
+      toast({ title: "Could not delete account", description: error.message, variant: "destructive" });
+      setDeleting(false);
+    }
+  }
   const [settings, setSettings] = useState<UserSettings>({
     name: "",
     username: "",
@@ -445,6 +486,44 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Your data</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground max-w-md">
+              Download everything you have created as a zip of CSV files: clients, time entries, invoices, invoice lines, and bookings.
+            </p>
+            <Button variant="outline" onClick={exportData} disabled={exporting}>
+              <Download className="h-4 w-4 mr-2" />
+              {exporting ? "Preparing…" : "Export data"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-destructive/30">
+        <CardHeader>
+          <CardTitle className="text-destructive">Delete account</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground max-w-md">
+            Removes your sign-in, cancels any subscription, and permanently deletes your bookings, time entries, clients, and invoices. Export first if you want a copy.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="delete-confirm">Type DELETE to confirm</Label>
+              <Input id="delete-confirm" value={deleteText} onChange={(e) => setDeleteText(e.target.value)} className="w-48" />
+            </div>
+            <Button variant="destructive" onClick={deleteAccount} disabled={deleting || deleteText !== "DELETE"}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              {deleting ? "Deleting…" : "Delete my account"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
