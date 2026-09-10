@@ -14,6 +14,8 @@ import { format } from "date-fns";
 import Link from "next/link";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
+import { MoneyStats, fmtMoney } from "@/lib/invoicing";
+import { Timer, Receipt, Wallet, BadgeCheck } from "lucide-react";
 
 interface Booking {
   id: number;
@@ -41,6 +43,7 @@ export default function DashboardPage() {
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [money, setMoney] = useState<MoneyStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -49,12 +52,14 @@ export default function DashboardPage() {
       try {
         const token = await getToken();
         const headers = { Authorization: `Bearer ${token}` };
-        const [statsData, bookingsData, profileData] = await Promise.all([
+        const [statsData, bookingsData, profileData, moneyData] = await Promise.all([
           apiFetch<Stats>("/api/dashboard/stats", { headers }),
           apiFetch<Booking[]>("/api/bookings?status=confirmed", { headers }),
           apiFetch<UserProfile>("/api/me", { headers }),
+          apiFetch<MoneyStats>("/api/dashboard/money", { headers }).catch(() => null),
         ]);
         setStats(statsData);
+        setMoney(moneyData);
 
         const now = new Date();
         const upcoming = bookingsData.filter(b => new Date(b.starts_at) >= now);
@@ -155,6 +160,59 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Money grid */}
+      {money && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            {
+              label: "Hours this week",
+              value: `${money.hours_this_week.toFixed(1)}h`,
+              sub: money.weekly_hours_target ? `of ${money.weekly_hours_target}h target` : "",
+              icon: Timer,
+              href: "/time",
+              tone: "text-[hsl(var(--aurora-2))] bg-[hsl(var(--aurora-2)/0.12)]",
+            },
+            {
+              label: "Unbilled",
+              value: fmtMoney(money.unbilled_amount, money.currency),
+              sub: "ready to invoice",
+              icon: Wallet,
+              href: "/invoices",
+              tone: "text-[hsl(var(--aurora-1))] bg-[hsl(var(--aurora-1)/0.12)]",
+            },
+            {
+              label: "Outstanding",
+              value: fmtMoney(money.outstanding_amount, money.currency),
+              sub: `${money.outstanding_count} sent invoice${money.outstanding_count === 1 ? "" : "s"}`,
+              icon: Receipt,
+              href: "/invoices",
+              tone: "text-[hsl(var(--aurora-5))] bg-[hsl(var(--aurora-5)/0.12)]",
+            },
+            {
+              label: "Paid this month",
+              value: fmtMoney(money.paid_this_month, money.currency),
+              sub: format(new Date(), "MMMM"),
+              icon: BadgeCheck,
+              href: "/invoices",
+              tone: "text-[hsl(var(--aurora-4))] bg-[hsl(var(--aurora-4)/0.12)]",
+            },
+          ].map((tile) => (
+            <Link key={tile.label} href={tile.href}>
+              <Card className="h-full hover:bg-muted/30 transition">
+                <CardContent className="p-5">
+                  <div className={`inline-flex h-9 w-9 items-center justify-center rounded-lg mb-3 ${tile.tone}`}>
+                    <tile.icon className="h-4 w-4" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">{tile.label}</p>
+                  <p className="text-2xl font-bold tracking-tight tabular-nums">{tile.value}</p>
+                  {tile.sub && <p className="text-xs text-muted-foreground mt-1">{tile.sub}</p>}
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
       )}
 
       {/* Stats grid */}

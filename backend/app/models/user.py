@@ -38,6 +38,9 @@ class User(Base):
     next_invoice_number: Mapped[int] = mapped_column(
         Integer, nullable=False, default=1, server_default="1"
     )
+    weekly_hours_target: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=40, server_default="40"
+    )
     # Billing
     stripe_customer_id: Mapped[str | None] = mapped_column(
         String(255), unique=True, nullable=True

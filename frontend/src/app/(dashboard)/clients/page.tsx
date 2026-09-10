@@ -17,6 +17,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { apiFetch } from "@/lib/api";
@@ -31,6 +33,7 @@ const EMPTY = {
   currency: "USD",
   payment_terms_days: "30",
   match_keywords: "",
+  auto_invoice_monthly: false,
 };
 
 export default function ClientsPage() {
@@ -69,6 +72,7 @@ export default function ClientsPage() {
       currency: c.currency,
       payment_terms_days: String(c.payment_terms_days),
       match_keywords: c.match_keywords ?? "",
+      auto_invoice_monthly: c.auto_invoice_monthly,
     });
     setOpen(true);
   }
@@ -92,6 +96,7 @@ export default function ClientsPage() {
         currency: form.currency.toUpperCase(),
         payment_terms_days: Number(form.payment_terms_days),
         match_keywords: form.match_keywords || null,
+        auto_invoice_monthly: form.auto_invoice_monthly,
       };
       await apiFetch(editingId ? `/api/clients/${editingId}` : "/api/clients", {
         method: editingId ? "PATCH" : "POST",
@@ -121,7 +126,7 @@ export default function ClientsPage() {
     }
   }
 
-  const field = (key: keyof typeof EMPTY) => ({
+  const field = (key: Exclude<keyof typeof EMPTY, "auto_invoice_monthly">) => ({
     value: form[key],
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm({ ...form, [key]: e.target.value }),
@@ -199,6 +204,19 @@ export default function ClientsPage() {
                     Comma-separated. Calendar events whose title contains one of these can be imported as time entries.
                   </p>
                 </div>
+                <div className="flex items-start justify-between gap-4 rounded-xl border p-3">
+                  <div>
+                    <Label htmlFor="auto_invoice">Auto-draft monthly invoice</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      On the 1st, last month&apos;s unbilled hours become a draft invoice for you to review and send.
+                    </p>
+                  </div>
+                  <Switch
+                    id="auto_invoice"
+                    checked={form.auto_invoice_monthly}
+                    onCheckedChange={(v) => setForm({ ...form, auto_invoice_monthly: v })}
+                  />
+                </div>
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={saving}>
@@ -234,6 +252,9 @@ export default function ClientsPage() {
                     <p className="text-sm text-muted-foreground mt-1">
                       Unbilled: {fmtHours(c.unbilled_hours)} · {fmtMoney(c.unbilled_amount, c.currency)}
                     </p>
+                    {c.auto_invoice_monthly && (
+                      <Badge variant="secondary" className="mt-2 font-normal">Auto-invoices monthly</Badge>
+                    )}
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <Button size="icon" variant="ghost" aria-label="Edit" onClick={() => startEdit(c)}>

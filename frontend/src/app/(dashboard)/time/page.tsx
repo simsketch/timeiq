@@ -38,7 +38,9 @@ import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
   Client,
+  MoneyStats,
   TimeEntry,
+  TimesheetRow,
   UnbilledSummary,
   authHeaders,
   fmtHours,
@@ -79,6 +81,7 @@ interface Row {
   client_id: string;
   client_name: string;
   description: string;
+  saved_id?: string; // present when the row is persisted server-side
 }
 
 export default function TimePage() {
@@ -95,8 +98,9 @@ export default function TimePage() {
     [weekStart, weekEnd]
   );
 
-  // Rows added this session that have no entries yet, keyed by week.
-  const [extraRows, setExtraRows] = useState<Record<string, Row[]>>({});
+  // Saved rows persist across weeks (server-side); entry-derived rows fill in the rest.
+  const [savedRows, setSavedRows] = useState<TimesheetRow[]>([]);
+  const [target, setTarget] = useState<number>(40);
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState({ client_id: "", description: "" });
   const [savingCells, setSavingCells] = useState<Set<string>>(new Set());
@@ -111,17 +115,21 @@ export default function TimePage() {
       try {
         const token = await getToken();
         const headers = authHeaders(token);
-        const [c, e, s] = await Promise.all([
+        const [c, e, s, r, m] = await Promise.all([
           apiFetch<Client[]>("/api/clients", { headers }),
           apiFetch<TimeEntry[]>(
             `/api/time-entries?start=${iso(weekStart)}&end=${iso(weekEnd)}`,
             { headers }
           ),
           apiFetch<UnbilledSummary[]>("/api/time-entries/summary", { headers }),
+          apiFetch<TimesheetRow[]>("/api/timesheet-rows", { headers }),
+          apiFetch<MoneyStats>("/api/dashboard/money", { headers }).catch(() => null),
         ]);
         setClients(c);
         setEntries(e);
         setSummary(s);
+        setSavedRows(r);
+        if (m) setTarget(m.weekly_hours_target);
       } catch (e: any) {
         toast({ title: "Failed to load", description: e.message, variant: "destructive" });
       } finally {
@@ -135,29 +143,25 @@ export default function TimePage() {
     load();
   }, [load]);
 
-  // Build grid rows from this week's entries plus any locally added rows.
+  // Grid rows: saved rows first, then any client+task that has entries this week.
   const rows = useMemo<Row[]>(() => {
     const map = new Map<string, Row>();
+    for (const r of savedRows) {
+      const key = rowKey(r.client_id, r.description);
+      map.set(key, { key, client_id: r.client_id, client_name: r.client_name, description: r.description, saved_id: r.id });
+    }
     for (const e of entries) {
       const key = rowKey(e.client_id, e.description);
       if (!map.has(key)) {
-        map.set(key, {
-          key,
-          client_id: e.client_id,
-          client_name: e.client_name,
-          description: e.description,
-        });
+        map.set(key, { key, client_id: e.client_id, client_name: e.client_name, description: e.description });
       }
-    }
-    for (const r of extraRows[iso(weekStart)] ?? []) {
-      if (!map.has(r.key)) map.set(r.key, r);
     }
     return [...map.values()].sort(
       (a, b) =>
         a.client_name.localeCompare(b.client_name) ||
         a.description.localeCompare(b.description)
     );
-  }, [entries, extraRows, weekStart]);
+  }, [entries, savedRows]);
 
   const cellEntries = useMemo(() => {
     const m: Record<string, TimeEntry[]> = {};
@@ -236,21 +240,27 @@ export default function TimePage() {
     }
   }
 
-  function addRow(e: React.FormEvent) {
+  async function addRow(e: React.FormEvent) {
     e.preventDefault();
     const client = clients.find((c) => c.id === addForm.client_id);
     const description = addForm.description.trim();
     if (!client || !description) return;
-    const row: Row = {
-      key: rowKey(client.id, description),
-      client_id: client.id,
-      client_name: client.name,
-      description,
-    };
-    const wk = iso(weekStart);
-    setExtraRows((prev) => ({ ...prev, [wk]: [...(prev[wk] ?? []), row] }));
-    setAddForm({ client_id: addForm.client_id, description: "" });
-    setAddOpen(false);
+    setBusy(true);
+    try {
+      const token = await getToken();
+      const created = await apiFetch<TimesheetRow>("/api/timesheet-rows", {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({ client_id: client.id, description }),
+      });
+      setSavedRows((prev) => (prev.some((r) => r.id === created.id) ? prev : [...prev, created]));
+      setAddForm({ client_id: addForm.client_id, description: "" });
+      setAddOpen(false);
+    } catch (err: any) {
+      toast({ title: "Could not add row", description: err.message, variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
   }
 
   function startRowEdit(row: Row) {
@@ -288,13 +298,14 @@ export default function TimePage() {
           })
         )
       );
-      const wk = iso(weekStart);
-      setExtraRows((prev) => ({
-        ...prev,
-        [wk]: (prev[wk] ?? []).map((r) =>
-          r.key === row.key ? { key: newKey, client_id: client.id, client_name: client.name, description } : r
-        ),
-      }));
+      if (row.saved_id) {
+        const updated = await apiFetch<TimesheetRow>(`/api/timesheet-rows/${row.saved_id}`, {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({ client_id: client.id, description }),
+        });
+        setSavedRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      }
       if (billed > 0) {
         toast({
           title: `Updated ${unbilled.length} entr${unbilled.length === 1 ? "y" : "ies"}`,
@@ -313,12 +324,12 @@ export default function TimePage() {
   async function deleteRow(row: Row) {
     const rowEntries = entries.filter((e) => rowKey(e.client_id, e.description) === row.key);
     const unbilled = rowEntries.filter((e) => !e.invoice_id);
-    if (rowEntries.length === 0) {
-      const wk = iso(weekStart);
-      setExtraRows((prev) => ({ ...prev, [wk]: (prev[wk] ?? []).filter((r) => r.key !== row.key) }));
-      return;
-    }
-    if (!confirm(`Remove ${unbilled.length} unbilled entr${unbilled.length === 1 ? "y" : "ies"} for "${row.description}" this week?`)) return;
+    const msg = unbilled.length
+      ? `Remove this row and its ${unbilled.length} unbilled entr${unbilled.length === 1 ? "y" : "ies"} this week? It will stop appearing in future weeks.`
+      : row.saved_id
+      ? `Remove "${row.description}" from your timesheet? It will stop appearing in future weeks.`
+      : null;
+    if (msg && !confirm(msg)) return;
     setBusy(true);
     try {
       const token = await getToken();
@@ -326,6 +337,10 @@ export default function TimePage() {
       await Promise.all(
         unbilled.map((e) => apiFetch(`/api/time-entries/${e.id}`, { method: "DELETE", headers }))
       );
+      if (row.saved_id) {
+        await apiFetch(`/api/timesheet-rows/${row.saved_id}`, { method: "DELETE", headers });
+        setSavedRows((prev) => prev.filter((r) => r.id !== row.saved_id));
+      }
       await load(true);
     } catch (e: any) {
       toast({ title: "Delete failed", description: e.message, variant: "destructive" });
@@ -345,15 +360,19 @@ export default function TimePage() {
         { headers: authHeaders(token) }
       );
       const seen = new Set(rows.map((r) => r.key));
-      const added: Row[] = [];
+      const added: TimesheetRow[] = [];
       for (const e of prev) {
         const key = rowKey(e.client_id, e.description);
         if (seen.has(key)) continue;
         seen.add(key);
-        added.push({ key, client_id: e.client_id, client_name: e.client_name, description: e.description });
+        const created = await apiFetch<TimesheetRow>("/api/timesheet-rows", {
+          method: "POST",
+          headers: authHeaders(token),
+          body: JSON.stringify({ client_id: e.client_id, description: e.description }),
+        });
+        added.push(created);
       }
-      const wk = iso(weekStart);
-      setExtraRows((p) => ({ ...p, [wk]: [...(p[wk] ?? []), ...added] }));
+      setSavedRows((p) => [...p, ...added.filter((a) => !p.some((r) => r.id === a.id))]);
       toast({
         title: added.length
           ? `Copied ${added.length} row${added.length === 1 ? "" : "s"} from last week`
@@ -470,7 +489,7 @@ export default function TimePage() {
                   {rows.length === 0 && (
                     <tr>
                       <td colSpan={days.length + 3} className="px-4 py-10 text-center text-muted-foreground">
-                        No rows this week. Add a row or copy last week to get started.
+                        No rows yet. Add a row once and it stays on your timesheet every week.
                       </td>
                     </tr>
                   )}
@@ -550,7 +569,20 @@ export default function TimePage() {
                 <tfoot>
                   <tr className="bg-muted/40 font-semibold">
                     <td className="px-4 py-3" colSpan={2}>
-                      Timesheet total: {fmtHm(weekTotal) || "0h"}
+                      <div className="flex items-center gap-3">
+                        <span>
+                          Timesheet total: {fmtHm(weekTotal) || "0h"}
+                          {target > 0 && <span className="text-muted-foreground font-normal"> / {target}h</span>}
+                        </span>
+                        {target > 0 && (
+                          <span className="h-1.5 w-28 rounded-full bg-foreground/[0.08] overflow-hidden" aria-hidden>
+                            <span
+                              className="block h-full rounded-full bg-[linear-gradient(90deg,hsl(var(--aurora-5)),hsl(var(--aurora-1)),hsl(var(--aurora-4)))]"
+                              style={{ width: `${Math.min(100, (weekTotal / target) * 100)}%` }}
+                            />
+                          </span>
+                        )}
+                      </div>
                     </td>
                     {dayTotals.map((t, i) => (
                       <td key={i} className="px-1 py-3 text-center tabular-nums">

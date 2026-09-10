@@ -20,6 +20,7 @@ from app.models import (  # noqa: F401
     Invoice,
     InvoiceLine,
     TimeEntry,
+    TimesheetRow,
     User,
 )
 from app.routers import (
@@ -34,6 +35,7 @@ from app.routers import (
     invoices,
     public,
     time_entries,
+    timesheet_rows,
     users,
     webhooks,
 )
@@ -81,6 +83,7 @@ app.include_router(bookings.router)
 app.include_router(calendars.router)
 app.include_router(clients.router)
 app.include_router(time_entries.router)
+app.include_router(timesheet_rows.router)
 app.include_router(invoices.router)
 app.include_router(invoices.public_router)  # before public.router: see invoices.py
 app.include_router(google_auth.router)

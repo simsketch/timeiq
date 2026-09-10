@@ -27,6 +27,7 @@ interface UserSettings {
   name: string;
   username: string;
   timezone: string;
+  weekly_hours_target: number;
 }
 
 interface FeedSettings {
@@ -100,6 +101,7 @@ export default function SettingsPage() {
     name: "",
     username: "",
     timezone: "America/New_York",
+    weekly_hours_target: 40,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -222,6 +224,7 @@ export default function SettingsPage() {
         name: user?.fullName || "",
         username: user?.username || user?.id || "",
         timezone: "America/New_York",
+        weekly_hours_target: 40,
       });
     } finally {
       setLoading(false);
@@ -359,6 +362,19 @@ export default function SettingsPage() {
             </p>
           </CardContent>
         </Card>
+
+        <div className="space-y-2 max-w-xs">
+          <Label htmlFor="weekly_hours_target">Weekly hours target</Label>
+          <Input
+            id="weekly_hours_target"
+            type="number"
+            min={0}
+            max={168}
+            value={settings.weekly_hours_target}
+            onChange={(e) => setSettings({ ...settings, weekly_hours_target: Number(e.target.value) })}
+          />
+          <p className="text-xs text-muted-foreground">Shown on the timesheet as progress for the week.</p>
+        </div>
 
         <Button type="submit" disabled={saving}>
           {saving ? "Saving..." : "Save Settings"}

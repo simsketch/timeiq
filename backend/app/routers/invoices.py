@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import secrets
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -13,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from app.auth import get_current_user
 from app.config import settings
 from app.database import get_db
-from app.models.invoice import Invoice, InvoiceLine
+from app.models.invoice import Invoice
 from app.models.time_entry import TimeEntry
 from app.models.user import User
 from app.routers.clients import get_owned_client
@@ -28,7 +27,8 @@ from app.schemas.invoice import (
 )
 from app.services.email import send_invoice
 from app.services.invoice_pdf import build_invoice_pdf
-from app.services.invoicing import format_invoice_number, line_amount
+from app.services.invoicing import line_amount
+from app.services.invoicing_ops import create_invoice_from_entries, unbilled_entries
 
 router = APIRouter(tags=["invoices"])
 
@@ -59,23 +59,6 @@ def require_status(invoice: Invoice, *allowed: str) -> None:
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Invoice is {invoice.status}; action requires {' or '.join(allowed)}",
         )
-
-
-async def unbilled_entries(
-    db: AsyncSession, user: User, client_id: uuid.UUID, start: date, end: date
-) -> list[TimeEntry]:
-    result = await db.execute(
-        select(TimeEntry)
-        .where(
-            TimeEntry.user_id == user.id,
-            TimeEntry.client_id == client_id,
-            TimeEntry.invoice_id.is_(None),
-            TimeEntry.entry_date >= start,
-            TimeEntry.entry_date <= end,
-        )
-        .order_by(TimeEntry.entry_date.asc(), TimeEntry.created_at.asc())
-    )
-    return list(result.scalars().all())
 
 
 async def release_entries(db: AsyncSession, invoice: Invoice) -> None:
@@ -141,47 +124,7 @@ async def create_invoice(
             detail="No unbilled time entries in that period",
         )
 
-    today = datetime.now(timezone.utc).date()
-    invoice = Invoice(
-        user_id=user.id,
-        client_id=client.id,
-        number=format_invoice_number(user.next_invoice_number),
-        status="draft",
-        issue_date=today,
-        due_date=today + timedelta(days=client.payment_terms_days),
-        period_start=data.period_start,
-        period_end=data.period_end,
-        currency=client.currency,
-        hourly_rate=client.hourly_rate,
-        client_name=client.name,
-        client_contact_name=client.contact_name,
-        client_billing_email=client.billing_email,
-        client_address=client.address,
-        notes=data.notes,
-        public_token=secrets.token_urlsafe(32),
-    )
-    user.next_invoice_number += 1
-    db.add(invoice)
-    await db.flush()
-
-    subtotal = Decimal("0")
-    for entry in entries:
-        amount = line_amount(entry.hours, client.hourly_rate)
-        subtotal += amount
-        db.add(
-            InvoiceLine(
-                invoice_id=invoice.id,
-                time_entry_id=entry.id,
-                line_date=entry.entry_date,
-                description=entry.description,
-                hours=entry.hours,
-                rate=client.hourly_rate,
-                amount=amount,
-            )
-        )
-        entry.invoice_id = invoice.id
-    invoice.subtotal = subtotal
-    await db.flush()
+    invoice = await create_invoice_from_entries(db, user, client, entries, data.period_start, data.period_end, data.notes)
     db.expire(invoice, ["lines"])
     return await get_owned_invoice(db, user, invoice.id)
 

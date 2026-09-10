@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, Header, HTTPException, status
 
 from app.config import settings
-from app.tasks import send_overdue_invoice_digests, sync_all_active_calendars
+from app.tasks import create_monthly_invoice_drafts, send_overdue_invoice_digests, sync_all_active_calendars
 
 logger = logging.getLogger(__name__)
 
@@ -41,4 +41,16 @@ async def cron_overdue_invoices(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret")
     results = await send_overdue_invoice_digests()
     logger.info(f"Overdue digest completed: {results}")
+    return {"status": "ok", "results": results}
+
+
+@router.get("/api/cron/monthly-invoices")
+async def cron_monthly_invoices(
+    authorization: str = Header(..., description="Bearer <CRON_SECRET>"),
+):
+    """Draft last month's invoices for clients with auto-invoicing on. Runs on the 1st."""
+    if authorization != f"Bearer {settings.CRON_SECRET}":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret")
+    results = await create_monthly_invoice_drafts()
+    logger.info(f"Monthly drafts completed: {results}")
     return {"status": "ok", "results": results}

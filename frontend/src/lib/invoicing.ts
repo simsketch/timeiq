@@ -10,6 +10,7 @@ export interface Client {
   currency: string;
   payment_terms_days: number;
   match_keywords: string | null;
+  auto_invoice_monthly: boolean;
   unbilled_hours: string;
   unbilled_amount: string;
   created_at: string;
@@ -25,6 +26,24 @@ export interface TimeEntry {
   invoice_id: string | null;
   invoice_number: string | null;
   created_at: string;
+}
+
+export interface TimesheetRow {
+  id: string;
+  client_id: string;
+  client_name: string;
+  description: string;
+  created_at: string;
+}
+
+export interface MoneyStats {
+  currency: string;
+  hours_this_week: number;
+  weekly_hours_target: number;
+  unbilled_amount: number;
+  outstanding_amount: number;
+  outstanding_count: number;
+  paid_this_month: number;
 }
 
 export interface UnbilledSummary {

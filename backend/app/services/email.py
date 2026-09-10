@@ -373,3 +373,36 @@ def send_welcome(user: User) -> None:
         },
         "welcome",
     )
+
+
+def render_monthly_drafts_digest(user: User, invoices: list, start: date, end: date) -> str:
+    from app.services.invoice_pdf import fmt_money
+
+    rows = [
+        (inv.number, f'{html_escape(inv.client_name)} · {html_escape(fmt_money(inv.subtotal, inv.currency))} · <a href="{_site()}/invoices/{inv.id}" style="color:{t.INDIGO};">Review and send</a>')
+        for inv in invoices
+    ]
+    total = sum((inv.subtotal for inv in invoices), 0)
+    currency = invoices[0].currency if invoices else "USD"
+    n = len(invoices)
+    body = (
+        t.h1(f"{n} draft invoice{'s' if n != 1 else ''} ready for {start.strftime('%B')}")
+        + t.p(f"Unbilled hours from {_fmt_date(start)} to {_fmt_date(end)} were rolled into drafts. Nothing has been sent; open each one, check the lines, and hit Send.", muted=True)
+        + t.big_number(fmt_money(total, currency), "ready to bill")
+        + t.details(rows, rows_html=True)
+        + t.buttons(t.button("Review drafts", f"{_site()}/invoices"))
+    )
+    return t.layout("invoice", f"{n} draft invoice(s) for {start.strftime('%B')}: {fmt_money(total, currency)}", body)
+
+
+def send_monthly_drafts_digest(user: User, invoices: list, start: date, end: date) -> None:
+    _init_resend()
+    _send(
+        {
+            "from": FROM_EMAIL,
+            "to": [user.email],
+            "subject": f"{len(invoices)} draft invoice{'s' if len(invoices) != 1 else ''} ready for {start.strftime('%B')}",
+            "html": render_monthly_drafts_digest(user, invoices, start, end),
+        },
+        "monthly drafts digest",
+    )

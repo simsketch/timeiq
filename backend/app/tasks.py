@@ -102,3 +102,40 @@ async def send_overdue_invoice_digests() -> dict:
     for uid, invoices in by_user.items():
         send_overdue_digest(users[uid], invoices, today)
     return {"users_emailed": len(by_user), "overdue_invoices": len(rows)}
+
+
+async def create_monthly_invoice_drafts() -> dict:
+    """On the 1st: for each client with auto_invoice_monthly, draft an invoice for
+    last month's unbilled hours, then email each user a digest of their drafts."""
+    from collections import defaultdict
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+
+    from app.database import async_session
+    from app.models.client import Client
+    from app.models.user import User
+    from app.services.email import send_monthly_drafts_digest
+    from app.services.invoicing_ops import create_invoice_from_entries, previous_month, unbilled_entries
+
+    today = datetime.now(timezone.utc).date()
+    start, end = previous_month(today)
+    created: dict = defaultdict(list)
+    users: dict = {}
+    async with async_session() as db:
+        clients = (
+            await db.execute(select(Client).options(selectinload(Client.user)).where(Client.auto_invoice_monthly.is_(True)))
+        ).scalars().all()
+        for client in clients:
+            user = client.user
+            entries = await unbilled_entries(db, user, client.id, start, end)
+            if not entries:
+                continue
+            invoice = await create_invoice_from_entries(db, user, client, entries, start, end)
+            created[user.id].append(invoice)
+            users[user.id] = user
+        await db.commit()
+        for uid, invoices in created.items():
+            send_monthly_drafts_digest(users[uid], invoices, start, end)
+    return {"clients_checked": len(clients), "drafts_created": sum(len(v) for v in created.values()), "users_emailed": len(created)}

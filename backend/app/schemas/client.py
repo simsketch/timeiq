@@ -17,6 +17,7 @@ class ClientCreate(BaseModel):
     currency: str = Field(default="USD", min_length=3, max_length=3)
     payment_terms_days: int = Field(default=30, ge=0, le=365)
     match_keywords: Optional[str] = None
+    auto_invoice_monthly: bool = False
 
 
 class ClientUpdate(BaseModel):
@@ -28,6 +29,7 @@ class ClientUpdate(BaseModel):
     currency: Optional[str] = Field(default=None, min_length=3, max_length=3)
     payment_terms_days: Optional[int] = Field(default=None, ge=0, le=365)
     match_keywords: Optional[str] = None
+    auto_invoice_monthly: Optional[bool] = None
 
 
 class ClientResponse(BaseModel):
@@ -40,6 +42,7 @@ class ClientResponse(BaseModel):
     currency: str
     payment_terms_days: int
     match_keywords: Optional[str] = None
+    auto_invoice_monthly: bool = False
     unbilled_hours: Decimal = Decimal("0")
     unbilled_amount: Decimal = Decimal("0")
     created_at: datetime

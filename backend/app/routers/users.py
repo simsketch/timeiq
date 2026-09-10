@@ -39,6 +39,7 @@ class UserResponse(BaseModel):
     name: Optional[str]
     timezone: str
     image_url: Optional[str]
+    weekly_hours_target: int = 40
 
     model_config = {"from_attributes": True}
 
@@ -47,6 +48,17 @@ class UserUpdate(BaseModel):
     name: Optional[str] = None
     username: Optional[str] = None
     timezone: Optional[str] = None
+    weekly_hours_target: Optional[int] = None
+
+
+class MoneyStats(BaseModel):
+    currency: str
+    hours_this_week: float
+    weekly_hours_target: int
+    unbilled_amount: float
+    outstanding_amount: float
+    outstanding_count: int
+    paid_this_month: float
 
 
 class DashboardStats(BaseModel):
@@ -184,6 +196,10 @@ async def update_me(
 ):
     if payload.name is not None:
         user.name = payload.name.strip() or None
+    if payload.weekly_hours_target is not None:
+        if not 0 <= payload.weekly_hours_target <= 168:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Weekly target must be between 0 and 168 hours")
+        user.weekly_hours_target = payload.weekly_hours_target
 
     if payload.username is not None:
         # Validate username format
@@ -213,6 +229,62 @@ async def update_me(
     await db.flush()
     await db.refresh(user)
     return user
+
+
+@router.get("/api/dashboard/money", response_model=MoneyStats)
+async def get_money_stats(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Hours this week, unbilled value, outstanding invoices, paid this month."""
+    from datetime import timedelta
+    from decimal import Decimal
+
+    from app.models.client import Client
+    from app.models.invoice import Invoice
+    from app.models.time_entry import TimeEntry
+    from app.services.invoicing import line_amount
+
+    today = datetime.now(timezone.utc).date()
+    week_start = today - timedelta(days=(today.weekday() + 1) % 7)  # Sunday
+    month_start = today.replace(day=1)
+
+    hours = (await db.execute(
+        select(func.coalesce(func.sum(TimeEntry.hours), 0)).where(
+            TimeEntry.user_id == user.id, TimeEntry.entry_date >= week_start, TimeEntry.entry_date <= week_start + timedelta(days=6)
+        )
+    )).scalar_one()
+
+    unbilled_rows = (await db.execute(
+        select(Client.hourly_rate, Client.currency, func.coalesce(func.sum(TimeEntry.hours), 0))
+        .join(TimeEntry, TimeEntry.client_id == Client.id)
+        .where(TimeEntry.user_id == user.id, TimeEntry.invoice_id.is_(None))
+        .group_by(Client.id)
+    )).all()
+    unbilled = sum((line_amount(Decimal(h), rate) for rate, _cur, h in unbilled_rows), Decimal("0"))
+
+    outstanding_count, outstanding = (await db.execute(
+        select(func.count(Invoice.id), func.coalesce(func.sum(Invoice.subtotal), 0)).where(Invoice.user_id == user.id, Invoice.status == "sent")
+    )).one()
+    paid = (await db.execute(
+        select(func.coalesce(func.sum(Invoice.subtotal), 0)).where(
+            Invoice.user_id == user.id, Invoice.status == "paid", Invoice.paid_at >= datetime.combine(month_start, datetime.min.time(), tzinfo=timezone.utc)
+        )
+    )).scalar_one()
+
+    currency = next((cur for _r, cur, _h in unbilled_rows), None)
+    if currency is None:
+        currency = (await db.execute(select(Client.currency).where(Client.user_id == user.id).limit(1))).scalar_one_or_none() or "USD"
+
+    return MoneyStats(
+        currency=currency,
+        hours_this_week=float(hours),
+        weekly_hours_target=user.weekly_hours_target,
+        unbilled_amount=float(unbilled),
+        outstanding_amount=float(outstanding),
+        outstanding_count=int(outstanding_count),
+        paid_this_month=float(paid),
+    )
 
 
 @router.get("/api/dashboard/stats", response_model=DashboardStats)
