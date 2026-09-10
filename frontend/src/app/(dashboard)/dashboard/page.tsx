@@ -13,6 +13,7 @@ import { apiFetch } from "@/lib/api";
 import { format } from "date-fns";
 import Link from "next/link";
 import { ClockLoader } from "@/components/ui/clock-loader";
+import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
 
 interface Booking {
   id: number;
@@ -114,6 +115,8 @@ export default function DashboardPage() {
           </Link>
         </Button>
       </div>
+
+      <OnboardingChecklist />
 
       {/* Share link card — moved to top */}
       {profile && (
