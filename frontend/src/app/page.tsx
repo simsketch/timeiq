@@ -702,13 +702,21 @@ export default function LandingPage() {
                 · &copy; 2026
               </span>
             </div>
-            <a
-              href="tel:+15615039444"
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors font-mono tabular-nums"
-            >
-              <Phone className="h-3.5 w-3.5" />
-              561.503.9444
-            </a>
+            <div className="flex items-center gap-5 text-sm text-muted-foreground">
+              <Link href="/privacy" className="hover:text-foreground transition-colors">
+                Privacy
+              </Link>
+              <Link href="/terms" className="hover:text-foreground transition-colors">
+                Terms
+              </Link>
+              <a
+                href="tel:+15615039444"
+                className="flex items-center gap-1.5 hover:text-foreground transition-colors font-mono tabular-nums"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                561.503.9444
+              </a>
+            </div>
           </div>
         </div>
       </footer>

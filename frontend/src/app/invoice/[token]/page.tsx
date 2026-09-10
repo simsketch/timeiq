@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import Link from "next/link";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ClockLoader } from "@/components/ui/clock-loader";
@@ -53,6 +54,16 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ token:
           </div>
         )}
         {state === "ok" && invoice && <InvoiceView invoice={invoice} />}
+        <div className="flex items-center justify-center gap-2 pt-6 text-xs text-muted-foreground">
+          <LogoIcon className="w-4 h-4" />
+          <span>
+            Invoiced with{" "}
+            <Link href="/?utm_source=invoice&utm_medium=powered_by" className="font-medium text-foreground/80 hover:text-foreground">
+              TimeIQ
+            </Link>
+            . Book meetings, log hours, send invoices, $5/year.
+          </span>
+        </div>
       </div>
     </div>
   );

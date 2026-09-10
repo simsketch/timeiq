@@ -373,7 +373,7 @@ export default function BookingFlowPage() {
           <span className="text-xs text-muted-foreground">
             Powered by{" "}
             <Link
-              href="/"
+              href="/?utm_source=booking_page&utm_medium=powered_by"
               className="font-medium text-foreground/80 hover:text-foreground transition-colors"
             >
               TimeIQ

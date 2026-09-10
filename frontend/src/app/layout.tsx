@@ -16,11 +16,30 @@ const plusJakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
+const SITE = "https://timeiq.app";
+const DESCRIPTION =
+  "Booking pages, weekly timesheets, and PDF invoices in one calm app. $5/year founder price for the first 100 subscribers.";
+
 export const metadata: Metadata = {
-  title: "TimeIQ - Smart Scheduling",
-  description: "Schedule meetings without the back-and-forth",
+  metadataBase: new URL(SITE),
+  title: "TimeIQ - Scheduling, timesheets, and invoices",
+  description: DESCRIPTION,
   icons: {
     icon: "/favicon.svg",
+  },
+  openGraph: {
+    type: "website",
+    url: SITE,
+    siteName: "TimeIQ",
+    title: "TimeIQ - Book meetings. Log hours. Send invoices.",
+    description: DESCRIPTION,
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "TimeIQ: book meetings, log hours, send invoices" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "TimeIQ - Book meetings. Log hours. Send invoices.",
+    description: DESCRIPTION,
+    images: ["/og.png"],
   },
 };
 
