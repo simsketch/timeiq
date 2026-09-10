@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Send,
   Trash2,
+  BellRing,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,6 +123,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const isDraft = invoice.status === "draft";
   const isSent = invoice.status === "sent";
   const isVoid = invoice.status === "void";
+  const isOverdue = isSent && new Date(invoice.due_date + "T23:59:59") < new Date();
   const publicUrl = `/invoice/${invoice.public_token}`;
 
   return (
@@ -157,6 +159,19 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <Button onClick={send} disabled={busy || !invoice.client_billing_email}>
               <Send className="h-4 w-4 mr-2" />
               {isDraft ? "Send" : "Resend"}
+            </Button>
+          )}
+          {isOverdue && (
+            <Button
+              variant="outline"
+              disabled={busy || !invoice.client_billing_email}
+              onClick={() => {
+                if (confirm(`Send a past-due reminder for ${invoice.number} to ${invoice.client_billing_email}?`))
+                  action(`/api/invoices/${invoice.id}/remind`, "POST", undefined, "Reminder sent");
+              }}
+            >
+              <BellRing className="h-4 w-4 mr-2" />
+              Send reminder
             </Button>
           )}
           {isSent && (

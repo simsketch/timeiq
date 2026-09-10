@@ -10,6 +10,7 @@ from svix.webhooks import Webhook, WebhookVerificationError
 from app.config import settings
 from app.database import async_session
 from app.models.user import User
+from app.services.email import send_welcome
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +127,7 @@ async def _handle_user_created(data: dict) -> None:
         db.add(user)
         await db.commit()
         logger.info(f"Created user {username} (clerk_id={clerk_id})")
+    send_welcome(user)
 
 
 async def _handle_user_updated(data: dict) -> None:

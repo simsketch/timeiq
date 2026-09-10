@@ -20,6 +20,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.event_type import EventType
 from app.models.booking import Booking
+from app.services.email import send_welcome
 from sqlalchemy import func, and_
 
 logger = logging.getLogger(__name__)
@@ -160,6 +161,7 @@ async def sync_current_user(
     await db.flush()
     await db.refresh(user)
     logger.info(f"Synced user {username} (clerk_id={clerk_id})")
+    send_welcome(user)
     return user
 
 

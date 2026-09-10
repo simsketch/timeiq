@@ -72,3 +72,33 @@ async def sync_user_calendars(user_id) -> dict[str, int]:
         source_ids = list(result.scalars().all())
 
     return await _sync_source_ids(source_ids)
+
+
+async def send_overdue_invoice_digests() -> dict:
+    """Group sent invoices past their due date by user and email one digest each."""
+    from datetime import datetime, timezone
+    from collections import defaultdict
+    from sqlalchemy import select
+    from app.database import async_session
+    from app.models.invoice import Invoice
+    from app.models.user import User
+    from app.services.email import send_overdue_digest
+
+    today = datetime.now(timezone.utc).date()
+    async with async_session() as db:
+        rows = (
+            await db.execute(
+                select(Invoice, User)
+                .join(User, User.id == Invoice.user_id)
+                .where(Invoice.status == "sent", Invoice.due_date < today)
+                .order_by(Invoice.due_date.asc())
+            )
+        ).all()
+    by_user: dict = defaultdict(list)
+    users: dict = {}
+    for inv, user in rows:
+        by_user[user.id].append(inv)
+        users[user.id] = user
+    for uid, invoices in by_user.items():
+        send_overdue_digest(users[uid], invoices, today)
+    return {"users_emailed": len(by_user), "overdue_invoices": len(rows)}

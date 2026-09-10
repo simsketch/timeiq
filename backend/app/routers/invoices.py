@@ -255,6 +255,27 @@ async def send_invoice_route(
     return invoice
 
 
+@router.post("/api/invoices/{invoice_id}/remind", response_model=InvoiceResponse)
+async def remind_invoice(
+    invoice_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Re-send a sent invoice to the client as a past-due reminder."""
+    invoice = await get_owned_invoice(db, user, invoice_id)
+    require_status(invoice, "sent")
+    if not invoice.client_billing_email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Client has no billing email")
+    days = max((datetime.now(timezone.utc).date() - invoice.due_date).days, 0)
+    pdf = build_invoice_pdf(invoice, user.name or user.email, user.email)
+    hosted_url = f"{settings.FRONTEND_URL}/invoice/{invoice.public_token}"
+    try:
+        send_invoice(invoice, pdf, user, hosted_url, reminder_days=days)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+    return invoice
+
+
 @router.post("/api/invoices/{invoice_id}/mark-paid", response_model=InvoiceResponse)
 async def mark_paid(
     invoice_id: uuid.UUID,
