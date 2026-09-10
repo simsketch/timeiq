@@ -41,3 +41,12 @@ def test_title_matches_is_case_insensitive_substring():
     assert not title_matches("Dentist", kws)
     assert not title_matches(None, kws)
     assert not title_matches("anything", [])
+
+
+def test_previous_month_handles_january_and_month_lengths():
+    from datetime import date
+    from app.services.invoicing_ops import previous_month
+
+    assert previous_month(date(2026, 9, 10)) == (date(2026, 8, 1), date(2026, 8, 31))
+    assert previous_month(date(2026, 3, 1)) == (date(2026, 2, 1), date(2026, 2, 28))
+    assert previous_month(date(2027, 1, 1)) == (date(2026, 12, 1), date(2026, 12, 31))
