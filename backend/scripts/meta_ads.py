@@ -7,6 +7,7 @@ Reads from backend/.env.local (via app.config's dotenv loading):
     META_PIXEL_ID       the pixel used for Purchase optimisation
 
 Commands (run from backend/ with .venv/bin/python):
+    scripts/meta_ads.py bootstrap                   verify token, find/create the TimeIQ pixel, write ids to .env.local
     scripts/meta_ads.py check                       verify token, account, page, pixel
     scripts/meta_ads.py launch --budget 5 [--live]  create campaign + ad set + ads (PAUSED unless --live)
     scripts/meta_ads.py status                      list campaign/ad set/ad statuses
@@ -144,6 +145,63 @@ def require_env() -> None:
     missing = [n for n, v in (("META_ACCESS_TOKEN", TOKEN), ("META_AD_ACCOUNT_ID", ACCOUNT), ("META_PAGE_ID", PAGE), ("META_PIXEL_ID", PIXEL)) if not v]
     if missing:
         die("missing env: " + ", ".join(missing))
+
+
+ENV_PATH = Path(__file__).resolve().parent.parent / ".env.local"
+
+
+def upsert_env(values: dict[str, str]) -> None:
+    lines = ENV_PATH.read_text().splitlines() if ENV_PATH.exists() else []
+    keep = [l for l in lines if l.split("=", 1)[0].strip() not in values]
+    if keep and keep[-1].strip():
+        keep.append("")
+    keep.append("# Meta ads (written by scripts/meta_ads.py bootstrap)")
+    keep += [f"{k}={v}" for k, v in values.items()]
+    ENV_PATH.write_text("\n".join(keep) + "\n")
+
+
+def cmd_bootstrap(_: argparse.Namespace) -> None:
+    """One command after the token exists: confirm assets, ensure a pixel, record ids."""
+    missing = [n for n, v in (("META_ACCESS_TOKEN", TOKEN), ("META_PAGE_ID", PAGE)) if not v]
+    if missing:
+        die("missing env: " + ", ".join(missing))
+
+    me = call("GET", "me", fields="id,name")
+    print("token user :", me.get("name"), me.get("id"))
+
+    accounts = call("GET", "me/adaccounts", fields="id,name,account_status,currency,funding_source_details").get("data", [])
+    if not accounts:
+        die("this token can see no ad accounts; assign one to the system user in Business Settings")
+    account = next((a for a in accounts if "timeiq" in (a.get("name") or "").lower()), None)
+    if account is None:
+        if ACCOUNT:
+            account = next((a for a in accounts if a["id"] == ACCOUNT), None)
+        if account is None:
+            print("ad accounts visible to this token:")
+            for a in accounts:
+                print("   ", a["id"], a.get("name"))
+            die("no account named TimeIQ; set META_AD_ACCOUNT_ID to the one you want and rerun")
+    acct_id = account["id"]
+    funded = bool(account.get("funding_source_details"))
+    print("ad account :", account.get("name"), acct_id, "| currency", account.get("currency"), "| payment method", "yes" if funded else "NO")
+
+    page = call("GET", PAGE, fields="name")
+    print("page       :", page.get("name"), PAGE)
+
+    pixels = call("GET", f"{acct_id}/adspixels", fields="id,name").get("data", [])
+    if pixels:
+        pixel = pixels[0]
+        print("pixel      : found", pixel.get("name"), pixel["id"])
+    else:
+        pixel = call("POST", f"{acct_id}/adspixels", name="TimeIQ")
+        print("pixel      : created", pixel["id"])
+
+    upsert_env({"META_AD_ACCOUNT_ID": acct_id, "META_PIXEL_ID": pixel["id"], "META_PAGE_ID": PAGE})
+    print()
+    print("Wrote META_AD_ACCOUNT_ID, META_PIXEL_ID, META_PAGE_ID to", ENV_PATH)
+    print("Pixel id for the frontend:", pixel["id"])
+    if not funded:
+        print("NOTE: add a payment method to the ad account before launching.")
 
 
 def cmd_check(_: argparse.Namespace) -> None:
@@ -290,6 +348,7 @@ def cmd_add_ad(args: argparse.Namespace) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("bootstrap").set_defaults(fn=cmd_bootstrap)
     sub.add_parser("check").set_defaults(fn=cmd_check)
     p = sub.add_parser("launch"); p.add_argument("--budget", type=float, default=5.0); p.add_argument("--live", action="store_true"); p.set_defaults(fn=cmd_launch)
     sub.add_parser("status").set_defaults(fn=cmd_status)
