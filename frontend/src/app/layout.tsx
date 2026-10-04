@@ -1,20 +1,11 @@
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { Plus_Jakarta_Sans } from "next/font/google";
 import Script from "next/script";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/toaster";
 import { MetaPixel } from "@/components/meta-pixel";
 import "./globals.css";
-
-const plusJakarta = Plus_Jakarta_Sans({
-  weight: ["500", "600", "700", "800"],
-  style: ["normal", "italic"],
-  subsets: ["latin"],
-  variable: "--font-display",
-  display: "swap",
-});
 
 const SITE = "https://timeiq.app";
 const DESCRIPTION =
@@ -52,9 +43,24 @@ export default function RootLayout({
     <ClerkProvider>
       <html
         lang="en"
-        className={`${GeistSans.variable} ${GeistMono.variable} ${plusJakarta.variable}`}
+        className={`${GeistSans.variable} ${GeistMono.variable}`}
       >
         <head>
+          {/* next/font used to preload these; self-hosting means doing it here. */}
+          <link
+            rel="preload"
+            href="/fonts/PlusJakartaSans-normal-latin.woff2"
+            as="font"
+            type="font/woff2"
+            crossOrigin="anonymous"
+          />
+          <link
+            rel="preload"
+            href="/fonts/PlusJakartaSans-italic-latin.woff2"
+            as="font"
+            type="font/woff2"
+            crossOrigin="anonymous"
+          />
           <Script
             src="https://www.googletagmanager.com/gtag/js?id=G-DW8JY6VMH4"
             strategy="afterInteractive"
