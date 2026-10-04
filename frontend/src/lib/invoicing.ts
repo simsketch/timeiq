@@ -86,6 +86,7 @@ export interface InvoiceSummary {
 }
 
 export interface Invoice extends InvoiceSummary {
+  show_weekly_breakdown: boolean;
   hourly_rate: string;
   client_contact_name: string | null;
   client_billing_email: string | null;
@@ -112,6 +113,7 @@ export interface SuggestedEntry {
 }
 
 export interface PublicInvoice {
+  show_weekly_breakdown: boolean;
   number: string;
   status: InvoiceStatus;
   issue_date: string;

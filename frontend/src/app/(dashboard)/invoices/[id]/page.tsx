@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { StatusBadge } from "@/components/invoices/status-badge";
@@ -259,6 +260,31 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             Save
           </Button>
         </form>
+      )}
+
+      {!isVoid && (
+        <div className="rounded-xl border p-4 flex items-center justify-between gap-4">
+          <div>
+            <Label htmlFor="weekly-toggle">Show hours by week</Label>
+            <p className="text-sm text-muted-foreground">
+              Adds an hours-per-week summary under the line items, so a steady
+              schedule is easy to see. Hours only, with no amounts.
+            </p>
+          </div>
+          <Switch
+            id="weekly-toggle"
+            checked={invoice.show_weekly_breakdown}
+            disabled={busy}
+            onCheckedChange={(v) =>
+              action(
+                `/api/invoices/${invoice.id}`,
+                "PATCH",
+                { show_weekly_breakdown: v },
+                v ? "Weekly summary shown" : "Weekly summary hidden"
+              )
+            }
+          />
+        </div>
       )}
 
       {isDraft && (

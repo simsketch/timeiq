@@ -25,6 +25,8 @@ class InvoiceUpdate(BaseModel):
     issue_date: Optional[date] = None
     due_date: Optional[date] = None
     notes: Optional[str] = None
+    # Presentation only, so it stays editable after the invoice is sent.
+    show_weekly_breakdown: Optional[bool] = None
 
 
 class InvoicePreview(BaseModel):
@@ -79,6 +81,7 @@ class InvoiceSummary(BaseModel):
 
 
 class InvoiceResponse(InvoiceSummary):
+    show_weekly_breakdown: bool = True
     hourly_rate: Decimal
     client_contact_name: Optional[str] = None
     client_billing_email: Optional[str] = None
@@ -103,6 +106,7 @@ class PublicInvoiceResponse(BaseModel):
     client_billing_email: Optional[str] = None
     client_address: Optional[str] = None
     notes: Optional[str] = None
+    show_weekly_breakdown: bool = True
     sender_name: str
     sender_email: str
     lines: list[InvoiceLineResponse]

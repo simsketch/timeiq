@@ -162,19 +162,24 @@ def build_invoice_pdf(invoice, sender_name: str, sender_email: str) -> bytes:
             Spacer(1, 16),
         ]
 
-    # Weekly breakdown so the shape of the work is legible at a glance.
-    if len(weeks) > 1:
-        wrows: list[list] = [["Week", "Hours", "Amount"]]
+    # An hours-only summary of the lines above. No money column, so it can't
+    # read as a second set of charges.
+    if getattr(invoice, "show_weekly_breakdown", True) and len(weeks) > 1:
+        wrows: list[list] = [["Week", "Hours"]]
         for w in weeks:
-            wrows.append(
-                [span(w.week_start, w.week_end), f"{w.hours:.2f}", f"{w.amount:,.2f}"]
-            )
+            wrows.append([span(w.week_start, w.week_end), f"{w.hours:.2f}"])
+        wrows.append(["Total hours", f"{sums['hours']:.2f}"])
         story.append(
             KeepTogether(
                 [
-                    _p("WEEKLY BREAKDOWN", label),
+                    _p("HOURS BY WEEK", label),
+                    Spacer(1, 2),
+                    _p(
+                        "A summary of the hours billed above, not an additional charge.",
+                        small,
+                    ),
                     Spacer(1, 6),
-                    styled(wrows, [2.4 * inch, 2.2 * inch, 2.3 * inch], total_row=False),
+                    styled(wrows, [3.4 * inch, 3.5 * inch]),
                 ]
             )
         )

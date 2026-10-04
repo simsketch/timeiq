@@ -72,3 +72,35 @@ def test_pdf_handles_expense_only_invoice():
     inv.lines = [_line(date(2026, 8, 12), "Hosting", "0", "40", kind="expense")]
     inv.subtotal = Decimal("40.00")
     assert build_invoice_pdf(inv, "Elon", "e@x.com")[:5] == b"%PDF-"
+
+
+def test_weekly_summary_toggle_shortens_the_pdf():
+    """The hours-by-week table is presentation only and can be switched off."""
+
+    def build(show: bool) -> bytes:
+        inv = _invoice()
+        inv.lines = [
+            _line(date(2026, 8, 3), "work", "8", "1200"),
+            _line(date(2026, 8, 11), "work", "8", "1200"),
+            _line(date(2026, 8, 18), "work", "8", "1200"),
+        ]
+        inv.subtotal = Decimal("3600.00")
+        inv.show_weekly_breakdown = show
+        return build_invoice_pdf(inv, "Elon", "e@x.com")
+
+    on, off = build(True), build(False)
+    assert on[:5] == b"%PDF-" and off[:5] == b"%PDF-"
+    # The extra table costs bytes; without it the document is smaller.
+    assert len(off) < len(on)
+
+
+def test_weekly_summary_defaults_on_when_attribute_missing():
+    inv = _invoice()
+    inv.lines = [
+        _line(date(2026, 8, 3), "work", "8", "1200"),
+        _line(date(2026, 8, 11), "work", "8", "1200"),
+    ]
+    inv.subtotal = Decimal("2400.00")
+    if hasattr(inv, "show_weekly_breakdown"):
+        del inv.show_weekly_breakdown
+    assert build_invoice_pdf(inv, "Elon", "e@x.com")[:5] == b"%PDF-"

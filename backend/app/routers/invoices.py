@@ -30,7 +30,11 @@ from app.schemas.invoice import (
 from app.services.email import send_invoice
 from app.services.invoice_pdf import build_invoice_pdf
 from app.services.invoicing import line_amount
-from app.services.invoicing_ops import create_invoice_from_entries, unbilled_entries
+from app.services.invoicing_ops import (
+    create_invoice_from_entries,
+    recompute_subtotal,
+    unbilled_entries,
+)
 
 router = APIRouter(tags=["invoices"])
 
@@ -61,18 +65,6 @@ def require_status(invoice: Invoice, *allowed: str) -> None:
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Invoice is {invoice.status}; action requires {' or '.join(allowed)}",
         )
-
-
-async def recompute_subtotal(db: AsyncSession, invoice: Invoice) -> None:
-    """Subtotal is time plus expenses; call after any line changes."""
-    total = (
-        await db.execute(
-            select(func.coalesce(func.sum(InvoiceLine.amount), 0)).where(
-                InvoiceLine.invoice_id == invoice.id
-            )
-        )
-    ).scalar_one()
-    invoice.subtotal = Decimal(total)
 
 
 async def release_entries(db: AsyncSession, invoice: Invoice) -> None:
@@ -172,8 +164,11 @@ async def update_invoice(
     db: AsyncSession = Depends(get_db),
 ):
     invoice = await get_owned_invoice(db, user, invoice_id)
-    require_status(invoice, "draft")
-    for key, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    # The weekly summary is presentation only, so it can be toggled any time.
+    if set(changes) - {"show_weekly_breakdown"}:
+        require_status(invoice, "draft")
+    for key, value in changes.items():
         setattr(invoice, key, value)
     if invoice.due_date < invoice.issue_date:
         raise HTTPException(

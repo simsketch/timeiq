@@ -16,6 +16,7 @@ from app.models.client import Client
 from app.models.time_entry import TimeEntry
 from app.models.user import User
 from app.routers.clients import get_owned_client, unbilled_hours_by_client
+from app.services.invoicing_ops import drop_line_for_entry, sync_line_from_entry
 from app.schemas.time_entry import (
     SuggestedEntry,
     SuggestRequest,
@@ -238,17 +239,25 @@ async def create_entries_bulk(
 async def update_entry(
     entry_id: uuid.UUID,
     data: TimeEntryUpdate,
+    force: bool = Query(
+        False,
+        description="Edit even if billed, rewriting the invoice line and its subtotal.",
+    ),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     entry = await get_owned_entry(db, user, entry_id)
-    reject_if_billed(entry)
+    if not force:
+        reject_if_billed(entry)
     changes = data.model_dump(exclude_unset=True)
     if "client_id" in changes:
         await get_owned_client(db, user, changes["client_id"])
     for key, value in changes.items():
         setattr(entry, key, value)
     await db.flush()
+    if entry.invoice_id is not None:
+        # Keep the invoice honest about what it is billing.
+        await sync_line_from_entry(db, entry)
     # Re-select so a changed client_id shows the new client name.
     db.expire(entry)
     return to_response(await get_owned_entry(db, user, entry_id))
@@ -257,10 +266,17 @@ async def update_entry(
 @router.delete("/api/time-entries/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_entry(
     entry_id: uuid.UUID,
+    force: bool = Query(
+        False,
+        description="Delete even if billed, removing the invoice line and retotalling.",
+    ),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     entry = await get_owned_entry(db, user, entry_id)
-    reject_if_billed(entry)
+    if not force:
+        reject_if_billed(entry)
+    if entry.invoice_id is not None:
+        await drop_line_for_entry(db, entry)
     await db.delete(entry)
     await db.flush()

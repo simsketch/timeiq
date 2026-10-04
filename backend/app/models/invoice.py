@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -60,6 +61,10 @@ class Invoice(Base):
     client_billing_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     client_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Presentation only: an hours-per-week summary of the lines above.
+    show_weekly_breakdown: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
     public_token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

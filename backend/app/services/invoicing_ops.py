@@ -84,3 +84,59 @@ def previous_month(today: date) -> tuple[date, date]:
     first_this = today.replace(day=1)
     end = first_this - timedelta(days=1)
     return end.replace(day=1), end
+
+
+async def recompute_subtotal(db: AsyncSession, invoice: Invoice) -> None:
+    """Subtotal is time plus expenses; call after any line changes."""
+    from sqlalchemy import func
+
+    total = (
+        await db.execute(
+            select(func.coalesce(func.sum(InvoiceLine.amount), 0)).where(
+                InvoiceLine.invoice_id == invoice.id
+            )
+        )
+    ).scalar_one()
+    invoice.subtotal = Decimal(total)
+
+
+async def line_for_entry(db: AsyncSession, entry: TimeEntry) -> InvoiceLine | None:
+    """The invoice line this entry was snapshotted into, if it is billed."""
+    if entry.invoice_id is None:
+        return None
+    return (
+        await db.execute(
+            select(InvoiceLine).where(
+                InvoiceLine.invoice_id == entry.invoice_id,
+                InvoiceLine.time_entry_id == entry.id,
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def sync_line_from_entry(db: AsyncSession, entry: TimeEntry) -> Invoice | None:
+    """Push an edited billed entry back onto its invoice line. Returns the invoice."""
+    line = await line_for_entry(db, entry)
+    if line is None:
+        return None
+    line.line_date = entry.entry_date
+    line.description = entry.description
+    line.hours = entry.hours
+    line.amount = line_amount(entry.hours, line.rate or Decimal("0"))
+    invoice = await db.get(Invoice, entry.invoice_id)
+    if invoice is not None:
+        await db.flush()
+        await recompute_subtotal(db, invoice)
+    return invoice
+
+
+async def drop_line_for_entry(db: AsyncSession, entry: TimeEntry) -> Invoice | None:
+    """Remove a billed entry's line from its invoice. Returns the invoice."""
+    line = await line_for_entry(db, entry)
+    invoice = await db.get(Invoice, entry.invoice_id) if entry.invoice_id else None
+    if line is not None:
+        await db.delete(line)
+        await db.flush()
+    if invoice is not None:
+        await recompute_subtotal(db, invoice)
+    return invoice

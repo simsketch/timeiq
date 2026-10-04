@@ -84,12 +84,27 @@ interface Row {
   saved_id?: string; // present when the row is persisted server-side
 }
 
+// A billed entry needs ?force=true, which also rewrites its invoice line.
+const entryUrl = (e: TimeEntry) =>
+  `/api/time-entries/${e.id}${e.invoice_id ? "?force=true" : ""}`;
+
+const invoiceList = (entries: TimeEntry[]) =>
+  Array.from(new Set(entries.map((e) => e.invoice_number).filter(Boolean))).join(", ");
+
+type Pending =
+  | { kind: "edit"; row: Row; clientId: string; description: string; billed: TimeEntry[]; all: TimeEntry[] }
+  | { kind: "delete"; row: Row; billed: TimeEntry[]; all: TimeEntry[] }
+  | { kind: "cell"; cellKey: string; entry: TimeEntry };
+
 export default function TimePage() {
   const { getToken } = useAuth();
   const { toast } = useToast();
   const [clients, setClients] = useState<Client[]>([]);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [summary, setSummary] = useState<UnbilledSummary[]>([]);
+  // Billed cells the user has explicitly chosen to edit this session.
+  const [unlocked, setUnlocked] = useState<Set<string>>(new Set());
+  const [pending, setPending] = useState<Pending | null>(null);
   const [loading, setLoading] = useState(true);
   const [weekStart, setWeekStart] = useState(() => weekOf(new Date()));
   const weekEnd = useMemo(() => endOfWeek(weekStart, { weekStartsOn: 0 }), [weekStart]);
@@ -191,7 +206,8 @@ export default function TimePage() {
     const existing = cellEntries[`${row.key}|${iso(day)}`] ?? [];
     const current = existing.reduce((s, e) => s + parseFloat(e.hours), 0);
     if (Math.abs(hours - current) < 0.001) return;
-    if (existing.some((e) => e.invoice_id)) return;
+    const cellKey = `${row.key}|${iso(day)}`;
+    if (existing.some((e) => e.invoice_id) && !unlocked.has(cellKey)) return;
     if (hours > 24) {
       toast({ title: "Hours must be 24 or less", variant: "destructive" });
       return;
@@ -204,17 +220,17 @@ export default function TimePage() {
       const headers = authHeaders(token);
       if (hours === 0) {
         await Promise.all(
-          existing.map((e) => apiFetch(`/api/time-entries/${e.id}`, { method: "DELETE", headers }))
+          existing.map((e) => apiFetch(entryUrl(e), { method: "DELETE", headers }))
         );
       } else if (existing.length > 0) {
         // Fold the whole cell into the first entry.
-        await apiFetch(`/api/time-entries/${existing[0].id}`, {
+        await apiFetch(entryUrl(existing[0]), {
           method: "PATCH",
           headers,
           body: JSON.stringify({ hours: hours.toFixed(2) }),
         });
         await Promise.all(
-          existing.slice(1).map((e) => apiFetch(`/api/time-entries/${e.id}`, { method: "DELETE", headers }))
+          existing.slice(1).map((e) => apiFetch(entryUrl(e), { method: "DELETE", headers }))
         );
       } else {
         await apiFetch("/api/time-entries", {
@@ -283,18 +299,37 @@ export default function TimePage() {
       return;
     }
     const rowEntries = entries.filter((e) => rowKey(e.client_id, e.description) === row.key);
-    const unbilled = rowEntries.filter((e) => !e.invoice_id);
-    const billed = rowEntries.length - unbilled.length;
+    const billedEntries = rowEntries.filter((e) => e.invoice_id);
+    if (billedEntries.length > 0) {
+      setPending({
+        kind: "edit",
+        row,
+        clientId: client.id,
+        description,
+        billed: billedEntries,
+        all: rowEntries,
+      });
+      return;
+    }
+    await applyRowEdit(row, client.id, description, rowEntries);
+  }
+
+  async function applyRowEdit(
+    row: Row,
+    clientId: string,
+    description: string,
+    targets: TimeEntry[]
+  ) {
     setBusy(true);
     try {
       const token = await getToken();
       const headers = authHeaders(token);
       await Promise.all(
-        unbilled.map((e) =>
-          apiFetch(`/api/time-entries/${e.id}`, {
+        targets.map((e) =>
+          apiFetch(entryUrl(e), {
             method: "PATCH",
             headers,
-            body: JSON.stringify({ client_id: client.id, description }),
+            body: JSON.stringify({ client_id: clientId, description }),
           })
         )
       );
@@ -302,16 +337,18 @@ export default function TimePage() {
         const updated = await apiFetch<TimesheetRow>(`/api/timesheet-rows/${row.saved_id}`, {
           method: "PATCH",
           headers,
-          body: JSON.stringify({ client_id: client.id, description }),
+          body: JSON.stringify({ client_id: clientId, description }),
         });
         setSavedRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
       }
-      if (billed > 0) {
+      const touched = targets.filter((e) => e.invoice_id).length;
+      if (touched > 0) {
         toast({
-          title: `Updated ${unbilled.length} entr${unbilled.length === 1 ? "y" : "ies"}`,
-          description: `${billed} billed entr${billed === 1 ? "y" : "ies"} kept the original task because it's on an invoice.`,
+          title: `Updated ${targets.length} entr${targets.length === 1 ? "y" : "ies"}`,
+          description: `${touched} on ${invoiceList(targets.filter((e) => e.invoice_id))} ${touched === 1 ? "was" : "were"} rewritten and the invoice retotalled.`,
         });
       }
+      setPending(null);
       setEditRowKey(null);
       await load(true);
     } catch (e: any) {
@@ -324,19 +361,29 @@ export default function TimePage() {
   async function deleteRow(row: Row) {
     const rowEntries = entries.filter((e) => rowKey(e.client_id, e.description) === row.key);
     const unbilled = rowEntries.filter((e) => !e.invoice_id);
+    const billedEntries = rowEntries.filter((e) => e.invoice_id);
+    if (billedEntries.length > 0) {
+      setPending({ kind: "delete", row, billed: billedEntries, all: rowEntries });
+      return;
+    }
     const msg = unbilled.length
       ? `Remove this row and its ${unbilled.length} unbilled entr${unbilled.length === 1 ? "y" : "ies"} this week? It will stop appearing in future weeks.`
       : row.saved_id
       ? `Remove "${row.description}" from your timesheet? It will stop appearing in future weeks.`
       : null;
     if (msg && !confirm(msg)) return;
+    await applyRowDelete(row, unbilled);
+  }
+
+  async function applyRowDelete(row: Row, targets: TimeEntry[]) {
     setBusy(true);
     try {
       const token = await getToken();
       const headers = authHeaders(token);
       await Promise.all(
-        unbilled.map((e) => apiFetch(`/api/time-entries/${e.id}`, { method: "DELETE", headers }))
+        targets.map((e) => apiFetch(entryUrl(e), { method: "DELETE", headers }))
       );
+      setPending(null);
       if (row.saved_id) {
         await apiFetch(`/api/timesheet-rows/${row.saved_id}`, { method: "DELETE", headers });
         setSavedRows((prev) => prev.filter((r) => r.id !== row.saved_id));
@@ -552,9 +599,14 @@ export default function TimePage() {
                           <HourCell
                             value={cellHours(row, d)}
                             billed={cellBilled(row, d)}
+                            unlocked={unlocked.has(`${row.key}|${iso(d)}`)}
                             weekend={d.getDay() === 0 || d.getDay() === 6}
                             saving={savingCells.has(`${row.key}|${iso(d)}`)}
                             onCommit={(raw) => commitCell(row, d, raw)}
+                            onUnlock={() => {
+                              const e = cellBilled(row, d);
+                              if (e) setPending({ kind: "cell", cellKey: `${row.key}|${iso(d)}`, entry: e });
+                            }}
                           />
                         </td>
                       ))}
@@ -641,6 +693,96 @@ export default function TimePage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={pending !== null} onOpenChange={(o) => !o && setPending(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pending?.kind === "delete" ? "Delete billed time?" : "Edit billed time?"}
+            </DialogTitle>
+            <DialogDescription>
+              {pending?.kind === "cell" ? (
+                <>
+                  These hours are billed on {pending.entry.invoice_number}. Editing
+                  them rewrites that invoice line and retotals the invoice.
+                </>
+              ) : pending?.kind === "edit" ? (
+                <>
+                  {pending.billed.length} of {pending.all.length} entries in this row
+                  are billed on {invoiceList(pending.billed)}. You can change only the
+                  unbilled ones, or change all of them and let{" "}
+                  {pending.billed.length === 1 ? "that invoice" : "those invoices"} be
+                  rewritten to match.
+                </>
+              ) : pending?.kind === "delete" ? (
+                <>
+                  {pending.billed.length} of {pending.all.length} entries in this row
+                  are billed on {invoiceList(pending.billed)}. Deleting them removes
+                  those invoice lines and retotals{" "}
+                  {pending.billed.length === 1 ? "the invoice" : "the invoices"}.
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Invoices you have already sent will no longer match the copy your client
+            received.
+          </p>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setPending(null)} disabled={busy}>
+              Cancel
+            </Button>
+            {pending?.kind === "edit" && (
+              <Button
+                variant="outline"
+                disabled={busy}
+                onClick={() =>
+                  applyRowEdit(
+                    pending.row,
+                    pending.clientId,
+                    pending.description,
+                    pending.all.filter((e) => !e.invoice_id)
+                  )
+                }
+              >
+                Unbilled only
+              </Button>
+            )}
+            {pending?.kind === "delete" && pending.all.some((e) => !e.invoice_id) && (
+              <Button
+                variant="outline"
+                disabled={busy}
+                onClick={() =>
+                  applyRowDelete(pending.row, pending.all.filter((e) => !e.invoice_id))
+                }
+              >
+                Unbilled only
+              </Button>
+            )}
+            <Button
+              variant={pending?.kind === "delete" ? "destructive" : "default"}
+              disabled={busy}
+              onClick={() => {
+                if (!pending) return;
+                if (pending.kind === "cell") {
+                  setUnlocked((u) => new Set(u).add(pending.cellKey));
+                  setPending(null);
+                } else if (pending.kind === "edit") {
+                  applyRowEdit(pending.row, pending.clientId, pending.description, pending.all);
+                } else {
+                  applyRowDelete(pending.row, pending.all);
+                }
+              }}
+            >
+              {pending?.kind === "cell"
+                ? "Edit anyway"
+                : pending?.kind === "delete"
+                ? "Delete all"
+                : "Change all"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -648,28 +790,34 @@ export default function TimePage() {
 function HourCell({
   value,
   billed,
+  unlocked,
   weekend,
   saving,
   onCommit,
+  onUnlock,
 }: {
   value: number;
   billed: TimeEntry | null;
+  unlocked: boolean;
   weekend: boolean;
   saving: boolean;
   onCommit: (raw: string) => void;
+  onUnlock: () => void;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const ref = useRef<HTMLInputElement>(null);
   const display = draft ?? fmtHm(value);
 
-  if (billed) {
+  if (billed && !unlocked) {
     return (
-      <div
-        title={`Billed on ${billed.invoice_number}`}
-        className="h-9 w-full rounded-md border border-dashed bg-muted/50 text-muted-foreground flex items-center justify-center tabular-nums cursor-not-allowed"
+      <button
+        type="button"
+        onClick={onUnlock}
+        title={`Billed on ${billed.invoice_number} - click to edit anyway`}
+        className="h-9 w-full rounded-md border border-dashed bg-muted/50 text-muted-foreground flex items-center justify-center tabular-nums hover:border-foreground/40 hover:text-foreground transition-colors"
       >
         {fmtHm(value)}
-      </div>
+      </button>
     );
   }
 

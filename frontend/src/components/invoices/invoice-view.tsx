@@ -21,6 +21,7 @@ export interface InvoiceViewData {
   client_billing_email: string | null;
   client_address: string | null;
   notes: string | null;
+  show_weekly_breakdown?: boolean;
   sender_name: string;
   sender_email: string;
   lines: InvoiceLine[];
@@ -106,16 +107,18 @@ export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
         </div>
       )}
 
-      {weeks.length > 1 && (
+      {invoice.show_weekly_breakdown !== false && weeks.length > 1 && (
         <div>
-          <p className="text-xs font-semibold text-muted-foreground mb-2">WEEKLY BREAKDOWN</p>
+          <p className="text-xs font-semibold text-muted-foreground">HOURS BY WEEK</p>
+          <p className="text-xs text-muted-foreground mb-2">
+            A summary of the hours billed above, not an additional charge.
+          </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
                   <th className="py-2 pr-3 font-semibold">Week</th>
-                  <th className="py-2 pr-3 font-semibold text-right">Hours</th>
-                  <th className="py-2 font-semibold text-right">Amount</th>
+                  <th className="py-2 font-semibold text-right">Hours</th>
                 </tr>
               </thead>
               <tbody>
@@ -124,10 +127,15 @@ export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
                     <td className="py-2 pr-3 whitespace-nowrap">
                       {fmtSpan(w.weekStart, w.weekEnd)}
                     </td>
-                    <td className="py-2 pr-3 text-right tabular-nums">{w.hours.toFixed(2)}</td>
-                    <td className="py-2 text-right tabular-nums">{w.amount.toFixed(2)}</td>
+                    <td className="py-2 text-right tabular-nums">{w.hours.toFixed(2)}</td>
                   </tr>
                 ))}
+                <tr className="font-semibold">
+                  <td className="py-2 pr-3">Total hours</td>
+                  <td className="py-2 text-right tabular-nums">
+                    {weeks.reduce((s, w) => s + w.hours, 0).toFixed(2)}
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
