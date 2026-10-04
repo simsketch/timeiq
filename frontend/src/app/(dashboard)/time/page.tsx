@@ -92,7 +92,15 @@ const invoiceList = (entries: TimeEntry[]) =>
   Array.from(new Set(entries.map((e) => e.invoice_number).filter(Boolean))).join(", ");
 
 type Pending =
-  | { kind: "edit"; row: Row; clientId: string; description: string; billed: TimeEntry[]; all: TimeEntry[] }
+  | {
+      kind: "edit";
+      row: Row;
+      clientId: string;
+      description: string;
+      thisWeek: TimeEntry[];
+      allWeeks: TimeEntry[];
+      merges: boolean;
+    }
   | { kind: "delete"; row: Row; billed: TimeEntry[]; all: TimeEntry[] }
   | { kind: "cell"; cellKey: string; entry: TimeEntry };
 
@@ -294,24 +302,36 @@ export default function TimePage() {
       return;
     }
     const newKey = rowKey(client.id, description);
-    if (rows.some((r) => r.key === newKey && r.key !== row.key)) {
-      toast({ title: "That client and task already have a row this week", variant: "destructive" });
+    let merges = rows.some((r) => r.key === newKey && r.key !== row.key);
+    const thisWeek = entries.filter((e) => rowKey(e.client_id, e.description) === row.key);
+
+    // A task usually spans more than the week on screen, so look at all of it
+    // before deciding what "rename" means.
+    let allWeeks = thisWeek;
+    setBusy(true);
+    try {
+      const token = await getToken();
+      const every = await apiFetch<TimeEntry[]>(
+        `/api/time-entries?client_id=${row.client_id}`,
+        { headers: authHeaders(token) }
+      );
+      allWeeks = every.filter((e) => rowKey(e.client_id, e.description) === row.key);
+      // The target name may already exist in a week that is not on screen.
+      merges =
+        merges || every.some((e) => rowKey(e.client_id, e.description) === newKey);
+    } catch {
+      // Fall back to the visible week rather than blocking the rename.
+    } finally {
+      setBusy(false);
+    }
+
+    const elsewhere = allWeeks.length - thisWeek.length;
+    const billed = allWeeks.filter((e) => e.invoice_id).length;
+    if (billed === 0 && elsewhere === 0 && !merges) {
+      await applyRowEdit(row, client.id, description, thisWeek);
       return;
     }
-    const rowEntries = entries.filter((e) => rowKey(e.client_id, e.description) === row.key);
-    const billedEntries = rowEntries.filter((e) => e.invoice_id);
-    if (billedEntries.length > 0) {
-      setPending({
-        kind: "edit",
-        row,
-        clientId: client.id,
-        description,
-        billed: billedEntries,
-        all: rowEntries,
-      });
-      return;
-    }
-    await applyRowEdit(row, client.id, description, rowEntries);
+    setPending({ kind: "edit", row, clientId: client.id, description, thisWeek, allWeeks, merges });
   }
 
   async function applyRowEdit(
@@ -320,6 +340,14 @@ export default function TimePage() {
     description: string,
     targets: TimeEntry[]
   ) {
+    if (targets.length === 0 && !row.saved_id) {
+      toast({
+        title: "Nothing to rename",
+        description: "Every entry in this row is already on an invoice.",
+        variant: "destructive",
+      });
+      return;
+    }
     setBusy(true);
     try {
       const token = await getToken();
@@ -376,6 +404,14 @@ export default function TimePage() {
   }
 
   async function applyRowDelete(row: Row, targets: TimeEntry[]) {
+    if (targets.length === 0 && !row.saved_id) {
+      toast({
+        title: "Nothing to delete",
+        description: "Every entry in this row is already on an invoice.",
+        variant: "destructive",
+      });
+      return;
+    }
     setBusy(true);
     try {
       const token = await getToken();
@@ -698,7 +734,11 @@ export default function TimePage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {pending?.kind === "delete" ? "Delete billed time?" : "Edit billed time?"}
+              {pending?.kind === "delete"
+                ? "Delete billed time?"
+                : pending?.kind === "cell"
+                ? "Edit billed time?"
+                : `Rename "${pending?.row.description ?? ""}"?`}
             </DialogTitle>
             <DialogDescription>
               {pending?.kind === "cell" ? (
@@ -708,11 +748,28 @@ export default function TimePage() {
                 </>
               ) : pending?.kind === "edit" ? (
                 <>
-                  {pending.billed.length} of {pending.all.length} entries in this row
-                  are billed on {invoiceList(pending.billed)}. You can change only the
-                  unbilled ones, or change all of them and let{" "}
-                  {pending.billed.length === 1 ? "that invoice" : "those invoices"} be
-                  rewritten to match.
+                  This task has {pending.thisWeek.length}{" "}
+                  {pending.thisWeek.length === 1 ? "entry" : "entries"} in the week on
+                  screen
+                  {pending.allWeeks.length > pending.thisWeek.length && (
+                    <>
+                      {" "}
+                      and {pending.allWeeks.length - pending.thisWeek.length} in other
+                      weeks
+                    </>
+                  )}
+                  .
+                  {pending.allWeeks.some((e) => e.invoice_id) && (
+                    <>
+                      {" "}
+                      {pending.allWeeks.filter((e) => e.invoice_id).length} of them are
+                      billed on {invoiceList(pending.allWeeks)}; renaming those rewrites
+                      the invoice lines and retotals the invoice.
+                    </>
+                  )}
+                  {pending.merges && (
+                    <> This name is already in use, so the two rows will merge.</>
+                  )}
                 </>
               ) : pending?.kind === "delete" ? (
                 <>
@@ -724,30 +781,53 @@ export default function TimePage() {
               ) : null}
             </DialogDescription>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Invoices you have already sent will no longer match the copy your client
-            received.
-          </p>
+          {(pending?.kind === "cell" ||
+            (pending?.kind === "edit" && pending.allWeeks.some((e) => e.invoice_id)) ||
+            (pending?.kind === "delete" && pending.billed.length > 0)) && (
+            <p className="text-sm text-muted-foreground">
+              Invoices you have already sent will no longer match the copy your client
+              received.
+            </p>
+          )}
           <DialogFooter className="gap-2 sm:gap-2">
             <Button variant="outline" onClick={() => setPending(null)} disabled={busy}>
               Cancel
             </Button>
-            {pending?.kind === "edit" && (
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={() =>
-                  applyRowEdit(
-                    pending.row,
-                    pending.clientId,
-                    pending.description,
-                    pending.all.filter((e) => !e.invoice_id)
-                  )
-                }
-              >
-                Unbilled only
-              </Button>
-            )}
+            {pending?.kind === "edit" &&
+              pending.allWeeks.some((e) => !e.invoice_id) && (
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() =>
+                    applyRowEdit(
+                      pending.row,
+                      pending.clientId,
+                      pending.description,
+                      pending.allWeeks.filter((e) => !e.invoice_id)
+                    )
+                  }
+                >
+                  Unbilled only
+                </Button>
+              )}
+            {pending?.kind === "edit" &&
+              pending.thisWeek.length > 0 &&
+              pending.allWeeks.length > pending.thisWeek.length && (
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() =>
+                    applyRowEdit(
+                      pending.row,
+                      pending.clientId,
+                      pending.description,
+                      pending.thisWeek
+                    )
+                  }
+                >
+                  This week only
+                </Button>
+              )}
             {pending?.kind === "delete" && pending.all.some((e) => !e.invoice_id) && (
               <Button
                 variant="outline"
@@ -768,7 +848,12 @@ export default function TimePage() {
                   setUnlocked((u) => new Set(u).add(pending.cellKey));
                   setPending(null);
                 } else if (pending.kind === "edit") {
-                  applyRowEdit(pending.row, pending.clientId, pending.description, pending.all);
+                  applyRowEdit(
+                    pending.row,
+                    pending.clientId,
+                    pending.description,
+                    pending.allWeeks
+                  );
                 } else {
                   applyRowDelete(pending.row, pending.all);
                 }
@@ -778,7 +863,9 @@ export default function TimePage() {
                 ? "Edit anyway"
                 : pending?.kind === "delete"
                 ? "Delete all"
-                : "Change all"}
+                : pending && pending.kind === "edit" && pending.allWeeks.length > pending.thisWeek.length
+                ? "Rename all weeks"
+                : "Rename all"}
             </Button>
           </DialogFooter>
         </DialogContent>
