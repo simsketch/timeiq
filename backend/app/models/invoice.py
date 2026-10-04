@@ -110,8 +110,12 @@ class InvoiceLine(Base):
     )
     line_date: Mapped[date] = mapped_column(Date, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    hours: Mapped[Decimal] = mapped_column(Numeric(6, 2), nullable=False)
-    rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    # "time" lines carry hours x rate; "expense" lines carry only an amount.
+    kind: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="time", server_default="time"
+    )
+    hours: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
+    rate: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
 
     invoice = relationship("Invoice", back_populates="lines")

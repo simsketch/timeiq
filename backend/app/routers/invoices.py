@@ -5,18 +5,20 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.auth import get_current_user
 from app.config import settings
 from app.database import get_db
-from app.models.invoice import Invoice
+from app.models.invoice import Invoice, InvoiceLine
 from app.models.time_entry import TimeEntry
 from app.models.user import User
 from app.routers.clients import get_owned_client
 from app.schemas.invoice import (
+    ExpenseLineCreate,
+    ExpenseLineUpdate,
     InvoiceCreate,
     InvoiceLineResponse,
     InvoicePreview,
@@ -59,6 +61,18 @@ def require_status(invoice: Invoice, *allowed: str) -> None:
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Invoice is {invoice.status}; action requires {' or '.join(allowed)}",
         )
+
+
+async def recompute_subtotal(db: AsyncSession, invoice: Invoice) -> None:
+    """Subtotal is time plus expenses; call after any line changes."""
+    total = (
+        await db.execute(
+            select(func.coalesce(func.sum(InvoiceLine.amount), 0)).where(
+                InvoiceLine.invoice_id == invoice.id
+            )
+        )
+    ).scalar_one()
+    invoice.subtotal = Decimal(total)
 
 
 async def release_entries(db: AsyncSession, invoice: Invoice) -> None:
@@ -312,3 +326,95 @@ async def public_invoice(token: str, db: AsyncSession = Depends(get_db)):
 async def public_invoice_pdf(token: str, db: AsyncSession = Depends(get_db)):
     invoice, sender = await _public_invoice(token, db)
     return pdf_response(invoice, sender, "inline")
+
+
+# ---------------------------------------------------------------------------
+# Expense lines (draft invoices only)
+# ---------------------------------------------------------------------------
+
+
+async def _draft_with_line(
+    db: AsyncSession, user: User, invoice_id: uuid.UUID, line_id: uuid.UUID
+) -> tuple[Invoice, InvoiceLine]:
+    invoice = await get_owned_invoice(db, user, invoice_id)
+    require_status(invoice, "draft")
+    line = next((l for l in invoice.lines if l.id == line_id), None)
+    if line is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Line not found")
+    if line.kind != "expense":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only expense lines can be edited; time lines come from your timesheet",
+        )
+    return invoice, line
+
+
+@router.post(
+    "/api/invoices/{invoice_id}/lines",
+    response_model=InvoiceResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_expense_line(
+    invoice_id: uuid.UUID,
+    data: ExpenseLineCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Add a flat-amount expense (software, travel, hardware) to a draft."""
+    invoice = await get_owned_invoice(db, user, invoice_id)
+    require_status(invoice, "draft")
+    db.add(
+        InvoiceLine(
+            invoice_id=invoice.id,
+            kind="expense",
+            line_date=data.line_date or invoice.period_end,
+            description=data.description.strip(),
+            hours=None,
+            rate=None,
+            amount=data.amount,
+        )
+    )
+    await db.flush()
+    await recompute_subtotal(db, invoice)
+    await db.flush()
+    db.expire(invoice, ["lines"])
+    return await get_owned_invoice(db, user, invoice_id)
+
+
+@router.patch("/api/invoices/{invoice_id}/lines/{line_id}", response_model=InvoiceResponse)
+async def update_expense_line(
+    invoice_id: uuid.UUID,
+    line_id: uuid.UUID,
+    data: ExpenseLineUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    invoice, line = await _draft_with_line(db, user, invoice_id, line_id)
+    changes = data.model_dump(exclude_unset=True)
+    if "description" in changes:
+        line.description = changes["description"].strip()
+    if "amount" in changes:
+        line.amount = changes["amount"]
+    if "line_date" in changes and changes["line_date"]:
+        line.line_date = changes["line_date"]
+    await db.flush()
+    await recompute_subtotal(db, invoice)
+    await db.flush()
+    db.expire(invoice, ["lines"])
+    return await get_owned_invoice(db, user, invoice_id)
+
+
+@router.delete(
+    "/api/invoices/{invoice_id}/lines/{line_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_expense_line(
+    invoice_id: uuid.UUID,
+    line_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    invoice, line = await _draft_with_line(db, user, invoice_id, line_id)
+    await db.delete(line)
+    await db.flush()
+    await recompute_subtotal(db, invoice)
+    await db.flush()

@@ -13,6 +13,7 @@ import {
   Send,
   Trash2,
   BellRing,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,8 @@ import { ClockLoader } from "@/components/ui/clock-loader";
 import { StatusBadge } from "@/components/invoices/status-badge";
 import { InvoiceView } from "@/components/invoices/invoice-view";
 import { apiFetch } from "@/lib/api";
-import { API_BASE, Invoice, authHeaders } from "@/lib/invoicing";
+import { API_BASE, Invoice, authHeaders, fmtMoney } from "@/lib/invoicing";
+import { splitLines } from "@/lib/invoice-grouping";
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -35,6 +37,24 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState({ issue_date: "", due_date: "", notes: "" });
+  const [expense, setExpense] = useState({ description: "", amount: "" });
+
+  async function addExpense(e: React.FormEvent) {
+    e.preventDefault();
+    if (!invoice || !expense.description.trim() || !expense.amount) return;
+    const ok = await action(
+      `/api/invoices/${invoice.id}/lines`,
+      "POST",
+      { description: expense.description.trim(), amount: expense.amount },
+      "Expense added"
+    );
+    if (ok) setExpense({ description: "", amount: "" });
+  }
+
+  async function removeExpense(lineId: string) {
+    if (!invoice) return;
+    await action(`/api/invoices/${invoice.id}/lines/${lineId}`, "DELETE", undefined, "Expense removed");
+  }
 
   const load = useCallback(async () => {
     try {
@@ -121,6 +141,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   if (!invoice) return <p className="text-muted-foreground">Invoice not found.</p>;
 
   const isDraft = invoice.status === "draft";
+  const { expenseLines } = splitLines(invoice.lines);
   const isSent = invoice.status === "sent";
   const isVoid = invoice.status === "void";
   const isOverdue = isSent && new Date(invoice.due_date + "T23:59:59") < new Date();
@@ -238,6 +259,71 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             Save
           </Button>
         </form>
+      )}
+
+      {isDraft && (
+        <div className="rounded-xl border p-4 space-y-4">
+          <div>
+            <h2 className="font-semibold">Expenses</h2>
+            <p className="text-sm text-muted-foreground">
+              Pass-through costs billed alongside your hours, such as software seats or travel.
+            </p>
+          </div>
+
+          {expenseLines.length > 0 && (
+            <ul className="divide-y divide-border/60">
+              {expenseLines.map((e) => (
+                <li key={e.id} className="flex items-center gap-3 py-2">
+                  <span className="flex-1 text-sm">{e.description}</span>
+                  <span className="text-sm tabular-nums">
+                    {fmtMoney(e.amount, invoice.currency)}
+                  </span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Remove ${e.description}`}
+                    disabled={busy}
+                    onClick={() => removeExpense(e.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <form onSubmit={addExpense} className="grid gap-3 sm:grid-cols-[1fr_9rem_auto] items-end">
+            <div className="space-y-2">
+              <Label htmlFor="expense-desc">Description</Label>
+              <Input
+                id="expense-desc"
+                placeholder="Claude Max subscription"
+                value={expense.description}
+                onChange={(e) => setExpense({ ...expense, description: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="expense-amount">Amount</Label>
+              <Input
+                id="expense-amount"
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="200.00"
+                value={expense.amount}
+                onChange={(e) => setExpense({ ...expense, amount: e.target.value })}
+              />
+            </div>
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={busy || !expense.description.trim() || !expense.amount}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add expense
+            </Button>
+          </form>
+        </div>
       )}
 
       <InvoiceView

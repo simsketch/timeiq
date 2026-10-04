@@ -65,6 +65,7 @@ async def create_invoice_from_entries(
         db.add(
             InvoiceLine(
                 invoice_id=invoice.id,
+                kind="time",
                 time_entry_id=entry.id,
                 line_date=entry.entry_date,
                 description=entry.description,

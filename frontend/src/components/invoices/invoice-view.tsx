@@ -1,4 +1,11 @@
 import { InvoiceLine, fmtDate, fmtMoney } from "@/lib/invoicing";
+import {
+  fmtSpan,
+  groupTimeLines,
+  invoiceTotals,
+  splitLines,
+  weeklyBreakdown,
+} from "@/lib/invoice-grouping";
 
 export interface InvoiceViewData {
   number: string;
@@ -20,7 +27,11 @@ export interface InvoiceViewData {
 }
 
 export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
-  const totalHours = invoice.lines.reduce((s, l) => s + parseFloat(l.hours), 0);
+  const grouped = groupTimeLines(invoice.lines);
+  const weeks = weeklyBreakdown(invoice.lines);
+  const { expenseLines } = splitLines(invoice.lines);
+  const sums = invoiceTotals(invoice.lines);
+  const money = (n: number) => fmtMoney(n, invoice.currency);
   return (
     <div className="rounded-2xl border bg-background p-6 sm:p-10 space-y-8">
       <div className="flex flex-wrap justify-between gap-6">
@@ -56,40 +67,116 @@ export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left text-xs text-muted-foreground">
-              <th className="py-2 pr-3 font-semibold">Date</th>
-              <th className="py-2 pr-3 font-semibold">Description</th>
-              <th className="py-2 pr-3 font-semibold text-right">Hours</th>
-              <th className="py-2 pr-3 font-semibold text-right">Rate</th>
-              <th className="py-2 font-semibold text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {invoice.lines.map((l) => (
-              <tr key={l.id} className="border-b border-border/60">
-                <td className="py-2 pr-3 whitespace-nowrap">{fmtDate(l.line_date)}</td>
-                <td className="py-2 pr-3">{l.description}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{parseFloat(l.hours).toFixed(2)}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{parseFloat(l.rate).toFixed(2)}</td>
-                <td className="py-2 text-right tabular-nums">{parseFloat(l.amount).toFixed(2)}</td>
+      {grouped.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs text-muted-foreground">
+                <th className="py-2 pr-3 font-semibold">Description</th>
+                <th className="py-2 pr-3 font-semibold">Dates</th>
+                <th className="py-2 pr-3 font-semibold text-right">Hours</th>
+                <th className="py-2 pr-3 font-semibold text-right">Rate</th>
+                <th className="py-2 font-semibold text-right">Amount</th>
               </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="font-semibold">
-              <td className="py-3" />
-              <td className="py-3 pr-3">Total</td>
-              <td className="py-3 pr-3 text-right tabular-nums">{totalHours.toFixed(2)}</td>
-              <td />
-              <td className="py-3 text-right tabular-nums">
-                {fmtMoney(invoice.subtotal, invoice.currency)}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+            </thead>
+            <tbody>
+              {grouped.map((g) => (
+                <tr key={`${g.description}-${g.rate}`} className="border-b border-border/60">
+                  <td className="py-2 pr-3">{g.description}</td>
+                  <td className="py-2 pr-3 whitespace-nowrap text-muted-foreground">
+                    {fmtSpan(g.firstDate, g.lastDate)}
+                  </td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{g.hours.toFixed(2)}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{g.rate.toFixed(2)}</td>
+                  <td className="py-2 text-right tabular-nums">{g.amount.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="font-semibold">
+                <td className="py-3 pr-3" colSpan={2}>
+                  Services subtotal
+                </td>
+                <td className="py-3 pr-3 text-right tabular-nums">{sums.hours.toFixed(2)}</td>
+                <td />
+                <td className="py-3 text-right tabular-nums">{money(sums.timeAmount)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      {weeks.length > 1 && (
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground mb-2">WEEKLY BREAKDOWN</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground">
+                  <th className="py-2 pr-3 font-semibold">Week</th>
+                  <th className="py-2 pr-3 font-semibold text-right">Hours</th>
+                  <th className="py-2 font-semibold text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {weeks.map((w) => (
+                  <tr key={w.weekStart} className="border-b border-border/60">
+                    <td className="py-2 pr-3 whitespace-nowrap">
+                      {fmtSpan(w.weekStart, w.weekEnd)}
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{w.hours.toFixed(2)}</td>
+                    <td className="py-2 text-right tabular-nums">{w.amount.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {expenseLines.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground mb-2">EXPENSES</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground">
+                  <th className="py-2 pr-3 font-semibold">Expense</th>
+                  <th className="py-2 pr-3 font-semibold">Date</th>
+                  <th className="py-2 font-semibold text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expenseLines.map((e) => (
+                  <tr key={e.id} className="border-b border-border/60">
+                    <td className="py-2 pr-3">{e.description}</td>
+                    <td className="py-2 pr-3 whitespace-nowrap text-muted-foreground">
+                      {fmtDate(e.line_date)}
+                    </td>
+                    <td className="py-2 text-right tabular-nums">
+                      {parseFloat(e.amount).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="font-semibold">
+                  <td className="py-3 pr-3" colSpan={2}>
+                    Expenses subtotal
+                  </td>
+                  <td className="py-3 text-right tabular-nums">{money(sums.expenseAmount)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between border-t-2 border-foreground pt-4">
+        <span className="font-semibold tracking-tight">TOTAL DUE</span>
+        <span className="text-xl font-bold tabular-nums">
+          {fmtMoney(invoice.subtotal, invoice.currency)}
+        </span>
       </div>
 
       {invoice.notes && (

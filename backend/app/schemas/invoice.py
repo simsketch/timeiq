@@ -39,11 +39,24 @@ class InvoiceLineResponse(BaseModel):
     time_entry_id: Optional[uuid.UUID] = None
     line_date: date
     description: str
-    hours: Decimal
-    rate: Decimal
+    kind: str = "time"
+    hours: Optional[Decimal] = None
+    rate: Optional[Decimal] = None
     amount: Decimal
 
     model_config = {"from_attributes": True}
+
+
+class ExpenseLineCreate(BaseModel):
+    description: str = Field(..., min_length=1, max_length=500)
+    amount: Decimal = Field(..., gt=0, decimal_places=2)
+    line_date: Optional[date] = None
+
+
+class ExpenseLineUpdate(BaseModel):
+    description: Optional[str] = Field(default=None, min_length=1, max_length=500)
+    amount: Optional[Decimal] = Field(default=None, gt=0, decimal_places=2)
+    line_date: Optional[date] = None
 
 
 class InvoiceSummary(BaseModel):

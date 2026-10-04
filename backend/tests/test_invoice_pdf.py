@@ -42,3 +42,33 @@ def test_build_invoice_pdf_handles_missing_optional_fields():
     inv.client_billing_email = None
     inv.notes = None
     assert build_invoice_pdf(inv, "Elon", "e@x.com")[:5] == b"%PDF-"
+
+
+def _line(d, desc, hours, amount, kind="time", rate="150.00"):
+    return SimpleNamespace(
+        line_date=d, description=desc, kind=kind,
+        hours=Decimal(hours) if kind == "time" else None,
+        rate=Decimal(rate) if kind == "time" else None,
+        amount=Decimal(amount),
+    )
+
+
+def test_pdf_renders_grouped_lines_weeks_and_expenses():
+    inv = _invoice()
+    inv.lines = [
+        _line(date(2026, 8, 3), "work", "8", "1200"),
+        _line(date(2026, 8, 4), "work", "8", "1200"),
+        _line(date(2026, 8, 11), "work", "8", "1200"),
+        _line(date(2026, 8, 12), "Claude Max subscription", "0", "200", kind="expense"),
+    ]
+    inv.subtotal = Decimal("3800.00")
+    pdf = build_invoice_pdf(inv, "Elon", "e@x.com")
+    assert pdf[:5] == b"%PDF-"
+    assert len(pdf) > 1000
+
+
+def test_pdf_handles_expense_only_invoice():
+    inv = _invoice()
+    inv.lines = [_line(date(2026, 8, 12), "Hosting", "0", "40", kind="expense")]
+    inv.subtotal = Decimal("40.00")
+    assert build_invoice_pdf(inv, "Elon", "e@x.com")[:5] == b"%PDF-"

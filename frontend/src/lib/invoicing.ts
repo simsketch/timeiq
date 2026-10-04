@@ -59,8 +59,10 @@ export interface InvoiceLine {
   time_entry_id: string | null;
   line_date: string;
   description: string;
-  hours: string;
-  rate: string;
+  /** "time" lines carry hours x rate; "expense" lines carry only an amount. */
+  kind: "time" | "expense";
+  hours: string | null;
+  rate: string | null;
   amount: string;
 }
 
