@@ -27,6 +27,11 @@ export interface InvoiceViewData {
   lines: InvoiceLine[];
 }
 
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** 8 -> "8", 7.5 -> "7.5", 0 -> blank, so the grid reads at a glance. */
+const fmtDayHours = (h: number) => (h ? String(Math.round(h * 100) / 100) : "");
+
 export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
   const grouped = groupTimeLines(invoice.lines);
   const weeks = weeklyBreakdown(invoice.lines);
@@ -63,13 +68,63 @@ export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
           <p>
             {fmtDate(invoice.period_start)} to {fmtDate(invoice.period_end)}
           </p>
-          <p className="text-xs font-semibold text-muted-foreground mt-3 mb-1">RATE</p>
-          <p>{fmtMoney(invoice.hourly_rate, invoice.currency)} / hour</p>
         </div>
       </div>
 
+      {invoice.show_weekly_breakdown !== false && weeks.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground">HOURS</p>
+          <p className="text-xs text-muted-foreground mb-2">
+            Hours logged each day, billed in the services below.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-xs text-muted-foreground">
+                  <th className="py-2 pr-3 font-semibold text-left">Week</th>
+                  {DAYS.map((d) => (
+                    <th key={d} className="py-2 px-1 font-semibold text-right w-12">
+                      {d}
+                    </th>
+                  ))}
+                  <th className="py-2 pl-3 font-semibold text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {weeks.map((w) => (
+                  <tr key={w.weekStart} className="border-b border-border/60">
+                    <td className="py-2 pr-3 whitespace-nowrap">
+                      {fmtSpan(w.weekStart, w.weekEnd)}
+                    </td>
+                    {w.days.map((h, i) => (
+                      <td key={i} className="py-2 px-1 text-right tabular-nums">
+                        {fmtDayHours(h)}
+                      </td>
+                    ))}
+                    <td className="py-2 pl-3 text-right tabular-nums">{w.hours.toFixed(2)}</td>
+                  </tr>
+                ))}
+                <tr className="font-semibold">
+                  <td className="py-2 pr-3">Total</td>
+                  {DAYS.map((d, i) => (
+                    <td key={d} className="py-2 px-1 text-right tabular-nums">
+                      {fmtDayHours(weeks.reduce((s, w) => s + w.days[i], 0))}
+                    </td>
+                  ))}
+                  <td className="py-2 pl-3 text-right tabular-nums">
+                    {weeks.reduce((s, w) => s + w.hours, 0).toFixed(2)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {grouped.length > 0 && (
-        <div className="overflow-x-auto">
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground mb-2">SERVICES</p>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-xs text-muted-foreground">
@@ -104,40 +159,6 @@ export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
               </tr>
             </tfoot>
           </table>
-        </div>
-      )}
-
-      {invoice.show_weekly_breakdown !== false && weeks.length > 1 && (
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground">HOURS BY WEEK</p>
-          <p className="text-xs text-muted-foreground mb-2">
-            A summary of the hours billed above, not an additional charge.
-          </p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="py-2 pr-3 font-semibold">Week</th>
-                  <th className="py-2 font-semibold text-right">Hours</th>
-                </tr>
-              </thead>
-              <tbody>
-                {weeks.map((w) => (
-                  <tr key={w.weekStart} className="border-b border-border/60">
-                    <td className="py-2 pr-3 whitespace-nowrap">
-                      {fmtSpan(w.weekStart, w.weekEnd)}
-                    </td>
-                    <td className="py-2 text-right tabular-nums">{w.hours.toFixed(2)}</td>
-                  </tr>
-                ))}
-                <tr className="font-semibold">
-                  <td className="py-2 pr-3">Total hours</td>
-                  <td className="py-2 text-right tabular-nums">
-                    {weeks.reduce((s, w) => s + w.hours, 0).toFixed(2)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
           </div>
         </div>
       )}

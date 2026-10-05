@@ -265,9 +265,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       {!isVoid && (
         <div className="rounded-xl border p-4 flex items-center justify-between gap-4">
           <div>
-            <Label htmlFor="weekly-toggle">Show hours by week</Label>
+            <Label htmlFor="weekly-toggle">Show daily hours grid</Label>
             <p className="text-sm text-muted-foreground">
-              Adds an hours-per-week summary under the line items, so a steady
+              Adds a day-by-day grid of hours above the services, so a steady
               schedule is easy to see. Hours only, with no amounts.
             </p>
           </div>
@@ -280,7 +280,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 `/api/invoices/${invoice.id}`,
                 "PATCH",
                 { show_weekly_breakdown: v },
-                v ? "Weekly summary shown" : "Weekly summary hidden"
+                v ? "Hours grid shown" : "Hours grid hidden"
               )
             }
           />

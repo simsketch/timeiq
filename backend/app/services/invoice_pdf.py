@@ -91,9 +91,6 @@ def build_invoice_pdf(invoice, sender_name: str, sender_email: str) -> bytes:
     period = [
         _p("PERIOD", label),
         _p(f"{fmt_date(invoice.period_start)} to {fmt_date(invoice.period_end)}", body),
-        Spacer(1, 6),
-        _p("RATE", label),
-        _p(f"{fmt_money(invoice.hourly_rate, invoice.currency)} / hour", body),
     ]
     meta = Table([[bill_to, period]], colWidths=[3.5 * inch, 3.4 * inch])
     meta.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
@@ -104,13 +101,15 @@ def build_invoice_pdf(invoice, sender_name: str, sender_email: str) -> bytes:
     sums = totals(invoice.lines)
     cur = invoice.currency
 
-    def styled(rows: list[list], widths: list[float], total_row: bool = True) -> Table:
+    def styled(
+        rows: list[list], widths: list[float], total_row: bool = True, numeric_from: int = 2
+    ) -> Table:
         t = Table(rows, colWidths=widths, repeatRows=1)
         st = [
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("BACKGROUND", (0, 0), (-1, 0), INK),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+            ("ALIGN", (numeric_from, 0), (-1, -1), "RIGHT"),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("FONTSIZE", (0, 0), (-1, -1), 9),
             ("LINEBELOW", (0, 0), (-1, -2 if total_row else -1), 0.25, RULE),
@@ -141,6 +140,36 @@ def build_invoice_pdf(invoice, sender_name: str, sender_email: str) -> bytes:
 
     story = [header, Spacer(1, 18), meta, Spacer(1, 18)]
 
+    def fmt_h(value: Decimal) -> str:
+        """8.00 -> "8", 7.50 -> "7.5", 0 -> blank, so the grid reads at a glance."""
+        if not value:
+            return ""
+        return format(Decimal(value).normalize(), "f")
+
+    # Day-by-day hours, a timesheet view of the period. It shows when the work
+    # happened; the money is in the services table below.
+    if getattr(invoice, "show_weekly_breakdown", True) and weeks:
+        grid: list[list] = [["Week", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Total"]]
+        day_totals = [Decimal("0")] * 7
+        for w in weeks:
+            grid.append(
+                [span(w.week_start, w.week_end), *(fmt_h(d) for d in w.days), f"{w.hours:.2f}"]
+            )
+            day_totals = [a + Decimal(b) for a, b in zip(day_totals, w.days)]
+        grid.append(["Total", *(fmt_h(d) for d in day_totals), f"{sums['hours']:.2f}"])
+        story += [
+            KeepTogether(
+                [
+                    _p("HOURS", label),
+                    Spacer(1, 2),
+                    _p("Hours logged each day, billed in the services below.", small),
+                    Spacer(1, 6),
+                    styled(grid, [1.3 * inch] + [0.6 * inch] * 7 + [1.4 * inch], numeric_from=1),
+                ]
+            ),
+            Spacer(1, 16),
+        ]
+
     # Services, one row per distinct description rather than per day.
     if grouped:
         rows: list[list] = [["Description", "Dates", "Hours", "Rate", "Amount"]]
@@ -158,32 +187,11 @@ def build_invoice_pdf(invoice, sender_name: str, sender_email: str) -> bytes:
             ["Services subtotal", "", f"{sums['hours']:.2f}", "", f"{sums['time_amount']:,.2f}"]
         )
         story += [
+            _p("SERVICES", label),
+            Spacer(1, 6),
             styled(rows, [3.3 * inch, 1.1 * inch, 0.6 * inch, 0.8 * inch, 1.1 * inch]),
             Spacer(1, 16),
         ]
-
-    # An hours-only summary of the lines above. No money column, so it can't
-    # read as a second set of charges.
-    if getattr(invoice, "show_weekly_breakdown", True) and len(weeks) > 1:
-        wrows: list[list] = [["Week", "Hours"]]
-        for w in weeks:
-            wrows.append([span(w.week_start, w.week_end), f"{w.hours:.2f}"])
-        wrows.append(["Total hours", f"{sums['hours']:.2f}"])
-        story.append(
-            KeepTogether(
-                [
-                    _p("HOURS BY WEEK", label),
-                    Spacer(1, 2),
-                    _p(
-                        "A summary of the hours billed above, not an additional charge.",
-                        small,
-                    ),
-                    Spacer(1, 6),
-                    styled(wrows, [3.4 * inch, 3.5 * inch]),
-                ]
-            )
-        )
-        story.append(Spacer(1, 16))
 
     if expense_lines:
         erows: list[list] = [["Expense", "Date", "Amount"]]

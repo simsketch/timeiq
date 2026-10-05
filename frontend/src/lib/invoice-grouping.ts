@@ -19,6 +19,8 @@ export interface WeekRow {
   weekEnd: string;
   hours: number;
   amount: number;
+  /** Hours per day, Sunday first, for the day-by-day grid. */
+  days: number[];
 }
 
 const num = (v: string | null | undefined) => (v == null ? 0 : parseFloat(v) || 0);
@@ -84,13 +86,15 @@ export function weekStartFor(iso: string): string {
 }
 
 export function weeklyBreakdown(lines: InvoiceLine[]): WeekRow[] {
-  const weeks = new Map<string, { hours: number; amount: number }>();
+  const weeks = new Map<string, { hours: number; amount: number; days: number[] }>();
   for (const line of lines) {
     if (isExpense(line)) continue;
     const start = weekStartFor(line.line_date);
-    const bucket = weeks.get(start) ?? { hours: 0, amount: 0 };
-    bucket.hours += num(line.hours);
+    const bucket = weeks.get(start) ?? { hours: 0, amount: 0, days: [0, 0, 0, 0, 0, 0, 0] };
+    const hours = num(line.hours);
+    bucket.hours += hours;
     bucket.amount += num(line.amount);
+    bucket.days[parseDay(line.line_date).getDay()] += hours;
     weeks.set(start, bucket);
   }
   return [...weeks.entries()]
@@ -98,7 +102,7 @@ export function weeklyBreakdown(lines: InvoiceLine[]): WeekRow[] {
     .map(([start, v]) => {
       const end = parseDay(start);
       end.setDate(end.getDate() + 6);
-      return { weekStart: start, weekEnd: toIso(end), hours: v.hours, amount: v.amount };
+      return { weekStart: start, weekEnd: toIso(end), hours: v.hours, amount: v.amount, days: v.days };
     });
 }
 

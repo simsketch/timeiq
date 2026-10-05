@@ -79,3 +79,15 @@ def test_totals_separate_time_from_expenses():
 def test_split_lines():
     time_lines, expenses = split_lines(sample())
     assert len(time_lines) == 8 and len(expenses) == 1
+
+
+def test_weekly_breakdown_spreads_hours_across_days():
+    lines = [
+        line(date(2026, 9, 6), "work", "2", "200"),   # Sunday
+        line(date(2026, 9, 7), "work", "8", "800"),   # Monday
+        line(date(2026, 9, 7), "calls", "1", "100"),  # Monday again
+        line(date(2026, 9, 12), "work", "3", "300"),  # Saturday
+    ]
+    (week,) = weekly_breakdown(lines)
+    assert week.days == (Decimal("2"), Decimal("9"), 0, 0, 0, 0, Decimal("3"))
+    assert week.hours == sum(week.days)

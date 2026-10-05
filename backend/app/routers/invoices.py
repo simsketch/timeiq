@@ -311,6 +311,7 @@ async def public_invoice(token: str, db: AsyncSession = Depends(get_db)):
         client_billing_email=invoice.client_billing_email,
         client_address=invoice.client_address,
         notes=invoice.notes,
+        show_weekly_breakdown=invoice.show_weekly_breakdown,
         sender_name=sender.name or sender.email,
         sender_email=sender.email,
         lines=[InvoiceLineResponse.model_validate(l) for l in invoice.lines],

@@ -30,6 +30,8 @@ class WeekRow(NamedTuple):
     week_end: date
     hours: Decimal
     amount: Decimal
+    # Hours per day, Sunday first, for the day-by-day grid.
+    days: tuple[Decimal, ...] = (Decimal("0"),) * 7
 
 
 def _dec(value: Any) -> Decimal:
@@ -90,16 +92,21 @@ def week_start_for(day: date) -> date:
 
 def weekly_breakdown(lines: Iterable[Any]) -> list[WeekRow]:
     """Hours and value per Sunday-to-Saturday week, so a 40-hour week is visible."""
-    weeks: dict[date, dict[str, Decimal]] = {}
+    weeks: dict[date, dict[str, Any]] = {}
     for line in lines:
         if is_expense(line):
             continue
         start = week_start_for(line.line_date)
-        bucket = weeks.setdefault(start, {"hours": Decimal("0"), "amount": Decimal("0")})
-        bucket["hours"] += _dec(line.hours)
+        bucket = weeks.setdefault(
+            start,
+            {"hours": Decimal("0"), "amount": Decimal("0"), "days": [Decimal("0")] * 7},
+        )
+        hours = _dec(line.hours)
+        bucket["hours"] += hours
         bucket["amount"] += _dec(line.amount)
+        bucket["days"][(line.line_date - start).days] += hours
     return [
-        WeekRow(start, start + timedelta(days=6), v["hours"], v["amount"])
+        WeekRow(start, start + timedelta(days=6), v["hours"], v["amount"], tuple(v["days"]))
         for start, v in sorted(weeks.items())
     ]
 
