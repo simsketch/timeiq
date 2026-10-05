@@ -58,10 +58,14 @@ async def create_invoice_from_entries(
     db.add(invoice)
     await db.flush()
 
-    subtotal = Decimal("0")
+    await attach_entries(db, invoice, entries)
+    return invoice
+
+
+async def attach_entries(db: AsyncSession, invoice: Invoice, entries: list[TimeEntry]) -> None:
+    """Copy entries onto the invoice as time lines at its snapshotted rate, mark
+    them billed, and retotal. Shared by new drafts and drafts picking up hours."""
     for entry in entries:
-        amount = line_amount(entry.hours, client.hourly_rate)
-        subtotal += amount
         db.add(
             InvoiceLine(
                 invoice_id=invoice.id,
@@ -70,13 +74,41 @@ async def create_invoice_from_entries(
                 line_date=entry.entry_date,
                 description=entry.description,
                 hours=entry.hours,
-                rate=client.hourly_rate,
-                amount=amount,
+                rate=invoice.hourly_rate,
+                amount=line_amount(entry.hours, invoice.hourly_rate),
             )
         )
         entry.invoice_id = invoice.id
-    invoice.subtotal = subtotal
     await db.flush()
+    await recompute_subtotal(db, invoice)
+
+
+async def draft_covering(db: AsyncSession, entry: TimeEntry) -> Invoice | None:
+    """The newest draft for this entry's client whose period contains its date."""
+    return (
+        await db.execute(
+            select(Invoice)
+            .where(
+                Invoice.user_id == entry.user_id,
+                Invoice.client_id == entry.client_id,
+                Invoice.status == "draft",
+                Invoice.period_start <= entry.entry_date,
+                Invoice.period_end >= entry.entry_date,
+            )
+            .order_by(Invoice.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
+async def attach_to_open_draft(db: AsyncSession, entry: TimeEntry) -> Invoice | None:
+    """Hours logged into a period that already has a draft belong on that draft.
+    Sent and paid invoices are never touched."""
+    if entry.invoice_id is not None:
+        return None
+    invoice = await draft_covering(db, entry)
+    if invoice is not None:
+        await attach_entries(db, invoice, [entry])
     return invoice
 
 
@@ -87,8 +119,13 @@ def previous_month(today: date) -> tuple[date, date]:
 
 
 async def recompute_subtotal(db: AsyncSession, invoice: Invoice) -> None:
-    """Subtotal is time plus expenses; call after any line changes."""
+    """Subtotal is time plus expenses; call after any line changes.
+
+    The row lock serializes concurrent recomputes (the timesheet edits cells in
+    parallel), so the last writer always sums every committed line."""
     from sqlalchemy import func
+
+    await db.execute(select(Invoice.id).where(Invoice.id == invoice.id).with_for_update())
 
     total = (
         await db.execute(
@@ -98,6 +135,8 @@ async def recompute_subtotal(db: AsyncSession, invoice: Invoice) -> None:
         )
     ).scalar_one()
     invoice.subtotal = Decimal(total)
+    # Flush now, so a caller that expires the invoice can't discard the new total.
+    await db.flush()
 
 
 async def line_for_entry(db: AsyncSession, entry: TimeEntry) -> InvoiceLine | None:

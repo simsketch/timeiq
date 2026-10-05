@@ -25,7 +25,7 @@ import { ClockLoader } from "@/components/ui/clock-loader";
 import { StatusBadge } from "@/components/invoices/status-badge";
 import { InvoiceView } from "@/components/invoices/invoice-view";
 import { apiFetch } from "@/lib/api";
-import { API_BASE, Invoice, authHeaders, fmtMoney } from "@/lib/invoicing";
+import { API_BASE, Invoice, InvoicePreview, authHeaders, fmtMoney } from "@/lib/invoicing";
 import { splitLines } from "@/lib/invoice-grouping";
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -57,11 +57,26 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     await action(`/api/invoices/${invoice.id}/lines/${lineId}`, "DELETE", undefined, "Expense removed");
   }
 
+  const [missing, setMissing] = useState<InvoicePreview | null>(null);
+
   const load = useCallback(async () => {
     try {
       const token = await getToken();
       const inv = await apiFetch<Invoice>(`/api/invoices/${id}`, { headers: authHeaders(token) });
       setInvoice(inv);
+      // A draft can miss hours logged before auto-attach existed; surface them.
+      if (inv.status === "draft") {
+        const q = new URLSearchParams({
+          client_id: inv.client_id,
+          period_start: inv.period_start,
+          period_end: inv.period_end,
+        });
+        apiFetch<InvoicePreview>(`/api/invoices/preview?${q}`, { headers: authHeaders(token) })
+          .then(setMissing)
+          .catch(() => setMissing(null));
+      } else {
+        setMissing(null);
+      }
       setDraft({ issue_date: inv.issue_date, due_date: inv.due_date, notes: inv.notes ?? "" });
     } catch (e: any) {
       toast({ title: "Failed to load invoice", description: e.message, variant: "destructive" });
@@ -220,6 +235,25 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
       </div>
+
+      {isDraft && missing && missing.entry_count > 0 && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm">
+            {missing.entry_count} unbilled {missing.entry_count === 1 ? "entry" : "entries"} (
+            {parseFloat(String(missing.total_hours))}h) in this invoice&apos;s period{" "}
+            {missing.entry_count === 1 ? "isn't" : "aren't"} on it yet.
+          </p>
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() =>
+              action(`/api/invoices/${invoice.id}/refresh`, "POST", undefined, "Hours added to invoice")
+            }
+          >
+            Add to invoice
+          </Button>
+        </div>
+      )}
 
       {isDraft && !invoice.client_billing_email && (
         <p className="text-sm text-amber-600">

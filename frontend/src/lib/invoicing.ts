@@ -25,6 +25,7 @@ export interface TimeEntry {
   description: string;
   invoice_id: string | null;
   invoice_number: string | null;
+  invoice_status: string | null;
   created_at: string;
 }
 

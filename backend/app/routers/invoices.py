@@ -31,6 +31,7 @@ from app.services.email import send_invoice
 from app.services.invoice_pdf import build_invoice_pdf
 from app.services.invoicing import line_amount
 from app.services.invoicing_ops import (
+    attach_entries,
     create_invoice_from_entries,
     recompute_subtotal,
     unbilled_entries,
@@ -177,6 +178,25 @@ async def update_invoice(
         )
     await db.flush()
     return invoice
+
+
+@router.post("/api/invoices/{invoice_id}/refresh", response_model=InvoiceResponse)
+async def refresh_invoice(
+    invoice_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Pull any unbilled hours in the draft's period onto it, such as a day
+    logged after the draft was created."""
+    invoice = await get_owned_invoice(db, user, invoice_id)
+    require_status(invoice, "draft")
+    entries = await unbilled_entries(
+        db, user, invoice.client_id, invoice.period_start, invoice.period_end
+    )
+    if entries:
+        await attach_entries(db, invoice, entries)
+    db.expire(invoice)
+    return await get_owned_invoice(db, user, invoice_id)
 
 
 @router.post("/api/invoices/{invoice_id}/send", response_model=InvoiceResponse)

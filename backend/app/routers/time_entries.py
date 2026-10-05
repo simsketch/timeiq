@@ -5,7 +5,7 @@ from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -14,9 +14,14 @@ from app.database import get_db
 from app.models.cached_event import CachedEvent
 from app.models.client import Client
 from app.models.time_entry import TimeEntry
+from app.models.timesheet_row import TimesheetRow
 from app.models.user import User
 from app.routers.clients import get_owned_client, unbilled_hours_by_client
-from app.services.invoicing_ops import drop_line_for_entry, sync_line_from_entry
+from app.services.invoicing_ops import (
+    attach_to_open_draft,
+    drop_line_for_entry,
+    sync_line_from_entry,
+)
 from app.schemas.time_entry import (
     SuggestedEntry,
     SuggestRequest,
@@ -48,6 +53,7 @@ def to_response(entry: TimeEntry) -> TimeEntryResponse:
         description=entry.description,
         invoice_id=entry.invoice_id,
         invoice_number=entry.invoice.number if entry.invoice else None,
+        invoice_status=entry.invoice.status if entry.invoice else None,
         created_at=entry.created_at,
     )
 
@@ -78,6 +84,45 @@ def reject_if_billed(entry: TimeEntry) -> None:
 
 
 # Static paths are declared before /{entry_id} so they match first.
+
+
+@router.get("/api/time-entries/tasks", response_model=list[str])
+async def task_names(
+    client_id: uuid.UUID = Query(...),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Every task name used for a client, most recently used first.
+
+    Names that differ only in case or surrounding spaces count as one task,
+    matching how the timesheet groups rows.
+    """
+    await get_owned_client(db, user, client_id)
+    used = (
+        await db.execute(
+            select(TimeEntry.description, func.max(TimeEntry.entry_date))
+            .where(TimeEntry.user_id == user.id, TimeEntry.client_id == client_id)
+            .group_by(TimeEntry.description)
+        )
+    ).all()
+    saved = (
+        await db.execute(
+            select(TimesheetRow.description).where(
+                TimesheetRow.user_id == user.id, TimesheetRow.client_id == client_id
+            )
+        )
+    ).scalars().all()
+
+    latest: dict[str, tuple[date, str]] = {}
+    for name, last_used in used:
+        key = name.strip().lower()
+        if key and (key not in latest or last_used > latest[key][0]):
+            latest[key] = (last_used, name.strip())
+    for name in saved:
+        key = name.strip().lower()
+        # A saved row with no hours yet still counts, after anything with hours.
+        latest.setdefault(key, (date.min, name.strip()))
+    return [name for _, name in sorted(latest.values(), key=lambda v: (v[0], v[1]), reverse=True)]
 
 
 @router.get("/api/time-entries/summary", response_model=list[UnbilledSummary])
@@ -207,7 +252,11 @@ async def create_entry(
     entry = TimeEntry(user_id=user.id, **data.model_dump())
     db.add(entry)
     await db.flush()
-    return to_response(await get_owned_entry(db, user, entry.id))
+    entry_id = entry.id
+    await attach_to_open_draft(db, entry)
+    # Re-select so invoice_number reflects a draft it may have joined.
+    db.expire(entry)
+    return to_response(await get_owned_entry(db, user, entry_id))
 
 
 @router.post(
@@ -225,6 +274,8 @@ async def create_entries_bulk(
     entries = [TimeEntry(user_id=user.id, **e.model_dump()) for e in data.entries]
     db.add_all(entries)
     await db.flush()
+    for entry in entries:
+        await attach_to_open_draft(db, entry)
     ids = [e.id for e in entries]
     result = await db.execute(
         select(TimeEntry)
@@ -258,6 +309,9 @@ async def update_entry(
     if entry.invoice_id is not None:
         # Keep the invoice honest about what it is billing.
         await sync_line_from_entry(db, entry)
+    else:
+        # A date or client change can move unbilled hours into a draft's period.
+        await attach_to_open_draft(db, entry)
     # Re-select so a changed client_id shows the new client name.
     db.expire(entry)
     return to_response(await get_owned_entry(db, user, entry_id))

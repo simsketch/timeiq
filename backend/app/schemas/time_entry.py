@@ -35,6 +35,7 @@ class TimeEntryResponse(BaseModel):
     description: str
     invoice_id: Optional[uuid.UUID] = None
     invoice_number: Optional[str] = None
+    invoice_status: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

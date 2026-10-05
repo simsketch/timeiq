@@ -34,6 +34,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { ImportDialog } from "@/components/time/import-dialog";
+import { TaskCombobox } from "@/components/time/task-combobox";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
@@ -87,6 +88,10 @@ interface Row {
 // A billed entry needs ?force=true, which also rewrites its invoice line.
 const entryUrl = (e: TimeEntry) =>
   `/api/time-entries/${e.id}${e.invoice_id ? "?force=true" : ""}`;
+
+// Hours on a draft stay editable and keep the draft in sync. Only invoices
+// that have gone out (sent or paid) lock their hours behind a confirmation.
+const isLocked = (e: TimeEntry) => !!e.invoice_id && e.invoice_status !== "draft";
 
 const invoiceList = (entries: TimeEntry[]) =>
   Array.from(new Set(entries.map((e) => e.invoice_number).filter(Boolean))).join(", ");
@@ -198,7 +203,7 @@ export default function TimePage() {
   const cellHours = (row: Row, day: Date) =>
     (cellEntries[`${row.key}|${iso(day)}`] ?? []).reduce((s, e) => s + parseFloat(e.hours), 0);
   const cellBilled = (row: Row, day: Date) =>
-    (cellEntries[`${row.key}|${iso(day)}`] ?? []).find((e) => e.invoice_id) ?? null;
+    (cellEntries[`${row.key}|${iso(day)}`] ?? []).find(isLocked) ?? null;
 
   const dayTotals = days.map((d) =>
     entries.filter((e) => e.entry_date === iso(d)).reduce((s, e) => s + parseFloat(e.hours), 0)
@@ -215,7 +220,7 @@ export default function TimePage() {
     const current = existing.reduce((s, e) => s + parseFloat(e.hours), 0);
     if (Math.abs(hours - current) < 0.001) return;
     const cellKey = `${row.key}|${iso(day)}`;
-    if (existing.some((e) => e.invoice_id) && !unlocked.has(cellKey)) return;
+    if (existing.some(isLocked) && !unlocked.has(cellKey)) return;
     if (hours > 24) {
       toast({ title: "Hours must be 24 or less", variant: "destructive" });
       return;
@@ -326,7 +331,7 @@ export default function TimePage() {
     }
 
     const elsewhere = allWeeks.length - thisWeek.length;
-    const billed = allWeeks.filter((e) => e.invoice_id).length;
+    const billed = allWeeks.filter(isLocked).length;
     if (billed === 0 && elsewhere === 0 && !merges) {
       await applyRowEdit(row, client.id, description, thisWeek);
       return;
@@ -369,11 +374,11 @@ export default function TimePage() {
         });
         setSavedRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
       }
-      const touched = targets.filter((e) => e.invoice_id).length;
+      const touched = targets.filter(isLocked).length;
       if (touched > 0) {
         toast({
           title: `Updated ${targets.length} entr${targets.length === 1 ? "y" : "ies"}`,
-          description: `${touched} on ${invoiceList(targets.filter((e) => e.invoice_id))} ${touched === 1 ? "was" : "were"} rewritten and the invoice retotalled.`,
+          description: `${touched} on ${invoiceList(targets.filter(isLocked))} ${touched === 1 ? "was" : "were"} rewritten and the invoice retotalled.`,
         });
       }
       setPending(null);
@@ -388,8 +393,8 @@ export default function TimePage() {
 
   async function deleteRow(row: Row) {
     const rowEntries = entries.filter((e) => rowKey(e.client_id, e.description) === row.key);
-    const unbilled = rowEntries.filter((e) => !e.invoice_id);
-    const billedEntries = rowEntries.filter((e) => e.invoice_id);
+    const unbilled = rowEntries.filter((e) => !isLocked(e));
+    const billedEntries = rowEntries.filter(isLocked);
     if (billedEntries.length > 0) {
       setPending({ kind: "delete", row, billed: billedEntries, all: rowEntries });
       return;
@@ -711,13 +716,18 @@ export default function TimePage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="task">Task</Label>
-                <Input
+                <TaskCombobox
                   id="task"
-                  autoFocus
-                  required
-                  placeholder="Platform support"
+                  clientId={addForm.client_id}
                   value={addForm.description}
-                  onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
+                  onChange={(description) => setAddForm({ ...addForm, description })}
+                  taken={
+                    new Set(
+                      rows
+                        .filter((r) => r.client_id === addForm.client_id)
+                        .map((r) => r.description.trim().toLowerCase())
+                    )
+                  }
                 />
               </div>
             </div>
@@ -759,10 +769,10 @@ export default function TimePage() {
                     </>
                   )}
                   .
-                  {pending.allWeeks.some((e) => e.invoice_id) && (
+                  {pending.allWeeks.some(isLocked) && (
                     <>
                       {" "}
-                      {pending.allWeeks.filter((e) => e.invoice_id).length} of them are
+                      {pending.allWeeks.filter(isLocked).length} of them are
                       billed on {invoiceList(pending.allWeeks)}; renaming those rewrites
                       the invoice lines and retotals the invoice.
                     </>
@@ -782,7 +792,7 @@ export default function TimePage() {
             </DialogDescription>
           </DialogHeader>
           {(pending?.kind === "cell" ||
-            (pending?.kind === "edit" && pending.allWeeks.some((e) => e.invoice_id)) ||
+            (pending?.kind === "edit" && pending.allWeeks.some(isLocked)) ||
             (pending?.kind === "delete" && pending.billed.length > 0)) && (
             <p className="text-sm text-muted-foreground">
               Invoices you have already sent will no longer match the copy your client
@@ -794,7 +804,7 @@ export default function TimePage() {
               Cancel
             </Button>
             {pending?.kind === "edit" &&
-              pending.allWeeks.some((e) => !e.invoice_id) && (
+              pending.allWeeks.some((e) => !isLocked(e)) && (
                 <Button
                   variant="outline"
                   disabled={busy}
@@ -803,7 +813,7 @@ export default function TimePage() {
                       pending.row,
                       pending.clientId,
                       pending.description,
-                      pending.allWeeks.filter((e) => !e.invoice_id)
+                      pending.allWeeks.filter((e) => !isLocked(e))
                     )
                   }
                 >
@@ -828,12 +838,12 @@ export default function TimePage() {
                   This week only
                 </Button>
               )}
-            {pending?.kind === "delete" && pending.all.some((e) => !e.invoice_id) && (
+            {pending?.kind === "delete" && pending.all.some((e) => !isLocked(e)) && (
               <Button
                 variant="outline"
                 disabled={busy}
                 onClick={() =>
-                  applyRowDelete(pending.row, pending.all.filter((e) => !e.invoice_id))
+                  applyRowDelete(pending.row, pending.all.filter((e) => !isLocked(e)))
                 }
               >
                 Unbilled only
