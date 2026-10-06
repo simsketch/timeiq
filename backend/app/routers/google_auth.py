@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
+import secrets
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,12 +26,54 @@ GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 SCOPES = "https://www.googleapis.com/auth/calendar.readonly"
 
+# OAuth CSRF protection. The state names the user and a nonce, signed so it
+# can't be forged, and the same nonce is set as a cookie in the browser that
+# started the flow. The callback needs both, so a link an attacker generated
+# for their own account fails in anyone else's browser.
+STATE_COOKIE = "timeiq_google_oauth"
+STATE_TTL_SECONDS = 600
+
+
+def _sign(payload: str) -> str:
+    key = settings.GOOGLE_CLIENT_SECRET.encode()
+    return hmac.new(key, payload.encode(), hashlib.sha256).hexdigest()
+
+
+def make_state(user_id: uuid.UUID, nonce: str, now: float | None = None) -> str:
+    expires = int((now or time.time()) + STATE_TTL_SECONDS)
+    payload = f"{user_id}.{nonce}.{expires}"
+    return f"{payload}.{_sign(payload)}"
+
+
+def read_state(state: str, cookie_nonce: str | None, now: float | None = None) -> uuid.UUID:
+    """The user id from a state that is signed, unexpired and bound to this browser."""
+    try:
+        user_id, nonce, expires, sig = state.split(".")
+        parsed = uuid.UUID(user_id)
+        expires_at = int(expires)
+    except ValueError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid state parameter")
+    if not hmac.compare_digest(sig, _sign(f"{user_id}.{nonce}.{expires}")):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid state parameter")
+    if expires_at < (now or time.time()):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Sign-in link expired; try again")
+    if not cookie_nonce or not hmac.compare_digest(nonce, cookie_nonce):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "This Google sign-in was started in a different browser",
+        )
+    return parsed
+
 
 @router.get("/auth-url")
 async def get_google_auth_url(
+    response: Response,
     user: User = Depends(get_current_user),
 ):
-    """Generate a Google OAuth2 authorization URL."""
+    """Generate a Google OAuth2 authorization URL.
+
+    Call this with credentials included (fetch `credentials: "include"`), so the
+    browser keeps the nonce cookie the callback checks."""
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
@@ -40,8 +87,21 @@ async def get_google_auth_url(
         "scope": SCOPES,
         "access_type": "offline",
         "prompt": "consent",
-        "state": str(user.id),
+        "state": "",
     }
+    nonce = secrets.token_urlsafe(24)
+    params["state"] = make_state(user.id, nonce)
+    # timeiq.app and api.timeiq.app are same-site, so Lax suffices and the cookie
+    # rides along on Google's top-level redirect back to the callback.
+    response.set_cookie(
+        STATE_COOKIE,
+        nonce,
+        max_age=STATE_TTL_SECONDS,
+        httponly=True,
+        secure=settings.GOOGLE_REDIRECT_URI.startswith("https"),
+        samesite="lax",
+        path="/api/google",
+    )
     auth_url = f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
     return {"url": auth_url}
 
@@ -50,6 +110,7 @@ async def get_google_auth_url(
 async def google_callback(
     code: str = Query(...),
     state: str = Query(...),
+    nonce_cookie: str | None = Cookie(default=None, alias=STATE_COOKIE),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -62,14 +123,7 @@ async def google_callback(
             detail="Google Calendar integration is not configured",
         )
 
-    # Verify the user exists
-    try:
-        user_id = uuid.UUID(state)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid state parameter",
-        )
+    user_id = read_state(state, nonce_cookie)
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -136,7 +190,6 @@ async def google_callback(
     await db.flush()
 
     # Redirect back to frontend
-    redirect_url = f"{settings.FRONTEND_URL}/dashboard/calendars?google=connected"
-    from fastapi.responses import RedirectResponse
-
-    return RedirectResponse(url=redirect_url)
+    redirect = RedirectResponse(url=f"{settings.FRONTEND_URL}/calendars?google=connected")
+    redirect.delete_cookie(STATE_COOKIE, path="/api/google")
+    return redirect

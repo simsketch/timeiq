@@ -22,12 +22,14 @@ async def get_available_slots(
     target_date: date,
     *,
     debug: bool = False,
+    exclude_booking_id: uuid.UUID | None = None,
 ) -> list[str] | dict:
     """
     Compute available time slots for a given host, event type, and date.
 
     Returns a list of ISO 8601 datetime strings representing available slot start times.
     If debug=True, returns a dict with full diagnostic information.
+    exclude_booking_id ignores one booking, so a reschedule can reuse its own time.
     """
     debug_info: dict = {}
 
@@ -110,6 +112,7 @@ async def get_available_slots(
                 Booking.status == "confirmed",
                 Booking.starts_at < window_end_utc,
                 Booking.ends_at > window_start_utc,
+                Booking.id != exclude_booking_id if exclude_booking_id else True,
             )
         )
     )
@@ -211,6 +214,7 @@ async def get_available_slots(
                     Booking.status == "confirmed",
                     Booking.starts_at >= day_start,
                     Booking.starts_at <= day_end,
+                    Booking.id != exclude_booking_id if exclude_booking_id else True,
                 )
             )
         )
@@ -221,10 +225,36 @@ async def get_available_slots(
                 debug_info["max_bookings_reached"] = True
                 return debug_info
             return []
-        available = available[:remaining]
 
     if debug:
         debug_info["slots"] = available
         return debug_info
 
     return available
+
+
+async def is_bookable(
+    db: AsyncSession,
+    host: User,
+    event_type: EventType,
+    starts_at: datetime,
+    *,
+    exclude_booking_id: uuid.UUID | None = None,
+) -> bool:
+    """Whether starts_at is one of the slots the booking page would offer.
+
+    The public booking endpoints call this so a request made outside the page
+    still honours availability rules, synced calendar events, buffers and the
+    daily cap."""
+    try:
+        host_tz = zoneinfo.ZoneInfo(host.timezone)
+    except Exception:
+        host_tz = zoneinfo.ZoneInfo("America/New_York")
+    slots = await get_available_slots(
+        db,
+        host,
+        event_type,
+        starts_at.astimezone(host_tz).date(),
+        exclude_booking_id=exclude_booking_id,
+    )
+    return any(datetime.fromisoformat(slot) == starts_at for slot in slots)

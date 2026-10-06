@@ -13,7 +13,23 @@ from app.models.booking import Booking
 from app.models.event_type import EventType
 from app.models.user import User
 from app.schemas.booking import BookingCreate, BookingPublicResponse, BookingResponse
+from app.services.availability import is_bookable
 from app.services.email import send_booking_confirmation, send_cancellation_notice
+
+def require_visitor_fields(event_type: EventType, payload) -> None:
+    """Enforce the event type's required visitor fields, which the form only hints at."""
+    required = {
+        "visitor_phone": ("phone number", event_type.require_phone),
+        "visitor_company": ("company", event_type.require_company),
+        "visitor_url": ("website", event_type.require_url),
+    }
+    for field, (label, needed) in required.items():
+        if needed and not (getattr(payload, field, None) or "").strip():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"A {label} is required for this booking",
+            )
+
 
 router = APIRouter(tags=["bookings"])
 
@@ -137,18 +153,8 @@ async def create_public_booking(
             detail="Cannot book a slot in the past",
         )
 
-    # Verify no conflicting confirmed bookings exist
-    conflict_result = await db.execute(
-        select(Booking).where(
-            and_(
-                Booking.host_user_id == host.id,
-                Booking.status == "confirmed",
-                Booking.starts_at < ends_at,
-                Booking.ends_at > starts_at,
-            )
-        )
-    )
-    if conflict_result.scalar_one_or_none() is not None:
+    require_visitor_fields(event_type, payload)
+    if not await is_bookable(db, host, event_type, starts_at):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This time slot is no longer available",
@@ -298,19 +304,8 @@ async def reschedule_booking(
             detail="Cannot book a slot in the past",
         )
 
-    # Check conflicts (excluding the old booking being cancelled)
-    conflict_result = await db.execute(
-        select(Booking).where(
-            and_(
-                Booking.host_user_id == host.id,
-                Booking.status == "confirmed",
-                Booking.id != old_booking.id,
-                Booking.starts_at < ends_at,
-                Booking.ends_at > starts_at,
-            )
-        )
-    )
-    if conflict_result.scalar_one_or_none() is not None:
+    require_visitor_fields(event_type, payload)
+    if not await is_bookable(db, host, event_type, starts_at, exclude_booking_id=old_booking.id):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This time slot is no longer available",

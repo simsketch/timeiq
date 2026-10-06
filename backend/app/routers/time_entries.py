@@ -74,8 +74,15 @@ async def get_owned_entry(
     return entry
 
 
+def on_issued_invoice(entry: TimeEntry) -> bool:
+    """Billed on an invoice that has gone out. Draft hours stay freely editable."""
+    return entry.invoice_id is not None and (
+        entry.invoice is None or entry.invoice.status != "draft"
+    )
+
+
 def reject_if_billed(entry: TimeEntry) -> None:
-    if entry.invoice_id is not None:
+    if on_issued_invoice(entry):
         number = entry.invoice.number if entry.invoice else "an invoice"
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -301,11 +308,36 @@ async def update_entry(
     if not force:
         reject_if_billed(entry)
     changes = data.model_dump(exclude_unset=True)
+    moves_client = "client_id" in changes and changes["client_id"] != entry.client_id
     if "client_id" in changes:
         await get_owned_client(db, user, changes["client_id"])
+    if moves_client and on_issued_invoice(entry):
+        # Even forced: the line would stay on this client's invoice and bill
+        # them for work now filed under someone else.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Entry is on {entry.invoice.number if entry.invoice else 'an invoice'}, "
+                "which has been sent. Void that invoice before moving its hours to another client."
+            ),
+        )
     for key, value in changes.items():
         setattr(entry, key, value)
     await db.flush()
+    invoice = entry.invoice
+    if (
+        invoice is not None
+        and invoice.status == "draft"
+        and (
+            moves_client
+            or not (invoice.period_start <= entry.entry_date <= invoice.period_end)
+        )
+    ):
+        # It no longer belongs on this draft; take it off and let it find the
+        # right one (or none) below.
+        await drop_line_for_entry(db, entry)
+        entry.invoice_id = None
+        await db.flush()
     if entry.invoice_id is not None:
         # Keep the invoice honest about what it is billing.
         await sync_line_from_entry(db, entry)
