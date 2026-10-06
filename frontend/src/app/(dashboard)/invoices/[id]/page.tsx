@@ -24,6 +24,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { StatusBadge } from "@/components/invoices/status-badge";
 import { InvoiceView } from "@/components/invoices/invoice-view";
+import { SendDialog } from "@/components/invoices/send-dialog";
 import { apiFetch } from "@/lib/api";
 import { API_BASE, Invoice, InvoicePreview, authHeaders, fmtMoney } from "@/lib/invoicing";
 import { splitLines } from "@/lib/invoice-grouping";
@@ -127,10 +128,18 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     URL.revokeObjectURL(url);
   }
 
-  async function send() {
-    if (!invoice) return;
-    if (!confirm(`Email ${invoice.number} to ${invoice.client_billing_email}?`)) return;
-    await action(`/api/invoices/${invoice.id}/send`, "POST", undefined, "Invoice sent");
+  const [sending, setSending] = useState<"send" | "remind" | null>(null);
+
+  async function confirmSend(recipients: string[]) {
+    if (!invoice || !sending) return;
+    const who = recipients.length === 1 ? recipients[0] : `${recipients.length} recipients`;
+    const ok = await action(
+      `/api/invoices/${invoice.id}/${sending}`,
+      "POST",
+      { recipients },
+      sending === "send" ? `Invoice sent to ${who}` : `Reminder sent to ${who}`
+    );
+    if (ok) setSending(null);
   }
 
   async function voidInvoice() {
@@ -193,7 +202,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             </Button>
           )}
           {(isDraft || isSent) && (
-            <Button onClick={send} disabled={busy || !invoice.client_billing_email}>
+            <Button onClick={() => setSending("send")} disabled={busy || !invoice.client_billing_email}>
               <Send className="h-4 w-4 mr-2" />
               {isDraft ? "Send" : "Resend"}
             </Button>
@@ -202,10 +211,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <Button
               variant="outline"
               disabled={busy || !invoice.client_billing_email}
-              onClick={() => {
-                if (confirm(`Send a past-due reminder for ${invoice.number} to ${invoice.client_billing_email}?`))
-                  action(`/api/invoices/${invoice.id}/remind`, "POST", undefined, "Reminder sent");
-              }}
+              onClick={() => setSending("remind")}
             >
               <BellRing className="h-4 w-4 mr-2" />
               Send reminder
@@ -257,8 +263,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
       {isDraft && !invoice.client_billing_email && (
         <p className="text-sm text-amber-600">
-          This invoice has no billing email, so it can&apos;t be sent. Add one to the client, then void and
-          recreate.
+          This invoice has no billing email, so it can&apos;t be sent. Add one to the client and it
+          will appear here.
         </p>
       )}
 
@@ -385,6 +391,25 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           </form>
         </div>
       )}
+
+      <SendDialog
+        open={sending !== null}
+        onOpenChange={(o) => !o && setSending(null)}
+        title={
+          sending === "remind"
+            ? `Send a past-due reminder for ${invoice.number}?`
+            : `${isDraft ? "Send" : "Resend"} ${invoice.number}?`
+        }
+        description={
+          sending === "remind"
+            ? "The invoice PDF goes out again with a past-due note."
+            : "Recipients get the PDF and a link to view it online. Everyone you choose is on one email, so they can reply-all."
+        }
+        confirmLabel={sending === "remind" ? "Send reminder" : isDraft ? "Send" : "Resend"}
+        billingEmails={invoice.client_billing_email}
+        busy={busy}
+        onConfirm={confirmSend}
+      />
 
       <InvoiceView
         invoice={{

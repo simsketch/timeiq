@@ -23,6 +23,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { apiFetch } from "@/lib/api";
 import { Client, authHeaders, fmtHours, fmtMoney } from "@/lib/invoicing";
+import { EmailChips } from "@/components/clients/email-chips";
 
 const EMPTY = {
   name: "",
@@ -176,8 +177,15 @@ export default function ClientsPage() {
                   <Input id="contact_name" {...field("contact_name")} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="billing_email">Billing email</Label>
-                  <Input id="billing_email" type="email" {...field("billing_email")} />
+                  <Label htmlFor="billing_email">Billing emails</Label>
+                  <EmailChips
+                    id="billing_email"
+                    value={form.billing_email}
+                    onChange={(billing_email) => setForm((f) => ({ ...f, billing_email }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Press Enter or a comma after each address. You pick who gets each invoice when you send it.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="address">Address</Label>

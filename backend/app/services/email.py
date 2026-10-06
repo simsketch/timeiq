@@ -11,6 +11,8 @@ from zoneinfo import ZoneInfo
 
 import resend
 
+from app.services.invoicing import split_emails
+
 from app.config import settings
 from app.models.booking import Booking
 from app.models.event_type import EventType
@@ -263,9 +265,18 @@ def render_invoice(invoice, sender: User, hosted_url: str, reminder_days: int | 
     return t.layout(hero, f"{headline}: {amount} due {_fmt_date(invoice.due_date)}", body)
 
 
-def send_invoice(invoice, pdf_bytes: bytes, sender: User, hosted_url: str, reminder_days: int | None = None) -> None:
-    """Email an invoice PDF to the client. Raises RuntimeError on failure so the
-    API can report it, unlike booking mail which is best-effort."""
+def send_invoice(
+    invoice,
+    pdf_bytes: bytes,
+    sender: User,
+    hosted_url: str,
+    reminder_days: int | None = None,
+    recipients: list[str] | None = None,
+) -> None:
+    """Email an invoice PDF to the client, one message with every recipient on To
+    so they can reply-all. Defaults to all of the invoice's billing addresses.
+    Raises RuntimeError on failure so the API can report it, unlike booking mail
+    which is best-effort."""
     _init_resend()
     sender_name = sender.name or sender.email
     subject = (
@@ -277,7 +288,7 @@ def send_invoice(invoice, pdf_bytes: bytes, sender: User, hosted_url: str, remin
         resend.Emails.send(
             {
                 "from": FROM_EMAIL,
-                "to": [invoice.client_billing_email],
+                "to": recipients or split_emails(invoice.client_billing_email),
                 "reply_to": sender.email,
                 "subject": subject,
                 "html": render_invoice(invoice, sender, hosted_url, reminder_days),

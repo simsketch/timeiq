@@ -26,10 +26,11 @@ from app.schemas.invoice import (
     InvoiceSummary,
     InvoiceUpdate,
     PublicInvoiceResponse,
+    SendInvoiceRequest,
 )
 from app.services.email import send_invoice
 from app.services.invoice_pdf import build_invoice_pdf
-from app.services.invoicing import line_amount
+from app.services.invoicing import line_amount, split_emails
 from app.services.invoicing_ops import (
     attach_entries,
     create_invoice_from_entries,
@@ -199,26 +200,43 @@ async def refresh_invoice(
     return await get_owned_invoice(db, user, invoice_id)
 
 
+def pick_recipients(invoice: Invoice, data: SendInvoiceRequest | None) -> list[str]:
+    """The addresses to email: all on the invoice, or a chosen subset of them.
+
+    Only the invoice's own billing addresses are allowed, so a send can't be
+    pointed at arbitrary people."""
+    on_file = split_emails(invoice.client_billing_email)
+    if not on_file:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Client has no billing email. Add one to the client, then send.",
+        )
+    if data is None or data.recipients is None:
+        return on_file
+    by_key = {a.lower(): a for a in on_file}
+    chosen = [by_key.get(a.strip().lower()) for a in data.recipients]
+    if not chosen or None in chosen:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Choose at least one of the client's billing addresses",
+        )
+    return list(dict.fromkeys(chosen))
+
+
 @router.post("/api/invoices/{invoice_id}/send", response_model=InvoiceResponse)
 async def send_invoice_route(
     invoice_id: uuid.UUID,
+    data: SendInvoiceRequest | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     invoice = await get_owned_invoice(db, user, invoice_id)
     require_status(invoice, "draft", "sent")
-    if not invoice.client_billing_email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "Client has no billing email. Add one to the client, "
-                "then void and recreate this invoice."
-            ),
-        )
+    recipients = pick_recipients(invoice, data)
     pdf = build_invoice_pdf(invoice, user.name or user.email, user.email)
     hosted_url = f"{settings.FRONTEND_URL}/invoice/{invoice.public_token}"
     try:
-        send_invoice(invoice, pdf, user, hosted_url)
+        send_invoice(invoice, pdf, user, hosted_url, recipients=recipients)
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
     invoice.status = "sent"
@@ -230,19 +248,19 @@ async def send_invoice_route(
 @router.post("/api/invoices/{invoice_id}/remind", response_model=InvoiceResponse)
 async def remind_invoice(
     invoice_id: uuid.UUID,
+    data: SendInvoiceRequest | None = None,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Re-send a sent invoice to the client as a past-due reminder."""
     invoice = await get_owned_invoice(db, user, invoice_id)
     require_status(invoice, "sent")
-    if not invoice.client_billing_email:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Client has no billing email")
+    recipients = pick_recipients(invoice, data)
     days = max((datetime.now(timezone.utc).date() - invoice.due_date).days, 0)
     pdf = build_invoice_pdf(invoice, user.name or user.email, user.email)
     hosted_url = f"{settings.FRONTEND_URL}/invoice/{invoice.public_token}"
     try:
-        send_invoice(invoice, pdf, user, hosted_url, reminder_days=days)
+        send_invoice(invoice, pdf, user, hosted_url, reminder_days=days, recipients=recipients)
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
     return invoice

@@ -45,3 +45,42 @@ def title_matches(title: str | None, keywords: list[str]) -> bool:
         return False
     lowered = title.lower()
     return any(kw in lowered for kw in keywords)
+
+
+# The billing email column holds one or more addresses, stored as "a, b".
+EMAIL_LIST_MAX = 320
+
+
+def split_emails(raw: str | None) -> list[str]:
+    """Addresses from a stored or typed list; commas, semicolons or whitespace split them."""
+    import re
+
+    return [part for part in re.split(r"[,;\s]+", raw or "") if part]
+
+
+def normalize_email_list(raw: str | list[str] | None) -> str | None:
+    """Validate each address, drop case-insensitive duplicates, and join as "a, b".
+
+    Raises ValueError naming the first bad address, which pydantic reports as a 422."""
+    from email_validator import EmailNotValidError, validate_email
+
+    parts = raw if isinstance(raw, list) else split_emails(raw)
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            address = validate_email(part, check_deliverability=False).normalized
+        except EmailNotValidError:
+            raise ValueError(f"{part} is not a valid email address")
+        if address.lower() not in seen:
+            seen.add(address.lower())
+            cleaned.append(address)
+    if not cleaned:
+        return None
+    joined = ", ".join(cleaned)
+    if len(joined) > EMAIL_LIST_MAX:
+        raise ValueError("Too many billing addresses; keep the list under 320 characters")
+    return joined

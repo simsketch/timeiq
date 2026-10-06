@@ -4,12 +4,13 @@ import uuid
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import update, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
 from app.database import get_db
 from app.models.client import Client
+from app.models.invoice import Invoice
 from app.models.time_entry import TimeEntry
 from app.models.user import User
 from app.schemas.client import ClientCreate, ClientResponse, ClientUpdate
@@ -88,6 +89,19 @@ async def update_client(
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(client, key, value)
     await db.flush()
+    # Drafts haven't gone out, so they carry the client's current contact
+    # details (a newly added billing address, a fixed name). Sent invoices keep
+    # what the client actually received.
+    await db.execute(
+        update(Invoice)
+        .where(Invoice.client_id == client.id, Invoice.status == "draft")
+        .values(
+            client_name=client.name,
+            client_contact_name=client.contact_name,
+            client_billing_email=client.billing_email,
+            client_address=client.address,
+        )
+    )
     await db.refresh(client)
     unbilled = await unbilled_hours_by_client(db, user)
     return to_response(client, unbilled)

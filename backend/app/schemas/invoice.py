@@ -110,3 +110,8 @@ class PublicInvoiceResponse(BaseModel):
     sender_name: str
     sender_email: str
     lines: list[InvoiceLineResponse]
+
+
+class SendInvoiceRequest(BaseModel):
+    """Which billing addresses get this send. Omit to send to all of them."""
+    recipients: Optional[list[str]] = None
