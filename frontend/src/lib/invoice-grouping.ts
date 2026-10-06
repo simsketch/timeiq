@@ -28,12 +28,12 @@ const num = (v: string | null | undefined) => (v == null ? 0 : parseFloat(v) || 
 export const isExpense = (l: InvoiceLine) => l.kind === "expense";
 
 /** Parse a yyyy-MM-dd string as a local date, avoiding timezone shift. */
-function parseDay(iso: string): Date {
+export function parseDay(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 
-function toIso(d: Date): string {
+export function toIso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
@@ -127,4 +127,19 @@ export function fmtSpan(first: string, last: string): string {
   }
   if (a.getMonth() === b.getMonth()) return `${short(a)} - ${b.getDate()}`;
   return `${short(a)} - ${short(b)}`;
+}
+
+/** Date of day `i` (0 = Sunday) in the week starting `weekStart`, as YYYY-MM-DD. */
+export function dayOfWeek(weekStart: string, i: number): string {
+  const d = parseDay(weekStart);
+  d.setDate(d.getDate() + i);
+  return toIso(d);
+}
+
+/** Grid cell label: "Oct 1" on the 1st or a row's first day, otherwise "2". */
+export function gridDayLabel(iso: string, firstInRow: boolean): string {
+  const d = parseDay(iso);
+  return d.getDate() === 1 || firstInRow
+    ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : String(d.getDate());
 }

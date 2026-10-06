@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from datetime import timedelta
 from decimal import Decimal
 from io import BytesIO
 from xml.sax.saxutils import escape
@@ -149,22 +150,52 @@ def build_invoice_pdf(invoice, sender_name: str, sender_email: str) -> bytes:
     # Day-by-day hours, a timesheet view of the period. It shows when the work
     # happened; the money is in the services table below.
     if getattr(invoice, "show_weekly_breakdown", True) and weeks:
+        cell = ParagraphStyle("cell", parent=body, fontSize=9, leading=10, alignment=TA_RIGHT)
+        outside_cells: list[tuple[int, int]] = []
+
+        def day_cell(day, hours, first_in_row: bool, outside: bool) -> Paragraph:
+            label = day.strftime("%b %-d") if day.day == 1 or first_in_row else str(day.day)
+            color = "#b8bcc4" if outside else "#8a8f98"
+            return Paragraph(
+                f'<font size="6.5" color="{color}">{label}</font><br/>{fmt_h(hours) or "&nbsp;"}',
+                cell,
+            )
+
         grid: list[list] = [["Week", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Total"]]
         day_totals = [Decimal("0")] * 7
-        for w in weeks:
-            grid.append(
-                [span(w.week_start, w.week_end), *(fmt_h(d) for d in w.days), f"{w.hours:.2f}"]
-            )
+        for r, w in enumerate(weeks, start=1):
+            row: list = [span(w.week_start, w.week_end)]
+            for i, hours in enumerate(w.days):
+                day = w.week_start + timedelta(days=i)
+                outside = not (invoice.period_start <= day <= invoice.period_end)
+                if outside:
+                    outside_cells.append((i + 1, r))
+                row.append(day_cell(day, hours, i == 0, outside))
+            row.append(f"{w.hours:.2f}")
+            grid.append(row)
             day_totals = [a + Decimal(b) for a, b in zip(day_totals, w.days)]
         grid.append(["Total", *(fmt_h(d) for d in day_totals), f"{sums['hours']:.2f}"])
+        table = styled(grid, [1.3 * inch] + [0.6 * inch] * 7 + [1.4 * inch], numeric_from=1)
+        # Days outside the period are shaded, so an empty Thursday reads as
+        # "not billed in this period" rather than "no work done".
+        table.setStyle(
+            TableStyle(
+                [("BACKGROUND", c, c, colors.HexColor("#e9ebef")) for c in outside_cells]
+                + [("VALIGN", (0, 1), (-1, -2), "MIDDLE")]
+            )
+        )
         story += [
             KeepTogether(
                 [
                     _p("HOURS", label),
                     Spacer(1, 2),
-                    _p("Hours logged each day, billed in the services below.", small),
+                    _p(
+                        "Hours logged each day, billed in the services below. "
+                        "Shaded days fall outside the billing period.",
+                        small,
+                    ),
                     Spacer(1, 6),
-                    styled(grid, [1.3 * inch] + [0.6 * inch] * 7 + [1.4 * inch], numeric_from=1),
+                    table,
                 ]
             ),
             Spacer(1, 16),

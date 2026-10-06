@@ -5,6 +5,8 @@ import {
   invoiceTotals,
   splitLines,
   weeklyBreakdown,
+  dayOfWeek,
+  gridDayLabel,
 } from "@/lib/invoice-grouping";
 
 export interface InvoiceViewData {
@@ -75,7 +77,8 @@ export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
         <div>
           <p className="text-xs font-semibold text-muted-foreground">HOURS</p>
           <p className="text-xs text-muted-foreground mb-2">
-            Hours logged each day, billed in the services below.
+            Hours logged each day, billed in the services below. Shaded days fall
+            outside the billing period.
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -96,11 +99,24 @@ export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
                     <td className="py-2 pr-3 whitespace-nowrap">
                       {fmtSpan(w.weekStart, w.weekEnd)}
                     </td>
-                    {w.days.map((h, i) => (
-                      <td key={i} className="py-2 px-1 text-right tabular-nums">
-                        {fmtDayHours(h)}
-                      </td>
-                    ))}
+                    {w.days.map((h, i) => {
+                      const day = dayOfWeek(w.weekStart, i);
+                      const outside = day < invoice.period_start || day > invoice.period_end;
+                      return (
+                        <td
+                          key={i}
+                          title={outside ? "Outside the billing period" : undefined}
+                          className={`py-1.5 px-1 text-right tabular-nums align-top ${outside ? "bg-muted/60" : ""}`}
+                        >
+                          <div
+                            className={`text-[10px] leading-tight ${outside ? "text-muted-foreground/50" : "text-muted-foreground"}`}
+                          >
+                            {gridDayLabel(day, i === 0)}
+                          </div>
+                          <div className="leading-tight">{fmtDayHours(h)}</div>
+                        </td>
+                      );
+                    })}
                     <td className="py-2 pl-3 text-right tabular-nums">{w.hours.toFixed(2)}</td>
                   </tr>
                 ))}
