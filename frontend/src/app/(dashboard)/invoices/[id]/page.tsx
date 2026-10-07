@@ -13,6 +13,7 @@ import {
   Send,
   Trash2,
   BellRing,
+  MailCheck,
   Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -130,14 +131,15 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
   const [sending, setSending] = useState<"send" | "remind" | null>(null);
 
-  async function confirmSend(recipients: string[]) {
+  async function confirmSend(recipients: string[], copyMe: boolean) {
     if (!invoice || !sending) return;
     const who = recipients.length === 1 ? recipients[0] : `${recipients.length} recipients`;
+    const copy = copyMe ? ", with a copy to you" : "";
     const ok = await action(
       `/api/invoices/${invoice.id}/${sending}`,
       "POST",
-      { recipients },
-      sending === "send" ? `Invoice sent to ${who}` : `Reminder sent to ${who}`
+      { recipients, copy_me: copyMe },
+      sending === "send" ? `Invoice sent to ${who}${copy}` : `Reminder sent to ${who}${copy}`
     );
     if (ok) setSending(null);
   }
@@ -205,6 +207,23 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <Button onClick={() => setSending("send")} disabled={busy || !invoice.client_billing_email}>
               <Send className="h-4 w-4 mr-2" />
               {isDraft ? "Send" : "Resend"}
+            </Button>
+          )}
+          {(isSent || invoice.status === "paid") && (
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                action(
+                  `/api/invoices/${invoice.id}/copy`,
+                  "POST",
+                  undefined,
+                  `Copy sent to ${user?.primaryEmailAddress?.emailAddress ?? "you"}`
+                )
+              }
+            >
+              <MailCheck className="h-4 w-4 mr-2" />
+              Email me a copy
             </Button>
           )}
           {isOverdue && (
@@ -407,6 +426,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         }
         confirmLabel={sending === "remind" ? "Send reminder" : isDraft ? "Send" : "Resend"}
         billingEmails={invoice.client_billing_email}
+        senderEmail={user?.primaryEmailAddress?.emailAddress}
         busy={busy}
         onConfirm={confirmSend}
       />

@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { splitEmails } from "@/components/clients/email-chips";
 
+const COPY_KEY = "timeiq:send-copy-to-me";
+
 /**
  * Confirms a send or reminder and lets the user choose which of the client's
  * billing addresses receive it. Every address starts checked.
@@ -23,6 +25,7 @@ export function SendDialog({
   description,
   confirmLabel,
   billingEmails,
+  senderEmail,
   busy,
   onConfirm,
 }: {
@@ -32,11 +35,28 @@ export function SendDialog({
   description: string;
   confirmLabel: string;
   billingEmails: string | null;
+  /** Shown beside "Send me a copy"; the copy is a BCC of the same email. */
+  senderEmail?: string;
   busy: boolean;
-  onConfirm: (recipients: string[]) => void;
+  onConfirm: (recipients: string[], copyMe: boolean) => void;
 }) {
   const all = splitEmails(billingEmails);
   const [chosen, setChosen] = useState<string[]>(all);
+  const [copyMe, setCopyMe] = useState(true);
+
+  // Remember the copy preference per browser; storage can be unavailable.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(COPY_KEY) === "0") setCopyMe(false);
+    } catch {}
+  }, []);
+
+  function setCopy(next: boolean) {
+    setCopyMe(next);
+    try {
+      localStorage.setItem(COPY_KEY, next ? "1" : "0");
+    } catch {}
+  }
 
   // Reset to everyone each time the dialog opens.
   useEffect(() => {
@@ -70,11 +90,27 @@ export function SendDialog({
             </label>
           ))}
         </fieldset>
+        <label className="flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2.5 text-sm">
+          <input
+            type="checkbox"
+            checked={copyMe}
+            onChange={(e) => setCopy(e.target.checked)}
+            className="h-4 w-4 accent-primary"
+          />
+          <span className="min-w-0">
+            Send me a copy
+            {senderEmail && (
+              <span className="block truncate text-xs text-muted-foreground">
+                BCC to {senderEmail}
+              </span>
+            )}
+          </span>
+        </label>
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             Cancel
           </Button>
-          <Button onClick={() => onConfirm(chosen)} disabled={busy || chosen.length === 0}>
+          <Button onClick={() => onConfirm(chosen, copyMe)} disabled={busy || chosen.length === 0}>
             {chosen.length > 1 ? `${confirmLabel} to ${chosen.length}` : confirmLabel}
           </Button>
         </DialogFooter>

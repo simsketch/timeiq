@@ -28,7 +28,7 @@ from app.schemas.invoice import (
     PublicInvoiceResponse,
     SendInvoiceRequest,
 )
-from app.services.email import send_invoice
+from app.services.email import send_invoice, send_invoice_copy
 from app.services.invoice_pdf import build_invoice_pdf
 from app.services.invoicing import line_amount, split_emails
 from app.services.invoicing_ops import (
@@ -236,7 +236,10 @@ async def send_invoice_route(
     pdf = build_invoice_pdf(invoice, user.name or user.email, user.email)
     hosted_url = f"{settings.FRONTEND_URL}/invoice/{invoice.public_token}"
     try:
-        send_invoice(invoice, pdf, user, hosted_url, recipients=recipients)
+        send_invoice(
+            invoice, pdf, user, hosted_url, recipients=recipients,
+            copy_sender=bool(data and data.copy_me),
+        )
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
     invoice.status = "sent"
@@ -260,7 +263,28 @@ async def remind_invoice(
     pdf = build_invoice_pdf(invoice, user.name or user.email, user.email)
     hosted_url = f"{settings.FRONTEND_URL}/invoice/{invoice.public_token}"
     try:
-        send_invoice(invoice, pdf, user, hosted_url, reminder_days=days, recipients=recipients)
+        send_invoice(
+            invoice, pdf, user, hosted_url, reminder_days=days, recipients=recipients,
+            copy_sender=bool(data and data.copy_me),
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+    return invoice
+
+
+@router.post("/api/invoices/{invoice_id}/copy", response_model=InvoiceResponse)
+async def email_me_a_copy(
+    invoice_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Email the signed-in user their own copy of an invoice that has gone out."""
+    invoice = await get_owned_invoice(db, user, invoice_id)
+    require_status(invoice, "sent", "paid")
+    pdf = build_invoice_pdf(invoice, user.name or user.email, user.email)
+    hosted_url = f"{settings.FRONTEND_URL}/invoice/{invoice.public_token}"
+    try:
+        send_invoice_copy(invoice, pdf, user, hosted_url)
     except RuntimeError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
     return invoice

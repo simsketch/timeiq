@@ -115,3 +115,5 @@ class PublicInvoiceResponse(BaseModel):
 class SendInvoiceRequest(BaseModel):
     """Which billing addresses get this send. Omit to send to all of them."""
     recipients: Optional[list[str]] = None
+    # BCC the sender on the same email, as their record of what went out.
+    copy_me: bool = False

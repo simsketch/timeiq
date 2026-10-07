@@ -232,13 +232,25 @@ async def send_cancellation_notice(booking: Booking, event_type: EventType, host
 # ---------------------------------------------------------------------------
 
 
-def render_invoice(invoice, sender: User, hosted_url: str, reminder_days: int | None = None) -> str:
+def render_invoice(
+    invoice,
+    sender: User,
+    hosted_url: str,
+    reminder_days: int | None = None,
+    copy_sent_to: list[str] | None = None,
+) -> str:
     from app.services.invoice_pdf import fmt_money
 
     sender_name = sender.name or sender.email
     greeting = invoice.client_contact_name or invoice.client_name
     amount = fmt_money(invoice.subtotal, invoice.currency)
-    if reminder_days is None:
+    if copy_sent_to is not None:
+        to = ", ".join(copy_sent_to) or "your client"
+        sent = f" on {_fmt_date(invoice.sent_at)}" if getattr(invoice, "sent_at", None) else ""
+        headline = f"Your copy of invoice {invoice.number}"
+        lede = f"This is a copy of the invoice sent to {invoice.client_name} ({to}){sent}. The PDF they received is attached."
+        hero = "invoice"
+    elif reminder_days is None:
         headline = f"Invoice {invoice.number} from {sender_name}"
         lede = f"Hi {greeting}, here's the invoice for {_fmt_date(invoice.period_start)} to {_fmt_date(invoice.period_end)}. The PDF is attached, and the online copy is always current."
         hero = "invoice"
@@ -259,7 +271,11 @@ def render_invoice(invoice, sender: User, hosted_url: str, reminder_days: int | 
             ]
         )
         + t.buttons(t.button("View invoice online", hosted_url))
-        + t.p("Questions? Just reply to this email.", muted=True)
+        + (
+            t.p("Questions? Just reply to this email.", muted=True)
+            if copy_sent_to is None
+            else ""
+        )
         + t.signoff(sender_name, sender.email)
     )
     return t.layout(hero, f"{headline}: {amount} due {_fmt_date(invoice.due_date)}", body)
@@ -272,9 +288,11 @@ def send_invoice(
     hosted_url: str,
     reminder_days: int | None = None,
     recipients: list[str] | None = None,
+    copy_sender: bool = False,
 ) -> None:
     """Email an invoice PDF to the client, one message with every recipient on To
     so they can reply-all. Defaults to all of the invoice's billing addresses.
+    copy_sender BCCs the sender, so their copy is exactly what the client got.
     Raises RuntimeError on failure so the API can report it, unlike booking mail
     which is best-effort."""
     _init_resend()
@@ -289,6 +307,7 @@ def send_invoice(
             {
                 "from": FROM_EMAIL,
                 "to": recipients or split_emails(invoice.client_billing_email),
+                **({"bcc": [sender.email]} if copy_sender else {}),
                 "reply_to": sender.email,
                 "subject": subject,
                 "html": render_invoice(invoice, sender, hosted_url, reminder_days),
@@ -304,6 +323,35 @@ def send_invoice(
     except Exception as exc:
         logger.error("Failed to send invoice %s: %s", invoice.number, exc)
         raise RuntimeError("Failed to send invoice email") from exc
+
+
+def send_invoice_copy(invoice, pdf_bytes: bytes, sender: User, hosted_url: str) -> None:
+    """Email the sender their own copy of an invoice that has already gone out."""
+    _init_resend()
+    try:
+        resend.Emails.send(
+            {
+                "from": FROM_EMAIL,
+                "to": [sender.email],
+                "subject": f"Your copy: invoice {invoice.number} to {invoice.client_name}",
+                "html": render_invoice(
+                    invoice,
+                    sender,
+                    hosted_url,
+                    copy_sent_to=split_emails(invoice.client_billing_email),
+                ),
+                "attachments": [
+                    {
+                        "filename": f"{invoice.number}.pdf",
+                        "content": base64.b64encode(pdf_bytes).decode("ascii"),
+                        "content_type": "application/pdf",
+                    }
+                ],
+            }
+        )
+    except Exception as exc:
+        logger.error("Failed to send copy of invoice %s: %s", invoice.number, exc)
+        raise RuntimeError("Failed to send your copy") from exc
 
 
 def render_overdue_digest(user: User, invoices: list, today: date) -> str:
