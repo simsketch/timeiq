@@ -105,6 +105,9 @@ CREATIVES = [
     },
 ]
 
+# The ads launch creates; the rest stay in CREATIVES for add-ad. $5/day carries three at most.
+LAUNCH_SET = ("A-price-shock", "B-timesheet", "F-founder-ai")
+
 TARGETING = {
     "geo_locations": {"countries": ["US", "CA", "GB", "AU"]},
     "age_min": 25,
@@ -189,8 +192,9 @@ def cmd_bootstrap(_: argparse.Namespace) -> None:
     print("page       :", page.get("name"), PAGE)
 
     pixels = call("GET", f"{acct_id}/adspixels", fields="id,name").get("data", [])
-    if pixels:
-        pixel = pixels[0]
+    # Only reuse a TimeIQ pixel; the account also runs other products' pixels.
+    pixel = next((px for px in pixels if "timeiq" in (px.get("name") or "").lower()), None)
+    if pixel:
         print("pixel      : found", pixel.get("name"), pixel["id"])
     else:
         pixel = call("POST", f"{acct_id}/adspixels", name="TimeIQ")
@@ -289,10 +293,11 @@ def cmd_launch(args: argparse.Namespace) -> None:
         promoted_object=json.dumps({"pixel_id": PIXEL, "custom_event_type": "PURCHASE"}),
         targeting=json.dumps(TARGETING),
     )
-    ads = [create_ad(adset["id"], spec, args.live) for spec in CREATIVES]
+    specs = [c for c in CREATIVES if c["name"] in LAUNCH_SET]
+    ads = [create_ad(adset["id"], spec, args.live) for spec in specs]
     print("campaign", campaign["id"], status)
     print("ad set  ", adset["id"])
-    for spec, ad_id in zip(CREATIVES, ads):
+    for spec, ad_id in zip(specs, ads):
         print("ad      ", ad_id, spec["name"])
     if not args.live:
         print("Everything is PAUSED. Review in Ads Manager, then run: scripts/meta_ads.py resume <campaign_id>")

@@ -1,0 +1,43 @@
+<!doctype html>
+<!-- Facebook Page profile picture and cover. render.py loads page.html?v=profile|cover -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: "Jakarta"; src: url("../../../frontend/public/fonts/PlusJakartaSans-italic-latin.woff2"); font-weight: 200 800; font-style: italic; }
+  @font-face { font-family: "Geist"; src: url("../../../frontend/node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2"); font-weight: 100 900; }
+  @font-face { font-family: "GeistMono"; src: url("../../../frontend/node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2"); font-weight: 100 900; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  #c { position: relative; overflow: hidden; font-family: "Geist", sans-serif; color: #10131f; display: flex; align-items: center;
+    background:
+      radial-gradient(60% 70% at 0% 0%, #d8a5f3 0%, transparent 70%),
+      radial-gradient(60% 70% at 100% 15%, #a59cf3 0%, transparent 70%),
+      radial-gradient(70% 80% at 80% 100%, #8fdcf5 0%, transparent 70%),
+      linear-gradient(160deg, #ead7ff 0%, #cbd3fe 50%, #bfe8fd 100%); }
+  h1 { font-weight: 800; letter-spacing: -0.045em; line-height: 1; }
+  .it { font-family: "Jakarta"; font-style: italic; font-weight: 400; letter-spacing: -0.03em;
+        background: linear-gradient(90deg, #b45ae8 0%, #8b8cf0 45%, #3cc3f2 100%); -webkit-background-clip: text; color: transparent; padding-right: .08em; }
+  .mono { font-family: "GeistMono", monospace; letter-spacing: .12em; text-transform: uppercase; color: #2a2f45; }
+</style>
+</head>
+<body>
+<div id="c"></div>
+<script>
+const v = new URLSearchParams(location.search).get("v") || "profile";
+const c = document.getElementById("c");
+const logo = "../../../frontend/public/favicon.svg";
+if (v === "profile") {
+  // Facebook crops profile pictures to a circle; keep the mark inside the middle 70%.
+  c.style.cssText = "width:1080px;height:1080px;justify-content:center";
+  c.innerHTML = `<img src="${logo}" style="width:700px;height:700px">`;
+} else {
+  // 1640x624 cover. Mobile crops the sides, so the text sits in the centre band.
+  c.style.cssText = "width:1640px;height:624px;justify-content:center;text-align:center;flex-direction:column";
+  c.innerHTML = `
+    <h1 style="font-size:116px">Book. Log. Bill.</h1>
+    <h1 class="it" style="font-size:68px;margin-top:14px">Scheduling, timesheets and invoices.</h1>
+    <div class="mono" style="font-size:24px;margin-top:34px">timeiq.app · $19 a year for the first 100 founders</div>`;
+}
+</script>
+</body>
+</html>

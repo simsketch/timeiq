@@ -1,0 +1,196 @@
+<!doctype html>
+<!-- TimeIQ launch film. One rAF timeline; render.py drives the clock. launch.html?w=1080&h=1920 -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: "Jakarta"; src: url("../../../frontend/public/fonts/PlusJakartaSans-normal-latin.woff2"); font-weight: 200 800; }
+  @font-face { font-family: "Jakarta"; src: url("../../../frontend/public/fonts/PlusJakartaSans-italic-latin.woff2"); font-weight: 200 800; font-style: italic; }
+  @font-face { font-family: "Geist"; src: url("../../../frontend/node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2"); font-weight: 100 900; }
+  @font-face { font-family: "GeistMono"; src: url("../../../frontend/node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2"); font-weight: 100 900; }
+  :root { --ink: #10131f; --muted: #5b6275; --violet: #6157f0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { margin: 0; overflow: hidden; position: relative; font-family: "Geist", sans-serif; color: var(--ink);
+    background:
+      radial-gradient(60% 50% at 0% 0%, #d8a5f3 0%, transparent 70%),
+      radial-gradient(60% 50% at 100% 15%, #a59cf3 0%, transparent 70%),
+      radial-gradient(70% 60% at 80% 100%, #8fdcf5 0%, transparent 70%),
+      linear-gradient(160deg, #ead7ff 0%, #cbd3fe 50%, #bfe8fd 100%); }
+  .beat { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: calc(var(--u) * 90px); }
+  .a { will-change: transform, opacity; }
+  h1 { font-weight: 800; letter-spacing: -0.045em; line-height: 0.98; }
+  .it { font-family: "Jakarta"; font-style: italic; font-weight: 400; letter-spacing: -0.03em;
+        background: linear-gradient(90deg, #b45ae8 0%, #8b8cf0 45%, #3cc3f2 100%); -webkit-background-clip: text; color: transparent; padding-right: .08em; }
+  .mono { font-family: "GeistMono", monospace; letter-spacing: .12em; text-transform: uppercase; }
+  .card { background: rgba(255,255,255,.94); border-radius: calc(var(--u) * 40px); box-shadow: 0 calc(var(--u)*40px) calc(var(--u)*80px) calc(var(--u)*-30px) rgba(40,30,110,.45); padding: calc(var(--u) * 44px); text-align: left; }
+  .row { display: flex; align-items: center; gap: calc(var(--u) * 18px); }
+  .cell { width: calc(var(--u) * 104px); height: calc(var(--u) * 62px); border-radius: calc(var(--u) * 22px); border: 1px solid #e3e5ee; background: #fff; display: flex; align-items: center; justify-content: center; font-family: "GeistMono"; font-size: calc(var(--u) * 26px); color: #fff; }
+  .slot { border: 2px solid #e3e5ee; border-radius: calc(var(--u) * 20px); padding: calc(var(--u) * 20px) calc(var(--u) * 30px); font-size: calc(var(--u) * 32px); font-weight: 600; background: #fff; }
+  .chip { display: inline-block; background: var(--ink); color: #fff; font-weight: 700; border-radius: 999px; padding: calc(var(--u) * 22px) calc(var(--u) * 36px); font-size: calc(var(--u) * 34px); }
+  .frame { position: absolute; font-size: calc(var(--u) * 20px); color: #2a2f45; z-index: 5; }
+  #bar { position: absolute; left: 0; bottom: 0; height: calc(var(--u) * 6px); background: var(--ink); z-index: 5; }
+  .strike { position: absolute; left: -2%; top: 52%; height: calc(var(--u) * 10px); background: var(--violet); border-radius: 99px; transform-origin: left center; }
+</style>
+</head>
+<body>
+<div class="frame mono" id="tl" style="top:calc(var(--u)*40px);left:calc(var(--u)*48px)">TimeIQ · Launch</div>
+<div class="frame mono" id="tr" style="top:calc(var(--u)*40px);right:calc(var(--u)*48px)">01 / 08</div>
+<div class="frame mono" id="tc" style="bottom:calc(var(--u)*34px);right:calc(var(--u)*48px)">00:00</div>
+<div id="bar"></div>
+
+<!-- 1. Three apps -->
+<section class="beat" data-s="0" data-e="5.2">
+  <div style="display:flex;flex-direction:column;gap:calc(var(--u)*40px);align-items:center">
+    <div class="a" data-k="up" data-d="0.1"><h1 style="position:relative;display:inline-block;font-size:calc(var(--u)*150px)">Calendly<i class="strike a" data-k="strike" data-d="3.3"></i></h1><div class="mono" style="font-size:calc(var(--u)*30px);color:#2a2f45;margin-top:calc(var(--u)*6px)">for booking</div></div>
+    <div class="a" data-k="up" data-d="0.9"><h1 style="position:relative;display:inline-block;font-size:calc(var(--u)*150px)">Toggl<i class="strike a" data-k="strike" data-d="3.5"></i></h1><div class="mono" style="font-size:calc(var(--u)*30px);color:#2a2f45;margin-top:calc(var(--u)*6px)">for hours</div></div>
+    <div class="a" data-k="up" data-d="1.7"><h1 style="position:relative;display:inline-block;font-size:calc(var(--u)*150px)">FreshBooks<i class="strike a" data-k="strike" data-d="3.7"></i></h1><div class="mono" style="font-size:calc(var(--u)*30px);color:#2a2f45;margin-top:calc(var(--u)*6px)">for invoices</div></div>
+  </div>
+</section>
+
+<!-- 2. Reveal -->
+<section class="beat" data-s="5.2" data-e="8.4">
+  <h1 class="it a" data-k="up" data-d="0.05" style="font-size:calc(var(--u)*96px)">Or one calm app.</h1>
+  <div class="a row" data-k="pop" data-d="0.9" style="margin-top:calc(var(--u)*56px);gap:calc(var(--u)*28px)">
+    <img src="../../../frontend/public/favicon.svg" style="width:calc(var(--u)*150px);height:calc(var(--u)*150px)">
+    <h1 style="font-size:calc(var(--u)*170px)">TimeIQ</h1>
+  </div>
+</section>
+
+<!-- 3. Book -->
+<section class="beat" data-s="8.4" data-e="13">
+  <div class="mono a" data-k="fade" data-d="0" style="font-size:calc(var(--u)*28px);color:#3d33c9">01 · Book</div>
+  <h1 class="a" data-k="up" data-d="0.1" style="font-size:calc(var(--u)*92px);margin:calc(var(--u)*18px) 0 calc(var(--u)*50px)">Clients pick a time.</h1>
+  <div class="card a" data-k="up" data-d="0.5" style="width:calc(var(--u)*820px)">
+    <div style="font-weight:700;font-size:calc(var(--u)*36px)">30 min intro call</div>
+    <div class="mono" style="font-size:calc(var(--u)*20px);color:var(--muted);margin:calc(var(--u)*10px) 0 calc(var(--u)*30px)">Thursday · 12 June</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:calc(var(--u)*16px)">
+      <div class="slot a" data-k="fade" data-d="0.9">9:00</div>
+      <div class="slot a" data-k="fade" data-d="1.0">10:30</div>
+      <div class="slot a" data-k="pick" data-d="1.1" data-p="2.2">13:00</div>
+      <div class="slot a" data-k="fade" data-d="1.2">14:30</div>
+      <div class="slot a" data-k="fade" data-d="1.3">16:00</div>
+      <div class="slot a" data-k="fade" data-d="1.4">17:30</div>
+    </div>
+    <div class="a row" data-k="pop" data-d="2.8" style="margin-top:calc(var(--u)*30px);font-weight:700;font-size:calc(var(--u)*32px);color:#0b6b3c">✓ Booked. Invite sent with calendar file.</div>
+  </div>
+</section>
+
+<!-- 4. Log -->
+<section class="beat" data-s="13" data-e="18">
+  <div class="mono a" data-k="fade" data-d="0" style="font-size:calc(var(--u)*28px);color:#3d33c9">02 · Log</div>
+  <h1 class="a" data-k="up" data-d="0.1" style="font-size:calc(var(--u)*92px);margin:calc(var(--u)*18px) 0 calc(var(--u)*50px)">Hours in a weekly grid.</h1>
+  <div class="card a" data-k="up" data-d="0.4">
+    <div class="row" style="justify-content:space-between;margin-bottom:calc(var(--u)*26px)">
+      <div style="font-weight:700;font-size:calc(var(--u)*34px)">Timesheet</div>
+      <div class="mono" style="font-size:calc(var(--u)*22px);border:1px solid #e3e5ee;border-radius:99px;padding:calc(var(--u)*10px) calc(var(--u)*20px)"><span class="count" data-from="0" data-to="990" data-d="0.8" data-len="2.6" data-fmt="hm">0H 00M</span> this week</div>
+    </div>
+    <div id="grid"></div>
+  </div>
+</section>
+
+<!-- 5. Bill -->
+<section class="beat" data-s="18" data-e="23">
+  <div class="mono a" data-k="fade" data-d="0" style="font-size:calc(var(--u)*28px);color:#3d33c9">03 · Bill</div>
+  <h1 class="a" data-k="up" data-d="0.1" style="font-size:calc(var(--u)*92px);margin:calc(var(--u)*18px) 0 calc(var(--u)*50px)">One click to invoice.</h1>
+  <div class="card a" data-k="up" data-d="0.4" style="width:calc(var(--u)*820px)">
+    <div class="row" style="justify-content:space-between">
+      <div style="font-weight:700;font-size:calc(var(--u)*36px)">Invoice INV-0007</div>
+      <div class="mono a" data-k="pop" data-d="3.1" style="font-size:calc(var(--u)*22px);background:#e5f6ec;color:#0b6b3c;border-radius:99px;padding:calc(var(--u)*10px) calc(var(--u)*20px)">Sent</div>
+    </div>
+    <div class="mono" style="font-size:calc(var(--u)*20px);color:var(--muted);margin:calc(var(--u)*8px) 0 calc(var(--u)*26px)">Northwind · 8–14 June</div>
+    <div class="a row" data-k="fade" data-d="0.9" style="justify-content:space-between;font-size:calc(var(--u)*30px);padding:calc(var(--u)*14px) 0;border-top:1px solid #eceef4"><span>Performance calc · 13.5h</span><span class="mono">$1,620</span></div>
+    <div class="a row" data-k="fade" data-d="1.2" style="justify-content:space-between;font-size:calc(var(--u)*30px);padding:calc(var(--u)*14px) 0;border-top:1px solid #eceef4"><span>Platform support · 2h</span><span class="mono">$240</span></div>
+    <div class="a row" data-k="fade" data-d="1.5" style="justify-content:space-between;font-size:calc(var(--u)*30px);padding:calc(var(--u)*14px) 0;border-top:1px solid #eceef4"><span>Support · 1h</span><span class="mono">$120</span></div>
+    <div class="row" style="justify-content:space-between;font-weight:800;font-size:calc(var(--u)*44px);padding-top:calc(var(--u)*22px);border-top:2px solid var(--ink)"><span>Total</span><span>$<span class="count" data-from="0" data-to="1980" data-d="1.6" data-len="1.3" data-fmt="money">0</span></span></div>
+  </div>
+  <div class="mono a" data-k="fade" data-d="3.3" style="margin-top:calc(var(--u)*34px);font-size:calc(var(--u)*24px);color:var(--ink)">PDF in their inbox. Hosted link to pay.</div>
+</section>
+
+<!-- 6. Price -->
+<section class="beat" data-s="23" data-e="27.4">
+  <h1 class="a" data-k="slam" data-d="0.05" style="font-size:calc(var(--u) * var(--price) * 1px);white-space:nowrap">$19 a year.</h1>
+  <h1 class="it a" data-k="up" data-d="0.8" style="font-size:calc(var(--u)*130px);margin-top:calc(var(--u)*14px)">Yes, a year.</h1>
+  <div class="a" data-k="up" data-d="1.8" style="margin-top:calc(var(--u)*60px)"><span class="chip">First 100 founders lock it in for life</span></div>
+</section>
+
+<!-- 7. End card -->
+<section class="beat" data-s="27.4" data-e="99">
+  <div class="a row" data-k="pop" data-d="0.05" style="gap:calc(var(--u)*24px)">
+    <img src="../../../frontend/public/favicon.svg" style="width:calc(var(--u)*120px);height:calc(var(--u)*120px)">
+    <h1 style="font-size:calc(var(--u)*140px)">TimeIQ</h1>
+  </div>
+  <h1 class="it a" data-k="up" data-d="0.5" style="font-size:calc(var(--u)*80px);margin-top:calc(var(--u)*26px)">Book. Log. Bill.</h1>
+  <div class="a" data-k="up" data-d="1.0" style="margin-top:calc(var(--u)*56px)"><span class="chip" style="background:var(--violet)">Claim a founder spot at timeiq.app</span></div>
+</section>
+
+<script>
+const q = new URLSearchParams(location.search);
+const W = +(q.get("w") || 1920), H = +(q.get("h") || 1080), DUR = +(q.get("dur") || 31);
+document.documentElement.style.cssText = `--u:${Math.min(W, H) / 1080};--price:${W < 1400 ? 150 : 190}`;
+document.body.style.width = W + "px"; document.body.style.height = H + "px";
+
+// Timesheet grid, built once.
+const rows = [["Acme Corp", "Platform support", [0, 2, 0, 0, 0]], ["Northwind", "Performance calc", [2, 2, 4.5, 3, 2]], ["Project Canada", "Support", [1, 0, 0, 0, 0]]];
+const days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+let g = `<div class="row mono" style="font-size:calc(var(--u)*18px);color:var(--muted);margin-bottom:calc(var(--u)*14px)"><div style="width:calc(var(--u)*300px)">Client · Task</div>${days.map(d => `<div style="width:calc(var(--u)*104px);text-align:center">${d}</div>`).join("")}</div>`;
+let k = 0;
+for (const [c, t, hs] of rows) {
+  g += `<div class="row" style="margin-bottom:calc(var(--u)*14px)"><div style="width:calc(var(--u)*300px)"><div style="font-size:calc(var(--u)*28px);font-weight:600">${c}</div><div style="font-size:calc(var(--u)*22px);color:var(--muted)">${t}</div></div>`;
+  for (const h of hs) g += h ? `<div class="cell fill" data-d="${(0.8 + 0.22 * k++).toFixed(2)}">${h + "h"}</div>` : `<div class="cell"></div>`;
+  g += `</div>`;
+}
+document.getElementById("grid").innerHTML = g;
+
+const beats = [...document.querySelectorAll(".beat")].map(el => ({ el, s: +el.dataset.s, e: +el.dataset.e }));
+const clamp = x => Math.max(0, Math.min(1, x));
+const out = x => 1 - Math.pow(1 - x, 3);                       // ease-out cubic
+const back = x => 1 + 2.2 * Math.pow(x - 1, 3) + 1.2 * Math.pow(x - 1, 2); // slight overshoot
+const pad = n => String(n).padStart(2, "0");
+
+function apply(el, kind, p, local) {
+  const e = out(p);
+  if (kind === "up") { el.style.opacity = e; el.style.transform = `translateY(${(1 - e) * 60}px)`; }
+  else if (kind === "fade") { el.style.opacity = e; }
+  else if (kind === "pop") { const b = back(p); el.style.opacity = e; el.style.transform = `scale(${0.82 + 0.18 * b})`; }
+  else if (kind === "slam") { el.style.opacity = clamp(p * 3); el.style.transform = `scale(${1.6 - 0.6 * out(p)})`; }
+  else if (kind === "strike") { el.style.width = (104 * e) + "%"; el.style.transform = "none"; el.style.opacity = p > 0 ? 1 : 0; }
+  else if (kind === "pick") {
+    el.style.opacity = e;
+    const pk = clamp((local - +el.dataset.p) / 0.3);
+    el.style.background = pk > 0 ? `rgba(97,87,240,${pk})` : "#fff";
+    el.style.color = pk > 0.5 ? "#fff" : "";
+    el.style.borderColor = pk > 0 ? "#6157f0" : "";
+    el.style.transform = `scale(${1 + 0.06 * Math.sin(Math.PI * pk)})`;
+  }
+}
+
+function frame(t) {
+  const s = t / 1000;
+  beats.forEach((b, i) => {
+    const on = s >= b.s && s < b.e;
+    b.el.style.display = on ? "flex" : "none";
+    if (!on) return;
+    const local = s - b.s;
+    const exit = b.e < 90 ? clamp((b.e - s) / 0.3) : 1;   // every beat but the last fades out
+    b.el.style.opacity = exit;
+    b.el.querySelectorAll(".a").forEach(el => apply(el, el.dataset.k, clamp((local - +el.dataset.d) / (el.dataset.k === "strike" ? 0.35 : 0.55)), local));
+    b.el.querySelectorAll(".fill").forEach(el => {
+      const p = clamp((local - +el.dataset.d) / 0.25);
+      el.style.background = p > 0 ? `rgba(16,19,31,${p})` : "#fff";
+      el.style.transform = `scale(${1 + 0.08 * Math.sin(Math.PI * p)})`;
+    });
+    b.el.querySelectorAll(".count").forEach(el => {
+      const p = out(clamp((local - +el.dataset.d) / +el.dataset.len));
+      const v = Math.round(+el.dataset.from + (+el.dataset.to - +el.dataset.from) * p);
+      el.textContent = el.dataset.fmt === "hm" ? `${Math.floor(v / 60)}H ${pad(v % 60)}M` : v.toLocaleString("en-US");
+    });
+    document.getElementById("tr").textContent = `${pad(i + 1)} / ${pad(beats.length)}`;
+  });
+  document.getElementById("tc").textContent = `00:${pad(Math.min(Math.floor(s), 99))}`;
+  document.getElementById("bar").style.width = (100 * clamp(s / DUR)) + "%";
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

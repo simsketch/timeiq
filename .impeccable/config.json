@@ -29,6 +29,33 @@
         ],
         "createdAt": "2026-10-24T05:18:24.076Z",
         "reason": "Claude: light aurora brand background reproducing the ad set the user approved; not a dark-page glow"
+      },
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "docs/marketing/video/launch.html"
+        ],
+        "createdAt": "2026-10-24T05:44:09.082Z",
+        "reason": "Claude: brand text-aurora style shared with the site and approved ad set"
+      },
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "docs/marketing/facebook-page/page.html"
+        ],
+        "createdAt": "2026-10-24T05:45:35.000Z",
+        "reason": "Claude: brand text-aurora style shared with the site and approved ad set"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "docs/marketing/video/launch.html"
+        ],
+        "createdAt": "2026-10-24T05:47:14.482Z",
+        "reason": "Claude: flagged rows and grid cells sit inside the card's 44px padding"
       }
     ]
   }
