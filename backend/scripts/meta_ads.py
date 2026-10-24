@@ -44,10 +44,10 @@ CREATIVES = [
     {
         "name": "A-price-shock",
         "image": CREATIVES_DIR / "ad-A-price-shock-1080.png",
-        "headline": "Scheduling, timesheets, and invoices. $5/year.",
+        "headline": "Scheduling, timesheets, and invoices. $19/year.",
         "body": (
             "Calendly for booking. Toggl for hours. FreshBooks for invoices. Or one calm app "
-            "that does all three for $5 a year. The first 100 people lock that price in for life."
+            "that does all three for $19 a year. The first 100 people lock that price in for life."
         ),
         "description": "Founding member price, locked forever. Cancel anytime.",
     },
@@ -60,15 +60,15 @@ CREATIVES = [
             "and hand-write the invoice. TimeIQ does all three in one place. Log hours in a weekly grid, "
             "click once, and a PDF invoice lands in your client's inbox."
         ),
-        "description": "$5/year for the first 100 founding members.",
+        "description": "$19/year for the first 100 founding members.",
     },
     {
         "name": "C-founder-spots",
         "image": CREATIVES_DIR / "ad-C-founder-spots-1080.png",
-        "headline": "100 founder spots. $5 a year.",
+        "headline": "100 founder spots. $19 a year.",
         "body": (
-            "We priced our scheduling + invoicing app at $5 a year for the first 100 people. "
-            "Not a typo. We want users, not a spreadsheet of trials."
+            "We priced our scheduling + invoicing app at $19 a year for the first 100 people. "
+            "That is less than two months of Calendly, for the whole year. Price locked for life."
         ),
         "description": "Booking pages, timesheets, PDF invoices.",
     },
@@ -76,30 +76,30 @@ CREATIVES = [
     {
         "name": "D-desk-ai",
         "image": CREATIVES_DIR / "ad-D-desk-1080.png",
-        "headline": "Scheduling, timesheets, and invoices. $5/year.",
+        "headline": "Scheduling, timesheets, and invoices. $19/year.",
         "body": (
             "If you book calls, log hours, and send invoices, you are paying three apps. "
-            "TimeIQ does all three for $5 a year. First 100 people lock it in for life."
+            "TimeIQ does all three for $19 a year. First 100 people lock it in for life."
         ),
         "description": "Founding member price, locked forever. Cancel anytime.",
     },
     {
         "name": "E-three-apps-ai",
         "image": CREATIVES_DIR / "ad-E-three-apps-1080.png",
-        "headline": "One app. $5 a year.",
+        "headline": "One app. $19 a year.",
         "body": (
             "Calendly for booking. Toggl for hours. FreshBooks for invoices. Or one calm app "
-            "that does all three for $5 a year."
+            "that does all three for $19 a year."
         ),
         "description": "Scheduling, timesheets, invoices. Cancel anytime.",
     },
     {
         "name": "F-founder-ai",
         "image": CREATIVES_DIR / "ad-F-founder-1080.png",
-        "headline": "100 founder spots. $5 a year.",
+        "headline": "100 founder spots. $19 a year.",
         "body": (
-            "We priced our scheduling + invoicing app at $5 a year for the first 100 people. "
-            "Not a typo. We want users, not a spreadsheet of trials."
+            "We priced our scheduling + invoicing app at $19 a year for the first 100 people. "
+            "That is less than two months of Calendly, for the whole year. Price locked for life."
         ),
         "description": "Founder price locked for life.",
     },

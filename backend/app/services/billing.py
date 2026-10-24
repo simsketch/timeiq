@@ -81,7 +81,7 @@ async def pricing_info(db: AsyncSession) -> dict[str, Any]:
     if not enabled():
         return {
             "enabled": False,
-            "founder_price_cents": 500,
+            "founder_price_cents": 1900,
             "standard_price_cents": 2900,
             "currency": "USD",
             "founder_seats": settings.FOUNDER_SEATS,

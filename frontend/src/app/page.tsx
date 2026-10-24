@@ -122,7 +122,7 @@ export default function LandingPage() {
                 <div className="reveal reveal-4 flex flex-col sm:flex-row gap-3">
                   <Link href="/sign-up?redirect_url=/billing/checkout">
                     <Button variant="aurora" size="xl">
-                      Get started for $5/year
+                      Get started for $19/year
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
@@ -136,7 +136,7 @@ export default function LandingPage() {
                 <div className="reveal reveal-5 flex items-center gap-5 pt-2 text-xs text-muted-foreground/80">
                   <span className="inline-flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
-                    $5/year founder price
+                    $19/year founder price
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
@@ -642,7 +642,7 @@ export default function LandingPage() {
                 </span>
               </h2>
               <p className="text-lg text-muted-foreground mt-6 text-pretty">
-                The first 100 subscribers lock in $5 a year for life. Everyone
+                The first 100 subscribers lock in $19 a year for life. Everyone
                 after that pays $29. Still less than most tools charge a month.
               </p>
             </div>

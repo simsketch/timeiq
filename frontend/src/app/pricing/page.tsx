@@ -5,7 +5,7 @@ import { PricingCard } from "@/components/billing/pricing-card";
 
 export const metadata = {
   title: "Pricing - TimeIQ",
-  description: "Scheduling, time tracking, and invoicing for $5 a year for the first 100 founding members.",
+  description: "Scheduling, time tracking, and invoicing for $19 a year for the first 100 founding members.",
 };
 
 const FAQ = [

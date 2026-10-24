@@ -9,7 +9,7 @@ import "./globals.css";
 
 const SITE = "https://timeiq.app";
 const DESCRIPTION =
-  "Booking pages, weekly timesheets, and PDF invoices in one calm app. $5/year founder price for the first 100 subscribers.";
+  "Booking pages, weekly timesheets, and PDF invoices in one calm app. $19/year founder price for the first 100 subscribers.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),

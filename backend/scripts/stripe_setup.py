@@ -120,7 +120,7 @@ def main() -> None:
     mode = "TEST" if settings.STRIPE_SECRET_KEY.startswith("sk_test") else "LIVE"
 
     product = find_or_create_product()
-    founder = find_or_create_price(product.id, 500, "Founding member — $5/year")
+    founder = find_or_create_price(product.id, 1900, "Founding member — $19/year")
     standard = find_or_create_price(product.id, 2900, "Standard — $29/year")
 
     webhook_url = f"{args.backend_url.rstrip('/')}/api/webhooks/stripe"
@@ -142,7 +142,7 @@ def main() -> None:
 
     print(f"Stripe {mode} mode setup complete")
     print(f"  product        {product.id}")
-    print(f"  founder price  {founder.id}  $5/year")
+    print(f"  founder price  {founder.id}  $19/year")
     print(f"  standard price {standard.id}  $29/year")
     print(f"  webhook        {webhook_url}")
     print(f"  webhook secret {secret_note}")

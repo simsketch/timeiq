@@ -33,7 +33,7 @@ function SuccessInner() {
           body: JSON.stringify({ session_id: sessionId }),
         });
         setStatus(s);
-        track("Purchase", { value: s.plan === "founder" ? 5 : 29, currency: "USD" });
+        track("Purchase", { value: s.plan === "founder" ? 19 : 29, currency: "USD" });
       } catch (e: any) {
         setError(e.message || "Could not confirm your subscription");
       }

@@ -18,7 +18,7 @@ export function FounderPill({ href = "/pricing", compact = false, className }: {
   }, []);
 
   const founderOpen = !pricing || (pricing.founder_price_cents !== null && pricing.founder_seats_left > 0);
-  const price = pricing?.founder_price_cents ?? 500;
+  const price = pricing?.founder_price_cents ?? 1900;
   const currency = pricing?.currency ?? "USD";
 
   if (!founderOpen) {
