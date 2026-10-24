@@ -1,0 +1,67 @@
+<!doctype html>
+<!-- TimeIQ static ad template. Rendered by render.py: ad.html?ad=A&h=1080 -->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: "Jakarta"; src: url("../../../../frontend/public/fonts/PlusJakartaSans-normal-latin.woff2"); font-weight: 200 800; }
+  @font-face { font-family: "Jakarta"; src: url("../../../../frontend/public/fonts/PlusJakartaSans-italic-latin.woff2"); font-weight: 200 800; font-style: italic; }
+  @font-face { font-family: "Geist"; src: url("../../../../frontend/node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2"); font-weight: 100 900; }
+  @font-face { font-family: "GeistMono"; src: url("../../../../frontend/node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2"); font-weight: 100 900; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; }
+  .ad {
+    position: relative; width: 1080px; overflow: hidden; font-family: "Geist", sans-serif; color: #111827;
+    background:
+      radial-gradient(900px 700px at 0% 0%, #d8a5f3 0%, transparent 60%),
+      radial-gradient(900px 700px at 100% 10%, #a59cf3 0%, transparent 60%),
+      radial-gradient(1000px 800px at 80% 100%, #8fdcf5 0%, transparent 60%),
+      linear-gradient(160deg, #e9d5ff 0%, #c7d2fe 50%, #bae6fd 100%);
+    padding: 68px 72px;
+    display: flex; flex-direction: column;
+  }
+  .brand { display: flex; align-items: center; gap: 14px; font-weight: 700; font-size: 36px; letter-spacing: -0.02em; }
+  .brand img { width: 46px; height: 46px; }
+  h1 { font-family: "Geist"; font-weight: 800; letter-spacing: -0.045em; line-height: 0.95; }
+  .it { font-family: "Jakarta"; font-style: italic; font-weight: 400; letter-spacing: -0.03em;
+        background: linear-gradient(90deg, #b45ae8 0%, #8b8cf0 45%, #3cc3f2 100%); -webkit-background-clip: text; color: transparent; }
+  .sub { color: #5b6275; font-size: 40px; line-height: 1.4; letter-spacing: -0.01em; }
+  .chip { display: inline-block; background: #0f1220; color: #fff; font-weight: 700; font-size: 31px; padding: 22px 34px; border-radius: 999px; }
+  .pill { background: #6157f0; color: #fff; font-weight: 800; font-size: 44px; padding: 16px 32px; border-radius: 999px; letter-spacing: -0.02em; white-space: nowrap; }
+  .card { border-radius: 40px; box-shadow: 0 40px 80px -30px rgba(40,30,110,.45); }
+  .spacer { flex: 1; }
+</style>
+</head>
+<body>
+<div class="ad" id="ad"></div>
+<script>
+const q = new URLSearchParams(location.search);
+const H = +(q.get("h") || 1080), tall = H > 1400;
+const el = document.getElementById("ad");
+el.style.height = H + "px";
+if (tall) el.style.padding = "140px 72px 220px";
+const brand = `<div class="brand"><img src="../../../../frontend/public/favicon.svg">TimeIQ</div>`;
+const T = {
+  A: `${brand}<div class="spacer"></div>
+      <h1 style="font-size:168px">$19 a year.</h1>
+      <h1 class="it" style="font-size:128px;margin-top:18px">Yes, a year.</h1>
+      <p class="sub" style="margin-top:56px">Booking pages, weekly timesheets,<br>and PDF invoices in one calm app.</p>
+      <div style="margin-top:${tall ? 90 : 64}px"><span class="chip">First 100 founders lock it in for life</span></div>
+      <div class="spacer"></div>${tall ? '<div class="spacer"></div>' : ""}`,
+  B: `${brand}
+      <span class="pill" style="position:absolute;right:72px;top:${tall ? 128 : 56}px">$19 / year</span>
+      <h1 style="font-size:104px;margin-top:${tall ? 200 : 76}px">Log the hours.<br><span class="it" style="font-weight:400">Send the invoice.</span></h1>
+      <div class="spacer"></div>
+      <img class="card" src="../source/timesheet-card-crop.png" style="width:${tall ? 936 : 1000}px;border-radius:40px;margin-left:${tall ? 0 : -32}px">
+      <div class="spacer"></div>${tall ? '<p class="sub" style="text-align:center">First 100 founders lock it in for life.</p><div class="spacer"></div>' : ""}`,
+  C: `${brand}
+      <h1 style="font-size:96px;margin-top:${tall ? 120 : 44}px">100 founder spots.</h1>
+      <h1 class="it" style="font-size:80px;margin-top:12px">Then the price goes up.</h1>
+      <div class="spacer"></div>
+      <img class="card" src="../source/pricing-card-2x.png" style="width:${tall ? 820 : 600}px;align-self:center">
+      <div class="spacer"></div>`,
+};
+el.innerHTML = T[q.get("ad") || "A"];
+</script>
+</body>
+</html>

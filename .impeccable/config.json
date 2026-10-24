@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "docs/marketing/creatives/src/ad.html"
+        ],
+        "createdAt": "2026-10-24T05:11:16.761Z",
+        "reason": "Claude: matches the site's text-aurora brand style and the existing ad set the user approved"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "docs/marketing/creatives/src/ad.html"
+        ],
+        "createdAt": "2026-10-24T05:11:16.797Z",
+        "reason": "Claude: offset drop shadow on a light background, not a glow"
+      }
+    ]
+  }
+}
