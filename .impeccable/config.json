@@ -20,6 +20,15 @@
         ],
         "createdAt": "2026-10-24T05:11:16.797Z",
         "reason": "Claude: offset drop shadow on a light background, not a glow"
+      },
+      {
+        "rule": "radial-halo",
+        "value": "*",
+        "files": [
+          "docs/marketing/creatives/src/ad.html"
+        ],
+        "createdAt": "2026-10-24T05:18:24.076Z",
+        "reason": "Claude: light aurora brand background reproducing the ad set the user approved; not a dark-page glow"
       }
     ]
   }
