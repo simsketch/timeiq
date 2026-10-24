@@ -196,6 +196,10 @@ def cmd_bootstrap(_: argparse.Namespace) -> None:
     pixel = next((px for px in pixels if "timeiq" in (px.get("name") or "").lower()), None)
     if pixel:
         print("pixel      : found", pixel.get("name"), pixel["id"])
+    elif pixels:
+        # Personal ad accounts get one pixel. Sharing it is safe while TimeIQ is the only site sending Purchase.
+        pixel = pixels[0]
+        print("pixel      : sharing", pixel.get("name"), pixel["id"])
     else:
         pixel = call("POST", f"{acct_id}/adspixels", name="TimeIQ")
         print("pixel      : created", pixel["id"])
