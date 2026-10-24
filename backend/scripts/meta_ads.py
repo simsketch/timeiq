@@ -111,7 +111,7 @@ LAUNCH_SET = ("A-price-shock", "B-timesheet", "F-founder-ai")
 TARGETING = {
     "geo_locations": {"countries": ["US", "CA", "GB", "AU"]},
     "age_min": 25,
-    "age_max": 54,
+    "age_max": 65,  # Advantage audience forbids a lower cap
     "flexible_spec": [
         {
             "interests": [
@@ -121,6 +121,8 @@ TARGETING = {
             ]
         }
     ],
+    # Meta requires an explicit choice; 1 lets it widen past age and interests when that converts better.
+    "targeting_automation": {"advantage_audience": 1},
 }
 
 
@@ -132,6 +134,8 @@ def call(method: str, path: str, **params):
     params["access_token"] = TOKEN
     if method == "GET":
         r = httpx.get(f"{API}/{path}", params=params, timeout=60)
+    elif method == "DELETE":
+        r = httpx.delete(f"{API}/{path}", params=params, timeout=60)
     else:
         files = params.pop("_files", None)
         r = httpx.post(f"{API}/{path}", data=params, files=files, timeout=120)
@@ -258,7 +262,11 @@ def create_ad(adset_id: str, spec: dict, live: bool) -> str:
                 },
             }
         ),
-        degrees_of_freedom_spec=json.dumps({"creative_features_spec": {"standard_enhancements": {"enroll_status": "OPT_OUT"}}}),
+        # No AI-rewritten copy or swapped CTA; visual touch-ups stay at Meta's defaults.
+        degrees_of_freedom_spec=json.dumps({"creative_features_spec": {
+            "text_optimizations": {"enroll_status": "OPT_OUT"},
+            "enhance_cta": {"enroll_status": "OPT_OUT"},
+        }}),
     )
     ad = call(
         "POST",
@@ -286,6 +294,20 @@ def cmd_launch(args: argparse.Namespace) -> None:
         daily_budget=int(args.budget * 100),
         bid_strategy="LOWEST_COST_WITHOUT_CAP",
     )
+    try:
+        adset, specs, ads = _build(campaign, status, args.live)
+    except SystemExit:
+        call("DELETE", campaign["id"])  # leave nothing half-built behind
+        raise
+    print("campaign", campaign["id"], status)
+    print("ad set  ", adset["id"])
+    for spec, ad_id in zip(specs, ads):
+        print("ad      ", ad_id, spec["name"])
+    if not args.live:
+        print("Everything is PAUSED. Review in Ads Manager, then run: scripts/meta_ads.py resume <campaign_id>")
+
+
+def _build(campaign: dict, status: str, live: bool):
     adset = call(
         "POST",
         f"{ACCOUNT}/adsets",
@@ -298,13 +320,8 @@ def cmd_launch(args: argparse.Namespace) -> None:
         targeting=json.dumps(TARGETING),
     )
     specs = [c for c in CREATIVES if c["name"] in LAUNCH_SET]
-    ads = [create_ad(adset["id"], spec, args.live) for spec in specs]
-    print("campaign", campaign["id"], status)
-    print("ad set  ", adset["id"])
-    for spec, ad_id in zip(specs, ads):
-        print("ad      ", ad_id, spec["name"])
-    if not args.live:
-        print("Everything is PAUSED. Review in Ads Manager, then run: scripts/meta_ads.py resume <campaign_id>")
+    ads = [create_ad(adset["id"], spec, live) for spec in specs]
+    return adset, specs, ads
 
 
 def cmd_status(_: argparse.Namespace) -> None:
