@@ -88,3 +88,16 @@ Short primary text (for the 322 pairing): **If you book calls, log hours, and se
 ## Things I could not do for you
 
 Creating the campaign, uploading creative, and setting the budget happen inside your Meta Ads account and spend your money, so those steps are yours. Everything on the site side (pixel, events, pricing page, checkout, UTM-friendly URLs) is built and only needs the env vars above.
+
+## Oct 25 update: calendar angle
+
+After day 2 (13 clicks, $7.86; B 7 clicks, F 4, A 2), the campaign shifted toward the original pitch: a
+Calendly replacement that merges every calendar.
+
+- Added **G "All your calendars. One booking link."** (Google + Outlook + iCloud feeding one booking week)
+  and **H "Scheduling, minus the upsells."** (checklist of included tools). Source: `creatives/src/ad.html`.
+- Paused **A** ($1.90 per click, the weakest). Running: B, F, G, H at $5/day.
+- Image copy avoids naming Calendly. Body copy claims only what the code does: unlimited ICS and Google
+  calendars, buffers, daily cap, intake fields, reschedule links in confirmation emails.
+- Product fixes shipped with it: calendars sync hourly, booking pages re-sync stale calendars on load,
+  bookings re-check before confirming, and webcal:// / redirecting feeds (iCloud) now import.

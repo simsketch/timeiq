@@ -103,6 +103,30 @@ CREATIVES = [
         ),
         "description": "Founder price locked for life.",
     },
+    {
+        "name": "G-all-calendars",
+        "image": CREATIVES_DIR / "ad-G-all-calendars-1080.png",
+        "headline": "All your calendars. One booking link.",
+        "body": (
+            "Personal on Google, work on Outlook, family on iCloud? TimeIQ reads every one of them "
+            "and gives you a single booking link that only offers the times you are actually free. "
+            "Add as many calendars as you like.\n\n"
+            "The first 100 founders get it for $19 a year, locked in for life."
+        ),
+        "description": "Unlimited calendars. $19/year founder price.",
+    },
+    {
+        "name": "H-no-upsells",
+        "image": CREATIVES_DIR / "ad-H-no-upsells-1080.png",
+        "headline": "Scheduling, minus the upsells.",
+        "body": (
+            "Every calendar you use, buffers between meetings, a daily booking cap, your own intake "
+            "questions and reschedule links in every invite. All included, with timesheets and "
+            "invoices for the hours you bill.\n\n"
+            "$19 a year for the first 100 founders."
+        ),
+        "description": "Everything included. $19/year founder price.",
+    },
 ]
 
 # The ads launch creates; the rest stay in CREATIVES for add-ad. $5/day carries three at most.

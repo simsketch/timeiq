@@ -30,6 +30,25 @@
   .pill { background: #6157f0; color: #fff; font-weight: 800; font-size: 44px; padding: 16px 32px; border-radius: 999px; letter-spacing: -0.02em; white-space: nowrap; }
   .card { border-radius: 40px; box-shadow: 0 40px 80px -30px rgba(40,30,110,.45); }
   .spacer { flex: 1; }
+  /* G: calendar merge */
+  .feeds { display: flex; flex-direction: column; gap: 18px; }
+  .feed { display: flex; align-items: center; gap: 18px; background: rgba(255,255,255,.82); border-radius: 22px; padding: 20px 26px; font-size: 30px; font-weight: 600; }
+  .feed i { width: 22px; height: 22px; border-radius: 6px; flex: none; }
+  .feed small { margin-left: auto; font-family: "GeistMono"; font-size: 22px; color: #6b7280; font-weight: 500; }
+  .week { background: #fff; border-radius: 32px; padding: 30px 30px 34px; }
+  .week-h { display: flex; justify-content: space-between; align-items: baseline; font-size: 28px; font-weight: 700; margin-bottom: 20px; }
+  .week-h span { font-family: "GeistMono"; font-size: 22px; font-weight: 500; color: #6b7280; }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .day { font-family: "GeistMono"; font-size: 22px; color: #6b7280; text-align: center; padding-bottom: 4px; }
+  .slot { height: 56px; border-radius: 12px; font-size: 22px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+  .free { background: #ece9ff; color: #4338ca; }
+  .busy { color: #fff; }
+  /* H: checklist */
+  .checks { list-style: none; display: grid; gap: 22px; }
+  .checks li { display: flex; gap: 22px; align-items: flex-start; font-size: 40px; line-height: 1.25; font-weight: 600; letter-spacing: -0.015em; }
+  .checks li::before { content: ""; flex: none; width: 44px; height: 44px; margin-top: 2px; border-radius: 50%;
+    background: #6157f0 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/26px no-repeat; }
+  .checks small { display: block; font-size: 29px; font-weight: 400; color: #5b6275; margin-top: 6px; letter-spacing: -0.005em; }
 </style>
 </head>
 <body>
@@ -61,6 +80,45 @@ const T = {
       <img class="card" src="../source/pricing-card-2x.png" style="width:${tall ? 820 : 600}px;align-self:center">
       <div class="spacer"></div>`,
 };
+// G: three feeds feed one week; colored cells are busy times pulled from them.
+const FEEDS = [["#4285f4","Google","Personal"],["#0f6cbd","Outlook","Work"],["#ff6b6b","iCloud","Family"]];
+const WEEK = [ // per day, five rows: 0 free, else feed index + 1
+  [0,2,2,0,0],[1,0,0,3,0],[0,0,2,0,1],[2,0,0,0,3],[0,3,0,1,0]];
+const TIMES = ["9:00","10:00","11:00","1:00","2:00"];
+function weekCard(){
+  let cells = "";
+  const rows = tall ? 5 : 4;
+  for (let r = 0; r < rows; r++) for (let d = 0; d < 5; d++) {
+    const f = WEEK[d][r];
+    cells += f ? `<div class="slot busy" style="background:${FEEDS[f-1][0]}">Busy</div>` : `<div class="slot free">${TIMES[r]}</div>`;
+  }
+  return `<div class="week card"><div class="week-h">timeiq.app/you<span>30 min call</span></div>
+    <div class="grid">${["MON","TUE","WED","THU","FRI"].map(d=>`<div class="day">${d}</div>`).join("")}${cells}</div></div>`;
+}
+const feeds = `<div class="feeds">${FEEDS.map(([c,n,l])=>`<div class="feed"><i style="background:${c}"></i>${l}<small>${n} calendar</small></div>`).join("")}</div>`;
+if (!tall) document.head.insertAdjacentHTML("beforeend", `<style>
+  .feeds{gap:12px}.feed{padding:13px 24px;font-size:27px;border-radius:18px}.feed i{width:18px;height:18px}
+  .week{padding:24px 26px 26px}.week-h{margin-bottom:14px}.grid{gap:10px}.slot{height:48px}</style>`);
+T.G = `${brand}
+  <span class="pill" style="position:absolute;right:72px;top:${tall ? 128 : 56}px">$19 / year</span>
+  <h1 style="font-size:${tall ? 104 : 84}px;margin-top:${tall ? 160 : 44}px">All your calendars.<br><span class="it" style="font-weight:400">One booking link.</span></h1>
+  <div style="height:${tall ? 0 : 36}px"></div><div class="spacer"></div>${feeds}
+  <div style="height:${tall ? 40 : 20}px"></div>${weekCard()}
+  ${tall ? '<div class="spacer"></div><p class="sub" style="text-align:center">Clients only see the times you are really free.</p>' : ""}<div class="spacer"></div>`;
+T.H = `${brand}
+  <h1 style="font-size:${tall ? 104 : 88}px;margin-top:${tall ? 150 : 52}px">Scheduling,<br><span class="it" style="font-weight:400">minus the upsells.</span></h1>
+  <div class="spacer"></div>
+  <ul class="checks">
+    <li><div>Every calendar you use<small>Google, Outlook, iCloud or any calendar link</small></div></li>
+    <li><div>Buffers between meetings</div></li>
+    <li><div>A daily cap on bookings</div></li>
+    <li><div>Your own intake questions</div></li>
+    <li><div>Reschedule links in every invite</div></li>
+    <li><div>Timesheets and invoices, built in</div></li>
+  </ul>
+  <div class="spacer"></div>
+  <div><span class="chip">$19 a year for the first 100 founders</span></div>
+  ${tall ? '<div class="spacer"></div>' : ""}`;
 el.innerHTML = T[q.get("ad") || "A"];
 </script>
 </body>

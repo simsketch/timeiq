@@ -22,8 +22,13 @@ async def sync_ics_source(db: AsyncSession, source: CalendarSource) -> int:
     if not source.ics_url:
         return 0
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.get(source.ics_url)
+    # iCloud and Outlook hand out webcal:// links; the feed itself is plain
+    # HTTPS, and iCloud redirects it to a per-account server.
+    url = source.ics_url.strip()
+    if url.lower().startswith("webcal://"):
+        url = "https://" + url[len("webcal://"):]
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        resp = await client.get(url)
         resp.raise_for_status()
         ics_text = resp.text
 
