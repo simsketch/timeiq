@@ -1,0 +1,5 @@
+# Alembic reads revision, down_revision, branch_labels and depends_on from
+# each migration module, so CodeQL's "unused global" rule misfires on every one.
+query-filters:
+  - exclude:
+      id: py/unused-global-variable
