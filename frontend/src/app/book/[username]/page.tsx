@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Clock, Calendar, MapPin, ArrowRight } from "lucide-react";
+import { Clock, MapPin, ArrowRight } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { LogoIcon } from "@/components/logo";
 import { ClockLoader } from "@/components/ui/clock-loader";
