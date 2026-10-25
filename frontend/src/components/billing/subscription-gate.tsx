@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { PricingCard } from "@/components/billing/pricing-card";
@@ -8,14 +9,23 @@ import { BillingStatus, fetchBillingStatus } from "@/lib/billing";
 
 /**
  * Wraps dashboard content. When billing is enabled and the user isn't
- * entitled, shows the paywall instead of the page.
+ * entitled, shows the paywall instead of the page. Routes under
+ * `exemptPaths` (account management) always render.
  */
-export function SubscriptionGate({ children }: { children: React.ReactNode }) {
+export function SubscriptionGate({
+  children,
+  exemptPaths = [],
+}: {
+  children: React.ReactNode;
+  exemptPaths?: string[];
+}) {
   const { isLoaded, getToken } = useAuth();
+  const pathname = usePathname() ?? "";
+  const exempt = exemptPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const [status, setStatus] = useState<BillingStatus | null | "error">(null);
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || exempt) return;
     let cancelled = false;
     (async () => {
       try {
@@ -30,7 +40,9 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, getToken]);
+  }, [isLoaded, getToken, exempt]);
+
+  if (exempt) return <>{children}</>;
 
   if (status === null) {
     return (
