@@ -4,6 +4,7 @@ import { UserButton } from "@clerk/nextjs";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { SubscriptionGate } from "@/components/billing/subscription-gate";
+import { CalendarHealthBanner } from "@/components/dashboard/calendar-health-banner";
 
 export default async function DashboardLayout({
   children,
@@ -33,6 +34,7 @@ export default async function DashboardLayout({
       <main className="relative flex-1 md:pl-72">
         <div className="md:h-full md:overflow-y-auto">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-6 md:py-10">
+            <CalendarHealthBanner />
             <SubscriptionGate>{children}</SubscriptionGate>
           </div>
         </div>

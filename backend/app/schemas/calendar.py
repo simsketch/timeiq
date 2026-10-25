@@ -13,6 +13,11 @@ class CalendarSourceCreate(BaseModel):
     calendar_type: Optional[str] = Field(default="ics")
 
 
+class CalendarSourceUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    ics_url: Optional[str] = Field(default=None, min_length=1)
+
+
 class CalendarSourceResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
@@ -22,6 +27,10 @@ class CalendarSourceResponse(BaseModel):
     ics_url: Optional[str]
     is_active: bool
     last_synced_at: Optional[datetime]
+    sync_status: str = "ok"
+    last_sync_error: Optional[str] = None
+    last_sync_attempt_at: Optional[datetime] = None
+    failing_since: Optional[datetime] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

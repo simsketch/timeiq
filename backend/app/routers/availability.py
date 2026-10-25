@@ -154,8 +154,8 @@ async def refresh_public_calendars(username: str, db: AsyncSession = Depends(get
     host = (await db.execute(select(User).where(User.username == username))).scalar_one_or_none()
     if host is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    attempted = await freshen_user_calendars(host.id, budget_seconds=20)
-    return {"refreshed": attempted > 0}
+    synced = await freshen_user_calendars(host.id, budget_seconds=20)
+    return {"refreshed": synced > 0}
 
 
 @router.get("/api/debug/slots")

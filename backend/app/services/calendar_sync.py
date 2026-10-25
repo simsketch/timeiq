@@ -12,6 +12,42 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.cached_event import CachedEvent
 from app.models.calendar_source import CalendarSource
 from app.config import settings
+from app.services.calendar_health import CalendarSyncError, error_for_status
+
+
+def _redirected_error_code(resp: httpx.Response) -> int | None:
+    """Outlook answers a dead feed by redirecting to error pages that carry the
+    real status as ?httpCode=404 (the last page itself returns 500)."""
+    for hop in [*resp.history, resp]:
+        code = hop.url.params.get("httpCode")
+        if code and code.isdigit() and int(code) >= 400:
+            return int(code)
+    return None
+
+
+async def fetch_ics(ics_url: str) -> Calendar:
+    """Download and parse an ICS feed, raising CalendarSyncError with a reason
+    the calendar's owner can act on."""
+    # iCloud and Outlook hand out webcal:// links; the feed itself is plain
+    # HTTPS, and iCloud redirects it to a per-account server.
+    url = ics_url.strip()
+    if url.lower().startswith("webcal://"):
+        url = "https://" + url[len("webcal://"):]
+    if not url.lower().startswith(("http://", "https://")):
+        raise CalendarSyncError("That doesn't look like a calendar link. It should start with https:// or webcal://.", permanent=True)
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        resp = await client.get(url)
+    err = error_for_status(_redirected_error_code(resp) or resp.status_code)
+    if err:
+        raise err
+    if "BEGIN:VCALENDAR" not in resp.text[:2000].upper():
+        raise CalendarSyncError(
+            "That link opens a web page, not a calendar file. Copy the ICS (iCal) link instead.", permanent=True
+        )
+    try:
+        return Calendar.from_ical(resp.text)
+    except Exception:
+        raise CalendarSyncError("The calendar file at that link couldn't be read.", permanent=True)
 
 
 async def sync_ics_source(db: AsyncSession, source: CalendarSource) -> int:
@@ -20,19 +56,9 @@ async def sync_ics_source(db: AsyncSession, source: CalendarSource) -> int:
     Returns the number of events synced.
     """
     if not source.ics_url:
-        return 0
+        raise CalendarSyncError("This calendar has no link. Add its ICS link.", permanent=True)
 
-    # iCloud and Outlook hand out webcal:// links; the feed itself is plain
-    # HTTPS, and iCloud redirects it to a per-account server.
-    url = source.ics_url.strip()
-    if url.lower().startswith("webcal://"):
-        url = "https://" + url[len("webcal://"):]
-    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        ics_text = resp.text
-
-    cal = Calendar.from_ical(ics_text)
+    cal = await fetch_ics(source.ics_url)
     synced_count = 0
 
     # Delete existing cached events for this source before re-importing
@@ -110,13 +136,18 @@ async def sync_ics_source(db: AsyncSession, source: CalendarSource) -> int:
     return synced_count
 
 
+GOOGLE_REVOKED = CalendarSyncError(
+    "Google access expired or was revoked. Reconnect Google Calendar in TimeIQ.", permanent=True
+)
+
+
 async def sync_google_source(db: AsyncSession, source: CalendarSource) -> int:
     """
     Fetch events from Google Calendar API and upsert them into cached_events.
     Returns the number of events synced.
     """
     if not source.google_access_token:
-        return 0
+        raise GOOGLE_REVOKED
 
     # Check if token needs refresh
     access_token = source.google_access_token
@@ -126,7 +157,7 @@ async def sync_google_source(db: AsyncSession, source: CalendarSource) -> int:
     ):
         access_token = await _refresh_google_token(db, source)
         if not access_token:
-            return 0
+            raise GOOGLE_REVOKED
 
     calendar_id = source.google_calendar_id or "primary"
 
@@ -151,7 +182,7 @@ async def sync_google_source(db: AsyncSession, source: CalendarSource) -> int:
             # Token expired, try to refresh
             access_token = await _refresh_google_token(db, source)
             if not access_token:
-                return 0
+                raise GOOGLE_REVOKED
             resp = await client.get(
                 f"https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events",
                 headers={"Authorization": f"Bearer {access_token}"},
@@ -163,7 +194,9 @@ async def sync_google_source(db: AsyncSession, source: CalendarSource) -> int:
                     "maxResults": "2500",
                 },
             )
-        resp.raise_for_status()
+        err = error_for_status(resp.status_code, "Google calendar")
+        if err:
+            raise err
         data = resp.json()
 
     # Delete existing cached events for this source

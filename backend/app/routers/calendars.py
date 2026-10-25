@@ -18,8 +18,11 @@ from app.schemas.calendar import (
     CachedEventResponse,
     CalendarSourceCreate,
     CalendarSourceResponse,
+    CalendarSourceUpdate,
 )
-from app.services.calendar_sync import sync_calendar_source
+from app.services.calendar_health import CalendarSyncError, classify, record_failure, record_success
+from app.services.calendar_sync import fetch_ics, sync_calendar_source
+from app.tasks import sync_source
 
 router = APIRouter(prefix="/api/calendars", tags=["calendars"])
 
@@ -38,31 +41,80 @@ async def list_calendar_sources(
     return result.scalars().all()
 
 
+async def _check_ics_link(ics_url: str) -> None:
+    """Refuse a link that doesn't return a readable calendar, saying why."""
+    try:
+        await fetch_ics(ics_url)
+    except CalendarSyncError as err:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=err.message)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=classify(exc).message)
+
+
+async def _sync_in_request(db: AsyncSession, source: CalendarSource) -> None:
+    """First sync of a just-saved source, inside the request's transaction."""
+    now = datetime.now(timezone.utc)
+    try:
+        await sync_calendar_source(db, source)
+        record_success(source, now)
+    except Exception as exc:
+        record_failure(source, classify(exc), now)
+    await db.flush()
+    await db.refresh(source)
+
+
 async def _create_ics_calendar(
     payload: CalendarSourceCreate,
     user: User,
     db: AsyncSession,
 ) -> CalendarSource:
     """Shared logic for creating an ICS calendar source."""
+    await _check_ics_link(payload.ics_url)
     source = CalendarSource(
         user_id=user.id,
         type="ics_url",
         name=payload.name,
-        ics_url=payload.ics_url,
+        ics_url=payload.ics_url.strip(),
         is_active=True,
     )
     db.add(source)
     await db.flush()
     await db.refresh(source)
+    await _sync_in_request(db, source)
+    return source
 
-    # Immediately sync the calendar
-    try:
-        await sync_calendar_source(db, source)
-        await db.refresh(source)
-    except Exception:
-        # Don't fail the creation if sync fails
-        pass
 
+async def _get_own_source(db: AsyncSession, user: User, source_id: uuid.UUID) -> CalendarSource:
+    source = (
+        await db.execute(
+            select(CalendarSource).where(CalendarSource.id == source_id, CalendarSource.user_id == user.id)
+        )
+    ).scalar_one_or_none()
+    if source is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Calendar source not found")
+    return source
+
+
+@router.patch("/{source_id}", response_model=CalendarSourceResponse)
+async def update_calendar_source(
+    source_id: uuid.UUID,
+    payload: CalendarSourceUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rename a calendar or replace its ICS link. A new link is checked, then synced."""
+    source = await _get_own_source(db, user, source_id)
+    if payload.name is not None:
+        source.name = payload.name.strip() or source.name
+    if payload.ics_url is not None and payload.ics_url.strip() != (source.ics_url or ""):
+        if source.type != "ics_url":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only ICS calendars have a link to replace")
+        await _check_ics_link(payload.ics_url)
+        source.ics_url = payload.ics_url.strip()
+        source.is_active = True
+        await _sync_in_request(db, source)
+    await db.flush()
+    await db.refresh(source)
     return source
 
 
@@ -163,23 +215,13 @@ async def sync_all_calendars(
 ):
     """Trigger a manual sync of all active calendar sources for the user."""
     result = await db.execute(
-        select(CalendarSource).where(
+        select(CalendarSource.id).where(
             CalendarSource.user_id == user.id,
             CalendarSource.is_active.is_(True),
         )
     )
-    sources = result.scalars().all()
-
-    synced = 0
-    failed = 0
-    for source in sources:
-        try:
-            await sync_calendar_source(db, source)
-            synced += 1
-        except Exception:
-            failed += 1
-
-    return {"synced": synced, "failed": failed}
+    outcomes = [await sync_source(sid, force=True) for sid in result.scalars().all()]
+    return {"synced": outcomes.count("synced"), "failed": outcomes.count("failed")}
 
 
 @router.post("/{source_id}/sync", response_model=CalendarSourceResponse)
@@ -208,13 +250,11 @@ async def sync_calendar(
             detail="Calendar source is not active",
         )
 
-    try:
-        count = await sync_calendar_source(db, source)
-    except Exception as e:
+    outcome = await sync_source(source.id, force=True)
+    await db.refresh(source)
+    if outcome == "failed":
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to sync calendar: {str(e)}",
+            detail=source.last_sync_error or "Failed to sync calendar",
         )
-
-    await db.refresh(source)
     return source

@@ -175,18 +175,30 @@ async def google_callback(
                 calendar_id = cal.get("id", "primary")
                 break
 
-    # Create the calendar source
-    source = CalendarSource(
-        user_id=user.id,
-        type="google",
-        name=calendar_name,
-        google_access_token=access_token,
-        google_refresh_token=refresh_token,
-        google_token_expires_at=expires_at,
-        google_calendar_id=calendar_id,
-        is_active=True,
-    )
-    db.add(source)
+    # Reconnecting the same Google calendar refreshes its access instead of
+    # adding a duplicate; that is also how a revoked connection gets fixed.
+    source = (
+        await db.execute(
+            select(CalendarSource).where(
+                CalendarSource.user_id == user.id,
+                CalendarSource.type == "google",
+                CalendarSource.google_calendar_id == calendar_id,
+            )
+        )
+    ).scalars().first()
+    if source is None:
+        source = CalendarSource(user_id=user.id, type="google", google_calendar_id=calendar_id)
+        db.add(source)
+    source.name = calendar_name
+    source.google_access_token = access_token
+    source.google_refresh_token = refresh_token or source.google_refresh_token
+    source.google_token_expires_at = expires_at
+    source.is_active = True
+    source.sync_status = "ok"
+    source.sync_failures = 0
+    source.failing_since = None
+    source.last_sync_error = None
+    source.broken_notified_at = None
     await db.flush()
 
     # Redirect back to frontend

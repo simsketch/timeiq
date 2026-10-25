@@ -8,49 +8,63 @@ from sqlalchemy import or_, select
 
 from app.database import async_session
 from app.models.calendar_source import CalendarSource
+from app.models.user import User
+from app.services.calendar_health import classify, is_due, record_failure, record_success
 from app.services.calendar_sync import sync_calendar_source
+from app.services.email import send_calendar_broken
 
 logger = logging.getLogger(__name__)
 
-# When each source last failed to sync, per server instance. A failed sync
-# leaves last_synced_at untouched, so without this a dead feed would be
-# retried on every booking page view.
-_last_failure: dict = {}
-FAILURE_BACKOFF = timedelta(hours=1)
-
-
-async def _sync_source_ids(source_ids: list) -> dict[str, int]:
+async def sync_source(source_id, *, force: bool = False) -> str:
     """
-    Sync each calendar source in its own session.
+    Sync one calendar source in its own session and record its health.
+    Returns 'synced', 'failed' or 'skipped' (inactive, or backing off unless force).
 
     Isolation matters: AsyncSession.rollback() expires every ORM instance in
     the session (regardless of expire_on_commit), so a shared session would
     leave the remaining sources expired. Touching an expired attribute outside
     a greenlet context raises MissingGreenlet, which escapes the handler and
-    aborts the whole run — one unreachable calendar would silently stop the
-    nightly sync for every calendar and every user.
+    aborts the whole run. For the same reason a failure is recorded in a fresh
+    session rather than on the rolled-back instance.
     """
-    results = {"synced": 0, "failed": 0}
-
-    for source_id in source_ids:
+    now = datetime.now(timezone.utc)
+    async with async_session() as db:
+        source = await db.get(CalendarSource, source_id)
+        if source is None or not source.is_active:
+            return "skipped"
+        if not force and not is_due(source, now):
+            return "skipped"
+        name = source.name
         try:
-            async with async_session() as db:
-                source = await db.get(CalendarSource, source_id)
-                if source is None or not source.is_active:
-                    continue
-                name = source.name
-                count = await sync_calendar_source(db, source)
-                await db.commit()
-                results["synced"] += 1
-                _last_failure.pop(source_id, None)
-                logger.info(
-                    f"Synced calendar source {source_id} ({name}): {count} events"
-                )
-        except Exception as e:
-            results["failed"] += 1
-            _last_failure[source_id] = datetime.now(timezone.utc)
-            logger.error(f"Failed to sync calendar source {source_id}: {e}")
+            count = await sync_calendar_source(db, source)
+            record_success(source, now)
+            await db.commit()
+            logger.info(f"Synced calendar source {source_id} ({name}): {count} events")
+            return "synced"
+        except Exception as exc:
+            err = classify(exc)
+            await db.rollback()
+            logger.error(f"Failed to sync calendar source {source_id} ({name}): {exc}")
 
+    try:
+        async with async_session() as db:
+            source = await db.get(CalendarSource, source_id)
+            if source is not None:
+                if record_failure(source, err, now):
+                    user = await db.get(User, source.user_id)
+                    if user is not None:
+                        send_calendar_broken(user, source)
+                    source.broken_notified_at = now
+                await db.commit()
+    except Exception as exc:
+        logger.error(f"Failed to record sync failure for {source_id}: {exc}")
+    return "failed"
+
+
+async def _sync_source_ids(source_ids: list, *, force: bool = False) -> dict[str, int]:
+    results = {"synced": 0, "failed": 0, "skipped": 0}
+    for source_id in source_ids:
+        results[await sync_source(source_id, force=force)] += 1
     return results
 
 
@@ -93,8 +107,8 @@ async def freshen_user_calendars(user_id, budget_seconds: float) -> int:
     availability reflects events added since the hourly cron.
 
     Sources sync concurrently, each in its own session, within budget_seconds;
-    past that the cached events stand. Sources that failed within
-    FAILURE_BACKOFF are skipped. Returns how many sources were attempted.
+    past that the cached events stand. Failing sources keep their backoff.
+    Returns how many sources synced (all considered ones if the budget ran out).
     """
     now = datetime.now(timezone.utc)
     async with async_session() as db:
@@ -108,22 +122,19 @@ async def freshen_user_calendars(user_id, budget_seconds: float) -> int:
                 ),
             )
         )
-        source_ids = [
-            sid
-            for sid in result.scalars().all()
-            if now - _last_failure.get(sid, now - FAILURE_BACKOFF) >= FAILURE_BACKOFF
-        ]
+        source_ids = list(result.scalars().all())
     if not source_ids:
         return 0
 
     try:
-        await asyncio.wait_for(
-            asyncio.gather(*(_sync_source_ids([sid]) for sid in source_ids)),
+        outcomes = await asyncio.wait_for(
+            asyncio.gather(*(sync_source(sid) for sid in source_ids)),
             timeout=budget_seconds,
         )
     except asyncio.TimeoutError:
         logger.warning(f"Calendar freshen for user {user_id} hit its {budget_seconds}s budget; using cached events")
-    return len(source_ids)
+        return len(source_ids)  # some may have finished; let the caller refetch
+    return outcomes.count("synced")
 
 
 async def send_overdue_invoice_digests() -> dict:

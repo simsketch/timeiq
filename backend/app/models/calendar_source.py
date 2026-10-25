@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -40,6 +40,14 @@ class CalendarSource(Base):
     last_synced_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Sync health, managed by app.services.calendar_health:
+    # 'ok', 'failing' (retrying with backoff) or 'broken' (owner emailed, daily retry).
+    sync_status: Mapped[str] = mapped_column(String(10), nullable=False, default="ok", server_default="ok")
+    sync_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    failing_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_sync_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_sync_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    broken_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

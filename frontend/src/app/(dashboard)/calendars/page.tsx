@@ -9,16 +9,19 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { apiFetch } from "@/lib/api";
-import { Plus, Trash2, RefreshCw, CalendarDays, Clock } from "lucide-react";
+import { Plus, Trash2, RefreshCw, CalendarDays, Clock, AlertTriangle, Link2 } from "lucide-react";
 import { format } from "date-fns";
 import { ClockLoader } from "@/components/ui/clock-loader";
 
 interface Calendar {
-  id: number;
+  id: string;
   name: string;
   type: string;
   ics_url: string | null;
   last_synced_at: string | null;
+  sync_status: "ok" | "failing" | "broken";
+  last_sync_error: string | null;
+  failing_since: string | null;
 }
 
 interface CachedEvent {
@@ -39,6 +42,10 @@ export default function CalendarsPage() {
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", ics_url: "" });
+  const [adding, setAdding] = useState(false);
+  const [replacing, setReplacing] = useState<string | null>(null);
+  const [newLink, setNewLink] = useState("");
+  const [savingLink, setSavingLink] = useState(false);
 
   useEffect(() => {
     fetchAll();
@@ -63,6 +70,7 @@ export default function CalendarsPage() {
 
   async function handleAddCalendar(e: React.FormEvent) {
     e.preventDefault();
+    setAdding(true);
     try {
       const token = await getToken();
       await apiFetch("/api/calendars/ics", {
@@ -76,14 +84,37 @@ export default function CalendarsPage() {
       fetchAll();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: "Couldn't add that calendar",
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setAdding(false);
     }
   }
 
-  async function handleDelete(id: number) {
+  async function handleReplaceLink(e: React.FormEvent, id: string) {
+    e.preventDefault();
+    setSavingLink(true);
+    try {
+      const token = await getToken();
+      await apiFetch(`/api/calendars/${id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ics_url: newLink }),
+      });
+      toast({ title: "Link replaced", description: "The calendar is syncing again." });
+      setReplacing(null);
+      setNewLink("");
+      fetchAll();
+    } catch (error: any) {
+      toast({ title: "That link didn't work", description: error.message, variant: "destructive" });
+    } finally {
+      setSavingLink(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
     if (!confirm("Are you sure you want to remove this calendar?")) return;
     try {
       const token = await getToken();
@@ -102,7 +133,7 @@ export default function CalendarsPage() {
     }
   }
 
-  async function handleSync(id: number) {
+  async function handleSync(id: string) {
     try {
       const token = await getToken();
       await apiFetch(`/api/calendars/${id}/sync`, {
@@ -110,14 +141,14 @@ export default function CalendarsPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast({ title: "Calendar synced successfully" });
-      fetchAll();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: "Sync failed",
         description: error.message,
         variant: "destructive",
       });
     }
+    fetchAll();
   }
 
   const [syncingAll, setSyncingAll] = useState(false);
@@ -210,10 +241,12 @@ export default function CalendarsPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="ics_url">ICS URL</Label>
+                <Label htmlFor="ics_url">Calendar link (ICS or webcal)</Label>
                 <Input
                   id="ics_url"
-                  type="url"
+                  type="text"
+                  inputMode="url"
+                  autoComplete="off"
                   value={formData.ics_url}
                   onChange={(e) =>
                     setFormData({ ...formData, ics_url: e.target.value })
@@ -223,7 +256,9 @@ export default function CalendarsPage() {
                 />
               </div>
               <div className="flex gap-2">
-                <Button type="submit">Add Calendar</Button>
+                <Button type="submit" disabled={adding}>
+                  {adding ? "Checking link..." : "Add Calendar"}
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
@@ -252,13 +287,19 @@ export default function CalendarsPage() {
           calendars.map((calendar) => (
             <Card key={calendar.id}>
               <CardContent className="py-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <h3 className="font-semibold">{calendar.name}</h3>
                       <Badge variant="secondary">
-                        {calendar.type.toUpperCase()}
+                        {calendar.type === "ics_url" ? "ICS" : calendar.type.toUpperCase()}
                       </Badge>
+                      {calendar.sync_status === "broken" && (
+                        <Badge variant="destructive">Not syncing</Badge>
+                      )}
+                      {calendar.sync_status === "failing" && (
+                        <Badge variant="outline" className="border-amber-400 text-amber-800">Retrying</Badge>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {calendar.last_synced_at
@@ -268,12 +309,37 @@ export default function CalendarsPage() {
                           )}`
                         : "Never synced"}
                     </p>
+                    {calendar.sync_status !== "ok" && calendar.last_sync_error && (
+                      <p className="text-sm mt-2 flex items-start gap-2 text-red-700">
+                        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                        <span>
+                          {calendar.last_sync_error}
+                          {calendar.sync_status === "broken" &&
+                            " New events on this calendar aren't blocking your booking page."}
+                        </span>
+                      </p>
+                    )}
                   </div>
                   <div className="flex gap-2">
+                    {calendar.type === "ics_url" && (
+                      <Button
+                        size="sm"
+                        variant={calendar.sync_status === "broken" ? "default" : "outline"}
+                        onClick={() => {
+                          setReplacing(replacing === calendar.id ? null : calendar.id);
+                          setNewLink("");
+                        }}
+                        aria-label="Replace link"
+                      >
+                        <Link2 className="h-4 w-4" />
+                        {calendar.sync_status === "broken" && <span className="ml-2">Replace link</span>}
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => handleSync(calendar.id)}
+                      aria-label="Sync now"
                     >
                       <RefreshCw className="h-4 w-4" />
                     </Button>
@@ -281,11 +347,29 @@ export default function CalendarsPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleDelete(calendar.id)}
+                      aria-label="Remove calendar"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
+                {replacing === calendar.id && (
+                  <form onSubmit={(e) => handleReplaceLink(e, calendar.id)} className="mt-4 flex gap-2">
+                    <Input
+                      type="text"
+                      inputMode="url"
+                      autoComplete="off"
+                      value={newLink}
+                      onChange={(e) => setNewLink(e.target.value)}
+                      placeholder="Paste the new ICS or webcal link"
+                      required
+                      autoFocus
+                    />
+                    <Button type="submit" disabled={savingLink}>
+                      {savingLink ? "Checking..." : "Save"}
+                    </Button>
+                  </form>
+                )}
               </CardContent>
             </Card>
           ))

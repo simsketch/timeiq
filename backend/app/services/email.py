@@ -394,6 +394,59 @@ def send_overdue_digest(user: User, invoices: list, today: date) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Calendar stopped syncing
+# ---------------------------------------------------------------------------
+
+FIX_STEPS = {
+    "google": (
+        "Google access to this calendar expired. In Google Calendar open Settings, your calendar, Integrate calendar, "
+        "copy the secret address in iCal format, and add it in TimeIQ as a new calendar."
+    ),
+    "ics_url": (
+        "Get a fresh link and paste it into TimeIQ with Replace link. "
+        "Outlook: Settings, Calendar, Shared calendars, Publish a calendar, then copy the ICS link. "
+        "iCloud: in the Calendar app, share the calendar as a Public Calendar and copy the link. "
+        "Google: Settings, your calendar, Integrate calendar, then copy the secret address in iCal format."
+    ),
+}
+
+
+def render_calendar_broken(user: User, source) -> str:
+    since = source.failing_since or source.last_sync_attempt_at
+    tz = user.timezone or "America/New_York"
+    rows = [("Calendar", source.name), ("Problem", source.last_sync_error or "Unknown error")]
+    if source.last_synced_at:
+        rows.append(("Last good sync", _format_datetime(source.last_synced_at, tz)))
+    body = (
+        t.h1(f"{source.name} stopped syncing")
+        + t.p(
+            f"TimeIQ hasn't been able to read this calendar since {_format_datetime(since, tz)}. "
+            "Until it's fixed, new events on it won't block time on your booking page, so clients could book over them."
+        )
+        + t.details(rows)
+        + t.p(FIX_STEPS.get(source.type, FIX_STEPS["ics_url"]))
+        + t.buttons(t.button("Fix it in TimeIQ", f"{_site()}/calendars"))
+        + t.p("TimeIQ will keep checking once a day and stop warning you as soon as it syncs again.", muted=True)
+    )
+    return t.layout("reminder", f"{source.name} stopped syncing with TimeIQ", body)
+
+
+def send_calendar_broken(user: User, source) -> None:
+    if not user.email:
+        return
+    _init_resend()
+    _send(
+        {
+            "from": FROM_EMAIL,
+            "to": [user.email],
+            "subject": f"Your {source.name} calendar stopped syncing",
+            "html": render_calendar_broken(user, source),
+        },
+        "calendar broken notice",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Welcome
 # ---------------------------------------------------------------------------
 
