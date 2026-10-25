@@ -433,7 +433,7 @@ export function YoyoCodePlayground({ eventTypes, onSelect }: Props) {
         }}
       >
         {/* Constellation lines (desktop only) */}
-        {showCards && (
+        {(
           <svg
             viewBox="-360 -360 720 720"
             className="absolute inset-0 w-full h-full pointer-events-none"
@@ -464,7 +464,7 @@ export function YoyoCodePlayground({ eventTypes, onSelect }: Props) {
         )}
 
         {/* Orbit rings (desktop only) */}
-        {showCards && (
+        {(
           <>
             <div
               aria-hidden
@@ -493,7 +493,7 @@ export function YoyoCodePlayground({ eventTypes, onSelect }: Props) {
         <div
           className="absolute left-1/2 top-1/2 will-change-transform"
           style={{
-            width: showCards ? "min(38%, 280px)" : "min(78%, 360px)",
+            width: "min(38%, 280px)",
             aspectRatio: "1",
             transform: "translate(-50%, -50%) translateZ(80px)",
             transition: "width 0.4s ease",
@@ -503,7 +503,7 @@ export function YoyoCodePlayground({ eventTypes, onSelect }: Props) {
         </div>
 
         {/* Event cards at fixed orbital positions (desktop only) */}
-        {showCards && visible.map((event, i) => {
+        {visible.map((event, i) => {
           const a = angles[i];
           const rad = ((a - 90) * Math.PI) / 180;
           const orbit = 40; // % of container

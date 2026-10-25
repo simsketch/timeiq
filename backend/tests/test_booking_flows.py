@@ -234,7 +234,8 @@ async def test_event_type_with_past_bookings_is_archived(env):
                        starts_at=NOW - timedelta(days=3), ends_at=NOW - timedelta(days=3, minutes=-30),
                        status="confirmed", cancel_token=uuid.uuid4().hex))
         await db.commit()
-    assert (await env["client"].delete(f"/api/event-types/{event['id']}")).status_code == 204
+    deleted = await env["client"].delete(f"/api/event-types/{event['id']}")
+    assert deleted.status_code == 204
     assert (await env["client"].get("/api/event-types")).json() == []
     assert len((await env["client"].get("/api/bookings")).json()) == 1
     assert (await env["client"].patch(f"/api/event-types/{event['id']}", json={"name": "x"})).status_code == 404
@@ -244,7 +245,8 @@ async def test_event_type_with_past_bookings_is_archived(env):
 
 async def test_event_type_without_bookings_is_deleted(env):
     event = await make_event(env)
-    assert (await env["client"].delete(f"/api/event-types/{event['id']}")).status_code == 204
+    deleted = await env["client"].delete(f"/api/event-types/{event['id']}")
+    assert deleted.status_code == 204
     async with async_session() as db:
         assert await db.get(EventType, uuid.UUID(event["id"])) is None
 

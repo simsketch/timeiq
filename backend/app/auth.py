@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 from typing import Any
 
@@ -46,6 +47,9 @@ def _find_rsa_key(jwks: dict[str, Any], kid: str) -> dict[str, Any] | None:
         if key.get("kid") == kid:
             return key
     return None
+
+
+CLERK_USER_ID = re.compile(r"user_[A-Za-z0-9]+")
 
 
 async def get_current_user_clerk_id(request: Request) -> str:
@@ -99,6 +103,13 @@ async def get_current_user_clerk_id(request: Request) -> str:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token missing sub claim",
+            )
+        # Clerk user IDs are "user_" plus letters and digits. The ID ends up in
+        # Clerk API URLs and log lines, so refuse anything else outright.
+        if not CLERK_USER_ID.fullmatch(clerk_id):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token sub claim is not a Clerk user ID",
             )
 
         return clerk_id

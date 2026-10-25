@@ -10,6 +10,8 @@ import csv
 import io
 import zipfile
 
+from urllib.parse import quote
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field, field_validator
@@ -132,7 +134,7 @@ async def sync_current_user(
     # Fetch user details from Clerk API
     async with httpx.AsyncClient() as client:
         resp = await client.get(
-            f"https://api.clerk.com/v1/users/{clerk_id}",
+            f"https://api.clerk.com/v1/users/{quote(clerk_id, safe='')}",
             headers={"Authorization": f"Bearer {settings.CLERK_SECRET_KEY}"},
         )
         if resp.status_code != 200:
@@ -170,7 +172,7 @@ async def sync_current_user(
         user.updated_at = datetime.now(timezone.utc)
         await db.flush()
         await db.refresh(user)
-        logger.info(f"Re-synced user {user.username} (clerk_id={clerk_id})")
+        logger.info("Re-synced user %r (clerk_id=%r)", user.username, clerk_id)
         return user
 
     clerk_username = data.get("username")
@@ -197,7 +199,7 @@ async def sync_current_user(
     db.add(user)
     await db.flush()
     await db.refresh(user)
-    logger.info(f"Synced user {username} (clerk_id={clerk_id})")
+    logger.info("Synced user %r (clerk_id=%r)", username, clerk_id)
     send_welcome(user)
     return user
 

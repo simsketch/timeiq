@@ -204,7 +204,6 @@ async def create_monthly_invoice_drafts() -> dict:
 
     from app.database import async_session
     from app.models.client import Client
-    from app.models.user import User
     from app.services.email import send_monthly_drafts_digest
     from app.services.invoicing_ops import create_invoice_from_entries, previous_month, unbilled_entries
 
