@@ -13,6 +13,13 @@ from app.models.cached_event import CachedEvent
 SERVICE_EMAIL = "bookings@timeiq.app"
 
 
+def ical_uid_for(booking: Booking) -> str:
+    """The calendar UID of a booking's invite. Every booking in a reschedule
+    chain shares the first booking's UID so calendar clients move one event;
+    legacy rows without a stored UID used their own id."""
+    return booking.ical_uid or f"{booking.id}@timeiq.app"
+
+
 def generate_booking_ics(
     booking_id: UUID,
     summary: str,
@@ -24,25 +31,35 @@ def generate_booking_ics(
     visitor_name: str,
     visitor_email: str,
     location: str | None = None,
+    *,
+    uid: str | None = None,
+    sequence: int = 0,
+    method: str = "REQUEST",
 ) -> str:
     """
     Generate an .ics file content string for a booking.
     ORGANIZER must match the email sender for Gmail to render the inline event.
+
+    method="REQUEST" creates or (same uid, higher sequence) updates the event;
+    method="CANCEL" removes it from the attendee's calendar.
     """
+    if method not in ("REQUEST", "CANCEL"):
+        raise ValueError(f"Unsupported iTIP method: {method}")
     cal = Calendar()
     cal.add("prodid", "-//TimeIQ//Booking//EN")
     cal.add("version", "2.0")
     cal.add("calscale", "GREGORIAN")
-    cal.add("method", "REQUEST")
+    cal.add("method", method)
 
     event = Event()
-    event.add("uid", f"{booking_id}@timeiq.app")
+    event.add("uid", uid or f"{booking_id}@timeiq.app")
+    event.add("sequence", sequence)
     event.add("dtstart", starts_at)
     event.add("dtend", ends_at)
     event.add("dtstamp", datetime.now(timezone.utc))
     event.add("summary", summary)
     event.add("description", description)
-    event.add("status", "CONFIRMED")
+    event.add("status", "CANCELLED" if method == "CANCEL" else "CONFIRMED")
 
     if location:
         event.add("location", location)

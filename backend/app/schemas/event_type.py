@@ -4,7 +4,9 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+INTAKE_FIELDS = ("phone", "company", "url")
 
 
 class EventTypeCreate(BaseModel):
@@ -25,6 +27,23 @@ class EventTypeCreate(BaseModel):
 
     model_config = {"populate_by_name": True}
 
+    def intake_flags(self) -> dict[str, bool]:
+        """The six intake flags, with require implying collect: the public form
+        only shows collected fields, so a required hidden field can never be filled."""
+        flags: dict[str, bool] = {}
+        for f in INTAKE_FIELDS:
+            require = getattr(self, f"require_{f}")
+            flags[f"collect_{f}"] = getattr(self, f"collect_{f}") or require
+            flags[f"require_{f}"] = require
+        return flags
+
+
+# Fields the database requires; an explicit null for any of them is a 422.
+NON_NULLABLE_UPDATE_FIELDS = (
+    "name", "slug", "duration_minutes", "color", "is_active", "buffer_minutes",
+    *(f"{kind}_{f}" for f in INTAKE_FIELDS for kind in ("collect", "require")),
+)
+
 
 class EventTypeUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=200)
@@ -44,6 +63,13 @@ class EventTypeUpdate(BaseModel):
     require_url: Optional[bool] = None
 
     model_config = {"populate_by_name": True}
+
+    @field_validator(*NON_NULLABLE_UPDATE_FIELDS)
+    @classmethod
+    def _not_null(cls, value):
+        if value is None:
+            raise ValueError("may be omitted but not null")
+        return value
 
 
 class EventTypeResponse(BaseModel):

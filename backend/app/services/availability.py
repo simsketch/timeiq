@@ -14,6 +14,27 @@ from app.models.user import User
 
 import zoneinfo
 
+# How far ahead guests can book. Calendar sync caches 90 days of events, so a
+# later slot could hide a conflict we have never seen.
+BOOKING_HORIZON_DAYS = 90
+
+# The largest buffer an event type can have (EventTypeCreate caps it at 120).
+# Busy queries widen their window by this much so a neighbouring booking's
+# buffer reaches across the edges of the day's rule.
+MAX_BUFFER_MINUTES = 120
+
+
+def booking_horizon(now: datetime | None = None) -> datetime:
+    """The latest instant a booking may start."""
+    return (now or datetime.now(timezone.utc)) + timedelta(days=BOOKING_HORIZON_DAYS)
+
+
+def host_zone(host: User) -> zoneinfo.ZoneInfo:
+    try:
+        return zoneinfo.ZoneInfo(host.timezone)
+    except Exception:
+        return zoneinfo.ZoneInfo("America/New_York")
+
 
 async def get_available_slots(
     db: AsyncSession,
@@ -27,7 +48,8 @@ async def get_available_slots(
     """
     Compute available time slots for a given host, event type, and date.
 
-    Returns a list of ISO 8601 datetime strings representing available slot start times.
+    Returns a list of ISO 8601 datetime strings (in the host's zone) representing
+    available slot start times.
     If debug=True, returns a dict with full diagnostic information.
     exclude_booking_id ignores one booking, so a reschedule can reuse its own time.
     """
@@ -52,15 +74,15 @@ async def get_available_slots(
             return {"error": f"No active availability rule for day_of_week={day_of_week}"}
         return []
 
-    # Use the host's timezone
-    try:
-        host_tz = zoneinfo.ZoneInfo(host.timezone)
-    except Exception:
-        host_tz = zoneinfo.ZoneInfo("America/New_York")
+    host_tz = host_zone(host)
 
-    # 2. Generate candidate slots
+    # 2. Generate candidate slots. The rule boundaries are wall-clock times in
+    # the host's zone; everything else steps in UTC elapsed time, so a fall-back
+    # day offers both 01:00 hours and every slot really lasts `duration`.
     rule_start = datetime.combine(target_date, rule.start_time, tzinfo=host_tz)
     rule_end = datetime.combine(target_date, rule.end_time, tzinfo=host_tz)
+    rule_start_utc = rule_start.astimezone(timezone.utc)
+    rule_end_utc = rule_end.astimezone(timezone.utc)
     duration = timedelta(minutes=event_type.duration_minutes)
     buffer = timedelta(minutes=event_type.buffer_minutes)
 
@@ -72,25 +94,27 @@ async def get_available_slots(
         debug_info["host_timezone"] = str(host_tz)
 
     candidates: list[datetime] = []
-    current = rule_start
-    while current + duration <= rule_end:
+    current = rule_start_utc
+    while current + duration <= rule_end_utc:
         candidates.append(current)
         current += duration
 
     if debug:
         debug_info["total_candidates"] = len(candidates)
         if candidates:
-            debug_info["first_candidate"] = candidates[0].isoformat()
-            debug_info["last_candidate"] = candidates[-1].isoformat()
+            debug_info["first_candidate"] = candidates[0].astimezone(host_tz).isoformat()
+            debug_info["last_candidate"] = candidates[-1].astimezone(host_tz).isoformat()
 
     if not candidates:
         if debug:
             return debug_info
         return []
 
-    # 3. Get the full window in UTC for querying
-    window_start_utc = rule_start.astimezone(timezone.utc)
-    window_end_utc = rule_end.astimezone(timezone.utc)
+    # 3. The query window in UTC, widened so buffers around events just outside
+    # the rule still reach into it.
+    widen = max(buffer, timedelta(minutes=MAX_BUFFER_MINUTES))
+    window_start_utc = rule_start_utc - widen
+    window_end_utc = rule_end_utc + widen
 
     # 4. Get cached calendar events that overlap this window
     ce_result = await db.execute(
@@ -104,9 +128,11 @@ async def get_available_slots(
     )
     cached_events = ce_result.scalars().all()
 
-    # 5. Get existing bookings that overlap this window (only confirmed)
+    # 5. Existing confirmed bookings in the window, with their own buffers
     bk_result = await db.execute(
-        select(Booking).where(
+        select(Booking, EventType.buffer_minutes)
+        .join(EventType, EventType.id == Booking.event_type_id)
+        .where(
             and_(
                 Booking.host_user_id == host.id,
                 Booking.status == "confirmed",
@@ -116,17 +142,17 @@ async def get_available_slots(
             )
         )
     )
-    existing_bookings = bk_result.scalars().all()
+    booking_rows = bk_result.all()
+    existing_bookings = [bk for bk, _ in booking_rows]
 
-    # 6. Build list of busy intervals (as UTC datetime tuples)
+    # 6. Busy intervals (UTC). The proposed event type's buffer keeps a gap
+    # around everything busy; an existing booking also keeps its own buffer.
     busy_intervals: list[tuple[datetime, datetime]] = []
     for ev in cached_events:
-        busy_intervals.append((ev.starts_at, ev.ends_at))
-    for bk in existing_bookings:
-        # Apply buffer around existing bookings
-        busy_intervals.append(
-            (bk.starts_at - buffer, bk.ends_at + buffer)
-        )
+        busy_intervals.append((ev.starts_at - buffer, ev.ends_at + buffer))
+    for bk, bk_buffer_minutes in booking_rows:
+        gap = max(buffer, timedelta(minutes=bk_buffer_minutes or 0))
+        busy_intervals.append((bk.starts_at - gap, bk.ends_at + gap))
 
     if debug:
         debug_info["cached_events"] = [
@@ -154,10 +180,11 @@ async def get_available_slots(
     available: list[str] = []
     rejected: list[dict] = []
     now_utc = datetime.now(timezone.utc)
+    horizon_utc = booking_horizon(now_utc)
 
-    for slot_start in candidates:
-        slot_start_utc = slot_start.astimezone(timezone.utc)
-        slot_end_utc = (slot_start + duration).astimezone(timezone.utc)
+    for slot_start_utc in candidates:
+        slot_start = slot_start_utc.astimezone(host_tz)
+        slot_end_utc = slot_start_utc + duration
 
         # Don't allow booking in the past
         if slot_start_utc <= now_utc:
@@ -165,6 +192,14 @@ async def get_available_slots(
                 rejected.append({
                     "slot": slot_start.isoformat(),
                     "reason": "in_the_past",
+                })
+            continue
+
+        if slot_start_utc > horizon_utc:
+            if debug:
+                rejected.append({
+                    "slot": slot_start.isoformat(),
+                    "reason": "beyond_booking_horizon",
                 })
             continue
 
@@ -199,13 +234,13 @@ async def get_available_slots(
 
     # 8. Apply max_bookings_per_day limit
     if event_type.max_bookings_per_day is not None:
-        # Count existing confirmed bookings for this event type on this date
+        # Count existing confirmed bookings for this event type on this host-local date
         day_start = datetime.combine(target_date, time.min, tzinfo=host_tz).astimezone(
             timezone.utc
         )
-        day_end = datetime.combine(target_date, time.max, tzinfo=host_tz).astimezone(
-            timezone.utc
-        )
+        day_end = datetime.combine(
+            target_date + timedelta(days=1), time.min, tzinfo=host_tz
+        ).astimezone(timezone.utc)
         count_result = await db.execute(
             select(func.count(Booking.id)).where(
                 and_(
@@ -213,7 +248,7 @@ async def get_available_slots(
                     Booking.host_user_id == host.id,
                     Booking.status == "confirmed",
                     Booking.starts_at >= day_start,
-                    Booking.starts_at <= day_end,
+                    Booking.starts_at < day_end,
                     Booking.id != exclude_booking_id if exclude_booking_id else True,
                 )
             )
@@ -233,6 +268,13 @@ async def get_available_slots(
     return available
 
 
+async def freshen_host_calendars(host: User) -> None:
+    """Re-sync the host's stale calendars right before a booking decision."""
+    from app.tasks import freshen_user_calendars
+
+    await freshen_user_calendars(host.id, budget_seconds=8)
+
+
 async def is_bookable(
     db: AsyncSession,
     host: User,
@@ -240,19 +282,19 @@ async def is_bookable(
     starts_at: datetime,
     *,
     exclude_booking_id: uuid.UUID | None = None,
+    freshen: bool = True,
 ) -> bool:
     """Whether starts_at is one of the slots the booking page would offer.
 
     The public booking endpoints call this so a request made outside the page
-    still honours availability rules, synced calendar events, buffers and the
-    daily cap."""
-    try:
-        host_tz = zoneinfo.ZoneInfo(host.timezone)
-    except Exception:
-        host_tz = zoneinfo.ZoneInfo("America/New_York")
-    from app.tasks import freshen_user_calendars
+    still honours availability rules, synced calendar events, buffers, the
+    booking horizon and the daily cap.
 
-    await freshen_user_calendars(host.id, budget_seconds=8)
+    freshen=False skips the calendar re-sync, for callers that already ran it
+    before taking the host's booking lock (a sync must not run under the lock)."""
+    host_tz = host_zone(host)
+    if freshen:
+        await freshen_host_calendars(host)
     slots = await get_available_slots(
         db,
         host,
