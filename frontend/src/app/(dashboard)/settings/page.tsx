@@ -110,12 +110,6 @@ export default function SettingsPage() {
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [portalBusy, setPortalBusy] = useState(false);
 
-  useEffect(() => {
-    fetchSettings();
-    fetchFeed();
-    fetchBilling();
-  }, []);
-
   async function fetchBilling() {
     try {
       const token = await getToken();
@@ -258,6 +252,14 @@ export default function SettingsPage() {
     navigator.clipboard.writeText(link);
     toast({ title: "Link copied to clipboard" });
   }
+
+  useEffect(() => {
+    // Every setState in these fetches runs after their first await; the rule can't see that.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchSettings();
+    fetchFeed();
+    fetchBilling();
+  }, []);
 
   if (loading) {
     return (

@@ -59,6 +59,8 @@ export default function ClientsPage() {
   }, [getToken, toast]);
 
   useEffect(() => {
+    // Every setState in load() runs after its first await; the rule can't see that.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 

@@ -88,6 +88,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   }, [getToken, id, toast]);
 
   useEffect(() => {
+    // Every setState in load() runs after its first await; the rule can't see that.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 

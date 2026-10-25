@@ -168,6 +168,8 @@ export default function TimePage() {
   );
 
   useEffect(() => {
+    // load() shows the spinner synchronously when the week changes, which is intended.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 

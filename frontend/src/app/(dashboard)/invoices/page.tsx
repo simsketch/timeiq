@@ -58,7 +58,7 @@ export default function InvoicesPage() {
       period_end: iso(endOfMonth(lastMonth)),
     };
   });
-  const [preview, setPreview] = useState<InvoicePreview | null>(null);
+  const [fetchedPreview, setPreview] = useState<{ key: string; data: InvoicePreview | null } | null>(null);
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
@@ -80,14 +80,19 @@ export default function InvoicesPage() {
   }, [getToken, toast]);
 
   useEffect(() => {
+    // Every setState in load() runs after its first await; the rule can't see that.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 
+  const previewKey =
+    open && form.client_id && form.period_start && form.period_end
+      ? `${form.client_id}|${form.period_start}|${form.period_end}`
+      : null;
+  const preview = previewKey && fetchedPreview?.key === previewKey ? fetchedPreview.data : null;
+
   useEffect(() => {
-    if (!open || !form.client_id || !form.period_start || !form.period_end) {
-      setPreview(null);
-      return;
-    }
+    if (!previewKey) return;
     let cancelled = false;
     (async () => {
       try {
@@ -96,15 +101,15 @@ export default function InvoicesPage() {
           `/api/invoices/preview?client_id=${form.client_id}&period_start=${form.period_start}&period_end=${form.period_end}`,
           { headers: authHeaders(token) }
         );
-        if (!cancelled) setPreview(p);
+        if (!cancelled) setPreview({ key: previewKey, data: p });
       } catch {
-        if (!cancelled) setPreview(null);
+        if (!cancelled) setPreview({ key: previewKey, data: null });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, form, getToken]);
+  }, [previewKey, form.client_id, form.period_start, form.period_end, getToken]);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();

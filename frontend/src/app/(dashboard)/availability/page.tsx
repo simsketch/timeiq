@@ -53,10 +53,6 @@ export default function AvailabilityPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetchAvailability();
-  }, []);
-
   async function fetchAvailability() {
     try {
       const token = await getToken();
@@ -119,6 +115,12 @@ export default function AvailabilityPage() {
       )
     );
   }
+
+  useEffect(() => {
+    // Every setState in these fetches runs after their first await; the rule can't see that.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchAvailability();
+  }, []);
 
   if (loading) {
     return (

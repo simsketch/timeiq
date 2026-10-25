@@ -44,6 +44,8 @@ export default function CancelBookingPage() {
   const [cancelling, setCancelling] = useState(false);
   const [cancelled, setCancelled] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  // Read the clock once per visit so rendering stays pure.
+  const [openedAt] = useState(() => Date.now());
 
   useEffect(() => {
     if (!token) return;
@@ -152,7 +154,7 @@ export default function CancelBookingPage() {
     );
   }
 
-  if (start.getTime() <= Date.now()) {
+  if (start.getTime() <= openedAt) {
     return (
       <Notice title="This Booking Has Passed">
         {eventName} started on {format(start, "MMMM d, yyyy 'at' h:mm a")}, so it can no longer be
