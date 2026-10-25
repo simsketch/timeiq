@@ -17,6 +17,7 @@ from app.schemas.availability import (
     AvailableSlot,
 )
 from app.services.availability import get_available_slots
+from app.tasks import freshen_user_calendars
 
 router = APIRouter(tags=["availability"])
 
@@ -144,6 +145,17 @@ async def get_public_slots(
 
     slots = await get_available_slots(db, host, event_type, target_date)
     return [AvailableSlot(start=s) for s in slots]
+
+
+@router.post("/api/public/{username}/calendars/refresh")
+async def refresh_public_calendars(username: str, db: AsyncSession = Depends(get_db)):
+    """Re-sync the host's stale calendars. The booking page calls this on load
+    and refetches slots when it reports a refresh."""
+    host = (await db.execute(select(User).where(User.username == username))).scalar_one_or_none()
+    if host is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    attempted = await freshen_user_calendars(host.id, budget_seconds=20)
+    return {"refreshed": attempted > 0}
 
 
 @router.get("/api/debug/slots")

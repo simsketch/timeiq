@@ -1,14 +1,22 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.database import async_session
 from app.models.calendar_source import CalendarSource
 from app.services.calendar_sync import sync_calendar_source
 
 logger = logging.getLogger(__name__)
+
+# When each source last failed to sync, per server instance. A failed sync
+# leaves last_synced_at untouched, so without this a dead feed would be
+# retried on every booking page view.
+_last_failure: dict = {}
+FAILURE_BACKOFF = timedelta(hours=1)
 
 
 async def _sync_source_ids(source_ids: list) -> dict[str, int]:
@@ -34,11 +42,13 @@ async def _sync_source_ids(source_ids: list) -> dict[str, int]:
                 count = await sync_calendar_source(db, source)
                 await db.commit()
                 results["synced"] += 1
+                _last_failure.pop(source_id, None)
                 logger.info(
                     f"Synced calendar source {source_id} ({name}): {count} events"
                 )
         except Exception as e:
             results["failed"] += 1
+            _last_failure[source_id] = datetime.now(timezone.utc)
             logger.error(f"Failed to sync calendar source {source_id}: {e}")
 
     return results
@@ -72,6 +82,48 @@ async def sync_user_calendars(user_id) -> dict[str, int]:
         source_ids = list(result.scalars().all())
 
     return await _sync_source_ids(source_ids)
+
+
+STALE_AFTER = timedelta(minutes=10)
+
+
+async def freshen_user_calendars(user_id, budget_seconds: float) -> int:
+    """
+    Re-sync a host's calendars that are more than STALE_AFTER old, so
+    availability reflects events added since the hourly cron.
+
+    Sources sync concurrently, each in its own session, within budget_seconds;
+    past that the cached events stand. Sources that failed within
+    FAILURE_BACKOFF are skipped. Returns how many sources were attempted.
+    """
+    now = datetime.now(timezone.utc)
+    async with async_session() as db:
+        result = await db.execute(
+            select(CalendarSource.id).where(
+                CalendarSource.user_id == user_id,
+                CalendarSource.is_active.is_(True),
+                or_(
+                    CalendarSource.last_synced_at.is_(None),
+                    CalendarSource.last_synced_at < now - STALE_AFTER,
+                ),
+            )
+        )
+        source_ids = [
+            sid
+            for sid in result.scalars().all()
+            if now - _last_failure.get(sid, now - FAILURE_BACKOFF) >= FAILURE_BACKOFF
+        ]
+    if not source_ids:
+        return 0
+
+    try:
+        await asyncio.wait_for(
+            asyncio.gather(*(_sync_source_ids([sid]) for sid in source_ids)),
+            timeout=budget_seconds,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(f"Calendar freshen for user {user_id} hit its {budget_seconds}s budget; using cached events")
+    return len(source_ids)
 
 
 async def send_overdue_invoice_digests() -> dict:

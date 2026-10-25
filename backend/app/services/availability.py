@@ -250,6 +250,9 @@ async def is_bookable(
         host_tz = zoneinfo.ZoneInfo(host.timezone)
     except Exception:
         host_tz = zoneinfo.ZoneInfo("America/New_York")
+    from app.tasks import freshen_user_calendars
+
+    await freshen_user_calendars(host.id, budget_seconds=8)
     slots = await get_available_slots(
         db,
         host,

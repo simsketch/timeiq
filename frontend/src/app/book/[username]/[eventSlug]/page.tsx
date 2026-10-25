@@ -49,9 +49,12 @@ export default function BookingFlowPage() {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingConfirmed, setBookingConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bumped when the host's calendars finish re-syncing, so slots refetch quietly.
+  const [calendarVersion, setCalendarVersion] = useState(0);
 
   useEffect(() => {
     fetchEventType();
+    refreshCalendars();
   }, []);
 
   useEffect(() => {
@@ -59,6 +62,24 @@ export default function BookingFlowPage() {
       fetchAvailableSlots();
     }
   }, [selectedDate]);
+
+  useEffect(() => {
+    if (calendarVersion > 0 && selectedDate) {
+      fetchAvailableSlots({ quiet: true });
+    }
+  }, [calendarVersion]);
+
+  async function refreshCalendars() {
+    try {
+      const { refreshed } = await apiFetch<{ refreshed: boolean }>(
+        `/api/public/${username}/calendars/refresh`,
+        { method: "POST" }
+      );
+      if (refreshed) setCalendarVersion((v) => v + 1);
+    } catch {
+      // The cached calendar still applies; booking re-checks before confirming.
+    }
+  }
 
   async function fetchEventType() {
     try {
@@ -73,18 +94,24 @@ export default function BookingFlowPage() {
     }
   }
 
-  async function fetchAvailableSlots() {
+  async function fetchAvailableSlots({ quiet = false } = {}) {
     if (!selectedDate) return;
-    setSlotsLoading(true);
+    if (!quiet) setSlotsLoading(true);
     try {
       const dateStr = format(selectedDate, "yyyy-MM-dd");
       const data = await apiFetch<AvailableSlot[]>(
         `/api/public/${username}/${eventSlug}/slots?date=${dateStr}`
       );
       setAvailableSlots(data);
-      setSelectedSlot(null);
+      // A quiet refetch keeps the visitor's pick unless that time just got taken.
+      setSelectedSlot((prev) =>
+        quiet && data.some((slot) => format(new Date(slot.start), "h:mm a") === prev)
+          ? prev
+          : null
+      );
     } catch (e: any) {
       console.error("Failed to fetch slots:", e);
+      if (quiet) return;
       setAvailableSlots([]);
     } finally {
       setSlotsLoading(false);
