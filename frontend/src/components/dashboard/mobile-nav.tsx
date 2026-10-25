@@ -12,10 +12,13 @@ import { cn } from "@/lib/utils";
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const [openedOn, setOpenedOn] = useState(pathname);
 
-  useEffect(() => {
+  // Navigating closes the menu (state adjusted during render, not in an effect).
+  if (pathname !== openedOn) {
+    setOpenedOn(pathname);
     setOpen(false);
-  }, [pathname]);
+  }
 
   useEffect(() => {
     if (open) {

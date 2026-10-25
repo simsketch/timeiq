@@ -11,6 +11,7 @@ import { Calendar, Clock, CheckCircle2, ArrowLeft, RefreshCw } from "lucide-reac
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ClockLoader } from "@/components/ui/clock-loader";
+import { describeSlot, guestTimeZone, timeZoneLabel } from "@/lib/booking-time";
 
 interface BookingDetails {
   id: string;
@@ -62,11 +63,15 @@ export default function ReschedulePage() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Without a token there is nothing to load; go straight to the invalid-link state.
+  const [loading, setLoading] = useState(Boolean(token));
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [rescheduled, setRescheduled] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [slotsError, setSlotsError] = useState(false);
+  // Numbers each slots request; only the newest may update the list.
+  const [slotRequests] = useState(() => ({ latest: 0 }));
 
   useEffect(() => {
     if (token) fetchBookingDetails();
@@ -74,14 +79,20 @@ export default function ReschedulePage() {
 
   useEffect(() => {
     if (selectedDate && booking) {
-      fetchAvailableSlots();
+      fetchAvailableSlots(selectedDate);
     }
   }, [selectedDate, booking]);
+
+  function selectDate(date: Date | undefined) {
+    setSelectedDate(date);
+    setSelectedSlot(null);
+    setAvailableSlots([]);
+  }
 
   async function fetchBookingDetails() {
     try {
       const data = await apiFetch<BookingDetails>(
-        `/api/public/bookings/${bookingId}?token=${token}`
+        `/api/public/bookings/${bookingId}?token=${encodeURIComponent(token ?? "")}`
       );
       setBooking(data);
 
@@ -99,36 +110,42 @@ export default function ReschedulePage() {
     }
   }
 
-  async function fetchAvailableSlots() {
-    if (!selectedDate || !booking) return;
+  async function fetchAvailableSlots(date: Date) {
+    if (!token) return;
+    const request = ++slotRequests.latest;
     setSlotsLoading(true);
+    setSlotsError(false);
+    setSelectedSlot(null);
     try {
-      const dateStr = format(selectedDate, "yyyy-MM-dd");
+      const dateStr = format(date, "yyyy-MM-dd");
+      // Booking-scoped availability: the current booking doesn't count
+      // against its own replacement times or the daily cap.
       const data = await apiFetch<AvailableSlot[]>(
-        `/api/public/${booking.username}/${booking.event_slug}/slots?date=${dateStr}`
+        `/api/public/bookings/${bookingId}/slots?date=${dateStr}&token=${encodeURIComponent(token)}`
       );
+      if (request !== slotRequests.latest) return;
       setAvailableSlots(data);
-      setSelectedSlot(null);
     } catch (e: any) {
+      if (request !== slotRequests.latest) return;
       console.error("Failed to fetch slots:", e);
       setAvailableSlots([]);
+      setSlotsError(true);
     } finally {
-      setSlotsLoading(false);
+      if (request === slotRequests.latest) setSlotsLoading(false);
     }
   }
 
   async function handleReschedule(formData: BookingFormData) {
-    if (!selectedDate || !selectedSlot || !booking) return;
+    if (!selectedDate || !selectedSlot || !booking || !token) return;
 
     setBookingLoading(true);
     try {
-      const selectedSlotObj = availableSlots.find(
-        slot => format(new Date(slot.start), "h:mm a") === selectedSlot
-      );
-      if (!selectedSlotObj) throw new Error("Selected slot not found");
+      // The selection is the slot's ISO start, so what was picked is what gets booked.
+      const selectedSlotObj = availableSlots.find((slot) => slot.start === selectedSlot);
+      if (!selectedSlotObj) throw new Error("That time is no longer listed. Pick another time.");
 
       await apiFetch(
-        `/api/public/bookings/${bookingId}/reschedule?token=${token}`,
+        `/api/public/bookings/${bookingId}/reschedule?token=${encodeURIComponent(token)}`,
         {
           method: "POST",
           body: JSON.stringify({
@@ -139,13 +156,14 @@ export default function ReschedulePage() {
             visitor_company: formData.company || null,
             visitor_url: formData.url || null,
             starts_at: selectedSlotObj.start,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            timezone: guestTimeZone(),
           }),
         }
       );
       setRescheduled(true);
     } catch (e: any) {
       alert(`Reschedule failed: ${e.message}`);
+      fetchAvailableSlots(selectedDate);
     } finally {
       setBookingLoading(false);
     }
@@ -155,13 +173,28 @@ export default function ReschedulePage() {
     return <ClockLoader fullscreen size="lg" label="Loading booking" />;
   }
 
-  if (error || !booking || !token) {
+  if (!token) {
     return (
-      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <h1 className="text-2xl font-bold mb-2">Invalid Link</h1>
+          <p className="text-muted-foreground mb-4">
+            This reschedule link is incomplete. Open the Reschedule link in your confirmation
+            email again, or copy the whole address into your browser.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !booking) {
+    return (
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
           <h1 className="text-2xl font-bold mb-2">Booking Not Found</h1>
           <p className="text-muted-foreground mb-4">
-            This booking doesn&apos;t exist or the link is invalid.
+            This booking doesn&apos;t exist or the link is invalid. If you rescheduled before,
+            use the link in your most recent confirmation email.
           </p>
         </div>
       </div>
@@ -181,7 +214,8 @@ export default function ReschedulePage() {
     );
   }
 
-  if (rescheduled) {
+  if (rescheduled && selectedSlot) {
+    const booked = describeSlot(selectedSlot);
     return (
       <div className="min-h-screen bg-[#f5f5f7] relative overflow-hidden flex items-center justify-center">
         <div className="absolute top-1/4 left-1/3 w-[400px] h-[400px] bg-green-200/30 rounded-full blur-3xl" />
@@ -192,10 +226,11 @@ export default function ReschedulePage() {
           <h2 className="text-2xl font-bold tracking-tight mb-6">Rescheduled!</h2>
           <div className="space-y-1 mb-6">
             <p className="font-medium">{booking.event_type_name}</p>
-            <p className="text-sm text-muted-foreground">
-              {selectedDate && format(selectedDate, "EEEE, MMMM d, yyyy")}
+            <p className="text-sm text-muted-foreground">{booked.date}</p>
+            <p className="text-sm text-muted-foreground">{booked.time}</p>
+            <p className="text-xs text-muted-foreground">
+              {timeZoneLabel(new Date(selectedSlot))}
             </p>
-            <p className="text-sm text-muted-foreground">{selectedSlot}</p>
           </div>
           <p className="text-sm text-muted-foreground mb-6">
             A new confirmation email has been sent to your email address.
@@ -238,6 +273,15 @@ export default function ReschedulePage() {
             Pick a new time for your {booking.event_type_name} with{" "}
             {booking.username}.
           </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            No time works?{" "}
+            <Link
+              href={`/bookings/${bookingId}/cancel?token=${encodeURIComponent(token)}`}
+              className="underline underline-offset-4 hover:text-foreground"
+            >
+              Cancel this booking
+            </Link>
+          </p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -245,7 +289,7 @@ export default function ReschedulePage() {
             <h3 className="text-lg font-semibold tracking-tight mb-4">Select a New Date</h3>
             <CalendarPicker
               selectedDate={selectedDate}
-              onDateSelect={setSelectedDate}
+              onDateSelect={selectDate}
             />
           </div>
 
@@ -254,15 +298,31 @@ export default function ReschedulePage() {
               <>
                 <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-black/[0.03] p-6">
                   <h3 className="text-lg font-semibold tracking-tight mb-1">Available Times</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
+                  <p className="text-sm text-muted-foreground mb-1">
                     {format(selectedDate, "EEEE, MMMM d, yyyy")}
                   </p>
-                  <TimeSlots
-                    slots={availableSlots.map(slot => format(new Date(slot.start), "h:mm a"))}
-                    selectedSlot={selectedSlot}
-                    onSlotSelect={setSelectedSlot}
-                    loading={slotsLoading}
-                  />
+                  {slotsError ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Times for this date didn&apos;t load.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fetchAvailableSlots(selectedDate)}
+                      >
+                        Try again
+                      </Button>
+                    </div>
+                  ) : (
+                    <TimeSlots
+                      slots={availableSlots}
+                      date={selectedDate}
+                      selectedSlot={selectedSlot}
+                      onSlotSelect={setSelectedSlot}
+                      loading={slotsLoading}
+                    />
+                  )}
                 </div>
 
                 {selectedSlot && (

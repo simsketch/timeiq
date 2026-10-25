@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -55,8 +55,9 @@ const COLOR_OPTIONS = [
 
 export default function EventTypesPage() {
   const { getToken } = useAuth();
-  const { user } = useUser();
   const { toast } = useToast();
+  // Booking links use the TimeIQ username from /api/me, which can differ from Clerk's.
+  const [username, setUsername] = useState<string | null>(null);
   const [eventTypes, setEventTypes] = useState<EventType[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -79,7 +80,20 @@ export default function EventTypesPage() {
 
   useEffect(() => {
     fetchEventTypes();
+    fetchUsername();
   }, []);
+
+  async function fetchUsername() {
+    try {
+      const token = await getToken();
+      const me = await apiFetch<{ username: string }>("/api/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setUsername(me.username);
+    } catch (error) {
+      console.error("Failed to load profile:", error);
+    }
+  }
 
   async function fetchEventTypes() {
     try {
@@ -154,7 +168,8 @@ export default function EventTypesPage() {
       toast({ title: "Event type deleted" });
       fetchEventTypes();
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      // A 409 explains which upcoming bookings keep this event type in place.
+      toast({ title: "Couldn't delete event type", description: error.message, variant: "destructive" });
     }
   }
 
@@ -197,11 +212,23 @@ export default function EventTypesPage() {
     });
   }
 
-  function copyBookingLink(slug: string) {
-    const username = user?.username || user?.id;
+  async function copyBookingLink(slug: string) {
+    if (!username) {
+      toast({
+        title: "Couldn't copy the link",
+        description: "Your profile is still loading. Try again in a moment.",
+        variant: "destructive",
+      });
+      fetchUsername();
+      return;
+    }
     const link = `${window.location.origin}/book/${username}/${slug}`;
-    navigator.clipboard.writeText(link);
-    toast({ title: "Link copied to clipboard" });
+    try {
+      await navigator.clipboard.writeText(link);
+      toast({ title: "Link copied to clipboard" });
+    } catch {
+      toast({ title: "Copy this link", description: link });
+    }
   }
 
   if (loading) {

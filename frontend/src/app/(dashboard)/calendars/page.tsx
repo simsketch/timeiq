@@ -47,9 +47,42 @@ export default function CalendarsPage() {
   const [newLink, setNewLink] = useState("");
   const [savingLink, setSavingLink] = useState(false);
 
+  const [connectingGoogle, setConnectingGoogle] = useState(false);
+
   useEffect(() => {
     fetchAll();
+    // Google's OAuth callback lands back here with ?google=connected.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("google") === "connected") {
+      toast({
+        title: "Google Calendar connected",
+        description: "Its events now block times on your booking page.",
+      });
+      params.delete("google");
+      const query = params.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+    }
   }, []);
+
+  async function handleConnectGoogle() {
+    setConnectingGoogle(true);
+    try {
+      const token = await getToken();
+      // credentials: "include" keeps the state cookie the OAuth callback checks.
+      const { url } = await apiFetch<{ url: string }>("/api/google/auth-url", {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
+      });
+      window.location.href = url;
+    } catch (error: any) {
+      toast({
+        title: "Couldn't start Google sign-in",
+        description: error.message,
+        variant: "destructive",
+      });
+      setConnectingGoogle(false);
+    }
+  }
 
   async function fetchAll() {
     try {
@@ -213,16 +246,22 @@ export default function CalendarsPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Add Calendar</CardTitle>
-            {!showAddForm && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowAddForm(true)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add ICS Calendar
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button size="sm" onClick={handleConnectGoogle} disabled={connectingGoogle}>
+                <CalendarDays className="h-4 w-4 mr-2" />
+                {connectingGoogle ? "Opening Google..." : "Connect Google Calendar"}
               </Button>
-            )}
+              {!showAddForm && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowAddForm(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add ICS Calendar
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -321,6 +360,17 @@ export default function CalendarsPage() {
                     )}
                   </div>
                   <div className="flex gap-2">
+                    {calendar.type === "google" && calendar.sync_status !== "ok" && (
+                      <Button
+                        size="sm"
+                        variant={calendar.sync_status === "broken" ? "default" : "outline"}
+                        onClick={handleConnectGoogle}
+                        disabled={connectingGoogle}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Reconnect
+                      </Button>
+                    )}
                     {calendar.type === "ics_url" && (
                       <Button
                         size="sm"

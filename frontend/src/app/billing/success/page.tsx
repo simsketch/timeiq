@@ -16,14 +16,12 @@ function SuccessInner() {
   const params = useSearchParams();
   const sessionId = params.get("session_id");
   const [status, setStatus] = useState<BillingStatus | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [confirmError, setError] = useState<string | null>(null);
+  const error =
+    isLoaded && isSignedIn && !sessionId ? "Missing checkout session" : confirmError;
 
   useEffect(() => {
-    if (!isLoaded || !isSignedIn) return;
-    if (!sessionId) {
-      setError("Missing checkout session");
-      return;
-    }
+    if (!isLoaded || !isSignedIn || !sessionId) return;
     (async () => {
       try {
         const token = await getToken();

@@ -3,6 +3,7 @@
 import { DayPicker, getDefaultClassNames } from "react-day-picker";
 import "react-day-picker/style.css";
 import { cn } from "@/lib/utils";
+import { lastBookableDate } from "@/lib/booking-time";
 
 interface CalendarPickerProps {
   selectedDate: Date | undefined;
@@ -19,6 +20,8 @@ export function CalendarPicker({
 }: CalendarPickerProps) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  // Bookings open from today through the booking horizon.
+  const lastDay = lastBookableDate();
   const defaultClassNames = getDefaultClassNames();
 
   return (
@@ -26,8 +29,10 @@ export function CalendarPicker({
       mode="single"
       selected={selectedDate}
       onSelect={onDateSelect}
+      startMonth={today}
+      endMonth={lastDay}
       disabled={(date) => {
-        if (date < today) return true;
+        if (date < today || date > lastDay) return true;
         return disabledDates.some(
           (disabledDate) =>
             disabledDate.toDateString() === date.toDateString()

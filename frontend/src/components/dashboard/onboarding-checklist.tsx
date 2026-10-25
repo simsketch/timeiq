@@ -30,11 +30,10 @@ export function OnboardingChecklist() {
   const [dismissed, setDismissed] = useState(true);
 
   useEffect(() => {
+    let wasDismissed = false;
     try {
-      setDismissed(localStorage.getItem(DISMISS_KEY) === "1");
-    } catch {
-      setDismissed(false);
-    }
+      wasDismissed = localStorage.getItem(DISMISS_KEY) === "1";
+    } catch {}
     (async () => {
       try {
         const token = await getToken();
@@ -44,6 +43,8 @@ export function OnboardingChecklist() {
           apiFetch<unknown[]>("/api/calendars", { headers }),
           apiFetch<unknown[]>("/api/clients", { headers }),
         ]);
+        // The card stays hidden until the steps load; the stored choice applies with them.
+        setDismissed(wasDismissed);
         setSteps([
           {
             key: "event-type",

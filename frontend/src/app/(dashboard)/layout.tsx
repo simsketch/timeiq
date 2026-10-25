@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/dashboard/sidebar";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { SubscriptionGate } from "@/components/billing/subscription-gate";
 import { CalendarHealthBanner } from "@/components/dashboard/calendar-health-banner";
+import { UNGATED_PATHS } from "@/lib/api";
 
 export default async function DashboardLayout({
   children,
@@ -35,7 +36,8 @@ export default async function DashboardLayout({
         <div className="md:h-full md:overflow-y-auto">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-6 md:py-10">
             <CalendarHealthBanner />
-            <SubscriptionGate>{children}</SubscriptionGate>
+            {/* Settings stays reachable when unpaid: billing, export and account deletion live there. */}
+            <SubscriptionGate exemptPaths={UNGATED_PATHS}>{children}</SubscriptionGate>
           </div>
         </div>
       </main>

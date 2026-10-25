@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { LogoIcon } from "@/components/logo";
 import { ClockLoader } from "@/components/ui/clock-loader";
+import { describeSlot, guestTimeZone, timeZoneLabel } from "@/lib/booking-time";
 
 interface EventType {
   id: number;
@@ -51,6 +52,10 @@ export default function BookingFlowPage() {
   const [error, setError] = useState<string | null>(null);
   // Bumped when the host's calendars finish re-syncing, so slots refetch quietly.
   const [calendarVersion, setCalendarVersion] = useState(0);
+  const [slotsError, setSlotsError] = useState(false);
+  // Numbers each slots request. Only the newest one may update the list, so a
+  // slow response for a previous date never shows up under the current one.
+  const [slotRequests] = useState(() => ({ latest: 0 }));
 
   useEffect(() => {
     fetchEventType();
@@ -59,15 +64,21 @@ export default function BookingFlowPage() {
 
   useEffect(() => {
     if (selectedDate) {
-      fetchAvailableSlots();
+      fetchAvailableSlots(selectedDate);
     }
   }, [selectedDate]);
 
   useEffect(() => {
     if (calendarVersion > 0 && selectedDate) {
-      fetchAvailableSlots({ quiet: true });
+      fetchAvailableSlots(selectedDate, { quiet: true });
     }
   }, [calendarVersion]);
+
+  function selectDate(date: Date | undefined) {
+    setSelectedDate(date);
+    setSelectedSlot(null);
+    setAvailableSlots([]);
+  }
 
   async function refreshCalendars() {
     try {
@@ -94,27 +105,33 @@ export default function BookingFlowPage() {
     }
   }
 
-  async function fetchAvailableSlots({ quiet = false } = {}) {
-    if (!selectedDate) return;
-    if (!quiet) setSlotsLoading(true);
+  async function fetchAvailableSlots(date: Date, { quiet = false } = {}) {
+    const request = ++slotRequests.latest;
+    if (!quiet) {
+      setSlotsLoading(true);
+      setSlotsError(false);
+      setSelectedSlot(null);
+    }
     try {
-      const dateStr = format(selectedDate, "yyyy-MM-dd");
+      const dateStr = format(date, "yyyy-MM-dd");
       const data = await apiFetch<AvailableSlot[]>(
         `/api/public/${username}/${eventSlug}/slots?date=${dateStr}`
       );
+      if (request !== slotRequests.latest) return;
       setAvailableSlots(data);
+      setSlotsError(false);
       // A quiet refetch keeps the visitor's pick unless that time just got taken.
       setSelectedSlot((prev) =>
-        quiet && data.some((slot) => format(new Date(slot.start), "h:mm a") === prev)
-          ? prev
-          : null
+        quiet && data.some((slot) => slot.start === prev) ? prev : null
       );
     } catch (e: any) {
+      if (request !== slotRequests.latest) return;
       console.error("Failed to fetch slots:", e);
       if (quiet) return;
       setAvailableSlots([]);
+      setSlotsError(true);
     } finally {
-      setSlotsLoading(false);
+      if (request === slotRequests.latest) setSlotsLoading(false);
     }
   }
 
@@ -123,12 +140,11 @@ export default function BookingFlowPage() {
 
     setBookingLoading(true);
     try {
-      const selectedSlotObj = availableSlots.find(
-        (slot) => format(new Date(slot.start), "h:mm a") === selectedSlot
-      );
+      // The selection is the slot's ISO start, so what was picked is what gets booked.
+      const selectedSlotObj = availableSlots.find((slot) => slot.start === selectedSlot);
 
       if (!selectedSlotObj) {
-        throw new Error("Selected slot not found");
+        throw new Error("That time is no longer listed. Pick another time.");
       }
 
       await apiFetch(`/api/public/${username}/${eventSlug}/book`, {
@@ -141,12 +157,14 @@ export default function BookingFlowPage() {
           visitor_company: formData.company || null,
           visitor_url: formData.url || null,
           starts_at: selectedSlotObj.start,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          timezone: guestTimeZone(),
         }),
       });
       setBookingConfirmed(true);
     } catch (e: any) {
       alert(`Booking failed: ${e.message}`);
+      // The time may have just been taken; show what is still open.
+      fetchAvailableSlots(selectedDate, { quiet: true });
     } finally {
       setBookingLoading(false);
     }
@@ -177,7 +195,8 @@ export default function BookingFlowPage() {
     );
   }
 
-  if (bookingConfirmed) {
+  if (bookingConfirmed && selectedSlot) {
+    const booked = describeSlot(selectedSlot);
     return (
       <div className="relative min-h-screen overflow-hidden flex items-center justify-center px-6">
         <div className="aurora-bg aurora-bg-soft" aria-hidden />
@@ -215,10 +234,13 @@ export default function BookingFlowPage() {
             <div className="space-y-2 mb-7">
               <p className="font-semibold text-lg">{eventType.name}</p>
               <p className="text-sm text-muted-foreground font-mono tabular-nums">
-                {selectedDate && format(selectedDate, "EEEE · MMM d, yyyy")}
+                {booked.date}
               </p>
               <p className="text-sm text-muted-foreground font-mono tabular-nums">
-                {selectedSlot}
+                {booked.time}
+              </p>
+              <p className="text-xs text-muted-foreground/80 font-mono">
+                {timeZoneLabel(new Date(selectedSlot))}
               </p>
               {eventType.location && (
                 <div className="text-sm text-muted-foreground pt-1">
@@ -336,7 +358,7 @@ export default function BookingFlowPage() {
             </div>
             <CalendarPicker
               selectedDate={selectedDate}
-              onDateSelect={setSelectedDate}
+              onDateSelect={selectDate}
             />
           </div>
 
@@ -350,17 +372,31 @@ export default function BookingFlowPage() {
                     </h3>
                     <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
                   </div>
-                  <p className="text-lg font-display mb-5">
+                  <p className="text-lg font-display mb-1">
                     {format(selectedDate, "EEEE, MMMM d")}
                   </p>
-                  <TimeSlots
-                    slots={availableSlots.map((slot) =>
-                      format(new Date(slot.start), "h:mm a")
-                    )}
-                    selectedSlot={selectedSlot}
-                    onSlotSelect={setSelectedSlot}
-                    loading={slotsLoading}
-                  />
+                  {slotsError ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Times for this date didn&apos;t load.
+                      </p>
+                      <Button
+                        variant="glass"
+                        size="sm"
+                        onClick={() => fetchAvailableSlots(selectedDate)}
+                      >
+                        Try again
+                      </Button>
+                    </div>
+                  ) : (
+                    <TimeSlots
+                      slots={availableSlots}
+                      date={selectedDate}
+                      selectedSlot={selectedSlot}
+                      onSlotSelect={setSelectedSlot}
+                      loading={slotsLoading}
+                    />
+                  )}
                 </div>
 
                 {selectedSlot && (
@@ -370,7 +406,8 @@ export default function BookingFlowPage() {
                         Your details
                       </h3>
                       <span className="text-[10px] font-mono text-muted-foreground/80 tabular-nums">
-                        {format(selectedDate, "MMM d")} · {selectedSlot}
+                        {format(new Date(selectedSlot), "MMM d")} ·{" "}
+                        {format(new Date(selectedSlot), "h:mm a")}
                       </span>
                     </div>
                     <BookingForm
