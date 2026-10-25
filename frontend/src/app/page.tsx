@@ -4,6 +4,8 @@ import {
   Clock,
   CheckCircle2,
   ArrowRight,
+  Server,
+  Code2,
   Link2,
   Calendar,
   Globe,
@@ -22,6 +24,7 @@ import { LogoIcon } from "@/components/logo";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { PricingCard } from "@/components/billing/pricing-card";
 import { FounderPill } from "@/components/billing/founder-pill";
+import { GitHubIcon, GITHUB_URL } from "@/components/github-icon";
 
 export default function LandingPage() {
   const calendarDays = [
@@ -71,6 +74,16 @@ export default function LandingPage() {
             <FounderPill href="/pricing" compact />
           </nav>
           <div className="flex items-center gap-2">
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="TimeIQ on GitHub"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <GitHubIcon className="h-4 w-4" />
+              <span className="hidden lg:inline">Open source</span>
+            </a>
             <SignedOut>
               <Link href="/sign-in">
                 <Button variant="ghost">Sign in</Button>
@@ -171,6 +184,15 @@ export default function LandingPage() {
                       <Calendar className="h-3.5 w-3.5" />
                       Google Calendar
                     </span>
+                    <a
+                      href={GITHUB_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors"
+                    >
+                      <GitHubIcon className="h-3.5 w-3.5" />
+                      Open source
+                    </a>
                   </div>
                 </div>
               </div>
@@ -627,6 +649,99 @@ export default function LandingPage() {
         </section>
 
         {/* ================================================================
+             OPEN SOURCE + HOSTED
+             ================================================================ */}
+        <section id="open-source" className="relative py-24 lg:py-36">
+          <div className="container mx-auto px-6 lg:px-10">
+            <div className="text-center max-w-2xl mx-auto mb-14">
+              <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
+                Open source
+              </div>
+              <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
+                <span className="font-display">Every line is public.</span>{" "}
+                <span className="font-display-italic text-aurora">
+                  We run it for you.
+                </span>
+              </h2>
+              <p className="text-lg text-muted-foreground mt-6 text-pretty">
+                TimeIQ is open source under the AGPL&#8209;3.0. Read the code, check
+                how your calendars and invoices are handled, or run your own
+                copy. Or let us host it for $19 a year and get back to work.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-5 max-w-5xl mx-auto">
+              <div className="glass rounded-[1.5rem] p-8 flex flex-col">
+                <div className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-5">
+                  <Code2 className="h-3.5 w-3.5" />
+                  Self-hosted
+                </div>
+                <h3 className="font-display text-3xl tracking-[-0.02em] leading-[1.05] mb-2">
+                  Free, on your servers.
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+                  Clone the repo and deploy the Next.js frontend and FastAPI
+                  backend wherever you like.
+                </p>
+                <ul className="space-y-3 text-sm mb-8">
+                  {[
+                    "You provision Postgres, Clerk auth and Resend email",
+                    "You schedule the calendar sync and invoice jobs",
+                    "You apply updates, migrations and security patches",
+                    "Changes you serve to others stay open under the AGPL",
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2.5 text-muted-foreground">
+                      <Server className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground/70" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="mt-auto">
+                  <Button variant="glass" size="lg" className="w-full">
+                    <GitHubIcon className="h-4 w-4" />
+                    View the code on GitHub
+                  </Button>
+                </a>
+              </div>
+
+              <div className="glass rounded-[1.5rem] p-8 flex flex-col ring-1 ring-[hsl(var(--aurora-1))]/30">
+                <div className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.15em] text-[hsl(var(--aurora-1))] mb-5">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Hosted at timeiq.app
+                </div>
+                <h3 className="font-display text-3xl tracking-[-0.02em] leading-[1.05] mb-2">
+                  $19 a year. Nothing to run.
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+                  The same code, kept running, updated and backed up by the
+                  people who build it.
+                </p>
+                <ul className="space-y-3 text-sm mb-8">
+                  {[
+                    "Live in two minutes, with your booking link ready to share",
+                    "Calendars synced every hour and before every booking",
+                    "Booking and invoice email delivered from our domain",
+                    "Updates and security fixes the day they ship",
+                    "Supports the open source project you are using",
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2.5">
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--aurora-1))]" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <Link href="/sign-up?redirect_url=/billing/checkout" className="mt-auto">
+                  <Button variant="aurora" size="lg" className="w-full">
+                    Claim a founder spot
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ================================================================
              PRICING
              ================================================================ */}
         <section id="pricing" className="relative py-24 lg:py-36">
@@ -644,6 +759,18 @@ export default function LandingPage() {
               <p className="text-lg text-muted-foreground mt-6 text-pretty">
                 The first 100 subscribers lock in $19 a year for life. Everyone
                 after that pays $29. Still less than most tools charge a month.
+              </p>
+              <p className="text-sm text-muted-foreground mt-3">
+                Prefer to run it yourself?{" "}
+                <a
+                  href={GITHUB_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-foreground/85 underline-offset-4 hover:underline"
+                >
+                  The code is on GitHub
+                </a>
+                .
               </p>
             </div>
             <PricingCard />
@@ -703,6 +830,15 @@ export default function LandingPage() {
               </span>
             </div>
             <div className="flex items-center gap-5 text-sm text-muted-foreground">
+              <a
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 hover:text-foreground transition-colors"
+              >
+                <GitHubIcon className="h-3.5 w-3.5" />
+                AGPL-3.0
+              </a>
               <Link href="/privacy" className="hover:text-foreground transition-colors">
                 Privacy
               </Link>
