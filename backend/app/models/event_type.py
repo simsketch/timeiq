@@ -55,6 +55,10 @@ class EventType(Base):
     require_company: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     collect_url: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     require_url: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Set instead of deleting when the event type has bookings, so their history survives.
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -69,6 +73,7 @@ class EventType(Base):
 
     # Relationships
     user = relationship("User", back_populates="event_types")
+    # Bookings outlive their event type: never cascade, never null the FK.
     bookings = relationship(
-        "Booking", back_populates="event_type", cascade="all, delete-orphan"
+        "Booking", back_populates="event_type", passive_deletes="all"
     )

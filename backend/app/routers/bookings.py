@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, select
+from sqlalchemy import and_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_user
 from app.database import get_db
@@ -13,8 +13,15 @@ from app.models.booking import Booking
 from app.models.event_type import EventType
 from app.models.user import User
 from app.schemas.booking import BookingCreate, BookingPublicResponse, BookingResponse
-from app.services.availability import is_bookable
+from app.services.availability import (
+    BOOKING_HORIZON_DAYS,
+    booking_horizon,
+    freshen_host_calendars,
+    is_bookable,
+)
 from app.services.email import send_booking_confirmation, send_cancellation_notice
+from app.services.ics_generator import ical_uid_for
+
 
 def require_visitor_fields(event_type: EventType, payload) -> None:
     """Enforce the event type's required visitor fields, which the form only hints at."""
@@ -26,9 +33,70 @@ def require_visitor_fields(event_type: EventType, payload) -> None:
     for field, (label, needed) in required.items():
         if needed and not (getattr(payload, field, None) or "").strip():
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"A {label} is required for this booking",
             )
+
+
+async def lock_host_bookings(db: AsyncSession, host_id: uuid.UUID) -> None:
+    """Serialize booking decisions for one host until this transaction ends.
+
+    Checking availability and inserting are two statements, so without this two
+    requests can both see a slot as free and both book it. A transaction-scoped
+    advisory lock keyed on the host makes the second wait, then re-check against
+    the first one's committed booking."""
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": f"timeiq-booking-host:{host_id}"},
+    )
+
+
+def _requested_window(payload: BookingCreate, event_type: EventType) -> tuple[datetime, datetime]:
+    """The requested start and end in UTC, after the checks that need no database.
+    The end is start + duration in elapsed time, matching the offered slots."""
+    starts_at = payload.starts_at
+    if starts_at.tzinfo is None:
+        starts_at = starts_at.replace(tzinfo=timezone.utc)
+    starts_at = starts_at.astimezone(timezone.utc)
+
+    if starts_at <= datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot book a slot in the past",
+        )
+    if starts_at > booking_horizon():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Bookings can be made up to {BOOKING_HORIZON_DAYS} days ahead",
+        )
+    require_visitor_fields(event_type, payload)
+    return starts_at, starts_at + timedelta(minutes=event_type.duration_minutes)
+
+
+def _booking_from_payload(payload: BookingCreate, event_type: EventType, host: User, starts_at: datetime, ends_at: datetime, **extra) -> Booking:
+    return Booking(
+        event_type_id=event_type.id,
+        host_user_id=host.id,
+        visitor_name=payload.visitor_name,
+        visitor_email=payload.visitor_email,
+        visitor_notes=payload.visitor_notes,
+        visitor_phone=payload.visitor_phone,
+        visitor_company=payload.visitor_company,
+        visitor_url=payload.visitor_url,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        timezone=payload.timezone,
+        status="confirmed",
+        cancel_token=secrets.token_urlsafe(32),
+        **extra,
+    )
+
+
+def _cancel(booking: Booking) -> None:
+    """Mark cancelled and bump the invite sequence so the CANCEL supersedes it."""
+    booking.status = "cancelled"
+    booking.cancelled_at = datetime.now(timezone.utc)
+    booking.ical_sequence = (booking.ical_sequence or 0) + 1
 
 
 router = APIRouter(tags=["bookings"])
@@ -63,10 +131,12 @@ async def cancel_booking_as_host(
 ):
     """Cancel a booking as the host."""
     result = await db.execute(
-        select(Booking).where(
+        select(Booking)
+        .where(
             Booking.id == booking_id,
             Booking.host_user_id == user.id,
         )
+        .with_for_update()
     )
     booking = result.scalar_one_or_none()
     if booking is None:
@@ -81,8 +151,7 @@ async def cancel_booking_as_host(
             detail="Booking is already cancelled",
         )
 
-    booking.status = "cancelled"
-    booking.cancelled_at = datetime.now(timezone.utc)
+    _cancel(booking)
     await db.flush()
     await db.refresh(booking)
 
@@ -91,6 +160,7 @@ async def cancel_booking_as_host(
         select(EventType).where(EventType.id == booking.event_type_id)
     )
     event_type = et_result.scalar_one_or_none()
+    await db.commit()
     if event_type:
         await send_cancellation_notice(booking, event_type, user)
 
@@ -140,47 +210,30 @@ async def create_public_booking(
             detail="Event type not found",
         )
 
-    # Calculate end time
-    starts_at = payload.starts_at
-    if starts_at.tzinfo is None:
-        starts_at = starts_at.replace(tzinfo=timezone.utc)
-    ends_at = starts_at + timedelta(minutes=event_type.duration_minutes)
+    starts_at, ends_at = _requested_window(payload, event_type)
 
-    # Verify the slot is not in the past
-    if starts_at <= datetime.now(timezone.utc):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot book a slot in the past",
-        )
-
-    require_visitor_fields(event_type, payload)
-    if not await is_bookable(db, host, event_type, starts_at):
+    # Sync calendars first: it can take seconds and must not hold the lock.
+    await freshen_host_calendars(host)
+    await lock_host_bookings(db, host.id)
+    if not await is_bookable(db, host, event_type, starts_at, freshen=False):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This time slot is no longer available",
         )
 
-    # Create the booking
-    cancel_token = secrets.token_urlsafe(32)
-
-    booking = Booking(
-        event_type_id=event_type.id,
-        host_user_id=host.id,
-        visitor_name=payload.visitor_name,
-        visitor_email=payload.visitor_email,
-        visitor_notes=payload.visitor_notes,
-        visitor_phone=payload.visitor_phone,
-        visitor_company=payload.visitor_company,
-        visitor_url=payload.visitor_url,
-        starts_at=starts_at,
-        ends_at=ends_at,
-        timezone=payload.timezone,
-        status="confirmed",
-        cancel_token=cancel_token,
+    booking_id = uuid.uuid4()
+    booking = _booking_from_payload(
+        payload, event_type, host, starts_at, ends_at,
+        id=booking_id,
+        ical_uid=f"{booking_id}@timeiq.app",
+        ical_sequence=0,
     )
     db.add(booking)
     await db.flush()
     await db.refresh(booking)
+    # Commit (releasing the host lock) before mail goes out, so a guest is never
+    # told about a booking that then fails to save.
+    await db.commit()
 
     # Send confirmation emails synchronously (serverless has no background tasks)
     await send_booking_confirmation(booking, event_type, host)
@@ -249,7 +302,8 @@ async def reschedule_booking(
 ):
     """
     Public endpoint: Reschedule a booking — cancels the old one and creates a new one.
-    Uses the same cancel_token for auth.
+    Uses the same cancel_token for auth. The new booking keeps the original
+    invite's UID with a higher SEQUENCE, so calendars move the existing event.
     """
     # Find the original booking
     result = await db.execute(
@@ -292,50 +346,49 @@ async def reschedule_booking(
             detail="Host not found",
         )
 
-    # Calculate new time
-    starts_at = payload.starts_at
-    if starts_at.tzinfo is None:
-        starts_at = starts_at.replace(tzinfo=timezone.utc)
-    ends_at = starts_at + timedelta(minutes=event_type.duration_minutes)
+    starts_at, ends_at = _requested_window(payload, event_type)
 
-    if starts_at <= datetime.now(timezone.utc):
+    await freshen_host_calendars(host)
+    await lock_host_bookings(db, host.id)
+
+    # Re-read the original under a row lock: a concurrent reschedule or cancel
+    # that committed while we waited has already used it up.
+    locked = await db.execute(
+        select(Booking)
+        .where(Booking.id == old_booking.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    old_booking = locked.scalar_one()
+    if old_booking.status != "confirmed":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot book a slot in the past",
+            detail="Only confirmed bookings can be rescheduled",
         )
 
-    require_visitor_fields(event_type, payload)
-    if not await is_bookable(db, host, event_type, starts_at, exclude_booking_id=old_booking.id):
+    if not await is_bookable(
+        db, host, event_type, starts_at, exclude_booking_id=old_booking.id, freshen=False
+    ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This time slot is no longer available",
         )
 
-    # Cancel the old booking
+    # Cancel the old booking. Its guest gets no CANCEL: the new booking's
+    # REQUEST carries the same UID and replaces the event.
     old_booking.status = "cancelled"
     old_booking.cancelled_at = datetime.now(timezone.utc)
 
-    # Create the new booking
-    new_cancel_token = secrets.token_urlsafe(32)
-    new_booking = Booking(
-        event_type_id=event_type.id,
-        host_user_id=host.id,
-        visitor_name=payload.visitor_name,
-        visitor_email=payload.visitor_email,
-        visitor_notes=payload.visitor_notes,
-        visitor_phone=payload.visitor_phone,
-        visitor_company=payload.visitor_company,
-        visitor_url=payload.visitor_url,
-        starts_at=starts_at,
-        ends_at=ends_at,
-        timezone=payload.timezone,
-        status="confirmed",
-        cancel_token=new_cancel_token,
+    new_booking = _booking_from_payload(
+        payload, event_type, host, starts_at, ends_at,
         rescheduled_from_id=old_booking.id,
+        ical_uid=ical_uid_for(old_booking),
+        ical_sequence=(old_booking.ical_sequence or 0) + 1,
     )
     db.add(new_booking)
     await db.flush()
     await db.refresh(new_booking)
+    await db.commit()
 
     # Send confirmation for the new booking
     await send_booking_confirmation(new_booking, event_type, host)
@@ -357,10 +410,12 @@ async def cancel_booking_by_visitor(
     No authentication required.
     """
     result = await db.execute(
-        select(Booking).where(
+        select(Booking)
+        .where(
             Booking.id == booking_id,
             Booking.cancel_token == token,
         )
+        .with_for_update()
     )
     booking = result.scalar_one_or_none()
     if booking is None:
@@ -375,8 +430,7 @@ async def cancel_booking_by_visitor(
             detail="Booking is already cancelled",
         )
 
-    booking.status = "cancelled"
-    booking.cancelled_at = datetime.now(timezone.utc)
+    _cancel(booking)
     await db.flush()
     await db.refresh(booking)
 
@@ -389,6 +443,7 @@ async def cancel_booking_by_visitor(
         select(User).where(User.id == booking.host_user_id)
     )
     host = host_result.scalar_one_or_none()
+    await db.commit()
 
     if event_type and host:
         await send_cancellation_notice(booking, event_type, host)

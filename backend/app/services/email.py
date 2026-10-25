@@ -18,7 +18,7 @@ from app.models.booking import Booking
 from app.models.event_type import EventType
 from app.models.user import User
 from app.services import email_templates as t
-from app.services.ics_generator import generate_booking_ics
+from app.services.ics_generator import generate_booking_ics, ical_uid_for
 
 logger = logging.getLogger(__name__)
 
@@ -36,13 +36,22 @@ def _site() -> str:
     return settings.FRONTEND_URL.rstrip("/")
 
 
+def _zone(tz_name: str | None) -> ZoneInfo:
+    """A stored zone that no longer loads (legacy data) falls back to UTC rather
+    than failing the email, and with it the request."""
+    try:
+        return ZoneInfo(tz_name or "UTC")
+    except Exception:
+        return ZoneInfo("UTC")
+
+
 def _format_datetime(dt, tz_name: str) -> str:
-    local = dt.astimezone(ZoneInfo(tz_name))
+    local = dt.astimezone(_zone(tz_name))
     return local.strftime("%A, %B %d, %Y at %I:%M %p %Z")
 
 
 def _format_time(dt, tz_name: str) -> str:
-    local = dt.astimezone(ZoneInfo(tz_name))
+    local = dt.astimezone(_zone(tz_name))
     return local.strftime("%I:%M %p %Z")
 
 
@@ -71,7 +80,10 @@ def _location_row(event_type: EventType) -> tuple[str, str]:
     return ("Location", html_escape(loc))
 
 
-def _ics(booking: Booking, event_type: EventType, host: User, summary: str) -> str:
+def _ics(booking: Booking, event_type: EventType, host: User, summary: str, method: str = "REQUEST") -> str:
+    """The booking's invite. Its UID is shared across the reschedule chain and
+    its SEQUENCE grows with each change, so calendars update or (CANCEL) remove
+    the one event instead of keeping a stale copy."""
     return generate_booking_ics(
         booking_id=booking.id,
         summary=summary,
@@ -87,7 +99,18 @@ def _ics(booking: Booking, event_type: EventType, host: User, summary: str) -> s
         visitor_name=booking.visitor_name,
         visitor_email=booking.visitor_email,
         location=event_type.location,
+        uid=ical_uid_for(booking),
+        sequence=booking.ical_sequence or 0,
+        method=method,
     )
+
+
+def _invite(booking: Booking, event_type: EventType, host: User, summary: str, method: str = "REQUEST") -> dict:
+    return {
+        "filename": "cancel.ics" if method == "CANCEL" else "invite.ics",
+        "content": _ics(booking, event_type, host, summary, method),
+        "content_type": f"text/calendar; method={method}",
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -149,7 +172,7 @@ async def send_booking_confirmation(booking: Booking, event_type: EventType, hos
             "reply_to": host.email,
             "subject": f"Confirmed: {event_type.name} with {host_name}",
             "html": render_booking_confirmation_visitor(booking, event_type, host),
-            "attachments": [{"filename": "invite.ics", "content": _ics(booking, event_type, host, f"{host_name} 1:1"), "content_type": "text/calendar; method=REQUEST"}],
+            "attachments": [_invite(booking, event_type, host, f"{host_name} 1:1")],
         },
         "visitor confirmation",
     )
@@ -160,7 +183,7 @@ async def send_booking_confirmation(booking: Booking, event_type: EventType, hos
             "reply_to": booking.visitor_email,
             "subject": f"New booking: {booking.visitor_name}, {event_type.name}",
             "html": render_booking_confirmation_host(booking, event_type, host),
-            "attachments": [{"filename": "invite.ics", "content": _ics(booking, event_type, host, f"{booking.visitor_name} 1:1"), "content_type": "text/calendar; method=REQUEST"}],
+            "attachments": [_invite(booking, event_type, host, f"{booking.visitor_name} 1:1")],
         },
         "host confirmation",
     )
@@ -203,6 +226,8 @@ def render_cancellation_host(booking: Booking, event_type: EventType, host: User
 
 
 async def send_cancellation_notice(booking: Booking, event_type: EventType, host: User) -> None:
+    """Both sides get a METHOD:CANCEL for the booking's invite, so it leaves
+    their calendars. The caller bumps booking.ical_sequence first."""
     _init_resend()
     host_name = host.name or host.email
     _send(
@@ -212,6 +237,7 @@ async def send_cancellation_notice(booking: Booking, event_type: EventType, host
             "reply_to": host.email,
             "subject": f"Cancelled: {event_type.name} with {host_name}",
             "html": render_cancellation_visitor(booking, event_type, host),
+            "attachments": [_invite(booking, event_type, host, f"{host_name} 1:1", "CANCEL")],
         },
         "visitor cancellation",
     )
@@ -222,6 +248,7 @@ async def send_cancellation_notice(booking: Booking, event_type: EventType, host
             "reply_to": booking.visitor_email,
             "subject": f"Cancelled: {booking.visitor_name}, {event_type.name}",
             "html": render_cancellation_host(booking, event_type, host),
+            "attachments": [_invite(booking, event_type, host, f"{booking.visitor_name} 1:1", "CANCEL")],
         },
         "host cancellation",
     )

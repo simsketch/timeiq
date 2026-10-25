@@ -4,7 +4,18 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from zoneinfo import ZoneInfo
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+
+def validate_iana_timezone(value: str) -> str:
+    """Reject anything ZoneInfo can't load, so a bad zone is a 422, not a 500 later."""
+    try:
+        ZoneInfo(value)
+    except Exception:
+        raise ValueError(f"Unknown timezone: {value!r}. Use an IANA zone such as America/New_York.")
+    return value
 
 
 class BookingCreate(BaseModel):
@@ -16,6 +27,11 @@ class BookingCreate(BaseModel):
     visitor_url: Optional[str] = Field(default=None, max_length=500)
     starts_at: datetime
     timezone: str = Field(..., min_length=1, max_length=100)
+
+    @field_validator("timezone")
+    @classmethod
+    def check_timezone(cls, value: str) -> str:
+        return validate_iana_timezone(value)
 
 
 class BookingResponse(BaseModel):

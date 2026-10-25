@@ -5,14 +5,20 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
 from app.database import get_db
+from app.models.booking import Booking
 from app.models.event_type import EventType
 from app.models.user import User
-from app.schemas.event_type import EventTypeCreate, EventTypeResponse, EventTypeUpdate
+from app.schemas.event_type import (
+    INTAKE_FIELDS,
+    EventTypeCreate,
+    EventTypeResponse,
+    EventTypeUpdate,
+)
 
 router = APIRouter(prefix="/api/event-types", tags=["event-types"])
 
@@ -35,7 +41,7 @@ async def list_event_types(
     """List all event types for the authenticated user."""
     result = await db.execute(
         select(EventType)
-        .where(EventType.user_id == user.id)
+        .where(EventType.user_id == user.id, EventType.archived_at.is_(None))
         .order_by(EventType.created_at.desc())
     )
     return result.scalars().all()
@@ -76,11 +82,27 @@ async def create_event_type(
         is_active=payload.is_active,
         buffer_minutes=payload.buffer_minutes,
         max_bookings_per_day=payload.max_bookings_per_day,
+        **payload.intake_flags(),
     )
     db.add(event_type)
     await db.flush()
     await db.refresh(event_type)
     return event_type
+
+
+def _normalize_intake(event_type: EventType, update_data: dict) -> None:
+    """Keep require => collect true for the state this update produces. When the
+    update turns collection off on its own, stop requiring that field; otherwise
+    requiring a field turns its collection on."""
+    for f in INTAKE_FIELDS:
+        c, r = f"collect_{f}", f"require_{f}"
+        collect = update_data.get(c, getattr(event_type, c))
+        require = update_data.get(r, getattr(event_type, r))
+        if require and not collect:
+            if c in update_data and r not in update_data:
+                update_data[r] = False
+            else:
+                update_data[c] = True
 
 
 async def _do_update_event_type(
@@ -94,6 +116,7 @@ async def _do_update_event_type(
         select(EventType).where(
             EventType.id == event_type_id,
             EventType.user_id == user.id,
+            EventType.archived_at.is_(None),
         )
     )
     event_type = result.scalar_one_or_none()
@@ -142,6 +165,7 @@ async def _do_update_event_type(
             )
         update_data["slug"] = new_slug
 
+    _normalize_intake(event_type, update_data)
     for field, value in update_data.items():
         setattr(event_type, field, value)
 
@@ -179,11 +203,17 @@ async def delete_event_type(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete an event type."""
+    """Delete an event type.
+
+    Refused while it has upcoming confirmed bookings, since those guests still
+    expect to meet. With only past or cancelled bookings it is archived: hidden
+    everywhere, its slug freed, its booking history kept. Without any bookings
+    it is deleted outright."""
     result = await db.execute(
         select(EventType).where(
             EventType.id == event_type_id,
             EventType.user_id == user.id,
+            EventType.archived_at.is_(None),
         )
     )
     event_type = result.scalar_one_or_none()
@@ -193,5 +223,32 @@ async def delete_event_type(
             detail="Event type not found",
         )
 
-    await db.delete(event_type)
+    now = datetime.now(timezone.utc)
+    upcoming = await db.scalar(
+        select(exists().where(
+            Booking.event_type_id == event_type.id,
+            Booking.status == "confirmed",
+            Booking.ends_at > now,
+        ))
+    )
+    if upcoming:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "This event type has upcoming bookings, so it can't be deleted. "
+                "Turn it off to stop new bookings, or cancel those bookings first."
+            ),
+        )
+
+    has_history = await db.scalar(
+        select(exists().where(Booking.event_type_id == event_type.id))
+    )
+    if has_history:
+        event_type.archived_at = now
+        event_type.is_active = False
+        # Free the slug for a new event type; the unique constraint still covers archived rows.
+        event_type.slug = f"{event_type.slug[:160]}-archived-{uuid.uuid4().hex[:8]}"
+        event_type.updated_at = now
+    else:
+        await db.delete(event_type)
     await db.flush()

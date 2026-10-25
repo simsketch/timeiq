@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_user
 from app.database import get_db
 from app.models.availability_rule import AvailabilityRule
+from app.models.booking import Booking
 from app.models.event_type import EventType
 from app.models.user import User
 from app.schemas.availability import (
@@ -93,6 +95,63 @@ async def bulk_update_availability_rules(
     return new_rules
 
 
+def _parse_date(date_str: str) -> date:
+    try:
+        return date.fromisoformat(date_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid date format. Use YYYY-MM-DD.",
+        )
+
+
+# Declared before the /{username}/{event_slug}/slots route below, which would
+# otherwise match /bookings/{id}/slots with username "bookings".
+@router.get(
+    "/api/public/bookings/{booking_id}/slots",
+    response_model=list[AvailableSlot],
+)
+async def get_reschedule_slots(
+    booking_id: uuid.UUID,
+    date_str: str = Query(..., alias="date", description="Date in YYYY-MM-DD format"),
+    token: str = Query(..., description="Cancellation token"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Public endpoint: slots a guest can move their booking to. Same shape as the
+    event type's slots, but the booking's own time and its place in the daily
+    cap don't count against it, matching what the reschedule endpoint accepts.
+    """
+    booking = (
+        await db.execute(
+            select(Booking).where(Booking.id == booking_id, Booking.cancel_token == token)
+        )
+    ).scalar_one_or_none()
+    if booking is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Booking not found or invalid token",
+        )
+    if booking.status != "confirmed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only confirmed bookings can be rescheduled",
+        )
+    event_type = await db.get(EventType, booking.event_type_id)
+    host = await db.get(User, booking.host_user_id)
+    if event_type is None or host is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event type not found",
+        )
+
+    target_date = _parse_date(date_str)
+    slots = await get_available_slots(
+        db, host, event_type, target_date, exclude_booking_id=booking.id
+    )
+    return [AvailableSlot(start=s) for s in slots]
+
+
 @router.get(
     "/api/public/{username}/{event_slug}/slots",
     response_model=list[AvailableSlot],
@@ -161,7 +220,7 @@ async def refresh_public_calendars(username: str, db: AsyncSession = Depends(get
 @router.get("/api/debug/slots")
 async def debug_slots(
     date_str: str = Query(..., alias="date", description="Date in YYYY-MM-DD format"),
-    event_type_id: int = Query(..., alias="event_type_id"),
+    event_type_id: uuid.UUID = Query(..., alias="event_type_id"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

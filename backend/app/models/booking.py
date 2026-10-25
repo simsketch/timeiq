@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,7 +19,7 @@ class Booking(Base):
     )
     event_type_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("timeiq.event_types.id", ondelete="CASCADE"),
+        ForeignKey("timeiq.event_types.id"),
         nullable=False,
         index=True,
     )
@@ -53,6 +53,12 @@ class Booking(Base):
     )
     rescheduled_from_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True
+    )
+    # Calendar invite identity, shared by every booking in a reschedule chain so
+    # calendar clients update one event. Null on legacy rows: see ical_uid_for().
+    ical_uid: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ical_sequence: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
