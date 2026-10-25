@@ -12,7 +12,7 @@ import zipfile
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
@@ -45,13 +45,26 @@ class UserResponse(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    name: Optional[str] = None
-    username: Optional[str] = None
-    timezone: Optional[str] = None
+    # Lengths match the users table so oversized values are a 422, not a 500.
+    name: Optional[str] = Field(default=None, max_length=255)
+    username: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    timezone: Optional[str] = Field(default=None, max_length=100)
     weekly_hours_target: Optional[int] = None
 
 
+class CurrencyMoney(BaseModel):
+    currency: str
+    unbilled_amount: float = 0
+    outstanding_amount: float = 0
+    outstanding_count: int = 0
+    paid_this_month: float = 0
+
+
 class MoneyStats(BaseModel):
+    # The top-level amounts are for ``currency``, the user's primary currency
+    # (the one most of their clients bill in). Amounts in other currencies are
+    # never added into them; every currency with activity is in ``by_currency``,
+    # primary first.
     currency: str
     hours_this_week: float
     weekly_hours_target: int
@@ -59,6 +72,7 @@ class MoneyStats(BaseModel):
     outstanding_amount: float
     outstanding_count: int
     paid_this_month: float
+    by_currency: list[CurrencyMoney] = []
 
 
 class DashboardStats(BaseModel):
@@ -261,29 +275,67 @@ async def get_money_stats(
         .where(TimeEntry.user_id == user.id, TimeEntry.invoice_id.is_(None))
         .group_by(Client.id)
     )).all()
-    unbilled = sum((line_amount(Decimal(h), rate) for rate, _cur, h in unbilled_rows), Decimal("0"))
+    zero = Decimal("0")
+    unbilled: dict[str, Decimal] = {}
+    for rate, cur, h in unbilled_rows:
+        unbilled[cur] = unbilled.get(cur, zero) + line_amount(Decimal(h), rate)
 
-    outstanding_count, outstanding = (await db.execute(
-        select(func.count(Invoice.id), func.coalesce(func.sum(Invoice.subtotal), 0)).where(Invoice.user_id == user.id, Invoice.status == "sent")
-    )).one()
-    paid = (await db.execute(
-        select(func.coalesce(func.sum(Invoice.subtotal), 0)).where(
-            Invoice.user_id == user.id, Invoice.status == "paid", Invoice.paid_at >= datetime.combine(month_start, datetime.min.time(), tzinfo=timezone.utc)
+    outstanding: dict[str, tuple[int, Decimal]] = {
+        cur: (int(n), Decimal(total))
+        for cur, n, total in (await db.execute(
+            select(Invoice.currency, func.count(Invoice.id), func.coalesce(func.sum(Invoice.subtotal), 0))
+            .where(Invoice.user_id == user.id, Invoice.status == "sent")
+            .group_by(Invoice.currency)
+        )).all()
+    }
+    paid: dict[str, Decimal] = {
+        cur: Decimal(total)
+        for cur, total in (await db.execute(
+            select(Invoice.currency, func.coalesce(func.sum(Invoice.subtotal), 0))
+            .where(
+                Invoice.user_id == user.id, Invoice.status == "paid",
+                Invoice.paid_at >= datetime.combine(month_start, datetime.min.time(), tzinfo=timezone.utc),
+            )
+            .group_by(Invoice.currency)
+        )).all()
+    }
+
+    # Primary currency: the one most of the user's clients bill in, ties going
+    # to the oldest client's.
+    client_currencies = (await db.execute(
+        select(Client.currency).where(Client.user_id == user.id).order_by(Client.created_at)
+    )).scalars().all()
+    if client_currencies:
+        counts: dict[str, int] = {}
+        for cur in client_currencies:
+            counts[cur] = counts.get(cur, 0) + 1
+        primary = max(counts, key=lambda cur: (counts[cur], -client_currencies.index(cur)))
+    else:
+        primary = next(iter(unbilled.keys() | outstanding.keys() | paid.keys()), "USD")
+
+    def money(cur: str) -> CurrencyMoney:
+        n, owed = outstanding.get(cur, (0, zero))
+        return CurrencyMoney(
+            currency=cur,
+            unbilled_amount=float(unbilled.get(cur, zero)),
+            outstanding_amount=float(owed),
+            outstanding_count=n,
+            paid_this_month=float(paid.get(cur, zero)),
         )
-    )).scalar_one()
 
-    currency = next((cur for _r, cur, _h in unbilled_rows), None)
-    if currency is None:
-        currency = (await db.execute(select(Client.currency).where(Client.user_id == user.id).limit(1))).scalar_one_or_none() or "USD"
+    active = sorted(c for c in unbilled.keys() | outstanding.keys() | paid.keys() if c != primary)
+    by_currency = [money(primary)] + [money(cur) for cur in active]
+    main = by_currency[0]
 
     return MoneyStats(
-        currency=currency,
+        currency=primary,
         hours_this_week=float(hours),
         weekly_hours_target=user.weekly_hours_target,
-        unbilled_amount=float(unbilled),
-        outstanding_amount=float(outstanding),
-        outstanding_count=int(outstanding_count),
-        paid_this_month=float(paid),
+        unbilled_amount=main.unbilled_amount,
+        outstanding_amount=main.outstanding_amount,
+        outstanding_count=main.outstanding_count,
+        paid_this_month=main.paid_this_month,
+        by_currency=by_currency,
     )
 
 
@@ -452,14 +504,19 @@ async def delete_my_account(
     """
     from app.services import billing
 
-    if billing.enabled() and user.stripe_subscription_id and user.subscription_status in billing.PAID_STATUSES:
+    if billing.enabled() and user.stripe_subscription_id and user.subscription_status not in billing.ENDED_STATUSES:
+        # Deleting the account while the subscription lives on would keep
+        # charging someone we can no longer show a billing page to, so a
+        # failed cancellation stops the deletion. Retrying is safe.
         try:
-            import stripe
-
-            stripe.api_key = settings.STRIPE_SECRET_KEY
-            stripe.Subscription.cancel(user.stripe_subscription_id)
-        except Exception as exc:  # keep going; a dangling test/live sub is recoverable in Stripe
+            billing.cancel_subscription(user.stripe_subscription_id)
+        except Exception as exc:
             logger.error("Stripe cancel during account deletion failed for %s: %s", user.email, exc)
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="We couldn't cancel your subscription, so your account was not deleted. Please try again in a few minutes.",
+            )
+        user.subscription_status = "canceled"
 
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.delete(

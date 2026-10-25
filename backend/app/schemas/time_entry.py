@@ -3,9 +3,11 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional
+from typing import ClassVar, Optional
 
 from pydantic import BaseModel, Field
+
+from app.schemas.partial_update import PartialUpdate
 
 
 class TimeEntryCreate(BaseModel):
@@ -19,7 +21,9 @@ class TimeEntryBulkCreate(BaseModel):
     entries: list[TimeEntryCreate] = Field(..., min_length=1, max_length=200)
 
 
-class TimeEntryUpdate(BaseModel):
+class TimeEntryUpdate(PartialUpdate):
+    NON_NULLABLE: ClassVar[frozenset[str]] = frozenset({"client_id", "entry_date", "hours", "description"})
+
     client_id: Optional[uuid.UUID] = None
     entry_date: Optional[date] = None
     hours: Optional[Decimal] = Field(default=None, gt=0, le=24, decimal_places=2)

@@ -157,7 +157,10 @@ async def _handle_user_updated(data: dict) -> None:
         first_name = data.get("first_name") or ""
         last_name = data.get("last_name") or ""
         name = f"{first_name} {last_name}".strip()
-        if name:
+        # The display name is editable in TimeIQ Settings (it appears on booking
+        # pages and invoices), so Clerk only fills it in when none is set yet,
+        # the same rule /api/me/sync follows.
+        if name and not user.name:
             user.name = name
 
         image_url = data.get("image_url")
