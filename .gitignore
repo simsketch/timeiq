@@ -39,3 +39,5 @@ alembic/versions/__pycache__/
 *.log
 .vercel
 .playwright-mcp/
+
+.claude/worktrees/

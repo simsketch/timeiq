@@ -12,7 +12,9 @@ import zipfile
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.schemas.booking import validate_iana_timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
@@ -50,6 +52,11 @@ class UserUpdate(BaseModel):
     username: Optional[str] = Field(default=None, min_length=1, max_length=100)
     timezone: Optional[str] = Field(default=None, max_length=100)
     weekly_hours_target: Optional[int] = None
+
+    @field_validator("timezone")
+    @classmethod
+    def _valid_timezone(cls, value: Optional[str]) -> Optional[str]:
+        return validate_iana_timezone(value) if value is not None else value
 
 
 class CurrencyMoney(BaseModel):

@@ -1,15 +1,15 @@
 """Hold a founder seat while its checkout is open, so the cap can't be oversold
 
-Revision ID: 012_founder_seat_hold
-Revises: 011_calendar_health
+Revision ID: 013_founder_seat_hold
+Revises: 012_booking_history_ical
 Create Date: 2026-10-25
 
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "012_founder_seat_hold"
-down_revision = "011_calendar_health"
+revision = "013_founder_seat_hold"
+down_revision = "012_booking_history_ical"
 branch_labels = None
 depends_on = None
 
