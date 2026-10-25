@@ -5,7 +5,8 @@ import secrets
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import select, update
+from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.client import Client
@@ -39,7 +40,7 @@ async def create_invoice_from_entries(
     invoice = Invoice(
         user_id=user.id,
         client_id=client.id,
-        number=format_invoice_number(user.next_invoice_number),
+        number=format_invoice_number(await allocate_invoice_number(db, user)),
         status="draft",
         issue_date=today,
         due_date=today + timedelta(days=client.payment_terms_days),
@@ -54,12 +55,31 @@ async def create_invoice_from_entries(
         notes=notes,
         public_token=secrets.token_urlsafe(32),
     )
-    user.next_invoice_number += 1
     db.add(invoice)
     await db.flush()
 
     await attach_entries(db, invoice, entries)
     return invoice
+
+
+async def allocate_invoice_number(db: AsyncSession, user: User) -> int:
+    """Take the user's next invoice number with one atomic UPDATE ... RETURNING.
+
+    The UPDATE row-locks the user until the transaction ends, so concurrent
+    creations queue behind it and each gets its own number, instead of two
+    reading the same counter and colliding on the unique constraint.
+    """
+    taken = (
+        await db.execute(
+            update(User)
+            .where(User.id == user.id)
+            .values(next_invoice_number=User.next_invoice_number + 1)
+            .returning(User.next_invoice_number - 1)
+            .execution_options(synchronize_session=False)
+        )
+    ).scalar_one()
+    set_committed_value(user, "next_invoice_number", taken + 1)
+    return int(taken)
 
 
 async def attach_entries(db: AsyncSession, invoice: Invoice, entries: list[TimeEntry]) -> None:

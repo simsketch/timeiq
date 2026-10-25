@@ -30,6 +30,31 @@ interface Stats {
   total_event_types: number;
 }
 
+type MoneyField = "unbilled_amount" | "outstanding_amount" | "paid_this_month";
+
+interface CurrencyMoney {
+  currency: string;
+  unbilled_amount: number;
+  outstanding_amount: number;
+  outstanding_count: number;
+  paid_this_month: number;
+}
+
+/** /api/dashboard/money: top-level amounts are the primary currency only;
+ * `by_currency` lists every currency with activity, primary first. */
+type DashboardMoney = MoneyStats & { by_currency?: CurrencyMoney[] };
+
+/** Formatted amounts for one tile: the primary currency always, then each
+ * other currency that has a nonzero amount. Currencies are never summed. */
+function amountsFor(money: DashboardMoney, field: MoneyField): string[] {
+  const rows = money.by_currency?.length
+    ? money.by_currency
+    : [{ currency: money.currency, [field]: money[field] } as unknown as CurrencyMoney];
+  return rows
+    .filter((row, i) => i === 0 || row[field] !== 0)
+    .map((row) => fmtMoney(row[field], row.currency));
+}
+
 interface UserProfile {
   username: string;
   name: string | null;
@@ -43,7 +68,7 @@ export default function DashboardPage() {
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [money, setMoney] = useState<MoneyStats | null>(null);
+  const [money, setMoney] = useState<DashboardMoney | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -56,7 +81,7 @@ export default function DashboardPage() {
           apiFetch<Stats>("/api/dashboard/stats", { headers }),
           apiFetch<Booking[]>("/api/bookings?status=confirmed", { headers }),
           apiFetch<UserProfile>("/api/me", { headers }),
-          apiFetch<MoneyStats>("/api/dashboard/money", { headers }).catch(() => null),
+          apiFetch<DashboardMoney>("/api/dashboard/money", { headers }).catch(() => null),
         ]);
         setStats(statsData);
         setMoney(moneyData);
@@ -168,7 +193,7 @@ export default function DashboardPage() {
           {[
             {
               label: "Hours this week",
-              value: `${money.hours_this_week.toFixed(1)}h`,
+              values: [`${money.hours_this_week.toFixed(1)}h`],
               sub: money.weekly_hours_target ? `of ${money.weekly_hours_target}h target` : "",
               icon: Timer,
               href: "/time",
@@ -176,7 +201,7 @@ export default function DashboardPage() {
             },
             {
               label: "Unbilled",
-              value: fmtMoney(money.unbilled_amount, money.currency),
+              values: amountsFor(money, "unbilled_amount"),
               sub: "ready to invoice",
               icon: Wallet,
               href: "/invoices",
@@ -184,15 +209,20 @@ export default function DashboardPage() {
             },
             {
               label: "Outstanding",
-              value: fmtMoney(money.outstanding_amount, money.currency),
-              sub: `${money.outstanding_count} sent invoice${money.outstanding_count === 1 ? "" : "s"}`,
+              values: amountsFor(money, "outstanding_amount"),
+              sub: (() => {
+                const n = money.by_currency?.length
+                  ? money.by_currency.reduce((sum, row) => sum + row.outstanding_count, 0)
+                  : money.outstanding_count;
+                return `${n} sent invoice${n === 1 ? "" : "s"}`;
+              })(),
               icon: Receipt,
               href: "/invoices",
               tone: "text-[hsl(var(--aurora-5))] bg-[hsl(var(--aurora-5)/0.12)]",
             },
             {
               label: "Paid this month",
-              value: fmtMoney(money.paid_this_month, money.currency),
+              values: amountsFor(money, "paid_this_month"),
               sub: format(new Date(), "MMMM"),
               icon: BadgeCheck,
               href: "/invoices",
@@ -206,7 +236,12 @@ export default function DashboardPage() {
                     <tile.icon className="h-4 w-4" />
                   </div>
                   <p className="text-sm text-muted-foreground">{tile.label}</p>
-                  <p className="text-2xl font-bold tracking-tight tabular-nums">{tile.value}</p>
+                  <p className="text-2xl font-bold tracking-tight tabular-nums">{tile.values[0]}</p>
+                  {tile.values.slice(1).map((other) => (
+                    <p key={other} className="text-base font-semibold tracking-tight tabular-nums">
+                      + {other}
+                    </p>
+                  ))}
                   {tile.sub && <p className="text-xs text-muted-foreground mt-1">{tile.sub}</p>}
                 </CardContent>
               </Card>

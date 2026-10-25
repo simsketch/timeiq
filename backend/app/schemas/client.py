@@ -3,10 +3,11 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import ClassVar, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.partial_update import PartialUpdate
 from app.services.invoicing import normalize_email_list
 
 
@@ -30,7 +31,11 @@ class ClientCreate(_BillingEmails):
     auto_invoice_monthly: bool = False
 
 
-class ClientUpdate(_BillingEmails):
+class ClientUpdate(_BillingEmails, PartialUpdate):
+    NON_NULLABLE: ClassVar[frozenset[str]] = frozenset(
+        {"name", "hourly_rate", "currency", "payment_terms_days", "auto_invoice_monthly"}
+    )
+
     name: Optional[str] = Field(default=None, min_length=1, max_length=255)
     contact_name: Optional[str] = Field(default=None, max_length=255)
     billing_email: Optional[str] = None

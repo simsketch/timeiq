@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -40,19 +40,28 @@ from app.services.invoicing_ops import (
 
 router = APIRouter(tags=["invoices"])
 
+# A send of an invoice that went out less than this long ago is treated as a
+# repeat of that send (double submission) rather than a deliberate resend.
+DUPLICATE_SEND_WINDOW = timedelta(seconds=5)
+
 # Token-addressed, unauthenticated routes. Registered in main.py ahead of the
 # generic public router so its /{username}/{event_slug} route can't shadow these.
 public_router = APIRouter(prefix="/api/public/invoices", tags=["public"])
 
 
 async def get_owned_invoice(
-    db: AsyncSession, user: User, invoice_id: uuid.UUID
+    db: AsyncSession, user: User, invoice_id: uuid.UUID, *, lock: bool = False
 ) -> Invoice:
-    result = await db.execute(
+    """Load one of the user's invoices. ``lock=True`` row-locks it (FOR UPDATE)
+    until the transaction ends and refreshes any copy already in the session."""
+    query = (
         select(Invoice)
         .options(selectinload(Invoice.lines))
         .where(Invoice.id == invoice_id, Invoice.user_id == user.id)
     )
+    if lock:
+        query = query.with_for_update(of=Invoice).execution_options(populate_existing=True)
+    result = await db.execute(query)
     invoice = result.scalar_one_or_none()
     if invoice is None:
         raise HTTPException(
@@ -230,8 +239,28 @@ async def send_invoice_route(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    invoice = await get_owned_invoice(db, user, invoice_id)
+    # Note the state this request started from, then take the row lock so
+    # overlapping sends (a double click, a client retry) run one at a time.
+    # If another send finished while we waited, the state has moved on and
+    # this copy is a duplicate of that send, so it returns without emailing.
+    seen = (
+        await db.execute(
+            select(Invoice.status, Invoice.sent_at).where(
+                Invoice.id == invoice_id, Invoice.user_id == user.id
+            )
+        )
+    ).one_or_none()
+    invoice = await get_owned_invoice(db, user, invoice_id, lock=True)
     require_status(invoice, "draft", "sent")
+    if seen is not None and (seen.status, seen.sent_at) != (invoice.status, invoice.sent_at):
+        return invoice
+    if (
+        invoice.status == "sent"
+        and invoice.sent_at is not None
+        and datetime.now(timezone.utc) - invoice.sent_at < DUPLICATE_SEND_WINDOW
+    ):
+        # It went out moments ago; a deliberate resend comes later than this.
+        return invoice
     recipients = pick_recipients(invoice, data)
     pdf = build_invoice_pdf(invoice, user.name or user.email, user.email)
     hosted_url = f"{settings.FRONTEND_URL}/invoice/{invoice.public_token}"

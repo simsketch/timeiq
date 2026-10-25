@@ -3,9 +3,11 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional
+from typing import ClassVar, Optional
 
 from pydantic import BaseModel, Field, model_validator
+
+from app.schemas.partial_update import PartialUpdate
 
 
 class InvoiceCreate(BaseModel):
@@ -21,7 +23,9 @@ class InvoiceCreate(BaseModel):
         return self
 
 
-class InvoiceUpdate(BaseModel):
+class InvoiceUpdate(PartialUpdate):
+    NON_NULLABLE: ClassVar[frozenset[str]] = frozenset({"issue_date", "due_date", "show_weekly_breakdown"})
+
     issue_date: Optional[date] = None
     due_date: Optional[date] = None
     notes: Optional[str] = None
@@ -55,7 +59,9 @@ class ExpenseLineCreate(BaseModel):
     line_date: Optional[date] = None
 
 
-class ExpenseLineUpdate(BaseModel):
+class ExpenseLineUpdate(PartialUpdate):
+    NON_NULLABLE: ClassVar[frozenset[str]] = frozenset({"description", "amount"})
+
     description: Optional[str] = Field(default=None, min_length=1, max_length=500)
     amount: Optional[Decimal] = Field(default=None, gt=0, decimal_places=2)
     line_date: Optional[date] = None

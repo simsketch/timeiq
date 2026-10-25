@@ -40,8 +40,88 @@ def fmt_date(d: date) -> str:
     return d.strftime("%b %d, %Y")
 
 
+# Helvetica only covers WinAnsi (roughly Latin-1). Text it can't draw is set in
+# one of ReportLab's built-in CID fonts instead. Those are referenced by name,
+# not embedded, so nothing large ships in the serverless bundle; PDF viewers
+# supply the glyphs from their standard Asian font sets. Besides CJK they also
+# carry Greek and Cyrillic.
+CJK_FONTS = {
+    "ja": "HeiseiKakuGo-W5",
+    "ko": "HYGothic-Medium",
+    "zh": "STSong-Light",
+}
+_registered: set[str] = set()
+
+
+def _font(name: str) -> str:
+    if name not in _registered:
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+
+        pdfmetrics.registerFont(UnicodeCIDFont(name))
+        _registered.add(name)
+    return name
+
+
+def _latin(ch: str) -> bool:
+    try:
+        ch.encode("cp1252")
+        return True
+    except UnicodeEncodeError:
+        return False
+
+
+def _is_kana(ch: str) -> bool:
+    o = ord(ch)
+    return 0x3040 <= o <= 0x30FF or 0x31F0 <= o <= 0x31FF or 0xFF66 <= o <= 0xFF9F
+
+
+def _is_hangul(ch: str) -> bool:
+    o = ord(ch)
+    return 0x1100 <= o <= 0x11FF or 0x3130 <= o <= 0x318F or 0xAC00 <= o <= 0xD7AF
+
+
+def _language(text: str) -> str:
+    if any(_is_hangul(c) for c in text):
+        return "ko"
+    if any(_is_kana(c) for c in text):
+        return "ja"
+    return "zh"
+
+
+def _markup(text: str) -> str:
+    """Escape ``text`` for a Paragraph, putting each run Helvetica can't draw
+    in a CID font. Han characters follow the language the whole string looks
+    like, so a Japanese name keeps Japanese glyph forms."""
+    whole = _language(text)
+    out: list[str] = []
+    run: list[str] = []
+    run_latin = True
+
+    def flush() -> None:
+        if not run:
+            return
+        chunk = escape("".join(run)).replace("\n", "<br/>")
+        if run_latin:
+            out.append(chunk)
+        else:
+            segment = "".join(run)
+            lang = "ko" if any(map(_is_hangul, segment)) else "ja" if any(map(_is_kana, segment)) else whole
+            out.append(f'<font name="{_font(CJK_FONTS[lang])}">{chunk}</font>')
+        run.clear()
+
+    for ch in text:
+        latin = _latin(ch)
+        if run and latin != run_latin:
+            flush()
+        run_latin = latin
+        run.append(ch)
+    flush()
+    return "".join(out)
+
+
 def _p(text: str, style: ParagraphStyle) -> Paragraph:
-    return Paragraph(escape(text).replace("\n", "<br/>"), style)
+    return Paragraph(_markup(text), style)
 
 
 def build_invoice_pdf(invoice, sender_name: str, sender_email: str) -> bytes:

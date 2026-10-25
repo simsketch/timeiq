@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import ClassVar, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -16,6 +16,7 @@ from app.database import get_db
 from app.models.timesheet_row import TimesheetRow
 from app.models.user import User
 from app.routers.clients import get_owned_client
+from app.schemas.partial_update import PartialUpdate
 
 router = APIRouter(prefix="/api/timesheet-rows", tags=["timesheet-rows"])
 
@@ -25,7 +26,9 @@ class RowCreate(BaseModel):
     description: str = Field(..., min_length=1)
 
 
-class RowUpdate(BaseModel):
+class RowUpdate(PartialUpdate):
+    NON_NULLABLE: ClassVar[frozenset[str]] = frozenset({"client_id", "description"})
+
     client_id: Optional[uuid.UUID] = None
     description: Optional[str] = Field(default=None, min_length=1)
 
