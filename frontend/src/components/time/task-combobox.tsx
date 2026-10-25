@@ -33,8 +33,14 @@ export function TaskCombobox({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
 
-  useEffect(() => {
+  // A new client starts with no suggestions until its own tasks load.
+  const [tasksFor, setTasksFor] = useState(clientId);
+  if (clientId !== tasksFor) {
+    setTasksFor(clientId);
     setTasks([]);
+  }
+
+  useEffect(() => {
     if (!clientId) return;
     let cancelled = false;
     (async () => {
@@ -65,7 +71,13 @@ export function TaskCombobox({
     );
   }, [tasks, value, taken]);
 
-  useEffect(() => setActive(0), [value, clientId]);
+  // Typing or switching clients moves the highlight back to the first option.
+  const activeKey = `${clientId}\u0000${value}`;
+  const [activeFor, setActiveFor] = useState(activeKey);
+  if (activeKey !== activeFor) {
+    setActiveFor(activeKey);
+    setActive(0);
+  }
 
   const show = open && options.length > 0;
 

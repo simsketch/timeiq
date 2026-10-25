@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -42,14 +42,15 @@ export function SendDialog({
 }) {
   const all = splitEmails(billingEmails);
   const [chosen, setChosen] = useState<string[]>(all);
-  const [copyMe, setCopyMe] = useState(true);
-
-  // Remember the copy preference per browser; storage can be unavailable.
-  useEffect(() => {
+  // Remember the copy preference per browser; storage can be unavailable
+  // (and is absent during server rendering, where the dialog is closed anyway).
+  const [copyMe, setCopyMe] = useState(() => {
     try {
-      if (localStorage.getItem(COPY_KEY) === "0") setCopyMe(false);
-    } catch {}
-  }, []);
+      return localStorage.getItem(COPY_KEY) !== "0";
+    } catch {
+      return true;
+    }
+  });
 
   function setCopy(next: boolean) {
     setCopyMe(next);
@@ -58,10 +59,13 @@ export function SendDialog({
     } catch {}
   }
 
-  // Reset to everyone each time the dialog opens.
-  useEffect(() => {
+  // Reset to everyone each time the dialog opens (or the list changes while open).
+  const resetKey = open ? billingEmails : null;
+  const [resetFor, setResetFor] = useState(resetKey);
+  if (resetKey !== resetFor) {
+    setResetFor(resetKey);
     if (open) setChosen(splitEmails(billingEmails));
-  }, [open, billingEmails]);
+  }
 
   const toggle = (email: string) =>
     setChosen((c) => (c.includes(email) ? c.filter((e) => e !== email) : [...c, email]));

@@ -238,19 +238,24 @@ export function YoyoCodePlayground({ eventTypes, onSelect }: Props) {
   const [showCards, setShowCards] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     const desktop = window.matchMedia("(min-width: 820px)");
     const updateDesktop = () => setShowCards(desktop.matches);
-    updateDesktop();
+    // The first frame paints with everything hidden, then the entrance animation runs.
+    const firstFrame = requestAnimationFrame(() => {
+      setMounted(true);
+      updateDesktop();
+    });
     desktop.addEventListener("change", updateDesktop);
+    const stopWatching = () => {
+      cancelAnimationFrame(firstFrame);
+      desktop.removeEventListener("change", updateDesktop);
+    };
 
-    if (reduced.matches) {
-      return () => desktop.removeEventListener("change", updateDesktop);
-    }
+    if (reduced.matches) return stopWatching;
 
     const el = stageRef.current;
-    if (!el) return () => desktop.removeEventListener("change", updateDesktop);
+    if (!el) return stopWatching;
     let raf = 0;
     const target = { x: 0, y: 0 };
     const current = { x: 0, y: 0 };
@@ -278,7 +283,7 @@ export function YoyoCodePlayground({ eventTypes, onSelect }: Props) {
       cancelAnimationFrame(raf);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseleave", onLeave);
-      desktop.removeEventListener("change", updateDesktop);
+      stopWatching();
     };
   }, []);
 

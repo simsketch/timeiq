@@ -48,7 +48,7 @@ export default function TermsPage() {
               <li><strong>Founding member price.</strong> The first 100 paying subscribers pay the founder rate for as long as their subscription stays active without lapsing. If it cancels or fails to renew, re-subscribing is at the then-current standard price.</li>
               <li>Cancel anytime from Settings. You keep access until the end of the period you paid for. We do not prorate partial years.</li>
               <li><strong>Refunds.</strong> If TimeIQ is not for you, email us within 30 days of your first payment and we will refund it in full.</li>
-              <li>We may change prices for future renewals with at least 30 days' notice by email. Founder pricing is exempt while it stays active.</li>
+              <li>We may change prices for future renewals with at least 30 days&apos; notice by email. Founder pricing is exempt while it stays active.</li>
             </ul>
           </Section>
 
@@ -57,7 +57,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="Acceptable use">
-            Do not use TimeIQ to send spam, to invoice for goods or services you did not provide, to infringe anyone's rights, or to attempt to breach or overload the service. We can suspend accounts that do.
+            Do not use TimeIQ to send spam, to invoice for goods or services you did not provide, to infringe anyone&apos;s rights, or to attempt to breach or overload the service. We can suspend accounts that do.
           </Section>
 
           <Section title="Third-party services">
@@ -65,11 +65,11 @@ export default function TermsPage() {
           </Section>
 
           <Section title="Availability and changes">
-            We aim to keep TimeIQ running and improving, but it is provided as is, without warranty of uninterrupted or error-free operation. We may add, change, or remove features. If we ever shut the service down, we will give at least 30 days' notice and a way to export your data.
+            We aim to keep TimeIQ running and improving, but it is provided as is, without warranty of uninterrupted or error-free operation. We may add, change, or remove features. If we ever shut the service down, we will give at least 30 days&apos; notice and a way to export your data.
           </Section>
 
           <Section title="Liability">
-            To the fullest extent the law allows, Yoyo Code's total liability for any claim relating to TimeIQ is limited to the amount you paid us in the 12 months before the claim. We are not liable for indirect or consequential losses, including lost revenue from a missed booking or an unpaid invoice.
+            To the fullest extent the law allows, Yoyo Code&apos;s total liability for any claim relating to TimeIQ is limited to the amount you paid us in the 12 months before the claim. We are not liable for indirect or consequential losses, including lost revenue from a missed booking or an unpaid invoice.
           </Section>
 
           <Section title="Ending the agreement">
