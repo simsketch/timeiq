@@ -4,7 +4,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, text
 
 from app.database import async_session
 from app.models.calendar_source import CalendarSource
@@ -15,10 +15,32 @@ from app.services.email import send_calendar_broken
 
 logger = logging.getLogger(__name__)
 
-async def sync_source(source_id, *, force: bool = False) -> str:
+# Namespace for the per-source advisory locks (the other key is a hash of the id).
+SYNC_LOCK_NAMESPACE = 7_140_311
+
+
+async def _claim_source(db, source_id) -> bool:
+    """Take this source's sync lock for the session's transaction, or report
+    that another request or instance is already syncing it. The lock lives in
+    Postgres, so it holds across serverless instances, and commit or rollback
+    releases it."""
+    got = await db.execute(
+        text("SELECT pg_try_advisory_xact_lock(:ns, hashtext(:sid))"),
+        {"ns": SYNC_LOCK_NAMESPACE, "sid": str(source_id)},
+    )
+    return bool(got.scalar())
+
+
+async def sync_source(source_id, *, force: bool = False, stale_before: datetime | None = None) -> str:
     """
     Sync one calendar source in its own session and record its health.
-    Returns 'synced', 'failed' or 'skipped' (inactive, or backing off unless force).
+    Returns 'synced', 'failed' or 'skipped' (inactive, already being synced,
+    synced at or after stale_before, or backing off unless force).
+
+    Concurrent calls share one fetch: whoever takes the source's advisory
+    lock syncs, the rest skip. The source row is read after the lock, so a
+    caller arriving just after another sync committed sees its fresh
+    last_synced_at and skips too.
 
     Isolation matters: AsyncSession.rollback() expires every ORM instance in
     the session (regardless of expire_on_commit), so a shared session would
@@ -29,10 +51,14 @@ async def sync_source(source_id, *, force: bool = False) -> str:
     """
     now = datetime.now(timezone.utc)
     async with async_session() as db:
+        if not await _claim_source(db, source_id):
+            return "skipped"
         source = await db.get(CalendarSource, source_id)
         if source is None or not source.is_active:
             return "skipped"
         if not force and not is_due(source, now):
+            return "skipped"
+        if stale_before is not None and source.last_synced_at is not None and source.last_synced_at >= stale_before:
             return "skipped"
         name = source.name
         try:
@@ -128,7 +154,7 @@ async def freshen_user_calendars(user_id, budget_seconds: float) -> int:
 
     try:
         outcomes = await asyncio.wait_for(
-            asyncio.gather(*(sync_source(sid) for sid in source_ids)),
+            asyncio.gather(*(sync_source(sid, stale_before=now - STALE_AFTER) for sid in source_ids)),
             timeout=budget_seconds,
         )
     except asyncio.TimeoutError:

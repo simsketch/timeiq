@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from icalendar import Calendar
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -41,21 +42,22 @@ async def list_calendar_sources(
     return result.scalars().all()
 
 
-async def _check_ics_link(ics_url: str) -> None:
-    """Refuse a link that doesn't return a readable calendar, saying why."""
+async def _check_ics_link(ics_url: str) -> Calendar:
+    """Refuse a link that doesn't return a readable calendar, saying why.
+    Returns the downloaded calendar so the first sync needn't fetch it again."""
     try:
-        await fetch_ics(ics_url)
+        return await fetch_ics(ics_url)
     except CalendarSyncError as err:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=err.message)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=err.message)
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=classify(exc).message)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=classify(exc).message)
 
 
-async def _sync_in_request(db: AsyncSession, source: CalendarSource) -> None:
+async def _sync_in_request(db: AsyncSession, source: CalendarSource, cal: Calendar | None = None) -> None:
     """First sync of a just-saved source, inside the request's transaction."""
     now = datetime.now(timezone.utc)
     try:
-        await sync_calendar_source(db, source)
+        await sync_calendar_source(db, source, ics_calendar=cal)
         record_success(source, now)
     except Exception as exc:
         record_failure(source, classify(exc), now)
@@ -69,7 +71,7 @@ async def _create_ics_calendar(
     db: AsyncSession,
 ) -> CalendarSource:
     """Shared logic for creating an ICS calendar source."""
-    await _check_ics_link(payload.ics_url)
+    cal = await _check_ics_link(payload.ics_url)
     source = CalendarSource(
         user_id=user.id,
         type="ics_url",
@@ -80,7 +82,7 @@ async def _create_ics_calendar(
     db.add(source)
     await db.flush()
     await db.refresh(source)
-    await _sync_in_request(db, source)
+    await _sync_in_request(db, source, cal)
     return source
 
 
@@ -109,10 +111,10 @@ async def update_calendar_source(
     if payload.ics_url is not None and payload.ics_url.strip() != (source.ics_url or ""):
         if source.type != "ics_url":
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only ICS calendars have a link to replace")
-        await _check_ics_link(payload.ics_url)
+        cal = await _check_ics_link(payload.ics_url)
         source.ics_url = payload.ics_url.strip()
         source.is_active = True
-        await _sync_in_request(db, source)
+        await _sync_in_request(db, source, cal)
     await db.flush()
     await db.refresh(source)
     return source
