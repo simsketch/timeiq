@@ -5,6 +5,7 @@ import Script from "next/script";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/toaster";
 import { MetaPixel } from "@/components/meta-pixel";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const SITE = "https://timeiq.app";
@@ -78,6 +79,7 @@ export default function RootLayout({
           {children}
           <Toaster />
           <MetaPixel />
+          <Analytics />
         </body>
       </html>
     </ClerkProvider>
