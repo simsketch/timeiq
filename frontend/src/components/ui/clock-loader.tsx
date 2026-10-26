@@ -123,10 +123,12 @@ export function ClockLoader({
             const isMajor = i % 3 === 0;
             const outer = 25;
             const inner = isMajor ? 21 : 23;
-            const x1 = 32 + Math.sin(angle) * outer;
-            const y1 = 32 - Math.cos(angle) * outer;
-            const x2 = 32 + Math.sin(angle) * inner;
-            const y2 = 32 - Math.cos(angle) * inner;
+            // Rounded so server and browser trig agree during hydration.
+            const r = (n: number) => Math.round(n * 1000) / 1000;
+            const x1 = r(32 + Math.sin(angle) * outer);
+            const y1 = r(32 - Math.cos(angle) * outer);
+            const x2 = r(32 + Math.sin(angle) * inner);
+            const y2 = r(32 - Math.cos(angle) * inner);
             return (
               <line
                 key={i}
