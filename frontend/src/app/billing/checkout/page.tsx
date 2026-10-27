@@ -5,7 +5,7 @@ import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ClockLoader } from "@/components/ui/clock-loader";
-import { startCheckout, startGuestCheckout } from "@/lib/billing";
+import { fetchBillingStatus, startCheckout, startGuestCheckout } from "@/lib/billing";
 
 /** Hands off to Stripe Checkout. Signed-out visitors pay first and create their account after. */
 export default function CheckoutRedirectPage() {
@@ -17,7 +17,17 @@ export default function CheckoutRedirectPage() {
     if (!isLoaded) return;
     (async () => {
       try {
-        window.location.href = isSignedIn ? await startCheckout(await getToken()) : await startGuestCheckout();
+        if (!isSignedIn) {
+          window.location.href = await startGuestCheckout();
+          return;
+        }
+        const token = await getToken();
+        // Already subscribed (or complimentary): nothing to buy.
+        if ((await fetchBillingStatus(token)).entitled) {
+          window.location.replace("/dashboard");
+          return;
+        }
+        window.location.href = await startCheckout(token);
       } catch (e: any) {
         setError(e.message || "Could not start checkout");
       }

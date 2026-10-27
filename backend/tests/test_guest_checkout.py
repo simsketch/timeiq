@@ -149,3 +149,30 @@ async def test_guest_holds_are_capped(env, monkeypatch):
 async def test_unknown_session_is_not_found(env, monkeypatch):
     FakeStripe(monkeypatch)
     assert (await env.client.get("/api/billing/guest-session/not-a-session")).status_code == 404
+
+
+async def test_deleted_account_purchase_stops_counting(env, monkeypatch):
+    fake = FakeStripe(monkeypatch)
+    sid = await _start(env, fake)
+    fake.pay(sid, "gone@example.com")
+    env.as_user(env.users[1])
+    assert (await env.client.post("/api/billing/confirm", json={"session_id": sid})).status_code == 200
+    async with async_session() as db:
+        with_claimed = await billing.founder_seats_taken(db)
+        g = (await db.execute(select(GuestCheckout).where(GuestCheckout.stripe_session_id == sid))).scalar_one()
+        g.claimed_by_user_id = None  # what ON DELETE SET NULL leaves behind
+        u = await db.get(User, env.users[1].id)
+        u.subscription_status, u.subscription_plan = "canceled", None
+        await db.commit()
+        assert await billing.founder_seats_taken(db) == with_claimed - 1
+    await _cleanup(sid)
+
+
+async def test_entitled_user_cannot_open_checkout(env, monkeypatch):
+    FakeStripe(monkeypatch)
+    async with async_session() as db:
+        u = await db.get(User, env.users[1].id)
+        u.subscription_status = "complimentary"
+        await db.commit()
+    env.as_user(env.users[1])
+    assert (await env.client.post("/api/billing/checkout")).status_code == 409

@@ -70,7 +70,7 @@ async def checkout(
 ):
     if not billing.enabled():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Billing is not configured")
-    if user.subscription_status in billing.PAID_STATUSES:
+    if billing.is_entitled(user):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already subscribed")
     try:
         url = await billing.create_checkout_session(user, db)

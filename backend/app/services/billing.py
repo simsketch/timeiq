@@ -87,7 +87,9 @@ async def founder_seats_taken(db: AsyncSession, exclude_user_id: Any = None) -> 
 
 
 def _unclaimed_founder_guest():
-    return and_(GuestCheckout.plan == PLAN_FOUNDER, GuestCheckout.claimed_by_user_id.is_(None))
+    # claimed_at survives the claiming user being deleted (claimed_by_user_id
+    # goes NULL then), so a deleted account's purchase never counts again.
+    return and_(GuestCheckout.plan == PLAN_FOUNDER, GuestCheckout.claimed_at.is_(None))
 
 
 async def _guest_founder_seats(db: AsyncSession, now: datetime) -> int:
@@ -294,7 +296,7 @@ class ClaimError(ValueError):
 
 def _attach_guest(user: User, guest: GuestCheckout) -> None:
     """Move a paid guest subscription onto ``user``."""
-    if guest.claimed_by_user_id is not None and guest.claimed_by_user_id != user.id:
+    if guest.claimed_at is not None and guest.claimed_by_user_id != user.id:
         raise ClaimError("This purchase is already linked to another TimeIQ account")
     if not guest.stripe_subscription_id:
         raise ClaimError("Payment hasn't finished yet")
@@ -373,7 +375,7 @@ async def claim_guest_by_email(db: AsyncSession, user: User) -> bool:
             select(GuestCheckout)
             .where(
                 GuestCheckout.email == user.email.strip().lower(),
-                GuestCheckout.claimed_by_user_id.is_(None),
+                GuestCheckout.claimed_at.is_(None),
                 GuestCheckout.subscription_status.in_(PAID_STATUSES),
             )
             .order_by(GuestCheckout.created_at.desc())
