@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
@@ -11,6 +11,8 @@ interface SceneProps {
   running: boolean;
   reduced: boolean;
   small: boolean;
+  /** Called once the shaders have compiled and the first frame can show. */
+  onReady?: () => void;
 }
 
 // A polar grid, rather than a triangle fan, lets enamel and printed ink fold
@@ -248,7 +250,7 @@ function Headland({ position, color, scale }: { position: [number, number, numbe
     const shape = new THREE.Shape(HEADLAND.map(([x, y]) => new THREE.Vector2(x, y)));
     const extruded = new THREE.ExtrudeGeometry(shape, { depth: 7, bevelEnabled: false, steps: 1 });
     extruded.translate(0, 0, -3.5);
-    return extruded.toNonIndexed();
+    return extruded;
   }, []);
   useEffect(() => () => geometry.dispose(), [geometry]);
   return (
@@ -355,6 +357,11 @@ function WarmShaders({ onReady }: { onReady: (ready: boolean) => void }) {
 
 export default function DesertScene(props: SceneProps) {
   const [compiled, setCompiled] = useState(false);
+  const { onReady } = props;
+  const handleReady = useCallback((ready: boolean) => {
+    setCompiled(ready);
+    if (ready) onReady?.();
+  }, [onReady]);
   return (
     <Canvas
       aria-hidden="true"
@@ -366,7 +373,7 @@ export default function DesertScene(props: SceneProps) {
       style={{ position: "absolute", inset: 0, opacity: compiled ? 1 : 0 }}
     >
       <Landscape {...props} running={props.running && compiled} />
-      <WarmShaders onReady={setCompiled} />
+      <WarmShaders onReady={handleReady} />
     </Canvas>
   );
 }
