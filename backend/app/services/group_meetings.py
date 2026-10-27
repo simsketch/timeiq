@@ -7,6 +7,7 @@ participant ever sees anyone's events, only how many people can make a slot.
 """
 from __future__ import annotations
 
+import asyncio
 import secrets
 from datetime import date, datetime, timedelta, timezone
 
@@ -21,9 +22,12 @@ from app.services.availability import BOOKING_HORIZON_DAYS, host_zone
 from app.services.free_time import free_windows
 
 SLOT_STEP_MINUTES = 30
+# Most candidates a meeting offers; longer windows are thinned, not cut short.
 MAX_SLOTS = 160
 MAX_PARTICIPANTS = 20
 MAX_WINDOW_DAYS = 21
+# Seconds to spend re-syncing stale calendars before booking or holding a time.
+FRESHEN_BUDGET_SECONDS = 8
 SOURCE_TYPE = "meetings"
 SOURCE_NAME = "TimeIQ group meetings"
 
@@ -73,7 +77,30 @@ def _slots_in(windows: list[Window], minutes: int) -> list[datetime]:
         while t + length <= w_end:
             starts.append(t)
             t += step
-    return sorted(set(starts))[:MAX_SLOTS]
+    return sorted(set(starts))
+
+
+def _thin(slots: list[datetime], tz, limit: int = MAX_SLOTS) -> list[datetime]:
+    """At most ``limit`` of ``slots``, spread over every day they cover.
+
+    Keeps the times on a coarser local grid (hourly, then every 90 minutes,
+    and so on) until they fit, plus each day's first time when none of its
+    times are on the grid, so no day drops out. A fixed grid keeps offering
+    the same times as calendars change, so answers already given still count."""
+    if len(slots) <= limit:
+        return slots
+    by_day: dict = {}
+    for s in slots:
+        by_day.setdefault(s.astimezone(tz).date(), []).append(s)
+    for k in range(2, 24 * 60 // SLOT_STEP_MINUTES + 1):
+        span = SLOT_STEP_MINUTES * k
+        kept: list[datetime] = []
+        for day in by_day.values():
+            on_grid = [s for s in day if (s.astimezone(tz).hour * 60 + s.astimezone(tz).minute) % span == 0]
+            kept += on_grid or day[:1]
+        if len(kept) <= limit:
+            return sorted(kept)
+    return sorted(day[0] for day in by_day.values())[:limit]
 
 
 def _fits(start: datetime, minutes: int, windows: list[Window]) -> bool:
@@ -94,11 +121,18 @@ def _allowed(start: datetime, meeting: GroupMeeting, tz) -> bool:
     return True
 
 
-async def candidate_slots(db: AsyncSession, meeting: GroupMeeting, now: datetime | None = None) -> list[datetime]:
-    now = now or datetime.now(timezone.utc)
+async def _open_slots(db: AsyncSession, meeting: GroupMeeting, now: datetime) -> list[datetime]:
+    """Every start the organizer is free for, within the meeting's limits."""
     windows = await _windows(db, meeting.organizer, meeting, now, default_hours=True)
     tz = host_zone(meeting.organizer)
     return [s for s in _slots_in(windows, meeting.duration_minutes) if _allowed(s, meeting, tz)]
+
+
+async def candidate_slots(db: AsyncSession, meeting: GroupMeeting, now: datetime | None = None) -> list[datetime]:
+    """The times on offer: the organizer's open starts, thinned to MAX_SLOTS
+    across the whole window."""
+    now = now or datetime.now(timezone.utc)
+    return _thin(await _open_slots(db, meeting, now), host_zone(meeting.organizer))
 
 
 def spread(slots: list[datetime], tz, limit: int = 6, per_day: int = 2) -> list[datetime]:
@@ -205,6 +239,54 @@ async def _meetings_source(db: AsyncSession, user_id) -> CalendarSource:
     return source
 
 
+async def _freshen(user_ids: list) -> None:
+    """Re-sync these users' stale external calendars, all at once and within
+    FRESHEN_BUDGET_SECONDS; past that the cached events stand. Syncing makes
+    network calls, so callers run this before taking any lock."""
+    from app.tasks import freshen_user_calendars
+
+    await asyncio.gather(
+        *(freshen_user_calendars(uid, budget_seconds=FRESHEN_BUDGET_SECONDS) for uid in user_ids),
+        return_exceptions=True,
+    )
+
+
+async def _lock_meeting(db: AsyncSession, meeting: GroupMeeting) -> None:
+    """Take the meeting's row lock until the transaction ends, and reload it
+    and its participants, so the decision that follows sees whatever a request
+    that got there first committed."""
+    await db.flush()
+    await db.execute(
+        select(GroupMeeting)
+        .where(GroupMeeting.id == meeting.id)
+        .with_for_update(of=GroupMeeting)
+        .execution_options(populate_existing=True)
+    )
+    await db.execute(
+        select(GroupMeetingParticipant)
+        .where(GroupMeetingParticipant.meeting_id == meeting.id)
+        .execution_options(populate_existing=True)
+    )
+
+
+async def _lock_calendars(db: AsyncSession, user_ids: list) -> None:
+    """Take each user's booking lock (the one ordinary bookings use), in a
+    stable order so two group bookings sharing people can't deadlock."""
+    from app.routers.bookings import lock_host_bookings
+
+    for uid in sorted({str(u) for u in user_ids}):
+        await lock_host_bookings(db, uid)
+
+
+def _calendar_sharers(meeting: GroupMeeting) -> list:
+    """The organizer and every participant sharing a TimeIQ calendar."""
+    ids = [meeting.organizer_id]
+    for p in meeting.participants:
+        if p.uses_calendar and p.user_id and p.user_id not in ids:
+            ids.append(p.user_id)
+    return ids
+
+
 def calendar_user_ids(meeting: GroupMeeting) -> list:
     """Every TimeIQ account whose calendar gets the booked meeting."""
     ids = [meeting.organizer_id]
@@ -215,13 +297,22 @@ def calendar_user_ids(meeting: GroupMeeting) -> list:
 
 
 async def book(db: AsyncSession, meeting: GroupMeeting, start: datetime, now: datetime | None = None) -> None:
+    """Book ``start``. The final check runs under the meeting's row lock and
+    every involved user's booking lock, after re-syncing stale calendars, so
+    a double submit, another meeting or an ordinary booking that got the time
+    first is refused here instead of double-booking anyone."""
     now = now or datetime.now(timezone.utc)
     if meeting.status != "open":
         raise GroupMeetingError("This meeting is already booked or cancelled.")
     start = start.astimezone(timezone.utc)
     if start <= now:
         raise GroupMeetingError("That time has already passed.")
-    if start not in await candidate_slots(db, meeting, now):
+    await _freshen(_calendar_sharers(meeting))
+    await _lock_meeting(db, meeting)
+    if meeting.status != "open":
+        raise GroupMeetingError("This meeting is already booked or cancelled.")
+    await _lock_calendars(db, calendar_user_ids(meeting))
+    if start not in await _open_slots(db, meeting, now):
         raise GroupMeetingError("That time is no longer free on your calendar. Pick another.")
     meeting.status = "booked"
     meeting.starts_at = start
@@ -241,9 +332,30 @@ async def book(db: AsyncSession, meeting: GroupMeeting, start: datetime, now: da
     await db.flush()
 
 
-async def hold(db: AsyncSession, meeting: GroupMeeting) -> None:
+async def hold(db: AsyncSession, meeting: GroupMeeting, now: datetime | None = None) -> None:
     """Block an accepted time on the organizer's calendar until the other
-    side's invite arrives (they send it, so TimeIQ sends none)."""
+    side's invite arrives (they send it, so TimeIQ sends none).
+
+    Raises GroupMeetingError if the time is no longer free: like book, it
+    re-syncs stale calendars, then re-checks under the organizer's booking
+    lock, so a booking or another hold made meanwhile can't overlap it."""
+    now = now or datetime.now(timezone.utc)
+    if meeting.starts_at <= now:
+        raise GroupMeetingError("That time has already passed.")
+    await _freshen([meeting.organizer_id])
+    await _lock_calendars(db, [meeting.organizer_id])
+    organizer = await db.get(User, meeting.organizer_id)
+    tz = host_zone(organizer)
+    days = (meeting.starts_at.astimezone(tz).date() - now.astimezone(tz).date()).days + 1
+    windows = [
+        (datetime.fromisoformat(w["start"]), datetime.fromisoformat(w["end"]))
+        for d in await free_windows(
+            db, organizer, days=max(days, 1), min_minutes=meeting.duration_minutes, now=now, default_hours=True
+        )
+        for w in d["windows"]
+    ]
+    if not _fits(meeting.starts_at, meeting.duration_minutes, windows):
+        raise GroupMeetingError("That time is no longer free on your calendar.")
     source = await _meetings_source(db, meeting.organizer_id)
     db.add(CachedEvent(
         calendar_source_id=source.id,
@@ -271,11 +383,18 @@ async def cancel(db: AsyncSession, meeting: GroupMeeting) -> bool:
 
 
 async def notify_if_all_answered(db: AsyncSession, meeting: GroupMeeting, now: datetime | None = None) -> None:
-    """Tell the organizer once, when the last person answers."""
+    """Tell the organizer once, when the last person answers.
+
+    Call after committing the answer. Two last answers can commit at once,
+    each with participants loaded before the other's commit, so this reloads
+    them under the meeting's row lock and claims the notice before sending:
+    the later commit sees every answer, and only one request can claim it."""
     from app.services import email as mail
 
     now = now or datetime.now(timezone.utc)
+    await _lock_meeting(db, meeting)
     if meeting.status != "open" or meeting.all_answered_notified_at or not all_answered(meeting):
+        await db.commit()  # releases the row lock
         return
     candidates = await candidate_slots(db, meeting, now)
     ranked = rank(candidates, await participant_answers(db, meeting, candidates, now))
