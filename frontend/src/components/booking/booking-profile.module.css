@@ -1,14 +1,15 @@
 .page { min-height: 100svh; background: #faf9f6; color: #282734; }
 .loading { display: grid; min-height: 100svh; place-items: center; background: #faf9f6; }
 .loading p { font-family: var(--font-sans); font-size: 13px; text-transform: none; letter-spacing: normal; }
+.art::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 47% 42%, transparent 45%, #28233916 100%), linear-gradient(0deg, #9b65400a, transparent 30%); }
 .art { position: relative; height: 42svh; min-height: 290px; overflow: hidden; background: #d9c8cc; }
-.wordmark { position: absolute; top: 28px; left: 30px; display: inline-flex; align-items: center; gap: 9px; color: #38323f; font-size: 19px; }
+.wordmark { position: absolute; top: 28px; left: 30px; display: inline-flex; align-items: center; gap: 9px; color: #38323f; font-size: 19px; z-index: 1; }
 .wordmark:focus-visible, .footer a:focus-visible, .homeLink:focus-visible { outline: 2px solid #7760ee; outline-offset: 6px; border-radius: 3px; }
 .artCaption { display: none; }
-.panel { display: flex; flex-direction: column; padding: 35px 25px 24px; }
+.panel { position: relative; display: flex; flex-direction: column; padding: 35px 25px 24px; background: radial-gradient(ellipse at 0 0, #e8d5b729, transparent 55%), #faf9f6; }
 .content { width: 100%; max-width: 470px; margin: auto; }
 .header { margin-bottom: 35px; }
-.avatar { width: 58px; height: 58px; margin-bottom: 24px; border-radius: 50%; overflow: hidden; background: #ebe7f0; box-shadow: 0 0 0 5px #f2efec; display: grid; place-items: center; font-size: 18px; color: #695b84; }
+.avatar { width: 58px; height: 58px; margin-bottom: 24px; border-radius: 50%; overflow: hidden; background: #ebe7f0; box-shadow: 0 0 0 5px #eee7dd80, 0 8px 24px #8f744511; display: grid; place-items: center; font-size: 18px; color: #695b84; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 .header h1 { font-size: clamp(30px, 4vw, 47px); line-height: 1.16; font-weight: 500; letter-spacing: -.045em; margin-bottom: 18px; }
 .header h1 > span { display: block; font-weight: 650; }
@@ -16,6 +17,7 @@
 .meetings { border-top: 1px solid #dedbd8; }
 .meeting { display: flex; position: relative; align-items: center; gap: 16px; padding: 26px 0; border-bottom: 1px solid #dedbd8; transition: background 180ms; }
 .meeting::before { content: ""; position: absolute; top: 29px; bottom: 29px; left: -15px; width: 3px; background: var(--meeting-color); border-radius: 4px; opacity: 0; transition: opacity 180ms; }
+.meeting:hover, .meeting:focus-visible { background: linear-gradient(90deg, #dfc6a21c, transparent 85%); }
 .meeting:hover::before, .meeting:focus-visible::before { opacity: 1; }
 .meeting:focus-visible { outline: 2px solid #7760ee; outline-offset: 7px; border-radius: 2px; }
 .meetingText { flex: 1; min-width: 0; }
@@ -35,9 +37,9 @@
   .page { display: grid; grid-template-columns: 55% 45%; align-items: start; }
   .art { position: sticky; top: 0; height: 100svh; min-height: 650px; }
   .wordmark { top: 40px; left: 44px; }
-  .artCaption { display: flex; align-items: center; gap: 20px; position: absolute; bottom: 39px; left: 44px; right: 44px; font-size: 12px; color: #5b4538; }
+  .artCaption { display: flex; align-items: center; gap: 20px; position: absolute; bottom: 39px; left: 44px; right: 44px; font-size: 12px; color: #594a41; z-index: 1; }
   .captionLine { height: 1px; width: 52px; background: currentColor; opacity: .45; }
-  .panel { min-height: 100svh; padding: 80px clamp(38px, 5.2vw, 92px) 35px; }
+  .panel { background: radial-gradient(ellipse at 0 48%, #e5c59726, transparent 52%), #faf9f6; box-shadow: -1px 0 0 #ffffff66; min-height: 100svh; padding: 80px clamp(38px, 5.2vw, 92px) 35px; }
   .content { margin: auto; padding: 45px 0; }
   .header { margin-bottom: 48px; }
   .avatar { width: 64px; height: 64px; margin-bottom: 36px; }

@@ -40,7 +40,7 @@ function DurationGlyph({ minutes }: { minutes: number }) {
   const end = fraction * Math.PI * 2;
   return (
     <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden>
-      <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.2" opacity=".45" />
+      <path d="M10 2c4.5 0 8 3.2 8 7.4 0 4.7-3.7 8.8-7.3 8.6C6.3 17.7 2 14 2 9.6 2 5.4 5.5 2 10 2Z" stroke="currentColor" strokeWidth="1.2" opacity=".5" />
       {fraction === 1 ? <circle cx="10" cy="10" r="5.5" fill="currentColor" opacity=".7" /> : (
         <path d={`M10 10 L10 4.5 A5.5 5.5 0 ${fraction > .5 ? 1 : 0} 1 ${10 + Math.sin(end) * 5.5} ${10 - Math.cos(end) * 5.5} Z`} fill="currentColor" opacity=".7" />
       )}
