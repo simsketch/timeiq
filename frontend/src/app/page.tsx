@@ -55,7 +55,7 @@ export default function LandingPage() {
               TimeIQ
             </span>
           </Link>
-          <nav className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
+          <nav className="hidden lg:flex items-center gap-6 text-sm text-muted-foreground">
             <a href="#how" className="hover:text-foreground transition-colors">
               How it works
             </a>
@@ -68,6 +68,12 @@ export default function LandingPage() {
             <a href="#new" className="hover:text-foreground transition-colors">
               What&apos;s new
             </a>
+            <Link href="/tools" className="hover:text-foreground transition-colors">
+              Free tools
+            </Link>
+            <Link href="/blog" className="hover:text-foreground transition-colors">
+              Blog
+            </Link>
             <FounderPill href="/pricing" compact />
           </nav>
           <div className="flex items-center gap-2">
@@ -912,6 +918,12 @@ export default function LandingPage() {
                 <GitHubIcon className="h-3.5 w-3.5" />
                 AGPL-3.0
               </a>
+              <Link href="/tools" className="hover:text-foreground transition-colors">
+                Free tools
+              </Link>
+              <Link href="/blog" className="hover:text-foreground transition-colors">
+                Blog
+              </Link>
               <Link href="/privacy" className="hover:text-foreground transition-colors">
                 Privacy
               </Link>

@@ -517,3 +517,16 @@
   .hero-float, .hero-float-chip, .hero-float-pill,
   .hero-shadow, .hero-halo { animation: none !important; }
 }
+
+/* Long-form text on tool explainers and blog posts. */
+.article { font-size: 1.0625rem; line-height: 1.75; color: hsl(var(--foreground) / 0.86); max-width: 44rem; }
+.article > * + * { margin-top: 1.1em; }
+.article h2 { font-size: 1.6rem; line-height: 1.25; font-weight: 650; letter-spacing: -0.015em; color: hsl(var(--foreground)); margin-top: 2em; }
+.article h3 { font-size: 1.2rem; font-weight: 650; color: hsl(var(--foreground)); margin-top: 1.6em; }
+.article ul, .article ol { padding-left: 1.3em; }
+.article ul { list-style: disc; }
+.article ol { list-style: decimal; }
+.article li + li { margin-top: 0.4em; }
+.article a { color: hsl(var(--aurora-1)); text-decoration: underline; text-underline-offset: 3px; }
+.article strong { color: hsl(var(--foreground)); font-weight: 650; }
+.article blockquote { border-left: 3px solid hsl(var(--aurora-1) / 0.5); padding-left: 1em; color: hsl(var(--muted-foreground)); }
