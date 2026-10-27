@@ -102,19 +102,26 @@ async def candidate_slots(db: AsyncSession, meeting: GroupMeeting, now: datetime
 
 
 def spread(slots: list[datetime], tz, limit: int = 6, per_day: int = 2) -> list[datetime]:
-    """A few options to offer in words: at most per_day a day, spaced apart."""
-    picked: list[datetime] = []
-    by_day: dict = {}
+    """A few options to offer in words: at most per_day a day, spaced at least
+    three hours apart, starting early on one day and later on the next so the
+    list offers a real choice."""
+    days: dict = {}
     for s in sorted(slots):
-        day = s.astimezone(tz).date()
-        mine = by_day.setdefault(day, [])
-        if len(mine) >= per_day or any(abs((s - m).total_seconds()) < 3 * 3600 for m in mine):
-            continue
-        mine.append(s)
-        picked.append(s)
+        days.setdefault(s.astimezone(tz).date(), []).append(s)
+    picked: list[datetime] = []
+    for n, day in enumerate(sorted(days)):
+        options = days[day]
+        first = options[[0, len(options) // 2, len(options) - 1][n % 3]]
+        mine = [first]
+        for s in options:
+            if len(mine) >= per_day:
+                break
+            if all(abs((s - m).total_seconds()) >= 3 * 3600 for m in mine):
+                mine.append(s)
+        picked += sorted(mine)
         if len(picked) >= limit:
             break
-    return picked
+    return sorted(picked)[:limit]
 
 
 def iso(dt: datetime) -> str:

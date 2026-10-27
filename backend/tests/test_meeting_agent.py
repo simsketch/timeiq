@@ -121,7 +121,7 @@ async def test_thread_to_booking(env):
     assert proposal["subject"] == "Re: Pilot"
     assert proposal["headers"]["In-Reply-To"] == first_id
     assert first_id in proposal["headers"]["References"]
-    assert "Mon Nov 2, 9 AM EST" in proposal["html"] and "Fri" not in proposal["html"].split("pick your times")[0].split("<ul")[1]
+    assert "Mon Nov 2, 9 AM EST" in proposal["html"] and "Tue Nov 3, 10:30 AM EST" in proposal["html"] and "Fri" not in proposal["html"].split("pick your times")[0].split("<ul")[1]
     assert f"/meet/{m.participants[0].token}" in proposal["html"]
 
     # Dana replies in words; Claude picks option 2 from the full list.
