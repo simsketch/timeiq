@@ -49,6 +49,19 @@
   .checks li::before { content: ""; flex: none; width: 44px; height: 44px; margin-top: 2px; border-radius: 50%;
     background: #6157f0 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/26px no-repeat; }
   .checks small { display: block; font-size: 29px; font-weight: 400; color: #5b6275; margin-top: 6px; letter-spacing: -0.005em; }
+  /* I, J: email thread */
+  .mail { background: rgba(255,255,255,.9); border-radius: 30px; padding: 30px 34px; font-size: 32px; line-height: 1.4; }
+  .mail.agent { background: #fff; border: 3px solid #c9c4ff; }
+  .mail .meta { font-family: "GeistMono"; font-size: 22px; color: #6b7280; margin-bottom: 12px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .mail .who { font-family: "Geist"; font-weight: 700; color: #111827; font-size: 25px; }
+  .mail.agent .who { color: #5146e5; }
+  .cc { background: #ece9ff; color: #4338ca; border-radius: 999px; padding: 4px 16px; font-family: "Geist"; font-weight: 700; font-size: 22px; }
+  .opt { display: block; border: 2px solid #e5e7eb; border-radius: 18px; padding: 16px 22px; margin-top: 12px; font-weight: 700; font-size: 30px; }
+  .opt.on { background: #0f1220; border-color: #0f1220; color: #fff; }
+  .done { display: inline-flex; align-items: center; gap: 14px; background: #ecfdf5; color: #047857; border-radius: 999px; padding: 16px 30px; font-weight: 700; font-size: 30px; }
+  .ev { display: flex; gap: 18px; align-items: center; background: #fff; border-radius: 20px; padding: 18px 24px; font-size: 29px; font-weight: 600; margin-top: 12px; }
+  .ev b { width: 14px; align-self: stretch; border-radius: 8px; background: #ec4899; flex: none; }
+  .ev small { margin-left: auto; font-family: "GeistMono"; font-size: 23px; color: #6b7280; font-weight: 500; }
 </style>
 </head>
 <body>
@@ -119,6 +132,34 @@ T.H = `${brand}
   <div class="spacer"></div>
   <div><span class="chip">$19 a year for the first 100 founders</span></div>
   ${tall ? '<div class="spacer"></div>' : ""}`;
+T.I = `${brand}
+  <span class="pill" style="position:absolute;right:72px;top:${tall ? 128 : 56}px">$19 / year</span>
+  <h1 style="font-size:${tall ? 108 : 92}px;margin-top:${tall ? 160 : 48}px">Cc TimeIQ.<br><span class="it" style="font-weight:400">It finds the time.</span></h1>
+  <div class="spacer"></div>
+  <div class="mail card"><div class="meta"><span class="who">Dana</span>to Elon <span class="cc">Cc: TimeIQ</span></div>
+    Can we find 30 min next week? Mornings are best.</div>
+  <div style="height:${tall ? 26 : 18}px"></div>
+  <div class="mail agent card"><div class="meta"><span class="who">Elon via TimeIQ</span>to Dana, Elon</div>
+    ${tall ? "Here are 3 times that work for Elon:" : "Times that work for Elon:"}
+    <span class="opt">Mon Nov 2, 9 AM</span><span class="opt on">Tue Nov 3, 10:30 AM</span>${tall ? '<span class="opt">Wed Nov 4, 11 AM</span>' : ""}
+  </div>
+  <div style="height:${tall ? 30 : 22}px"></div>
+  <div><span class="done">&#10003; Booked. Invite sent to both.</span></div>
+  <div class="spacer"></div>${tall ? '<p class="sub" style="text-align:center">No back-and-forth. You just say &ldquo;book it.&rdquo;</p><div class="spacer"></div>' : ""}`;
+T.J = `${brand}
+  <span class="pill" style="position:absolute;right:72px;top:${tall ? 128 : 56}px">$19 / year</span>
+  <h1 style="font-size:${tall ? 104 : 86}px;margin-top:${tall ? 160 : 48}px">Forward any schedule.<br><span class="it" style="font-weight:400">It&rsquo;s on your calendar.</span></h1>
+  <div class="spacer"></div>
+  <div class="mail card"><div class="meta"><span class="who">You</span>to schedule@timeiq</div>
+    Fw: U10 fall soccer schedule.pdf</div>
+  <div style="height:${tall ? 26 : 16}px"></div>
+  <div class="ev card"><b></b>Soccer practice<small>Tue 5:30 PM</small></div>
+  <div class="ev card"><b></b>Soccer practice<small>Thu 5:30 PM</small></div>
+  <div class="ev card"><b></b>Game vs Cazenovia<small>Sat 9 AM</small></div>
+  ${tall ? '<div class="ev card"><b></b>Tournament<small>Sun, all day</small></div>' : ""}
+  <div style="height:${tall ? 30 : 22}px"></div>
+  <div><span class="done">&#10003; Added 10 events. Undo anytime.</span></div>
+  <div class="spacer"></div>${tall ? '<p class="sub" style="text-align:center">PDFs, screenshots, or the coach&rsquo;s email. All work.</p><div class="spacer"></div>' : ""}`;
 el.innerHTML = T[q.get("ad") || "A"];
 </script>
 </body>

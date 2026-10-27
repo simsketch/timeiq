@@ -101,3 +101,15 @@ Calendly replacement that merges every calendar.
   calendars, buffers, daily cap, intake fields, reschedule links in confirmation emails.
 - Product fixes shipped with it: calendars sync hourly, booking pages re-sync stale calendars on load,
   bookings re-check before confirming, and webcal:// / redirecting feeds (iCloud) now import.
+
+
+## Next creatives, ready for after the Nov 1 report (added 2026-10-27)
+
+Not uploaded yet: adding ads mid-test restarts Meta's learning. Upload after the
+day-8 report, as their own ad set if the calendar angle (G/H) is working.
+
+- **I: "Cc TimeIQ. It finds the time."** (`ad-I-cc-timeiq-1080.png`, `-1080x1920.png`)
+  An email thread: Dana cc's TimeIQ, TimeIQ replies with times, "Booked. Invite sent to both."
+  Primary text: "Stop the back-and-forth. Cc your TimeIQ address on any email about meeting up. It replies with three times you're free, reads the answers, and sends the invite when you say \"book it.\" $19/year for the first 100 founders."
+- **J: "Forward any schedule. It's on your calendar."** (`ad-J-forward-schedule-1080.png`, `-1080x1920.png`)
+  Matches the homepage headline. Primary text: "The soccer PDF, the band email, a screenshot from the team app. Forward it to TimeIQ and every practice and game lands on your calendar. $19/year."
