@@ -188,7 +188,7 @@ def layout(hero: str, preheader: str, body_html: str, footer_note: str | None = 
     </td></tr>
     <tr><td style="padding:22px 12px 0;text-align:center;font-family:{FONT};font-size:12px;line-height:18px;color:{MUTED};">
       <a href="{site}" style="color:{MUTED};text-decoration:none;font-weight:600;">TimeIQ</a>
-      &nbsp;·&nbsp; Book meetings. Log hours. Send invoices.
+      &nbsp;·&nbsp; Forward any schedule. Find a time with anyone.
       &nbsp;·&nbsp; <a href="{site}/privacy" style="color:{MUTED};">Privacy</a>
       {note}
     </td></tr>

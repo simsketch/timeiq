@@ -10,6 +10,7 @@ const isPublicRoute = createRouteMatcher([
   "/billing/checkout",
   "/billing/welcome",
   "/imports/undo",
+  "/meet/(.*)",
   "/tools(.*)",
   "/blog(.*)",
   "/sitemap.xml",

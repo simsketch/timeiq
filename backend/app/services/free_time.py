@@ -6,7 +6,8 @@ fixed-length slots.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
+from types import SimpleNamespace
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,8 +58,12 @@ async def free_windows(
     min_minutes: int = 30,
     buffer_minutes: int = 0,
     now: datetime | None = None,
+    default_hours: bool = False,
 ) -> list[dict]:
-    """Per host-local day: the open windows (UTC) inside working hours."""
+    """Per host-local day: the open windows (UTC) inside working hours.
+
+    default_hours treats a host who never set working hours as working
+    9 to 5 on weekdays, instead of never free."""
     now = now or datetime.now(timezone.utc)
     days = max(1, min(days, BOOKING_HORIZON_DAYS))
     tz = host_zone(host)
@@ -76,6 +81,8 @@ async def free_windows(
             )
         ).scalars()
     }
+    if not rules and default_hours:
+        rules = {d: SimpleNamespace(start_time=time(9), end_time=time(17)) for d in range(5)}
     events = (
         await db.execute(
             select(CachedEvent.starts_at, CachedEvent.ends_at).where(

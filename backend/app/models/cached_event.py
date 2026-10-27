@@ -36,6 +36,13 @@ class CachedEvent(Base):
         nullable=True,
         index=True,
     )
+    # Set for a booked group meeting, so cancelling it removes these events.
+    group_meeting_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("timeiq.group_meetings.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     title: Mapped[str | None] = mapped_column(String(500), nullable=True)
     starts_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False

@@ -610,3 +610,186 @@ def send_monthly_drafts_digest(user: User, invoices: list, start: date, end: dat
         },
         "monthly drafts digest",
     )
+
+
+# ---------------------------------------------------------------------------
+# Group meetings
+# ---------------------------------------------------------------------------
+
+
+def _organizer_name(meeting) -> str:
+    return meeting.organizer.name or meeting.organizer.email
+
+
+def _group_ics(meeting, method: str = "REQUEST") -> dict:
+    from app.services.ics_generator import generate_group_ics
+
+    attendees = [(meeting.organizer.name, meeting.organizer.email)] + [(p.name, p.email) for p in meeting.participants]
+    content = generate_group_ics(
+        uid=f"group-{meeting.id}@timeiq.app",
+        sequence=meeting.ical_sequence or 0,
+        method=method,
+        summary=meeting.title,
+        description=(meeting.note or "") + f"\n\nScheduled with TimeIQ: {_site()}",
+        starts_at=meeting.starts_at,
+        ends_at=meeting.ends_at,
+        attendees=attendees,
+        location=meeting.location,
+    )
+    return {
+        "filename": "cancel.ics" if method == "CANCEL" else "invite.ics",
+        "content": content,
+        "content_type": f"text/calendar; method={method}",
+    }
+
+
+def _window_text(meeting) -> str:
+    return f"{meeting.window_start.strftime('%a %b %-d')} to {meeting.window_end.strftime('%a %b %-d')}"
+
+
+def _timeiq_note() -> str:
+    return t.p_html(
+        f'Already on TimeIQ? Sign in on that page and share your calendar in one click. Only free and busy '
+        f'times are shared, never what your events are. Not yet? <a href="{_site()}" style="color:{t.INDIGO};">TimeIQ</a> '
+        f"finds a time with anyone and puts emailed schedules on your calendar.",
+        muted=True,
+    )
+
+
+def render_group_invite(meeting, participant) -> str:
+    org = _organizer_name(meeting)
+    link = f"{_site()}/meet/{participant.token}"
+    rows = [
+        ("Meeting", html_escape(meeting.title)),
+        ("Length", f"{meeting.duration_minutes} minutes"),
+        ("Looking at", html_escape(_window_text(meeting))),
+    ]
+    if meeting.location:
+        rows.append(("Where", html_escape(meeting.location)))
+    body = (
+        t.h1(f"{org} is finding a time to meet.")
+        + (t.p(meeting.note) if meeting.note else "")
+        + t.p("Tick the times that work for you. It takes about 20 seconds and you don't need an account.", muted=True)
+        + t.details(rows, rows_html=True)
+        + t.buttons(t.button("Pick times that work", link))
+        + _timeiq_note()
+    )
+    return t.layout("reminder", f"{org} wants to find a time for {meeting.title}", body)
+
+
+def send_group_invite(meeting, participant, reminder: bool = False) -> None:
+    _init_resend()
+    org = _organizer_name(meeting)
+    _send(
+        {
+            "from": FROM_EMAIL,
+            "to": [participant.email],
+            "reply_to": meeting.organizer.email,
+            "subject": f"{'Reminder: ' if reminder else ''}{org} is finding a time for {meeting.title}",
+            "html": render_group_invite(meeting, participant),
+        },
+        "group invite",
+    )
+
+
+def render_group_all_answered(meeting, best: dict | None) -> str:
+    tz = meeting.organizer.timezone or "UTC"
+    n = len(meeting.participants)
+    if best and best["yes"] == n:
+        start = datetime.fromisoformat(best["start"].replace("Z", "+00:00"))
+        headline = f"Everyone can make {_format_datetime(start, tz)}."
+    elif best and best["yes"]:
+        start = datetime.fromisoformat(best["start"].replace("Z", "+00:00"))
+        headline = f"Best time: {_format_datetime(start, tz)}, {best['yes']} of {n} can make it."
+    else:
+        headline = "Everyone answered, but no time works for all of you."
+    body = (
+        t.h1(f"Everyone answered for {meeting.title}.")
+        + t.p(headline)
+        + t.p("Open the meeting to book it. Everyone gets a calendar invite.", muted=True)
+        + t.buttons(t.button("Book a time", f"{_site()}/meetings/{meeting.id}"))
+    )
+    return t.layout("new-booking", f"Everyone answered for {meeting.title}", body)
+
+
+def send_group_all_answered(meeting, best: dict | None) -> None:
+    _init_resend()
+    _send(
+        {
+            "from": FROM_EMAIL,
+            "to": [meeting.organizer.email],
+            "subject": f"Everyone answered: {meeting.title}",
+            "html": render_group_all_answered(meeting, best),
+        },
+        "group all answered",
+    )
+
+
+def render_group_booked(meeting, tz: str) -> str:
+    org = _organizer_name(meeting)
+    rows = [
+        ("Meeting", html_escape(meeting.title)),
+        ("When", html_escape(_when(meeting.starts_at, meeting.ends_at, tz))),
+        ("Who", html_escape(", ".join([org] + [p.name or p.email for p in meeting.participants]))),
+    ]
+    if meeting.location:
+        rows.append(("Where", html_escape(meeting.location)))
+    body = (
+        t.h1(f"{meeting.title} is booked.")
+        + t.p("A calendar invite is attached. Open it to add this to your calendar.", muted=True)
+        + t.details(rows, rows_html=True)
+        + t.p(f"Need to change something? Reply to reach {org}.", muted=True)
+    )
+    return t.layout("confirmed", f"{meeting.title}: {_format_datetime(meeting.starts_at, tz)}", body)
+
+
+def send_group_booked(meeting) -> None:
+    _init_resend()
+    invite = _group_ics(meeting)
+    org_tz = meeting.organizer.timezone or "UTC"
+    for p in meeting.participants:
+        _send(
+            {
+                "from": FROM_EMAIL,
+                "to": [p.email],
+                "reply_to": meeting.organizer.email,
+                "subject": f"Booked: {meeting.title}, {_format_datetime(meeting.starts_at, org_tz)}",
+                "html": render_group_booked(meeting, org_tz),
+                "attachments": [invite],
+            },
+            "group booked",
+        )
+    _send(
+        {
+            "from": FROM_EMAIL,
+            "to": [meeting.organizer.email],
+            "subject": f"Booked: {meeting.title}, {_format_datetime(meeting.starts_at, org_tz)}",
+            "html": render_group_booked(meeting, org_tz),
+            "attachments": [invite],
+        },
+        "group booked (organizer)",
+    )
+
+
+def send_group_cancelled(meeting) -> None:
+    _init_resend()
+    org = _organizer_name(meeting)
+    tz = meeting.organizer.timezone or "UTC"
+    body = (
+        t.h1(f"{meeting.title} is cancelled.")
+        + t.p(f"{org} cancelled the meeting on {_format_datetime(meeting.starts_at, tz)}. The attached update removes it from your calendar.", muted=True)
+    )
+    html = t.layout("cancelled", f"Cancelled: {meeting.title}", body)
+    cancel = _group_ics(meeting, "CANCEL")
+    for email in [p.email for p in meeting.participants] + [meeting.organizer.email]:
+        _send(
+            {
+                "from": FROM_EMAIL,
+                "to": [email],
+                "reply_to": meeting.organizer.email,
+                "subject": f"Cancelled: {meeting.title}",
+                "html": html,
+                "attachments": [cancel],
+            },
+            "group cancelled",
+        )

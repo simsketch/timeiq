@@ -9,6 +9,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
+# Calendars TimeIQ fills itself (emailed schedules, booked group meetings).
+# They have no feed, so sync and health checks skip them.
+LOCAL_SOURCE_TYPES = ("email", "meetings")
+
 
 class CalendarSource(Base):
     __tablename__ = "calendar_sources"

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import or_, select, text
 
 from app.database import async_session
-from app.models.calendar_source import CalendarSource
+from app.models.calendar_source import LOCAL_SOURCE_TYPES, CalendarSource
 from app.models.user import User
 from app.services.calendar_health import classify, is_due, record_failure, record_success
 from app.services.calendar_sync import sync_calendar_source
@@ -101,7 +101,7 @@ async def sync_all_active_calendars() -> dict[str, int]:
     """
     async with async_session() as db:
         result = await db.execute(
-            select(CalendarSource.id).where(CalendarSource.is_active.is_(True), CalendarSource.type != "email")
+            select(CalendarSource.id).where(CalendarSource.is_active.is_(True), CalendarSource.type.notin_(LOCAL_SOURCE_TYPES))
         )
         source_ids = list(result.scalars().all())
 
@@ -116,7 +116,7 @@ async def sync_user_calendars(user_id) -> dict[str, int]:
         result = await db.execute(
             select(CalendarSource.id).where(
                 CalendarSource.user_id == user_id,
-                CalendarSource.is_active.is_(True), CalendarSource.type != "email",
+                CalendarSource.is_active.is_(True), CalendarSource.type.notin_(LOCAL_SOURCE_TYPES),
             )
         )
         source_ids = list(result.scalars().all())
@@ -141,7 +141,7 @@ async def freshen_user_calendars(user_id, budget_seconds: float) -> int:
         result = await db.execute(
             select(CalendarSource.id).where(
                 CalendarSource.user_id == user_id,
-                CalendarSource.is_active.is_(True), CalendarSource.type != "email",
+                CalendarSource.is_active.is_(True), CalendarSource.type.notin_(LOCAL_SOURCE_TYPES),
                 or_(
                     CalendarSource.last_synced_at.is_(None),
                     CalendarSource.last_synced_at < now - STALE_AFTER,

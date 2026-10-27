@@ -370,7 +370,7 @@ export default function CalendarsPage() {
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <h3 className="font-semibold">{calendar.name}</h3>
                       <Badge variant="secondary">
-                        {calendar.type === "ics_url" ? "ICS" : calendar.type === "email" ? "Emailed schedules" : calendar.type.toUpperCase()}
+                        {calendar.type === "ics_url" ? "ICS" : calendar.type === "email" ? "Emailed schedules" : calendar.type === "meetings" ? "Group meetings" : calendar.type.toUpperCase()}
                       </Badge>
                       {calendar.sync_status === "broken" && (
                         <Badge variant="destructive">Not syncing</Badge>
@@ -424,7 +424,7 @@ export default function CalendarsPage() {
                         {calendar.sync_status === "broken" && <span className="ml-2">Replace link</span>}
                       </Button>
                     )}
-                    {calendar.type !== "email" && (
+                    {calendar.type !== "email" && calendar.type !== "meetings" && (
                       <Button
                         size="sm"
                         variant="outline"

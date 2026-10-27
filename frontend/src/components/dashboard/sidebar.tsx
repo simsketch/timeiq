@@ -13,6 +13,7 @@ import {
   Timer,
   Users,
   Receipt,
+  UsersRound,
 } from "lucide-react";
 import { LogoIcon } from "@/components/logo";
 
@@ -22,6 +23,7 @@ const routes = [
   { label: "Availability", icon: Clock, href: "/availability" },
   { label: "Calendars", icon: CalendarDays, href: "/calendars" },
   { label: "Bookings", icon: BookOpen, href: "/bookings" },
+  { label: "Group meetings", icon: UsersRound, href: "/meetings" },
   { label: "Time", icon: Timer, href: "/time" },
   { label: "Clients", icon: Users, href: "/clients" },
   { label: "Invoices", icon: Receipt, href: "/invoices" },

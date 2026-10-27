@@ -98,6 +98,51 @@ def generate_booking_ics(
     return cal.to_ical().decode("utf-8")
 
 
+def generate_group_ics(
+    *,
+    uid: str,
+    sequence: int,
+    method: str,
+    summary: str,
+    description: str,
+    starts_at: datetime,
+    ends_at: datetime,
+    attendees: list[tuple[str | None, str]],
+    location: str | None = None,
+) -> str:
+    """Invite for a group meeting: one event, every person as an attendee.
+    ORGANIZER is the sending address so Gmail renders it inline."""
+    if method not in ("REQUEST", "CANCEL"):
+        raise ValueError(f"Unsupported iTIP method: {method}")
+    cal = Calendar()
+    cal.add("prodid", "-//TimeIQ//Group meeting//EN")
+    cal.add("version", "2.0")
+    cal.add("calscale", "GREGORIAN")
+    cal.add("method", method)
+    event = Event()
+    event.add("uid", uid)
+    event.add("sequence", sequence)
+    event.add("dtstart", starts_at)
+    event.add("dtend", ends_at)
+    event.add("dtstamp", datetime.now(timezone.utc))
+    event.add("summary", summary)
+    event.add("description", description)
+    event.add("status", "CANCELLED" if method == "CANCEL" else "CONFIRMED")
+    if location:
+        event.add("location", location)
+        if location.startswith(("http://", "https://")):
+            event.add("url", location)
+    event.add("organizer", vText(f"mailto:{SERVICE_EMAIL}"), parameters={"CN": "TimeIQ"})
+    for name, email in attendees:
+        event.add(
+            "attendee",
+            vText(f"mailto:{email}"),
+            parameters={"CN": name or email, "ROLE": "REQ-PARTICIPANT", "RSVP": "TRUE"},
+        )
+    cal.add_component(event)
+    return cal.to_ical().decode("utf-8")
+
+
 def generate_feed_ics(
     calendar_name: str,
     bookings: Iterable[Booking],
