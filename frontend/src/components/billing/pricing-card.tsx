@@ -89,7 +89,7 @@ export function PricingCard({ compact = false }: { compact?: boolean }) {
         <>
           <div className="flex items-baseline gap-2 mb-2">
             <span className="font-display text-6xl tracking-[-0.03em]">{fmtCents(price, currency)}</span>
-            <span className="text-muted-foreground">/ year</span>
+            <span className="text-muted-foreground">/ year + tax</span>
           </div>
           <p className="text-sm text-muted-foreground mb-7 text-pretty">
             {founderOpen

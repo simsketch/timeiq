@@ -135,7 +135,7 @@ export default function LandingPage() {
                 <div className="reveal reveal-4 flex flex-col sm:flex-row gap-3">
                   <Link href="/billing/checkout">
                     <Button variant="aurora" size="xl">
-                      Get started for $19/year
+                      Get started for $19/year + tax
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
@@ -149,7 +149,7 @@ export default function LandingPage() {
                 <div className="reveal reveal-5 flex items-center gap-5 pt-2 text-xs text-muted-foreground/80">
                   <span className="inline-flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
-                    $19/year founder price
+                    $19/year + tax founder price
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
@@ -710,7 +710,7 @@ export default function LandingPage() {
                   Hosted at timeiq.app
                 </div>
                 <h3 className="font-display text-3xl tracking-[-0.02em] leading-[1.05] mb-2">
-                  $19 a year. Nothing to run.
+                  $19 a year plus tax. Nothing to run.
                 </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed mb-6">
                   The same code, kept running, updated and backed up by the

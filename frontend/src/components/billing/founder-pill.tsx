@@ -24,7 +24,7 @@ export function FounderPill({ href = "/pricing", compact = false, className }: {
   if (!founderOpen) {
     return (
       <Link href={href} className={cn("inline-flex items-center gap-2 glass rounded-full px-3.5 py-1.5 text-xs font-medium text-foreground/80 hover:text-foreground transition-colors", className)}>
-        {fmtCents(pricing!.standard_price_cents, currency)}/year, cancel anytime
+        {fmtCents(pricing!.standard_price_cents, currency)}/year + tax, cancel anytime
         <ArrowRight className="h-3 w-3" />
       </Link>
     );
@@ -43,7 +43,7 @@ export function FounderPill({ href = "/pricing", compact = false, className }: {
         Founder
       </span>
       <span>
-        {fmtCents(price, currency)}/year
+        {fmtCents(price, currency)}/year + tax
         {!compact && pricing && (
           <span className="text-muted-foreground"> · {pricing.founder_seats_left} of {pricing.founder_seats} spots left</span>
         )}
