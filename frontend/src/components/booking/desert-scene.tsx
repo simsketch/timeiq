@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { MeetingType } from "./booking-profile";
@@ -10,6 +10,8 @@ interface SceneProps {
   running: boolean;
   reduced: boolean;
   small: boolean;
+  /** Called once the shaders have compiled and the first frame can show. */
+  onReady?: () => void;
 }
 
 type WatchShape = "hanging" | "ledge" | "puddle";
@@ -311,7 +313,7 @@ function Desert() {
     const geometry = new THREE.PlaneGeometry(180, 140, 144, 112);
     geometry.rotateX(-Math.PI / 2); geometry.translate(0, 0, 20);
     const p = geometry.getAttribute("position"), colors: number[] = [];
-    const dark = new THREE.Color("#b08155"), light = new THREE.Color("#d6b481"), color = new THREE.Color();
+    const dark = new THREE.Color("#b06f3c"), light = new THREE.Color("#e3a865"), color = new THREE.Color();
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), z = p.getZ(i), h = terrainHeight(x, z);
       p.setY(i, h);
@@ -392,12 +394,12 @@ function Sky() {
     const canvas = document.createElement("canvas"); canvas.width = canvas.height = 1024;
     const c = canvas.getContext("2d")!;
     const sky = c.createLinearGradient(0, 0, 0, 1024);
-    sky.addColorStop(0, "#929bb9"); sky.addColorStop(.22, "#b5afc0");
-    sky.addColorStop(.46, "#ebcbb3"); sky.addColorStop(.58, "#f5d9b6"); sky.addColorStop(1, "#d4ac85");
+    sky.addColorStop(0, "#9897d2"); sky.addColorStop(.22, "#c4a8c6");
+    sky.addColorStop(.46, "#f2b688"); sky.addColorStop(.58, "#f8c27a"); sky.addColorStop(1, "#e7a161");
     c.fillStyle = sky; c.fillRect(0, 0, 1024, 1024);
     c.save(); c.translate(110, 480); c.scale(1.7, 1);
     const glow = c.createRadialGradient(0, 0, 5, 0, 0, 260);
-    glow.addColorStop(0, "#ffe7b94a"); glow.addColorStop(1, "#ffe7b900");
+    glow.addColorStop(0, "#ffd48a88"); glow.addColorStop(1, "#ffd48a00");
     c.fillStyle = glow; c.fillRect(-260, -260, 520, 520); c.restore();
     const cloud = (x: number, y: number, width: number) => {
       const pigment = c.createLinearGradient(x, y, x + width, y);
@@ -473,17 +475,17 @@ function Landscape({ active, running, reduced, small }: SceneProps) {
   const watch = { active: null, running, reduced, elapsed, time, enamel };
   return <>
     <Sky />
-    <fog attach="fog" args={["#d9bda4", 30, 130]} />
-    <hemisphereLight args={["#b5bee9", "#b0784b", 1.1]} />
-    <directionalLight position={[-8, 5, -6]} color="#ffe0a0" intensity={3.4} castShadow shadow-mapSize={[512, 512]} shadow-camera-left={-6} shadow-camera-right={6} shadow-camera-top={7} shadow-camera-bottom={-5} shadow-normalBias={.025} shadow-bias={-.0002} shadow-radius={3} />
-    <directionalLight position={[-4, 3, 8]} color="#f4d9bb" intensity={1.35} />
-    <directionalLight position={[3, 6, -6]} color="#c9d2ff" intensity={1.6} />
+    <fog attach="fog" args={["#ebb98a", 30, 130]} />
+    <hemisphereLight args={["#bab6ee", "#c27a3c", 1.15]} />
+    <directionalLight position={[-8, 5, -6]} color="#ffc477" intensity={3.7} castShadow shadow-mapSize={[512, 512]} shadow-camera-left={-6} shadow-camera-right={6} shadow-camera-top={7} shadow-camera-bottom={-5} shadow-normalBias={.025} shadow-bias={-.0002} shadow-radius={3} />
+    <directionalLight position={[-4, 3, 8]} color="#f8c792" intensity={1.35} />
+    <directionalLight position={[3, 6, -6]} color="#c9d2ff" intensity={1.0} />
     <Desert />
     <mesh position={[0, -5.38, -52.8]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[260, 7]} /><meshStandardMaterial color="#92a5af" roughness={.4} metalness={.15} />
+      <planeGeometry args={[260, 7]} /><meshStandardMaterial color="#9eb1c2" roughness={.3} metalness={.2} />
     </mesh>
-    <Headland position={[-9, -5.4, -61]} color="#c7a27a" scale={1} />
-    <Headland position={[-3, -5.4, -79]} color="#c9ac8f" scale={.85} />
+    <Headland position={[-9, -5.4, -61]} color="#c4864d" scale={1} />
+    <Headland position={[-3, -5.4, -79]} color="#d6a06e" scale={.85} />
     <Plinth /><ContactShadows />
     <group position={[0, 0, .7]}><Branch points={trunk} radius={.135} /><Branch points={arm} radius={.10} /><Branch points={twig} radius={.057} /></group>
     <SoftWatch {...watch} main position={[.42, 3.4, 1.02]} scale={1.16} rotation={-.12} active={active} />
@@ -506,13 +508,18 @@ function WarmShaders({ onReady }: { onReady: (ready: boolean) => void }) {
 
 export default function DesertScene(props: SceneProps) {
   const [compiled, setCompiled] = useState(false);
+  const { onReady } = props;
+  const handleReady = useCallback((ready: boolean) => {
+    setCompiled(ready);
+    if (ready) onReady?.();
+  }, [onReady]);
   return <Canvas
     aria-hidden="true" frameloop={props.running && compiled ? "demand" : "never"}
     dpr={[1, props.small ? 1.25 : 1.75]} shadows={{ type: THREE.PCFShadowMap }}
     camera={{ position: [4.6, 5.4, 15.8], fov: props.small ? 31 : 33.5, near: .1, far: 190 }}
-    gl={{ antialias: true, alpha: false, powerPreference: "low-power", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: .95 }}
+    gl={{ antialias: true, alpha: false, powerPreference: "low-power", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1 }}
     style={{ position: "absolute", inset: 0, opacity: compiled ? 1 : 0 }}
   >
-    <Landscape {...props} running={props.running && compiled} /><WarmShaders onReady={setCompiled} />
+    <Landscape {...props} running={props.running && compiled} /><WarmShaders onReady={handleReady} />
   </Canvas>;
 }
