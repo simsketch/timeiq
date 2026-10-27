@@ -117,7 +117,7 @@ export default function LandingPage() {
                   <FounderPill href="#pricing" />
                 </div>
 
-                <h1 className="reveal reveal-2 text-[3.25rem] sm:text-6xl lg:text-[5rem] leading-[0.95] tracking-[-0.035em] text-balance">
+                <h1 className="text-[3.25rem] sm:text-6xl lg:text-[5rem] leading-[0.95] tracking-[-0.035em] text-balance">
                   <span className="font-display">Schedule meetings</span>
                   <br />
                   <span className="font-display-italic text-aurora">
