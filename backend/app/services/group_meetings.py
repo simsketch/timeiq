@@ -241,7 +241,7 @@ async def book(db: AsyncSession, meeting: GroupMeeting, start: datetime, now: da
     await db.flush()
 
 
-async def hold(db: AsyncSession, meeting: GroupMeeting) -> None:
+async def hold(db: AsyncSession, meeting: GroupMeeting, now: datetime | None = None) -> None:
     """Block an accepted time on the organizer's calendar until the other
     side's invite arrives (they send it, so TimeIQ sends none)."""
     source = await _meetings_source(db, meeting.organizer_id)
