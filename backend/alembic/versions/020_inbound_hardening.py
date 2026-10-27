@@ -1,7 +1,7 @@
 """Inbound email: retryable processing claims
 
 Revision ID: 020_inbound_hardening
-Revises: 017_meeting_agent
+Revises: 019_agent_hardening
 Create Date: 2026-10-27
 
 """
@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "020_inbound_hardening"
-down_revision = "017_meeting_agent"
+down_revision = "019_agent_hardening"
 branch_labels = None
 depends_on = None
 
