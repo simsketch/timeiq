@@ -10,11 +10,11 @@ import "./globals.css";
 
 const SITE = "https://timeiq.app";
 const DESCRIPTION =
-  "All your calendars in one booking link. Email TimeIQ a schedule and it adds the events; share your open times in any time zone. $19/year founder price for the first 100 subscribers.";
+  "Forward TimeIQ a soccer PDF, band email or team-app screenshot and every event lands on your calendar. One booking link for all your calendars, and your open times in any time zone. $19/year founder price for the first 100 subscribers.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
-  title: "TimeIQ - All your calendars. One booking link.",
+  title: "TimeIQ - Forward any schedule. It's on your calendar.",
   description: DESCRIPTION,
   icons: {
     icon: "/favicon.svg",
@@ -23,13 +23,13 @@ export const metadata: Metadata = {
     type: "website",
     url: SITE,
     siteName: "TimeIQ",
-    title: "TimeIQ - All your calendars. One booking link.",
+    title: "TimeIQ - Forward any schedule. It's on your calendar.",
     description: DESCRIPTION,
     images: [{ url: "/og.png", width: 1200, height: 630, alt: "TimeIQ: all your calendars, one booking link" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "TimeIQ - All your calendars. One booking link.",
+    title: "TimeIQ - Forward any schedule. It's on your calendar.",
     description: DESCRIPTION,
     images: ["/og.png"],
   },

@@ -518,6 +518,29 @@
   .hero-shadow, .hero-halo { animation: none !important; }
 }
 
+/* Homepage demos */
+@keyframes demo-drop {
+  0% { opacity: 0; transform: translateY(-14px) scale(0.92); }
+  60% { opacity: 1; transform: translateY(2px) scale(1.02); }
+  100% { opacity: 1; transform: none; }
+}
+.demo-drop { animation: demo-drop 520ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes demo-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.demo-fade { animation: demo-fade-in 300ms ease both; }
+@keyframes demo-send {
+  0% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translate(40px, -24px) rotate(-4deg) scale(0.85); }
+}
+.demo-send { animation: demo-send 600ms cubic-bezier(0.65, 0, 0.35, 1) both; }
+@keyframes demo-pop {
+  0% { opacity: 0; transform: translateY(10px) scale(0.96); }
+  100% { opacity: 1; transform: none; }
+}
+.demo-pop { animation: demo-pop 420ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .demo-drop, .demo-fade, .demo-send, .demo-pop { animation: none !important; }
+}
+
 /* Long-form text on tool explainers and blog posts. */
 .article { font-size: 1.0625rem; line-height: 1.75; color: hsl(var(--foreground) / 0.86); max-width: 44rem; }
 .article > * + * { margin-top: 1.1em; }

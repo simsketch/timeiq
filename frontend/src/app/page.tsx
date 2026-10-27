@@ -25,20 +25,11 @@ import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { PricingCard } from "@/components/billing/pricing-card";
 import { FounderPill } from "@/components/billing/founder-pill";
 import { GitHubIcon, GITHUB_URL } from "@/components/github-icon";
+import { EmailScheduleDemo } from "@/components/landing/email-schedule-demo";
+import { CalendarMergeDemo } from "@/components/landing/calendar-merge-demo";
+import { AvailabilityShareDemo } from "@/components/landing/availability-share-demo";
 
 export default function LandingPage() {
-  const calendarDays = [
-    ...Array(6).fill({ day: "", blank: true }),
-    ...Array.from({ length: 28 }, (_, i) => ({
-      day: String(i + 1),
-      blank: false,
-      highlighted: i + 1 === 11,
-    })),
-    { day: "", blank: true },
-  ];
-
-  const timeSlots = ["9:00", "10:00", "11:00", "2:00"];
-
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* Global aurora mesh — drifts behind everything */}
@@ -65,8 +56,8 @@ export default function LandingPage() {
             >
               Features
             </a>
-            <a href="#new" className="hover:text-foreground transition-colors">
-              What&apos;s new
+            <a href="#try" className="hover:text-foreground transition-colors">
+              Live demo
             </a>
             <Link href="/tools" className="hover:text-foreground transition-colors">
               Free tools
@@ -120,19 +111,19 @@ export default function LandingPage() {
                   <FounderPill href="#pricing" />
                 </div>
 
-                <h1 className="text-[3.25rem] sm:text-6xl lg:text-[5rem] leading-[0.95] tracking-[-0.035em] text-balance">
-                  <span className="font-display">All your calendars.</span>
+                <h1 className="text-[3rem] sm:text-6xl lg:text-[4rem] xl:text-[4.5rem] leading-[0.98] tracking-[-0.035em] text-balance">
+                  <span className="font-display">Forward any schedule.</span>
                   <br />
                   <span className="font-display-italic text-aurora">
-                    One booking link.
+                    It&apos;s on your calendar.
                   </span>
                 </h1>
 
                 <p className="reveal reveal-3 text-lg lg:text-xl text-muted-foreground max-w-2xl leading-relaxed text-pretty">
-                  Pull in Google, Outlook and iCloud so people only see the times
-                  you are really free. Forward TimeIQ a soccer or band schedule
-                  and it lands on your calendar. Send your open times as text or
-                  a picture, in any time zone, in one click.
+                  Email TimeIQ the soccer PDF, the band newsletter or a screenshot
+                  from the team app. Every practice and game lands on your calendar,
+                  blocks your booking link and syncs to your phone. Then share
+                  when you&apos;re free, in any time zone, with one click.
                 </p>
 
                 <div className="reveal reveal-4 flex flex-col sm:flex-row gap-3">
@@ -156,7 +147,7 @@ export default function LandingPage() {
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
-                    2-minute setup
+                    Google, Outlook &amp; iCloud
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
@@ -200,116 +191,11 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              {/* Floating glass booking card */}
-              <div className="lg:col-span-5 relative reveal reveal-3 mt-4 lg:mt-0 mx-auto w-full max-w-md lg:max-w-none">
-                {/* Ambient aurora halo behind the whole composition */}
+              {/* Live demo: email a schedule */}
+              <div id="try" className="lg:col-span-5 relative reveal reveal-3 mt-4 lg:mt-0 mx-auto w-full max-w-md lg:max-w-none scroll-mt-24">
                 <div className="hero-halo" aria-hidden />
-
-                {/* Ground shadow — lives outside the float so it breathes against the card */}
-                <div className="hero-shadow" aria-hidden />
-
-                {/* The float orbit wraps the card + its satellites so they all drift together */}
-                <div className="relative hero-float">
-                  {/* Stacked back-card gives a second layer of glass depth */}
-                  <div className="hero-backcard" aria-hidden />
-
-                  <div className="glass glass-chroma rounded-[1.75rem] p-7 transition-transform duration-700 hover:scale-[1.015]">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className="h-11 w-11 rounded-full bg-[linear-gradient(135deg,hsl(var(--aurora-5)),hsl(var(--aurora-1)))] flex items-center justify-center text-white font-semibold text-sm shadow-lg shadow-[hsl(var(--aurora-1))]/25">
-                        EZ
-                      </div>
-                      <div>
-                        <div className="font-semibold">Elon Zito</div>
-                        <div className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
-                          30 min meeting
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mb-5">
-                      <div className="flex items-baseline justify-between mb-3">
-                        <div className="text-sm font-medium">February 2026</div>
-                        <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-                          EST · UTC−5
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-7 gap-1 mb-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">
-                        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
-                          <div key={i} className="text-center">
-                            {d}
-                          </div>
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-7 gap-1">
-                        {calendarDays.map((item, index) => (
-                          <div
-                            key={index}
-                            className={`aspect-square flex items-center justify-center text-xs rounded-lg font-medium transition-colors ${
-                              item.blank
-                                ? ""
-                                : item.highlighted
-                                ? "bg-foreground text-background shadow-[0_4px_14px_-2px_hsl(var(--foreground)/0.35)]"
-                                : "text-foreground/80 hover:bg-foreground/[0.06]"
-                            }`}
-                          >
-                            {item.day}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="mb-6">
-                      <div className="text-sm font-medium mb-2.5">
-                        Available times
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {timeSlots.map((time, index) => (
-                          <button
-                            key={index}
-                            className={`h-9 rounded-lg text-sm font-mono tabular-nums transition-colors ${
-                              index === 0
-                                ? "bg-foreground text-background"
-                                : "glass text-foreground/80 hover:text-foreground"
-                            }`}
-                          >
-                            {time}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <Button variant="aurora" className="w-full">
-                      Confirm booking
-                    </Button>
-                  </div>
-
-                  {/* Top-right "Synced" pill — counter-phase drift */}
-                  <div className="absolute -top-4 -right-4 hero-float-pill">
-                    <div className="glass rounded-full pl-2 pr-3.5 py-1.5 flex items-center gap-2">
-                      <span className="relative flex h-2 w-2">
-                        <span className="absolute inline-flex h-full w-full rounded-full bg-[hsl(var(--aurora-2))] opacity-60 animate-ping" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-[hsl(var(--aurora-2))]" />
-                      </span>
-                      <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-foreground/80">
-                        Calendar synced
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Bottom-left "Booking confirmed" chip — counter-phase drift */}
-                  <div className="absolute -bottom-5 -left-6 hero-float-chip">
-                    <div className="glass rounded-xl px-4 py-2.5 flex items-center gap-2.5">
-                      <div className="h-6 w-6 rounded-full bg-[hsl(var(--aurora-4))] flex items-center justify-center shadow-[0_6px_18px_-4px_hsl(var(--aurora-4)/0.6)]">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-white" />
-                      </div>
-                      <div className="text-xs">
-                        <div className="font-semibold">Booking confirmed</div>
-                        <div className="text-muted-foreground text-[10px] font-mono uppercase tracking-wider">
-                          Just now
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <div className="relative">
+                  <EmailScheduleDemo />
                 </div>
               </div>
             </div>
@@ -317,76 +203,62 @@ export default function LandingPage() {
         </section>
 
         {/* ================================================================
-             NEW — email a schedule + share availability
+             LIVE DEMO — all your calendars
              ================================================================ */}
-        <section id="new" className="relative py-24 lg:py-32">
+        <section id="calendars" className="relative py-24 lg:py-32 scroll-mt-16">
           <div className="container mx-auto px-6 lg:px-10">
-            <div className="max-w-2xl mb-14">
+            <div className="max-w-2xl mb-12">
               <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
-                New in TimeIQ
+                Try it · every calendar you use
               </div>
               <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
-                <span className="font-display">Less typing.</span>{" "}
-                <span className="font-display-italic text-aurora">More free time.</span>
+                <span className="font-display">All your calendars.</span>{" "}
+                <span className="font-display-italic text-aurora">One booking link.</span>
               </h2>
+              <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
+                A booking page only protects the calendars it can see. TimeIQ checks work, personal, family and
+                every schedule you email in, and re-checks right before anyone books. Switch calendars on below and
+                watch the clashes disappear.
+              </p>
             </div>
+            <CalendarMergeDemo />
+          </div>
+        </section>
 
-            <div className="grid lg:grid-cols-2 gap-6 lg:gap-8">
-              {/* Email a schedule */}
-              <div className="glass glass-hover rounded-[1.75rem] p-8 lg:p-10 flex flex-col">
-                <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.15em] text-[hsl(var(--aurora-1))] mb-4">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  AI schedule reader
+        {/* ================================================================
+             LIVE DEMO — share availability
+             ================================================================ */}
+        <section id="share" className="relative py-24 lg:py-32 scroll-mt-16">
+          <div className="container mx-auto px-6 lg:px-10">
+            <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+              <div className="lg:col-span-5">
+                <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
+                  Try it · share availability
                 </div>
-                <h3 className="font-display text-3xl tracking-[-0.02em] mb-3">Email it a schedule. Done.</h3>
-                <p className="text-muted-foreground leading-relaxed text-pretty mb-8">
-                  Forward the league PDF, a screenshot from the team app or the coach&apos;s email to your private
-                  TimeIQ address. Every practice and game lands on your calendar, blocks your booking page, and shows
-                  up on your phone. You get a reply listing what was added, with one-click undo.
+                <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
+                  <span className="font-display">&ldquo;When are you free?&rdquo;</span>{" "}
+                  <span className="font-display-italic text-aurora">One click.</span>
+                </h2>
+                <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
+                  TimeIQ turns every connected calendar into your open times for the week ahead. Add the other
+                  person&apos;s time zone and each slot shows both, like EST and PST. Copy it as text for an email or
+                  as a picture for a group chat, with your booking link at the bottom.
                 </p>
-                <div className="mt-auto space-y-3" aria-hidden>
-                  <div className="glass rounded-xl px-4 py-3 text-sm">
-                    <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
-                      To: schedule-…@timeiq.app
-                    </div>
-                    <div className="font-medium flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      Fw: U10 fall soccer schedule.pdf
-                    </div>
-                  </div>
-                  <div className="glass rounded-xl px-4 py-3 text-sm space-y-1.5">
-                    <div className="flex items-center gap-2 font-medium">
-                      <CheckCircle2 className="h-4 w-4 text-[hsl(var(--aurora-4))]" />
-                      Added 10 events
-                    </div>
-                    {["Tue Nov 3 · Practice, 5:30–7 PM", "Sat Nov 7 · Game vs Cazenovia, 9 AM", "Sun Nov 22 · Tournament (all day)"].map((l) => (
-                      <div key={l} className="text-muted-foreground font-mono text-xs tabular-nums">{l}</div>
-                    ))}
-                  </div>
-                </div>
+                <ul className="mt-6 space-y-2 text-sm text-foreground/80">
+                  {[
+                    "Your time zone first, up to two more beside it",
+                    "Skips meetings, buffers and anything you emailed in",
+                    "Text or picture, ready to paste",
+                  ].map((t) => (
+                    <li key={t} className="flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--aurora-1))]" />
+                      {t}
+                    </li>
+                  ))}
+                </ul>
               </div>
-
-              {/* Share availability */}
-              <div className="glass glass-hover rounded-[1.75rem] p-8 lg:p-10 flex flex-col">
-                <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.15em] text-[hsl(var(--aurora-2))] mb-4">
-                  <Globe className="h-3.5 w-3.5" />
-                  Share availability
-                </div>
-                <h3 className="font-display text-3xl tracking-[-0.02em] mb-3">&ldquo;When are you free?&rdquo; Answered.</h3>
-                <p className="text-muted-foreground leading-relaxed text-pretty mb-8">
-                  One click turns every connected calendar into your open times for the next week. Copy them as text
-                  for a message or email, or as a clean picture for chat. Add a second time zone and each slot shows
-                  both, like EST and PST.
-                </p>
-                <div className="mt-auto glass rounded-xl px-4 py-3 font-mono text-xs leading-relaxed text-foreground/80" aria-hidden>
-                  <div className="text-muted-foreground">Here&apos;s when I&apos;m free (EST / PST):</div>
-                  <div className="mt-2 font-semibold text-foreground">Tue, Nov 3</div>
-                  <div>9–11:30 AM EST · 6–8:30 AM PST</div>
-                  <div>1–4 PM EST · 10 AM–1 PM PST</div>
-                  <div className="mt-2 font-semibold text-foreground">Wed, Nov 4</div>
-                  <div>10 AM–5 PM EST · 7 AM–2 PM PST</div>
-                  <div className="mt-2 text-muted-foreground">Or grab a time: timeiq.app/book/you</div>
-                </div>
+              <div className="lg:col-span-7">
+                <AvailabilityShareDemo />
               </div>
             </div>
           </div>

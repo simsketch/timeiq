@@ -109,7 +109,9 @@ export function buildText(
 ): string {
   const [primary, ...others] = zones;
   const groups = groupByDay(summary, primary).filter((g) => includeEmptyDays || g.windows.length);
-  const abbrs = zones.map((z) => zoneAbbr(z)).join(" / ");
+  // Name zones as of the first opening, so a week after a clock change says EST, not EDT.
+  const ref = groups.find((g) => g.windows.length)?.windows[0].start ?? new Date();
+  const abbrs = zones.map((z) => zoneAbbr(z, ref)).join(" / ");
   const lines: string[] = [];
   if (!groups.length) {
     lines.push("I'm fully booked for this stretch. Here's my booking link for later dates:");
@@ -199,15 +201,16 @@ export function drawImage(
   ctx.fillText("When I'm free", left, 48);
   ctx.fillStyle = "#475569";
   ctx.font = font(400, 15);
+  // Offsets and names as of the first opening, not today, so clock changes line up.
+  const ref = groups.find((g) => g.windows.length)?.windows[0].start ?? new Date();
   const note = others.length
-    ? `Times in ${zoneAbbr(primary)}. ` + others.map((z) => {
-        const ref = new Date();
+    ? `Times in ${zoneAbbr(primary, ref)}. ` + others.map((z) => {
         const diff = hourIn(ref, z) - hourIn(ref, primary);
         const norm = ((diff + 36) % 24) - 12;
         const sign = norm >= 0 ? "+" : "−";
-        return `${zoneAbbr(z)} is ${sign}${Math.abs(norm)}h`;
+        return `${zoneAbbr(z, ref)} is ${sign}${Math.abs(norm)}h`;
       }).join(", ") + "."
-    : `Times in ${zoneAbbr(primary)}.`;
+    : `Times in ${zoneAbbr(primary, ref)}.`;
   ctx.fillText(note, left, 74);
 
   // Day headers
