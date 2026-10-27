@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import Iterable
 from uuid import UUID
 
@@ -143,11 +143,20 @@ def generate_group_ics(
     return cal.to_ical().decode("utf-8")
 
 
+def _local_date(value: datetime | date, tz: tzinfo | None) -> date:
+    if not isinstance(value, datetime):
+        return value
+    if tz is not None:
+        value = value.astimezone(tz)
+    return value.date()
+
+
 def generate_feed_ics(
     calendar_name: str,
     bookings: Iterable[Booking],
     cached_events: Iterable[CachedEvent],
     obfuscate: bool,
+    tz: tzinfo | None = None,
 ) -> str:
     """
     Generate a PUBLISH-method VCALENDAR aggregating TimeIQ bookings and
@@ -155,6 +164,10 @@ def generate_feed_ics(
 
     When obfuscate=True, titles are replaced with "Busy" and all descriptive
     detail (description, location, attendees) is omitted.
+
+    ``tz`` is the owner's zone. All-day events are stored as the owner's local
+    midnights in UTC, so their dates are read in that zone (in UTC a Tokyo
+    all-day event would start the day before).
     """
     cal = Calendar()
     cal.add("prodid", "-//TimeIQ//Feed//EN")
@@ -193,8 +206,9 @@ def generate_feed_ics(
         event.add("uid", f"cached-{ev.id}@timeiq.app")
 
         if ev.is_all_day:
-            event.add("dtstart", ev.starts_at.date() if isinstance(ev.starts_at, datetime) else ev.starts_at)
-            event.add("dtend", ev.ends_at.date() if isinstance(ev.ends_at, datetime) else ev.ends_at)
+            first, last = _local_date(ev.starts_at, tz), _local_date(ev.ends_at, tz)
+            event.add("dtstart", first)
+            event.add("dtend", last if last > first else first + timedelta(days=1))
         else:
             event.add("dtstart", ev.starts_at)
             event.add("dtend", ev.ends_at)

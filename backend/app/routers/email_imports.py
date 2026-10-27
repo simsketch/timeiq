@@ -70,6 +70,10 @@ async def inbound_email(request: Request):
     if payload.get("type") != "email.received":
         return {"received": True}
     record = await email_import.process_inbound(payload)
+    if record is not None and (record.retryable or record.status == "processing"):
+        # A temporary failure, or another delivery still working on it: a
+        # non-2xx makes Resend redeliver, and the redelivery picks it up.
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Try again later")
     return {"received": True, "status": record.status if record else "ignored"}
 
 
