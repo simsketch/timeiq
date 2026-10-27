@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 import uuid
 from email.utils import parseaddr
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -51,8 +51,8 @@ async def env(monkeypatch):
         calls["request"].append(body)
         return answers["request"]
 
-    async def fake_reply(text, slots, tz):
-        calls["reply"].append((text, slots))
+    async def fake_reply(text, offered, others, tz):
+        calls["reply"].append((text, offered, others))
         return answers["reply"]
 
     monkeypatch.setattr(meeting_agent, "read_request", fake_request)
@@ -113,14 +113,17 @@ async def test_thread_to_booking(env):
     assert [p.email for p in m.participants] == ["dana@client.test"]
     assert m.participants[0].name == "Dana Reyes"
 
-    # One reply to everyone, on the thread, from Olive's TimeIQ address.
-    assert len(mail) == 1
-    proposal = mail[0]
-    assert proposal["from"] == f"Olive via TimeIQ <{env['address']}>"
-    assert sorted(proposal["to"]) == sorted([owner.email, "dana@client.test"])
-    assert proposal["subject"] == "Re: Pilot"
-    assert proposal["headers"]["In-Reply-To"] == first_id
-    assert first_id in proposal["headers"]["References"]
+    # One email each, on the thread, from Olive's TimeIQ address: Olive's copy
+    # has no participant links; Dana's has her own.
+    assert [x["to"] for x in mail] == [[owner.email], ["dana@client.test"]]
+    copy, proposal = mail
+    for x in mail:
+        assert x["from"] == f"Olive via TimeIQ <{env['address']}>"
+        assert x["subject"] == "Re: Pilot"
+        assert x["headers"]["In-Reply-To"] == first_id
+        assert first_id in x["headers"]["References"]
+    assert m.participants[0].token not in copy["html"] and "/meet/" not in copy["html"]
+    assert "Mon Nov 2, 9 AM EST" in copy["html"]
     # Three times (not a wall of slots), each a one-tap link for Dana, plus "pick a different time".
     offered = re.findall(r"\?pick=([^\"&]+)", proposal["html"])
     assert len(offered) == 3
@@ -128,15 +131,21 @@ async def test_thread_to_booking(env):
     assert "Mon Nov 2, 9 AM EST" in proposal["html"] and "Fri Nov 6" not in proposal["html"]
     assert f"/meet/{m.participants[0].token}" in proposal["html"]
 
-    # Dana replies in words; Claude picks option 2 from the full list.
+    assert m.offered_starts == [o.replace("%3A", ":") for o in offered]
+    assert m.participants[0].offered_starts == m.offered_starts
+
+    # Dana replies in words; Claude picks the second offered time.
     mail.clear()
     env["answers"]["reply"] = meeting_agent.ThreadReply(chosen_options=[2])
     record, reply_id = await deliver(dana, [env["address"], owner.email], text="9:30 Monday works!\n\nOn Sun, Olive wrote:\n> old", refs=[first_id])
     assert record.status == "meeting_reply"
-    text, slots = env["calls"]["reply"][-1]
+    text, slots, others = env["calls"]["reply"][-1]
     assert text == "9:30 Monday works!"  # quoted history stripped
+    # Claude sees the three offered times as the options, and the rest only as times to name.
+    assert [s.isoformat().replace("+00:00", "Z") for s in slots] == m.offered_starts
+    assert others and not set(others) & set(slots)
     m = await meeting_for(owner)
-    assert m.participants[0].available_starts == [slots[1].isoformat().replace("+00:00", "Z")]
+    assert m.participants[0].available_starts == [m.offered_starts[1]]
     assert reply_id in m.thread_ids
     # A thank-you to Dana only, and (last answer) a note to Olive only, both on the thread.
     assert [x["to"] for x in mail] == [["dana@client.test"], [owner.email]]
@@ -239,7 +248,9 @@ async def test_copy_for_another_address_is_skipped(env):
 async def busy(user, start: datetime, end: datetime) -> None:
     from app.models import CalendarSource
     async with async_session() as db:
-        src = CalendarSource(user_id=user.id, type="ics_url", name="Work", ics_url="https://x.test/a.ics", is_active=True)
+        # Freshly synced, so booking and holding don't try to fetch the feed.
+        src = CalendarSource(user_id=user.id, type="ics_url", name="Work", ics_url="https://x.test/a.ics", is_active=True,
+                             last_synced_at=datetime.now(timezone.utc))
         db.add(src)
         await db.flush()
         db.add(CachedEvent(calendar_source_id=src.id, user_id=user.id, title="Busy", starts_at=start, ends_at=end))
@@ -284,6 +295,156 @@ async def test_offered_times_none_free_counters_with_three(env):
     assert record.status == "meeting"
     m = await meeting_for(owner)
     assert m.status == "open" and [p.email for p in m.participants] == ["luna@acme.test"]
-    html = mail[0]["html"]
+    assert [x["to"] for x in mail] == [[owner.email], ["luna@acme.test"]]
+    assert "/meet/" not in mail[0]["html"]
+    html = mail[1]["html"]
     assert "none of them work for Olive" in html
     assert len(re.findall(r"\?pick=", html)) == 3 and "Pick a different time" in html
+
+
+async def test_offered_time_taken_while_holding_counters(env, monkeypatch):
+    """hold() rechecks under the host's lock; if the time went in the meantime,
+    TimeIQ counters with the owner's own times instead of failing."""
+    owner, mail, deliver = env["owner"], env["mail"], env["deliver"]
+
+    async def taken(db, meeting, now=None):
+        raise meeting_agent.gm.GroupMeetingError("That time is no longer free on your calendar. Pick another.")
+
+    monkeypatch.setattr(meeting_agent.gm, "hold", taken)
+    env["answers"]["request"] = meeting_agent.MeetingRequest(
+        intent="proposed_times", title="Interview with Acme", duration_minutes=30,
+        proposed=[meeting_agent.ProposedTime(date="2026-11-03", start_time="10:00")],
+    )
+    record, _ = await deliver("Luna <luna@acme.test>", [owner.email], cc=[env["address"]], text="How about Tue 10?")
+    assert record.status == "meeting"
+    async with async_session() as db:
+        meetings = (await db.execute(select(GroupMeeting).where(GroupMeeting.organizer_id == owner.id))).scalars().all()
+    assert [(m.status, m.source) for m in meetings] == [("open", "email")]
+    assert [x["to"] for x in mail] == [[owner.email], ["luna@acme.test"]]
+    assert "none of them work for Olive" in mail[1]["html"]
+
+
+async def test_reply_is_read_against_the_offered_times(env):
+    """"Any of those" means the three times offered, not every open slot; a
+    time named outright still counts; an offered time that filled up since
+    the email went out is dropped."""
+    owner, mail, deliver = env["owner"], env["mail"], env["deliver"]
+    dana = "Dana <dana@client.test>"
+    _, first_id = await deliver(dana, [owner.email], cc=[env["address"]], text="Find 30 min?")
+    m = await meeting_for(owner)
+    offered = m.offered_starts
+    assert len(offered) == 3
+
+    # "Any of those work": Claude is given the three offered times as the options.
+    env["answers"]["reply"] = meeting_agent.ThreadReply(chosen_options=[1, 2, 3])
+    record, _ = await deliver(dana, [env["address"]], text="Any of those work", refs=[first_id])
+    assert record.status == "meeting_reply"
+    _, given, others = env["calls"]["reply"][-1]
+    assert [meeting_agent.gm.iso(s) for s in given] == offered and len(others) > 3
+    m = await meeting_for(owner)
+    assert sorted(m.participants[0].available_starts) == sorted(offered)
+
+    # "Only the second one, or <a time not offered>": an ordinal plus a time named outright.
+    named = others[-1]
+    env["answers"]["reply"] = meeting_agent.ThreadReply(chosen_options=[2], other_options=[len(others)])
+    await deliver(dana, [env["address"]], text="Only the second one, or Thursday 11:30", refs=[first_id])
+    m = await meeting_for(owner)
+    assert m.participants[0].available_starts == sorted([offered[1], meeting_agent.gm.iso(named)])
+
+    # The first offered time fills up; picking it now records nothing and says so.
+    start = datetime.fromisoformat(offered[0].replace("Z", "+00:00"))
+    await busy(owner, start, start + timedelta(hours=1))
+    mail.clear()
+    env["answers"]["reply"] = meeting_agent.ThreadReply(chosen_options=[1])
+    await deliver(dana, [env["address"]], text="The first one", refs=[first_id])
+    m = await meeting_for(owner)
+    assert m.participants[0].available_starts == sorted([offered[1], meeting_agent.gm.iso(named)])
+    assert [x["to"] for x in mail] == [["dana@client.test"]] and "just taken" in mail[0]["html"]
+
+    # The owner's "book the second one" books the second offered time.
+    env["answers"]["reply"] = meeting_agent.ThreadReply(book=True, book_option=2)
+    record, _ = await deliver(owner.email, [env["address"]], text="book the second one", refs=[first_id])
+    assert record.status == "meeting_booked"
+    assert meeting_agent.gm.iso((await meeting_for(owner)).starts_at) == offered[1]
+
+
+async def test_each_guest_gets_only_their_own_link(env):
+    owner, mail, deliver = env["owner"], env["mail"], env["deliver"]
+    _, first_id = await deliver("Dana <dana@client.test>", [owner.email], cc=["Sam <sam@client.test>", env["address"]],
+                                text="Can the three of us meet?")
+    m = await meeting_for(owner)
+    tokens = {p.email: p.token for p in m.participants}
+    assert set(tokens) == {"dana@client.test", "sam@client.test"}
+    assert sorted(tuple(x["to"]) for x in mail) == sorted([(owner.email,), ("dana@client.test",), ("sam@client.test",)])
+    for x in mail:
+        (to,) = x["to"]
+        for email, token in tokens.items():
+            assert (token in x["html"]) == (email == to)
+        assert x["headers"]["In-Reply-To"] == first_id and first_id in x["headers"]["References"]
+    dana = next(x for x in mail if x["to"] == ["dana@client.test"])
+    assert len(re.findall(r"\?pick=", dana["html"])) == 3 and "Sam" in dana["html"]
+
+
+async def _second_owner(name: str):
+    key = uuid.uuid4().hex[:8]
+    async with async_session() as db:
+        user = User(clerk_id=f"b_{key}", username=f"b_{key}", email=f"{name}_{key}@example.com", name=name.title(),
+                    timezone="America/New_York", subscription_status="active", inbound_token=uuid.uuid4().hex[:20])
+        db.add(user)
+        await db.commit()
+    return user
+
+
+async def _drop(user) -> None:
+    async with async_session() as db:
+        await db.execute(delete(User).where(User.id == user.id))
+        await db.commit()
+
+
+def _copy(msg_id: str, sender: str, to: str, cc: str, received_for: str) -> dict:
+    return {"from": sender, "to": [received_for], "subject": "Meet", "text": "Can we find a time?", "message_id": msg_id,
+            "headers": {"from": sender, "to": to, "cc": cc}, "authentication": {"dmarc": "pass"}}
+
+
+async def _meetings(*users) -> list[GroupMeeting]:
+    async with async_session() as db:
+        return (await db.execute(
+            select(GroupMeeting).where(GroupMeeting.organizer_id.in_([u.id for u in users]))
+        )).scalars().all()
+
+
+async def test_one_email_in_two_timeiq_inboxes_starts_one_meeting(env):
+    import asyncio
+
+    owner = env["owner"]
+    other = await _second_owner("ben")
+    other_address = f"schedule-{other.inbound_token}@{DOMAIN}"
+    both = f"{env['address']}, {other_address}"
+    try:
+        # Neither owner sent it: whichever copy claims the Message-ID first wins, even concurrently.
+        msg = f"<{uuid.uuid4().hex}@mail.test>"
+        to = f"{owner.email}, {other.email}"
+        statuses = await asyncio.gather(
+            meeting_agent.handle(owner.id, _copy(msg, "dana@client.test", to, both, env["address"]), NOW),
+            meeting_agent.handle(other.id, _copy(msg, "dana@client.test", to, both, other_address), NOW),
+        )
+        assert sorted(statuses) == ["ignored", "meeting"]
+        assert len(await _meetings(owner, other)) == 1
+
+        # Ben sent it: Ben's TimeIQ handles it, even when Olive's copy is processed first.
+        msg = f"<{uuid.uuid4().hex}@mail.test>"
+        first = await meeting_agent.handle(owner.id, _copy(msg, other.email, owner.email, both, env["address"]), NOW)
+        second = await meeting_agent.handle(other.id, _copy(msg, other.email, owner.email, both, other_address), NOW)
+        assert (first, second) == ("ignored", "meeting")
+        assert len([x for x in await _meetings(other) if msg in x.thread_ids]) == 1
+        assert not [x for x in await _meetings(owner) if msg in x.thread_ids]
+
+        # A reply on Ben's thread that also reaches Olive's inbox stays with Ben's meeting.
+        reply = f"<{uuid.uuid4().hex}@mail.test>"
+        r = {**_copy(reply, owner.email, f"{other_address}, {other.email}", env["address"], env["address"]),
+             "text": "Tuesday works"}
+        r["headers"]["references"] = msg
+        assert await meeting_agent.handle(owner.id, r, NOW) == "ignored"
+        assert not [x for x in await _meetings(owner) if reply in x.thread_ids]
+    finally:
+        await _drop(other)
