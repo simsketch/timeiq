@@ -297,8 +297,10 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
     email_id = data.get("email_id") or data.get("id")
     # cc'd or bcc'd counts too (cc TimeIQ on a thread); received_for names the
     # exact address Resend accepted the mail for.
+    # When one email reaches several Resend-hosted addresses, each copy names
+    # its own in received_for; only the copy for a TimeIQ address counts.
     token = token_from_recipients(
-        [*(data.get("received_for") or []), *(data.get("to") or []), *(data.get("cc") or []), *(data.get("bcc") or [])]
+        data.get("received_for") or [*(data.get("to") or []), *(data.get("cc") or []), *(data.get("bcc") or [])]
     )
     sender = parseaddr(data.get("from") or "")[1].strip().lower()
     if not email_id or not token:

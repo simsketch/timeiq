@@ -307,6 +307,9 @@ async def _handle_reply(db: AsyncSession, owner: User, meeting: GroupMeeting, de
     from app.services import email as mail
 
     own_id = detail.get("message_id")
+    # The same message delivered twice (two Resend-hosted recipients): handled already.
+    if own_id and own_id in (meeting.thread_ids or []):
+        return "ignored"
     if own_id and own_id not in (meeting.thread_ids or []):
         meeting.thread_ids = [*(meeting.thread_ids or []), own_id]
     if meeting.status != "open":

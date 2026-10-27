@@ -66,9 +66,9 @@ async def env(monkeypatch):
         await db.commit()
     address = f"schedule-{token}@{DOMAIN}"
 
-    async def deliver(sender, to, cc=(), text="", subject="Pilot", refs=(), auth=None, headers=None):
+    async def deliver(sender, to, cc=(), text="", subject="Pilot", refs=(), auth=None, headers=None, msg_id=None):
         email_id = uuid.uuid4().hex
-        msg_id = f"<{email_id}@mail.test>"
+        msg_id = msg_id or f"<{email_id}@mail.test>"
         h = dict(headers or {})
         if refs:
             h["references"] = " ".join(refs)
@@ -134,6 +134,11 @@ async def test_thread_to_booking(env):
     assert [x["to"] for x in mail] == [["dana@client.test"], [owner.email]]
     assert "Everyone has answered" in mail[1]["html"] and "book it" in mail[1]["html"]
     assert mail[1]["headers"]["In-Reply-To"] in m.thread_ids
+
+    # A second copy of that same reply (same Message-ID) is skipped.
+    mail.clear()
+    record, _ = await deliver(dana, [env["address"], owner.email], text="9:30 Monday works!", refs=[first_id], msg_id=reply_id)
+    assert record.status == "ignored" and mail == []
 
     # A forged "book it" (fails DMARC and DKIM) books nothing.
     mail.clear()
@@ -208,3 +213,16 @@ async def test_ignored_and_fallbacks(env):
     async with async_session() as db:
         statuses = (await db.execute(select(EmailImport.status).where(EmailImport.user_id == owner.id))).scalars().all()
     assert sorted(statuses) == ["empty", "empty", "ignored", "ignored"]
+
+
+async def test_copy_for_another_address_is_skipped(env):
+    """One email to two Resend-hosted addresses arrives twice; only the copy
+    received for the TimeIQ address is handled."""
+    result = await email_import.process_inbound(
+        {"type": "email.received", "data": {
+            "email_id": uuid.uuid4().hex, "from": "dana@client.test",
+            "to": [env["address"], env["owner"].email], "received_for": [env["owner"].email],
+        }},
+        now=NOW,
+    )
+    assert result is None and env["mail"] == []
