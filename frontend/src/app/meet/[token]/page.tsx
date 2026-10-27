@@ -12,12 +12,25 @@ import { ClockLoader } from "@/components/ui/clock-loader";
 import { apiFetch } from "@/lib/api";
 import { byDay, dayLabel, timeLabel, viewerZone, whenLabel, type PublicMeeting } from "@/lib/group-meetings";
 
-function zoneAbbr(zone: string): string {
+function zoneAbbr(zone: string, at: Date): string {
   return (
     new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "short" })
-      .formatToParts(new Date())
+      .formatToParts(at)
       .find((p) => p.type === "timeZoneName")?.value ?? zone
   );
+}
+
+/** Zone names the listed times use, in order: one ("EST"), or more when the clocks change in the range. */
+function slotAbbrs(zone: string, starts: string[]): string[] {
+  return [...new Set([...starts].sort().map((s) => zoneAbbr(zone, new Date(s))))];
+}
+
+/** "Times in your time zone (EST)", or the zone's city and each name when the range crosses a clock change. */
+function zoneHeading(zone: string, starts: string[]): string {
+  const abbrs = slotAbbrs(zone, starts.length ? starts : [new Date().toISOString()]);
+  if (abbrs.length === 1) return `Times in your time zone (${abbrs[0]})`;
+  const city = zone.split("/").pop()?.replace(/_/g, " ") ?? zone;
+  return `Times in your time zone (${city} time, ${abbrs.join(" then ")})`;
 }
 
 function GetTimeIQ() {
@@ -154,6 +167,8 @@ export default function MeetInvitePage() {
     );
   } else {
     const days = byDay(m.slots, zone);
+    // When the listed range crosses a clock change, each day names its own zone abbreviation.
+    const mixedZones = slotAbbrs(zone, m.slots.map((s) => s.start)).length > 1;
     const others = m.people - 1;
     content = (
       <div className="space-y-6">
@@ -214,7 +229,7 @@ export default function MeetInvitePage() {
               <div>
                 <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                   <h2 className="text-lg font-semibold">Do any of these work?</h2>
-                  <span className="text-xs text-muted-foreground">Times in your time zone ({zoneAbbr(zone)})</span>
+                  <span className="text-xs text-muted-foreground">{zoneHeading(zone, m.suggested)}</span>
                 </div>
                 <div className="grid gap-2">
                   {m.suggested.map((start) => {
@@ -268,7 +283,7 @@ export default function MeetInvitePage() {
             <div>
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="text-lg font-semibold">Tick every time that works for you</h2>
-                <span className="text-xs text-muted-foreground">Times in your time zone ({zoneAbbr(zone)})</span>
+                <span className="text-xs text-muted-foreground">{zoneHeading(zone, m.slots.map((s) => s.start))}</span>
               </div>
               {days.length === 0 ? (
                 <p className="glass rounded-2xl p-5 text-sm text-muted-foreground">
@@ -278,7 +293,14 @@ export default function MeetInvitePage() {
                 <div className="space-y-4">
                   {days.map((d) => (
                     <div key={d.day}>
-                      <div className="mb-2 text-sm font-medium">{d.day}</div>
+                      <div className="mb-2 text-sm font-medium">
+                        {d.day}
+                        {mixedZones && (
+                          <span className="ml-2 text-xs font-normal text-muted-foreground">
+                            {slotAbbrs(zone, d.slots.map((s) => s.start)).join(" / ")}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex flex-wrap gap-2">
                         {d.slots.map((s) => {
                           const on = picks.has(s.start);

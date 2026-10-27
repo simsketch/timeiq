@@ -10,6 +10,7 @@ export function NumberField({
   suffix,
   step = 1,
   min = 0,
+  max,
   hint,
 }: {
   label: string;
@@ -19,12 +20,19 @@ export function NumberField({
   suffix?: string;
   step?: number;
   min?: number;
+  max?: number;
   hint?: string;
 }) {
+  // Typed values can fall outside min/max (the browser doesn't enforce them), so flag it.
+  const invalid = !Number.isFinite(value) || value < min || (max !== undefined && value > max);
   return (
     <label className="block">
       <span className="text-sm font-medium">{label}</span>
-      <div className="mt-1.5 flex items-center rounded-lg border bg-background focus-within:ring-2 focus-within:ring-ring">
+      <div
+        className={`mt-1.5 flex items-center rounded-lg border bg-background focus-within:ring-2 focus-within:ring-ring ${
+          invalid ? "border-destructive" : ""
+        }`}
+      >
         {prefix && <span className="pl-3 text-muted-foreground">{prefix}</span>}
         <input
           type="number"
@@ -33,6 +41,8 @@ export function NumberField({
           value={Number.isFinite(value) ? value : ""}
           step={step}
           min={min}
+          max={max}
+          aria-invalid={invalid || undefined}
           onChange={(e) => onChange(e.target.value === "" ? 0 : Number(e.target.value))}
         />
         {suffix && <span className="pr-3 text-sm text-muted-foreground whitespace-nowrap">{suffix}</span>}
@@ -48,6 +58,21 @@ export function Result({ label, value, big }: { label: string; value: string; bi
       <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className={`${big ? "text-3xl sm:text-4xl" : "text-2xl"} mt-1 font-semibold tabular-nums tracking-tight`}>{value}</div>
     </div>
+  );
+}
+
+/** First message whose condition fails, so a calculator can explain instead of showing a bogus number. */
+export function firstProblem(rules: [ok: boolean, message: string][]): string | null {
+  return rules.find(([ok]) => !ok)?.[1] ?? null;
+}
+
+/** Inline note shown with the results when the inputs can't produce a real answer. */
+export function InputProblem({ message }: { message: string | null }) {
+  if (!message) return null;
+  return (
+    <p role="alert" className="mt-6 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+      {message}
+    </p>
   );
 }
 
