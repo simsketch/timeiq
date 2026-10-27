@@ -11,7 +11,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { EmailSchedules } from "@/components/email-schedules";
 import { apiFetch } from "@/lib/api";
 import { Plus, Trash2, RefreshCw, CalendarDays, Clock, AlertTriangle, Link2 } from "lucide-react";
-import { format } from "date-fns";
+import { addDays, format, startOfWeek } from "date-fns";
+import { CalEvent, ViewToggle, WeekCalendar, colorFor, useCalendarView } from "@/components/week-calendar";
 import { ClockLoader } from "@/components/ui/clock-loader";
 
 interface Calendar {
@@ -40,6 +41,30 @@ export default function CalendarsPage() {
   const { toast } = useToast();
   const [calendars, setCalendars] = useState<Calendar[]>([]);
   const [cachedEvents, setCachedEvents] = useState<CachedEvent[]>([]);
+  const [view, setView] = useCalendarView("calendars");
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [weekEvents, setWeekEvents] = useState<CachedEvent[]>([]);
+  const [selected, setSelected] = useState<CalEvent | null>(null);
+  const [weekVersion, setWeekVersion] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getToken();
+        const range = `start=${encodeURIComponent(weekStart.toISOString())}&end=${encodeURIComponent(addDays(weekStart, 7).toISOString())}`;
+        const evs = await apiFetch<CachedEvent[]>(`/api/calendars/cached-events?${range}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!cancelled) setWeekEvents(evs);
+      } catch {
+        if (!cancelled) setWeekEvents([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [weekStart, weekVersion, getToken]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", ics_url: "" });
@@ -94,6 +119,7 @@ export default function CalendarsPage() {
   }
 
   async function fetchAll() {
+    setWeekVersion((v) => v + 1);
     try {
       const token = await getToken();
       const headers = { Authorization: `Bearer ${token}` };
@@ -441,15 +467,58 @@ export default function CalendarsPage() {
         )}
       </div>
 
-      {/* Cached Events Debug View */}
+      {/* Synced events: week calendar by default, list as an option */}
       <div className="space-y-4">
-        <div>
-          <h2 className="text-xl font-semibold">Synced Events</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Events from your connected calendars that block availability (next 14 days)
-          </p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold">Synced Events</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Events from your connected calendars that block availability
+              {view === "list" ? " (next 14 days)" : ""}
+            </p>
+          </div>
+          <ViewToggle view={view} onChange={setView} />
         </div>
-        {cachedEvents.length === 0 ? (
+        {view === "calendar" ? (
+          <>
+            <WeekCalendar
+              weekStart={weekStart}
+              onWeekChange={setWeekStart}
+              events={weekEvents.map((e) => ({
+                id: e.id,
+                title: e.title || "(No title)",
+                start: new Date(e.starts_at),
+                end: new Date(e.ends_at),
+                allDay: e.is_all_day,
+                color: colorFor(e.calendar_source_id),
+                label: e.source_name ?? undefined,
+              }))}
+              onSelect={setSelected}
+              emptyHint="no synced events this week"
+            />
+            {selected && (
+              <Card>
+                <CardContent className="flex items-start justify-between gap-4 py-4">
+                  <div>
+                    <p className="font-semibold">{selected.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selected.allDay
+                        ? `${format(selected.start, "EEEE, MMMM d")} · all day`
+                        : `${format(selected.start, "EEEE, MMMM d · h:mm a")} – ${format(selected.end, "h:mm a")}`}
+                    </p>
+                    {selected.label && (
+                      <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: selected.color }} />
+                        {selected.label}
+                      </p>
+                    )}
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>Close</Button>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        ) : cachedEvents.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
               <CalendarDays className="h-8 w-8 mx-auto mb-3 text-gray-300" />

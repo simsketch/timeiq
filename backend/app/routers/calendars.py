@@ -177,18 +177,25 @@ async def list_cached_events(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     days: int = Query(default=30, ge=1, le=90),
+    start: datetime | None = Query(default=None, description="Range start (ISO); with end, overrides days"),
+    end: datetime | None = Query(default=None, description="Range end (ISO)"),
 ):
-    """List cached calendar events for the next N days (default 30)."""
+    """Cached calendar events for the next N days (default 30), or for start..end."""
     now = datetime.now(timezone.utc)
-    window_end = datetime(
-        now.year, now.month, now.day, tzinfo=timezone.utc
-    ) + timedelta(days=days)
+    if start is not None and end is not None:
+        window_start = start if start.tzinfo else start.replace(tzinfo=timezone.utc)
+        window_end = end if end.tzinfo else end.replace(tzinfo=timezone.utc)
+        if window_end <= window_start or window_end - window_start > timedelta(days=62):
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Range must be under 62 days")
+    else:
+        window_start = now
+        window_end = datetime(now.year, now.month, now.day, tzinfo=timezone.utc) + timedelta(days=days)
 
     result = await db.execute(
         select(CachedEvent)
         .where(
             CachedEvent.user_id == user.id,
-            CachedEvent.ends_at > now,
+            CachedEvent.ends_at > window_start,
             CachedEvent.starts_at < window_end,
         )
         .options(selectinload(CachedEvent.calendar_source))

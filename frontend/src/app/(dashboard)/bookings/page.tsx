@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { apiFetch } from "@/lib/api";
-import { format } from "date-fns";
+import { format, startOfWeek } from "date-fns";
+import { CalEvent, ViewToggle, WeekCalendar, colorFor, useCalendarView } from "@/components/week-calendar";
 import { ClockLoader } from "@/components/ui/clock-loader";
 
 interface Booking {
@@ -24,6 +25,61 @@ interface Booking {
   event_type_id: number;
 }
 
+function BookingCard({ booking, onCancel }: { booking: Booking; onCancel?: (id: number) => void }) {
+  return (
+    <Card>
+      <CardContent className="py-4">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="font-semibold">{booking.visitor_name}</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-1">
+              {booking.visitor_email}
+            </p>
+            <p className="text-sm font-medium">
+              {format(new Date(booking.starts_at), "EEEE, MMMM d, yyyy")}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {format(new Date(booking.starts_at), "h:mm a")} -{" "}
+              {format(new Date(booking.ends_at), "h:mm a")}
+            </p>
+            {booking.visitor_phone && (
+              <p className="text-sm mt-1 text-muted-foreground">
+                Phone: {booking.visitor_phone}
+              </p>
+            )}
+            {booking.visitor_company && (
+              <p className="text-sm mt-1 text-muted-foreground">
+                Company: {booking.visitor_company}
+              </p>
+            )}
+            {booking.visitor_url && (
+              <p className="text-sm mt-1 text-muted-foreground">
+                URL: <a href={booking.visitor_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{booking.visitor_url}</a>
+              </p>
+            )}
+            {booking.visitor_notes && (
+              <p className="text-sm mt-1 text-muted-foreground">
+                Note: {booking.visitor_notes}
+              </p>
+            )}
+          </div>
+          {onCancel && (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => onCancel(booking.id)}
+            >
+              Cancel
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function BookingsPage() {
   const { getToken } = useAuth();
   const { toast } = useToast();
@@ -31,6 +87,9 @@ export default function BookingsPage() {
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
   const [cancelledBookings, setCancelledBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useCalendarView("bookings");
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBookings();
@@ -80,60 +139,9 @@ export default function BookingsPage() {
     }
   }
 
-  function BookingCard({ booking, showCancel }: { booking: Booking; showCancel?: boolean }) {
-    return (
-      <Card>
-        <CardContent className="py-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <h3 className="font-semibold">{booking.visitor_name}</h3>
-              </div>
-              <p className="text-sm text-muted-foreground mb-1">
-                {booking.visitor_email}
-              </p>
-              <p className="text-sm font-medium">
-                {format(new Date(booking.starts_at), "EEEE, MMMM d, yyyy")}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {format(new Date(booking.starts_at), "h:mm a")} -{" "}
-                {format(new Date(booking.ends_at), "h:mm a")}
-              </p>
-              {booking.visitor_phone && (
-                <p className="text-sm mt-1 text-muted-foreground">
-                  Phone: {booking.visitor_phone}
-                </p>
-              )}
-              {booking.visitor_company && (
-                <p className="text-sm mt-1 text-muted-foreground">
-                  Company: {booking.visitor_company}
-                </p>
-              )}
-              {booking.visitor_url && (
-                <p className="text-sm mt-1 text-muted-foreground">
-                  URL: <a href={booking.visitor_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{booking.visitor_url}</a>
-                </p>
-              )}
-              {booking.visitor_notes && (
-                <p className="text-sm mt-1 text-muted-foreground">
-                  Note: {booking.visitor_notes}
-                </p>
-              )}
-            </div>
-            {showCancel && (
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => handleCancel(booking.id)}
-              >
-                Cancel
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+
+  const allBookings = [...upcomingBookings, ...pastBookings, ...cancelledBookings];
+  const selectedBooking = allBookings.find((b) => String(b.id) === selectedId) ?? null;
 
   if (loading) {
     return (
@@ -145,13 +153,45 @@ export default function BookingsPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Bookings</h1>
-        <p className="text-muted-foreground mt-2">
-          View and manage your scheduled meetings
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Bookings</h1>
+          <p className="text-muted-foreground mt-2">
+            View and manage your scheduled meetings
+          </p>
+        </div>
+        <ViewToggle view={view} onChange={setView} />
       </div>
 
+      {view === "calendar" ? (
+        <div className="space-y-4">
+          <WeekCalendar
+            weekStart={weekStart}
+            onWeekChange={setWeekStart}
+            events={allBookings.map((b) => ({
+              id: String(b.id),
+              title: b.visitor_name,
+              start: new Date(b.starts_at),
+              end: new Date(b.ends_at),
+              color: colorFor(String(b.event_type_id)),
+              label: b.status === "cancelled" ? "Cancelled" : undefined,
+              faded: b.status === "cancelled",
+            }))}
+            onSelect={(ev: CalEvent) => setSelectedId(ev.id)}
+            emptyHint="no bookings this week"
+          />
+          {selectedBooking && (
+            <BookingCard
+              booking={selectedBooking}
+              onCancel={
+                selectedBooking.status === "confirmed" && new Date(selectedBooking.starts_at) >= new Date()
+                  ? handleCancel
+                  : undefined
+              }
+            />
+          )}
+        </div>
+      ) : (
       <Tabs defaultValue="upcoming">
         <TabsList>
           <TabsTrigger value="upcoming">
@@ -172,7 +212,7 @@ export default function BookingsPage() {
             </Card>
           ) : (
             upcomingBookings.map((booking) => (
-              <BookingCard key={booking.id} booking={booking} showCancel />
+              <BookingCard key={booking.id} booking={booking} onCancel={handleCancel} />
             ))
           )}
         </TabsContent>
@@ -205,6 +245,7 @@ export default function BookingsPage() {
           )}
         </TabsContent>
       </Tabs>
+      )}
     </div>
   );
 }

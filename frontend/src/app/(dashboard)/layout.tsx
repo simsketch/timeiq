@@ -32,7 +32,7 @@ export default async function DashboardLayout({
         </div>
       </aside>
 
-      <main className="relative flex-1 md:pl-72">
+      <main className="relative min-w-0 flex-1 md:pl-72">
         <div className="md:h-full md:overflow-y-auto">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-6 md:py-10">
             <CalendarHealthBanner />
