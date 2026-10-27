@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -11,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import async_session
+from app.models.guest_checkout import GuestCheckout
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -32,6 +34,11 @@ CHECKOUT_TTL = timedelta(minutes=31)
 FOUNDER_RESERVATION_TTL = timedelta(minutes=35)
 # pg_advisory_xact_lock key that serializes founder-seat allocation.
 _FOUNDER_LOCK_KEY = 0x71730001
+# Anyone can open a guest checkout, so cap how many founder seats open guest
+# checkouts may hold at once. Past the cap a guest still gets the founder
+# price while seats remain, just without a hold.
+MAX_GUEST_HOLDS = 10
+GUEST_REF_PREFIX = "guest:"
 
 
 def _d(obj: Any) -> Any:
@@ -64,13 +71,45 @@ def _paid_founder():
 
 
 async def founder_seats_taken(db: AsyncSession, exclude_user_id: Any = None) -> int:
-    """Paid founder subscriptions plus unexpired founder checkout holds."""
+    """Paid founder subscriptions plus unexpired founder checkout holds.
+
+    Counts users and unclaimed guest checkouts (a claimed one is counted
+    through the user it was attached to).
+    """
     now = datetime.now(timezone.utc)
     held = and_(User.founder_reserved_until > now, not_(_paid_founder()))
     if exclude_user_id is not None:
         held = and_(held, User.id != exclude_user_id)
-    result = await db.execute(
+    users = await db.execute(
         select(func.count()).select_from(User).where(or_(_paid_founder(), held))
+    )
+    return int(users.scalar_one()) + await _guest_founder_seats(db, now)
+
+
+def _unclaimed_founder_guest():
+    return and_(GuestCheckout.plan == PLAN_FOUNDER, GuestCheckout.claimed_by_user_id.is_(None))
+
+
+async def _guest_founder_seats(db: AsyncSession, now: datetime) -> int:
+    paid = GuestCheckout.subscription_status.in_(PAID_STATUSES)
+    held = and_(GuestCheckout.reserved_until > now, not_(paid))
+    result = await db.execute(
+        select(func.count())
+        .select_from(GuestCheckout)
+        .where(_unclaimed_founder_guest(), or_(paid, held))
+    )
+    return int(result.scalar_one())
+
+
+async def _guest_holds_open(db: AsyncSession, now: datetime) -> int:
+    result = await db.execute(
+        select(func.count())
+        .select_from(GuestCheckout)
+        .where(
+            _unclaimed_founder_guest(),
+            GuestCheckout.reserved_until > now,
+            not_(GuestCheckout.subscription_status.in_(PAID_STATUSES)),
+        )
     )
     return int(result.scalar_one())
 
@@ -193,6 +232,168 @@ async def create_checkout_session(user: User, db: AsyncSession) -> str:
     return session["url"]
 
 
+async def create_guest_checkout_session(db: AsyncSession) -> str:
+    """Checkout for someone without an account yet; Stripe collects the email.
+
+    The buyer creates their TimeIQ account after paying and the subscription
+    is attached then (see claim_guest_session / claim_guest_by_email).
+    """
+    _init()
+    now = datetime.now(timezone.utc)
+    guest = GuestCheckout(plan=PLAN_STANDARD)
+    price_id = settings.STRIPE_PRICE_STANDARD
+    if settings.STRIPE_PRICE_FOUNDER:
+        await _lock_founder_seats(db)
+        if await founder_seats_taken(db) < settings.FOUNDER_SEATS:
+            price_id, guest.plan = settings.STRIPE_PRICE_FOUNDER, PLAN_FOUNDER
+            if await _guest_holds_open(db, now) < MAX_GUEST_HOLDS:
+                guest.reserved_until = now + FOUNDER_RESERVATION_TTL
+    db.add(guest)
+    await db.flush()
+    extra: dict[str, Any] = {}
+    if guest.plan == PLAN_FOUNDER:
+        extra["expires_at"] = int((now + CHECKOUT_TTL).timestamp())
+    session = stripe.checkout.Session.create(
+        mode="subscription",
+        client_reference_id=f"{GUEST_REF_PREFIX}{guest.id}",
+        line_items=[{"price": price_id, "quantity": 1}],
+        allow_promotion_codes=True,
+        success_url=f"{settings.FRONTEND_URL}/billing/welcome?session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{settings.FRONTEND_URL}/pricing",
+        subscription_data={"metadata": {"timeiq_guest_checkout_id": str(guest.id), "plan": guest.plan}},
+        **extra,
+    )
+    guest.stripe_session_id = session["id"]
+    await db.flush()
+    return session["url"]
+
+
+def _guest_id_from_ref(ref: str | None) -> uuid.UUID | None:
+    if ref and ref.startswith(GUEST_REF_PREFIX):
+        try:
+            return uuid.UUID(ref[len(GUEST_REF_PREFIX):])
+        except ValueError:
+            return None
+    return None
+
+
+def _apply_to_guest(guest: GuestCheckout, sub: dict, email: str | None = None) -> None:
+    guest.stripe_subscription_id = sub["id"]
+    guest.subscription_status = sub["status"]
+    if sub.get("customer"):
+        guest.stripe_customer_id = sub["customer"]
+    if email:
+        guest.email = email.strip().lower()
+    if sub["status"] in PAID_STATUSES:
+        guest.reserved_until = None
+
+
+class ClaimError(ValueError):
+    pass
+
+
+def _attach_guest(user: User, guest: GuestCheckout) -> None:
+    """Move a paid guest subscription onto ``user``."""
+    if guest.claimed_by_user_id is not None and guest.claimed_by_user_id != user.id:
+        raise ClaimError("This purchase is already linked to another TimeIQ account")
+    if not guest.stripe_subscription_id:
+        raise ClaimError("Payment hasn't finished yet")
+    if (
+        user.stripe_subscription_id
+        and user.stripe_subscription_id != guest.stripe_subscription_id
+        and user.subscription_status in PAID_STATUSES
+    ):
+        raise ClaimError("This account already has a subscription")
+    sub = _d(stripe.Subscription.retrieve(guest.stripe_subscription_id))
+    user.stripe_customer_id = sub.get("customer") or guest.stripe_customer_id
+    apply_subscription(user, sub)
+    _apply_to_guest(guest, sub)
+    guest.claimed_by_user_id = user.id
+    guest.claimed_at = datetime.now(timezone.utc)
+    try:  # Point Stripe's records at the account; not needed for access.
+        stripe.Subscription.modify(sub["id"], metadata={"timeiq_user_id": str(user.id)})
+        if user.stripe_customer_id:
+            stripe.Customer.modify(
+                user.stripe_customer_id,
+                metadata={"timeiq_user_id": str(user.id), "clerk_id": user.clerk_id},
+            )
+    except Exception as exc:
+        logger.warning("Could not tag Stripe records for %s: %s", user.id, exc)
+
+
+async def guest_session_info(db: AsyncSession, session_id: str) -> dict[str, Any]:
+    """What the post-payment page needs: whether it's paid, and for what."""
+    _init()
+    session = _d(stripe.checkout.Session.retrieve(session_id))
+    guest_id = _guest_id_from_ref(session.get("client_reference_id"))
+    if not guest_id:
+        raise ClaimError("Not a guest checkout")
+    guest = await db.get(GuestCheckout, guest_id)
+    if guest is None:
+        raise ClaimError("Checkout not found")
+    email = (session.get("customer_details") or {}).get("email")
+    if session.get("subscription") and guest.subscription_status == "none":
+        # The webhook may not have arrived yet; record the payment now.
+        sub = _d(stripe.Subscription.retrieve(session["subscription"]))
+        _apply_to_guest(guest, sub, email)
+        await db.flush()
+    return {
+        "paid": guest.subscription_status in PAID_STATUSES,
+        "email": email or guest.email,
+        "plan": guest.plan,
+        "amount_cents": session.get("amount_total"),
+        "currency": (session.get("currency") or "usd").upper(),
+        "claimed": guest.claimed_by_user_id is not None,
+    }
+
+
+async def claim_guest_session(db: AsyncSession, user: User, session_id: str) -> None:
+    """Attach the guest purchase behind a Checkout Session to ``user``.
+
+    Holding the session id (it is only shown to the buyer, in the success
+    redirect) is enough to claim it, so this works even if the account uses a
+    different email than the one paid with.
+    """
+    await guest_session_info(db, session_id)  # records the payment if needed
+    guest = (
+        await db.execute(
+            select(GuestCheckout).where(GuestCheckout.stripe_session_id == session_id).with_for_update()
+        )
+    ).scalar_one()
+    _attach_guest(user, guest)
+    await db.flush()
+
+
+async def claim_guest_by_email(db: AsyncSession, user: User) -> bool:
+    """Attach an unclaimed paid guest purchase made with this account's email."""
+    if not enabled() or is_entitled(user) or not user.email:
+        return False
+    guest = (
+        await db.execute(
+            select(GuestCheckout)
+            .where(
+                GuestCheckout.email == user.email.strip().lower(),
+                GuestCheckout.claimed_by_user_id.is_(None),
+                GuestCheckout.subscription_status.in_(PAID_STATUSES),
+            )
+            .order_by(GuestCheckout.created_at.desc())
+            .limit(1)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if guest is None:
+        return False
+    _init()
+    try:
+        _attach_guest(user, guest)
+    except ClaimError as exc:
+        logger.info("Not claiming guest checkout %s for %s: %s", guest.id, user.id, exc)
+        return False
+    await db.flush()
+    logger.info("Claimed guest checkout %s for %s by email", guest.id, user.id)
+    return True
+
+
 def create_portal_session(user: User) -> str:
     _init()
     session = stripe.billing_portal.Session.create(
@@ -291,10 +492,16 @@ def _subscription_to_apply(user: User, sub: dict) -> dict | None:
     return sub
 
 
-async def confirm_checkout(user: User, session_id: str) -> None:
-    """Apply the subscription from a completed Checkout Session right away."""
+async def confirm_checkout(user: User, session_id: str, db: AsyncSession) -> None:
+    """Apply the subscription from a completed Checkout Session right away.
+
+    A guest checkout (paid before signing up) is claimed for ``user``.
+    """
     _init()
     session = _d(stripe.checkout.Session.retrieve(session_id, expand=["subscription"]))
+    if _guest_id_from_ref(session.get("client_reference_id")):
+        await claim_guest_session(db, user, session_id)
+        return
     if session.get("client_reference_id") != str(user.id):
         raise ValueError("Checkout session does not belong to this user")
     sub = session.get("subscription")
@@ -335,7 +542,11 @@ async def handle_webhook(payload: bytes, sig_header: str | None) -> None:
         return
 
     sub = _d(stripe.Subscription.retrieve(subscription_id))
+    guest_id = _guest_id_from_ref(user_id)
     async with async_session() as db:
+        if guest_id is not None:
+            await _guest_checkout_completed(db, guest_id, sub, obj)
+            return
         query = select(User)
         if user_id:
             query = query.where(User.id == user_id)
@@ -349,6 +560,18 @@ async def handle_webhook(payload: bytes, sig_header: str | None) -> None:
                 )
             ).scalar_one_or_none()
         if user is None:
+            guest = (
+                await db.execute(
+                    select(GuestCheckout)
+                    .where(GuestCheckout.stripe_subscription_id == sub["id"])
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if guest is not None:
+                _apply_to_guest(guest, sub)
+                await db.commit()
+                logger.info("Applied %s to guest checkout %s: status=%s", etype, guest.id, sub["status"])
+                return
             logger.warning("Stripe event %s for unknown customer %s", etype, customer_id)
             return
         chosen = _subscription_to_apply(user, sub)
@@ -364,3 +587,20 @@ async def handle_webhook(payload: bytes, sig_header: str | None) -> None:
             "Applied %s to %s: status=%s plan=%s",
             etype, user.email, user.subscription_status, user.subscription_plan,
         )
+
+
+async def _guest_checkout_completed(db: AsyncSession, guest_id: uuid.UUID, sub: dict, session: dict) -> None:
+    guest = (
+        await db.execute(select(GuestCheckout).where(GuestCheckout.id == guest_id).with_for_update())
+    ).scalar_one_or_none()
+    if guest is None:
+        logger.warning("checkout.session.completed for unknown guest checkout %s", guest_id)
+        return
+    email = (session.get("customer_details") or {}).get("email")
+    _apply_to_guest(guest, sub, email)
+    if guest.claimed_by_user_id is not None:
+        user = await db.get(User, guest.claimed_by_user_id)
+        if user is not None:
+            apply_subscription(user, sub)
+    await db.commit()
+    logger.info("Guest checkout %s paid: status=%s", guest.id, sub["status"])

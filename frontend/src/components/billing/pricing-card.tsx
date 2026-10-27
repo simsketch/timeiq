@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { ArrowRight, CheckCircle2, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { track } from "@/components/meta-pixel";
-import { PricingInfo, fetchPricing, fmtCents, startCheckout } from "@/lib/billing";
+import { PricingInfo, fetchPricing, fmtCents, startCheckout, startGuestCheckout } from "@/lib/billing";
 
 const INCLUDED = [
   "Unlimited booking pages and event types",
@@ -19,7 +18,6 @@ const INCLUDED = [
 
 export function PricingCard({ compact = false }: { compact?: boolean }) {
   const { isLoaded, isSignedIn, getToken } = useAuth();
-  const router = useRouter();
   const { toast } = useToast();
   const [pricing, setPricing] = useState<PricingInfo | null>(null);
   const [pricingError, setPricingError] = useState(false);
@@ -59,14 +57,10 @@ export function PricingCard({ compact = false }: { compact?: boolean }) {
     if (price === null) return;
     track("InitiateCheckout", { value: price / 100, currency });
     if (!isLoaded) return;
-    if (!isSignedIn) {
-      router.push("/sign-up?redirect_url=/billing/checkout");
-      return;
-    }
     setBusy(true);
     try {
-      const token = await getToken();
-      window.location.href = await startCheckout(token);
+      // No account needed to pay; it's created right after checkout.
+      window.location.href = isSignedIn ? await startCheckout(await getToken()) : await startGuestCheckout();
     } catch (e: any) {
       toast({ title: "Checkout unavailable", description: e.message, variant: "destructive" });
       setBusy(false);

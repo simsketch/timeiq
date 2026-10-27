@@ -51,7 +51,15 @@ async def pricing(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/api/billing/status", response_model=BillingStatus)
-async def billing_status(user: User = Depends(get_current_user_unrestricted)):
+async def billing_status(
+    user: User = Depends(get_current_user_unrestricted),
+    db: AsyncSession = Depends(get_db),
+):
+    # Someone who paid before signing up gets their purchase on first visit.
+    try:
+        await billing.claim_guest_by_email(db, user)
+    except stripe.StripeError as exc:
+        logger.warning("Guest claim by email failed for %s: %s", user.id, exc)
     return billing.status_payload(user)
 
 
@@ -81,7 +89,7 @@ async def confirm(
     if not billing.enabled():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Billing is not configured")
     try:
-        await billing.confirm_checkout(user, data.session_id)
+        await billing.confirm_checkout(user, data.session_id, db)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     except stripe.StripeError as exc:
@@ -89,6 +97,45 @@ async def confirm(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Could not confirm checkout")
     await db.flush()
     return billing.status_payload(user)
+
+
+class GuestSessionInfo(BaseModel):
+    paid: bool
+    email: Optional[str]
+    plan: str
+    amount_cents: Optional[int]
+    currency: str
+    claimed: bool
+
+
+@router.post("/api/billing/guest-checkout", response_model=UrlResponse)
+async def guest_checkout(db: AsyncSession = Depends(get_db)):
+    """Start checkout without an account; the account is created after paying."""
+    if not billing.enabled():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Billing is not configured")
+    try:
+        url = await billing.create_guest_checkout_session(db)
+    except stripe.StripeError as exc:
+        logger.error("Stripe guest checkout failed: %s", exc)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Could not start checkout")
+    return {"url": url}
+
+
+@router.get("/api/billing/guest-session/{session_id}", response_model=GuestSessionInfo)
+async def guest_session(session_id: str, db: AsyncSession = Depends(get_db)):
+    if not billing.enabled():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Billing is not configured")
+    if not session_id.startswith("cs_") or len(session_id) > 255:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Checkout not found")
+    try:
+        return await billing.guest_session_info(db, session_id)
+    except billing.ClaimError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Checkout not found")
+    except stripe.InvalidRequestError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Checkout not found")
+    except stripe.StripeError as exc:
+        logger.error("Stripe guest session lookup failed: %s", exc)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Could not look up checkout")
 
 
 @router.post("/api/billing/portal", response_model=UrlResponse)

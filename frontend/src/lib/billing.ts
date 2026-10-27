@@ -36,6 +36,25 @@ export async function startCheckout(token: string | null): Promise<string> {
   return url;
 }
 
+/** Checkout without an account; Stripe collects the email and we set up the account after. */
+export async function startGuestCheckout(): Promise<string> {
+  const { url } = await apiFetch<{ url: string }>("/api/billing/guest-checkout", { method: "POST" });
+  return url;
+}
+
+export interface GuestSession {
+  paid: boolean;
+  email: string | null;
+  plan: "founder" | "standard";
+  amount_cents: number | null;
+  currency: string;
+  claimed: boolean;
+}
+
+export function fetchGuestSession(sessionId: string): Promise<GuestSession> {
+  return apiFetch<GuestSession>(`/api/billing/guest-session/${encodeURIComponent(sessionId)}`);
+}
+
 export async function openPortal(token: string | null): Promise<string> {
   const { url } = await apiFetch<{ url: string }>("/api/billing/portal", {
     method: "POST",

@@ -15,6 +15,8 @@ function SuccessInner() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const params = useSearchParams();
   const sessionId = params.get("session_id");
+  // Guest purchases were already reported on the welcome page.
+  const fromGuest = params.get("guest") === "1";
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [confirmError, setError] = useState<string | null>(null);
   const error =
@@ -31,12 +33,12 @@ function SuccessInner() {
           body: JSON.stringify({ session_id: sessionId }),
         });
         setStatus(s);
-        track("Purchase", { value: s.plan === "founder" ? 19 : 29, currency: "USD" });
+        if (!fromGuest) track("Purchase", { value: s.plan === "founder" ? 19 : 29, currency: "USD" });
       } catch (e: any) {
         setError(e.message || "Could not confirm your subscription");
       }
     })();
-  }, [isLoaded, isSignedIn, sessionId, getToken]);
+  }, [isLoaded, isSignedIn, sessionId, fromGuest, getToken]);
 
   return (
     <div className="relative min-h-screen flex items-center justify-center px-6">

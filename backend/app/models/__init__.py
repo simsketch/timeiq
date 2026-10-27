@@ -8,6 +8,7 @@ from app.models.client import Client
 from app.models.time_entry import TimeEntry
 from app.models.invoice import Invoice, InvoiceLine
 from app.models.timesheet_row import TimesheetRow
+from app.models.guest_checkout import GuestCheckout
 
 __all__ = [
     "User",
@@ -21,4 +22,5 @@ __all__ = [
     "Invoice",
     "InvoiceLine",
     "TimesheetRow",
+    "GuestCheckout",
 ]

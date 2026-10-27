@@ -133,7 +133,7 @@ export default function LandingPage() {
                 </p>
 
                 <div className="reveal reveal-4 flex flex-col sm:flex-row gap-3">
-                  <Link href="/sign-up?redirect_url=/billing/checkout">
+                  <Link href="/billing/checkout">
                     <Button variant="aurora" size="xl">
                       Get started for $19/year
                       <ArrowRight className="h-4 w-4" />
@@ -730,7 +730,7 @@ export default function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link href="/sign-up?redirect_url=/billing/checkout" className="mt-auto">
+                <Link href="/billing/checkout" className="mt-auto">
                   <Button variant="aurora" size="lg" className="w-full">
                     Claim a founder spot
                     <ArrowRight className="h-4 w-4" />
@@ -795,7 +795,7 @@ export default function LandingPage() {
                   Book meetings, log your hours, and send invoices from one
                   calm workspace. Founder spots are limited.
                 </p>
-                <Link href="/sign-up?redirect_url=/billing/checkout">
+                <Link href="/billing/checkout">
                   <Button variant="aurora" size="xl">
                     Claim your founder spot
                     <ArrowRight className="h-4 w-4" />

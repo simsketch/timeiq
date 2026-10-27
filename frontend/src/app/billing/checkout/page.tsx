@@ -3,33 +3,26 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ClockLoader } from "@/components/ui/clock-loader";
-import { startCheckout } from "@/lib/billing";
+import { startCheckout, startGuestCheckout } from "@/lib/billing";
 
-/** Post-sign-up landing: immediately hands off to Stripe Checkout. */
+/** Hands off to Stripe Checkout. Signed-out visitors pay first and create their account after. */
 export default function CheckoutRedirectPage() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Clerk hydrates after the sign-in redirect; wait for it before asking for a token.
     if (!isLoaded) return;
-    if (!isSignedIn) {
-      router.replace("/sign-in?redirect_url=/billing/checkout");
-      return;
-    }
     (async () => {
       try {
-        const token = await getToken();
-        window.location.href = await startCheckout(token);
+        window.location.href = isSignedIn ? await startCheckout(await getToken()) : await startGuestCheckout();
       } catch (e: any) {
         setError(e.message || "Could not start checkout");
       }
     })();
-  }, [isLoaded, isSignedIn, getToken, router]);
+  }, [isLoaded, isSignedIn, getToken]);
 
   return (
     <div className="relative min-h-screen flex items-center justify-center">
