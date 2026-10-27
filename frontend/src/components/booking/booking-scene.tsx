@@ -78,7 +78,10 @@ export function BookingScene({ active }: { active: MeetingType | null }) {
         if ("WebGL2RenderingContext" in window) setReady(true);
       };
       // Give the host's text a paint before even requesting the Three.js chunk.
-      if ("requestIdleCallback" in window) idle = window.requestIdleCallback(load, { timeout: 1500 });
+      // Phones get the still life for a few seconds longer: starting WebGL
+      // there competes with the first tap on a meeting.
+      if (mobile.matches) timeout = setTimeout(load, 3500);
+      else if ("requestIdleCallback" in window) idle = window.requestIdleCallback(load, { timeout: 1500 });
       else timeout = setTimeout(load, 180);
     });
     return () => {

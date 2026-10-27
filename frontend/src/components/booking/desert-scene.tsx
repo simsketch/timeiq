@@ -234,6 +234,30 @@ const trunk: [number, number, number][] = [[-1.2, 1.5, -.2], [-1.4, 2.3, -.25], 
 const arm: [number, number, number][] = [[-1.31, 2.9, -.3], [-.65, 3.54, -.24], [.1, 3.77, -.15], [.95, 3.83, -.18], [1.5, 4.05, -.25]];
 const twig: [number, number, number][] = [[-1, 4.25, -.4], [-1.7, 4.5, -.35], [-1.95, 4.88, -.2]];
 
+// A stepped headland that drops sheer into the sea on its seaward (left) end,
+// like the Catalan coast behind the soft watches. Flat shading keeps the
+// strata readable when the low sun rakes across them.
+const HEADLAND: [number, number][] = [
+  [0, 0], [0, 4.2], [.6, 4.6], [1.4, 4.4], [2.1, 5.3], [3.4, 5.5], [4, 5], [5.2, 5.1],
+  [6, 6.4], [7.6, 6.6], [8.3, 6], [10, 5.9], [11.2, 4.8], [13, 4.6], [14.5, 3.6],
+  [17, 3.2], [20, 2.1], [24, 1.2], [30, .4], [36, 0],
+];
+
+function Headland({ position, color, scale }: { position: [number, number, number]; color: string; scale: number }) {
+  const geometry = useMemo(() => {
+    const shape = new THREE.Shape(HEADLAND.map(([x, y]) => new THREE.Vector2(x, y)));
+    const extruded = new THREE.ExtrudeGeometry(shape, { depth: 7, bevelEnabled: false, steps: 1 });
+    extruded.translate(0, 0, -3.5);
+    return extruded.toNonIndexed();
+  }, []);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  return (
+    <mesh geometry={geometry} position={position} scale={[scale, scale, scale]}>
+      <meshStandardMaterial color={color} roughness={1} flatShading />
+    </mesh>
+  );
+}
+
 function Sky() {
   const material = useMemo(() => new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, toneMapped: false,
@@ -294,14 +318,12 @@ function Landscape({ active, running, reduced, small }: SceneProps) {
         <planeGeometry args={[1000, 1000]} />
         <meshStandardMaterial color="#bd895a" roughness={1} />
       </mesh>
-      <mesh position={[0, .015, -52]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[210, 8]} />
-        <meshStandardMaterial color="#b7c2c2" roughness={.18} metalness={.18} />
+      <mesh position={[0, .02, -58]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[260, 22]} />
+        <meshStandardMaterial color="#a9b9c4" roughness={.08} metalness={.35} />
       </mesh>
-      <group position={[-3, .7, -51]}>
-        <mesh scale={[10, 1.9, 3]}><dodecahedronGeometry args={[1, 0]} /><meshStandardMaterial color="#b78053" roughness={1} /></mesh>
-        <mesh position={[5, -.2, 2]} scale={[7, 1.5, 3]}><dodecahedronGeometry args={[1, 0]} /><meshStandardMaterial color="#be8d60" roughness={1} /></mesh>
-      </group>
+      <Headland position={[-11, 0, -62]} color="#b97a45" scale={1} />
+      <Headland position={[-4, 0, -80]} color="#cfa57a" scale={.85} />
       <RoundedBox args={[3.6, 1.4, 2.3]} radius={.075} smoothness={3} position={[-.55, .72, .1]} castShadow receiveShadow>
         <meshStandardMaterial color="#bca187" roughness={.85} />
       </RoundedBox>
