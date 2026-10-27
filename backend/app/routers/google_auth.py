@@ -65,6 +65,12 @@ def read_state(state: str, cookie_nonce: str | None, now: float | None = None) -
     return parsed
 
 
+@router.get("/status")
+async def google_status():
+    """Whether Google Calendar sign-in is set up on this server."""
+    return {"enabled": bool(settings.GOOGLE_CLIENT_ID and settings.GOOGLE_CLIENT_SECRET)}
+
+
 @router.get("/auth-url")
 async def get_google_auth_url(
     response: Response,

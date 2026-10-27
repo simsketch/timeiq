@@ -49,6 +49,14 @@ export default function CalendarsPage() {
   const [savingLink, setSavingLink] = useState(false);
 
   const [connectingGoogle, setConnectingGoogle] = useState(false);
+  // Google sign-in needs OAuth credentials on the server; hide it until they exist.
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+
+  useEffect(() => {
+    apiFetch<{ enabled: boolean }>("/api/google/status")
+      .then((s) => setGoogleEnabled(s.enabled))
+      .catch(() => setGoogleEnabled(false));
+  }, []);
 
   useEffect(() => {
     fetchAll();
@@ -248,10 +256,12 @@ export default function CalendarsPage() {
           <div className="flex items-center justify-between">
             <CardTitle>Add Calendar</CardTitle>
             <div className="flex flex-wrap justify-end gap-2">
-              <Button size="sm" onClick={handleConnectGoogle} disabled={connectingGoogle}>
+{googleEnabled && (
+                            <Button size="sm" onClick={handleConnectGoogle} disabled={connectingGoogle}>
                 <CalendarDays className="h-4 w-4 mr-2" />
                 {connectingGoogle ? "Opening Google..." : "Connect Google Calendar"}
               </Button>
+              )}
               {!showAddForm && (
                 <Button
                   size="sm"
