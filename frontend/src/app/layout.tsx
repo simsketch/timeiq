@@ -10,11 +10,11 @@ import "./globals.css";
 
 const SITE = "https://timeiq.app";
 const DESCRIPTION =
-  "Booking pages, weekly timesheets, and PDF invoices in one calm app. $19/year founder price for the first 100 subscribers.";
+  "All your calendars in one booking link. Email TimeIQ a schedule and it adds the events; share your open times in any time zone. $19/year founder price for the first 100 subscribers.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
-  title: "TimeIQ - Scheduling, timesheets, and invoices",
+  title: "TimeIQ - All your calendars. One booking link.",
   description: DESCRIPTION,
   icons: {
     icon: "/favicon.svg",
@@ -23,13 +23,13 @@ export const metadata: Metadata = {
     type: "website",
     url: SITE,
     siteName: "TimeIQ",
-    title: "TimeIQ - Book meetings. Log hours. Send invoices.",
+    title: "TimeIQ - All your calendars. One booking link.",
     description: DESCRIPTION,
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "TimeIQ: book meetings, log hours, send invoices" }],
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "TimeIQ: all your calendars, one booking link" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "TimeIQ - Book meetings. Log hours. Send invoices.",
+    title: "TimeIQ - All your calendars. One booking link.",
     description: DESCRIPTION,
     images: ["/og.png"],
   },

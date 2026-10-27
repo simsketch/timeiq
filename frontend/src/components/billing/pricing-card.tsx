@@ -9,10 +9,11 @@ import { track } from "@/components/meta-pixel";
 import { PricingInfo, fetchPricing, fmtCents, startCheckout, startGuestCheckout } from "@/lib/billing";
 
 const INCLUDED = [
+  "Google, Outlook, iCloud and any calendar link in one view",
   "Unlimited booking pages and event types",
-  "Google Calendar and ICS sync",
-  "Weekly timesheet and clients with rates",
-  "PDF invoices emailed with a hosted link",
+  "Email a schedule and it lands on your calendar",
+  "Share your availability as text or a picture, in any time zone",
+  "Timesheets and PDF invoices included",
   "Founder price locked in for life",
 ];
 

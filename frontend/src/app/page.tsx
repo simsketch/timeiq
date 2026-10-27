@@ -65,11 +65,8 @@ export default function LandingPage() {
             >
               Features
             </a>
-            <a
-              href="#invoicing"
-              className="hover:text-foreground transition-colors"
-            >
-              Invoicing
+            <a href="#new" className="hover:text-foreground transition-colors">
+              What&apos;s new
             </a>
             <FounderPill href="/pricing" compact />
           </nav>
@@ -118,18 +115,18 @@ export default function LandingPage() {
                 </div>
 
                 <h1 className="text-[3.25rem] sm:text-6xl lg:text-[5rem] leading-[0.95] tracking-[-0.035em] text-balance">
-                  <span className="font-display">Schedule meetings</span>
+                  <span className="font-display">All your calendars.</span>
                   <br />
                   <span className="font-display-italic text-aurora">
-                    without the chase.
+                    One booking link.
                   </span>
                 </h1>
 
                 <p className="reveal reveal-3 text-lg lg:text-xl text-muted-foreground max-w-2xl leading-relaxed text-pretty">
-                  Share your availability, let others book time with you
-                  instantly, and never play email tag again. Then log your
-                  hours and send the invoice from the same place. TimeIQ makes
-                  scheduling and billing feel like a breath of air.
+                  Pull in Google, Outlook and iCloud so people only see the times
+                  you are really free. Forward TimeIQ a soccer or band schedule
+                  and it lands on your calendar. Send your open times as text or
+                  a picture, in any time zone, in one click.
                 </p>
 
                 <div className="reveal reveal-4 flex flex-col sm:flex-row gap-3">
@@ -314,6 +311,82 @@ export default function LandingPage() {
         </section>
 
         {/* ================================================================
+             NEW — email a schedule + share availability
+             ================================================================ */}
+        <section id="new" className="relative py-24 lg:py-32">
+          <div className="container mx-auto px-6 lg:px-10">
+            <div className="max-w-2xl mb-14">
+              <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
+                New in TimeIQ
+              </div>
+              <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
+                <span className="font-display">Less typing.</span>{" "}
+                <span className="font-display-italic text-aurora">More free time.</span>
+              </h2>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-6 lg:gap-8">
+              {/* Email a schedule */}
+              <div className="glass glass-hover rounded-[1.75rem] p-8 lg:p-10 flex flex-col">
+                <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.15em] text-[hsl(var(--aurora-1))] mb-4">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  AI schedule reader
+                </div>
+                <h3 className="font-display text-3xl tracking-[-0.02em] mb-3">Email it a schedule. Done.</h3>
+                <p className="text-muted-foreground leading-relaxed text-pretty mb-8">
+                  Forward the league PDF, a screenshot from the team app or the coach&apos;s email to your private
+                  TimeIQ address. Every practice and game lands on your calendar, blocks your booking page, and shows
+                  up on your phone. You get a reply listing what was added, with one-click undo.
+                </p>
+                <div className="mt-auto space-y-3" aria-hidden>
+                  <div className="glass rounded-xl px-4 py-3 text-sm">
+                    <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+                      To: schedule-…@timeiq.app
+                    </div>
+                    <div className="font-medium flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      Fw: U10 fall soccer schedule.pdf
+                    </div>
+                  </div>
+                  <div className="glass rounded-xl px-4 py-3 text-sm space-y-1.5">
+                    <div className="flex items-center gap-2 font-medium">
+                      <CheckCircle2 className="h-4 w-4 text-[hsl(var(--aurora-4))]" />
+                      Added 10 events
+                    </div>
+                    {["Tue Nov 3 · Practice, 5:30–7 PM", "Sat Nov 7 · Game vs Cazenovia, 9 AM", "Sun Nov 22 · Tournament (all day)"].map((l) => (
+                      <div key={l} className="text-muted-foreground font-mono text-xs tabular-nums">{l}</div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Share availability */}
+              <div className="glass glass-hover rounded-[1.75rem] p-8 lg:p-10 flex flex-col">
+                <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.15em] text-[hsl(var(--aurora-2))] mb-4">
+                  <Globe className="h-3.5 w-3.5" />
+                  Share availability
+                </div>
+                <h3 className="font-display text-3xl tracking-[-0.02em] mb-3">&ldquo;When are you free?&rdquo; Answered.</h3>
+                <p className="text-muted-foreground leading-relaxed text-pretty mb-8">
+                  One click turns every connected calendar into your open times for the next week. Copy them as text
+                  for a message or email, or as a clean picture for chat. Add a second time zone and each slot shows
+                  both, like EST and PST.
+                </p>
+                <div className="mt-auto glass rounded-xl px-4 py-3 font-mono text-xs leading-relaxed text-foreground/80" aria-hidden>
+                  <div className="text-muted-foreground">Here&apos;s when I&apos;m free (EST / PST):</div>
+                  <div className="mt-2 font-semibold text-foreground">Tue, Nov 3</div>
+                  <div>9–11:30 AM EST · 6–8:30 AM PST</div>
+                  <div>1–4 PM EST · 10 AM–1 PM PST</div>
+                  <div className="mt-2 font-semibold text-foreground">Wed, Nov 4</div>
+                  <div>10 AM–5 PM EST · 7 AM–2 PM PST</div>
+                  <div className="mt-2 text-muted-foreground">Or grab a time: timeiq.app/book/you</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ================================================================
              HOW IT WORKS
              ================================================================ */}
         <section id="how" className="relative py-24 lg:py-36">
@@ -419,7 +492,7 @@ export default function LandingPage() {
                 color="var(--aurora-1)"
                 label="Calendar sync"
                 title="Seamlessly connected."
-                description="Sync with Google Calendar, Outlook, and iCal to prevent double bookings automatically. One source of truth for every meeting."
+                description="Google, Outlook, iCloud and any calendar link, merged into one view. Synced hourly and re-checked before every booking, so nobody books over your other life."
                 large
               />
               <FeatureCard
@@ -468,6 +541,99 @@ export default function LandingPage() {
         </section>
 
         {/* ================================================================
+             OPEN SOURCE + HOSTED
+             ================================================================ */}
+        <section id="open-source" className="relative py-24 lg:py-36">
+          <div className="container mx-auto px-6 lg:px-10">
+            <div className="text-center max-w-2xl mx-auto mb-14">
+              <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
+                Open source
+              </div>
+              <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
+                <span className="font-display">Every line is public.</span>{" "}
+                <span className="font-display-italic text-aurora">
+                  We run it for you.
+                </span>
+              </h2>
+              <p className="text-lg text-muted-foreground mt-6 text-pretty">
+                TimeIQ is open source under the AGPL&#8209;3.0. Read the code, check
+                how your calendars and invoices are handled, or run your own
+                copy. Or let us host it for $19 a year and get back to work.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-5 max-w-5xl mx-auto">
+              <div className="glass rounded-[1.5rem] p-8 flex flex-col">
+                <div className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-5">
+                  <Code2 className="h-3.5 w-3.5" />
+                  Self-hosted
+                </div>
+                <h3 className="font-display text-3xl tracking-[-0.02em] leading-[1.05] mb-2">
+                  Free, on your servers.
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+                  Clone the repo and deploy the Next.js frontend and FastAPI
+                  backend wherever you like.
+                </p>
+                <ul className="space-y-3 text-sm mb-8">
+                  {[
+                    "You provision Postgres, Clerk auth and Resend email",
+                    "You schedule the calendar sync and invoice jobs",
+                    "You apply updates, migrations and security patches",
+                    "Changes you serve to others stay open under the AGPL",
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2.5 text-muted-foreground">
+                      <Server className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground/70" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="mt-auto">
+                  <Button variant="glass" size="lg" className="w-full">
+                    <GitHubIcon className="h-4 w-4" />
+                    View the code on GitHub
+                  </Button>
+                </a>
+              </div>
+
+              <div className="glass rounded-[1.5rem] p-8 flex flex-col ring-1 ring-[hsl(var(--aurora-1))]/30">
+                <div className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.15em] text-[hsl(var(--aurora-1))] mb-5">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Hosted at timeiq.app
+                </div>
+                <h3 className="font-display text-3xl tracking-[-0.02em] leading-[1.05] mb-2">
+                  $19 a year plus tax. Nothing to run.
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+                  The same code, kept running, updated and backed up by the
+                  people who build it.
+                </p>
+                <ul className="space-y-3 text-sm mb-8">
+                  {[
+                    "Live in two minutes, with your booking link ready to share",
+                    "Calendars synced every hour and before every booking",
+                    "Booking and invoice email delivered from our domain",
+                    "Updates and security fixes the day they ship",
+                    "Supports the open source project you are using",
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2.5">
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--aurora-1))]" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <Link href="/billing/checkout" className="mt-auto">
+                  <Button variant="aurora" size="lg" className="w-full">
+                    Claim a founder spot
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ================================================================
              TIME & INVOICING
              ================================================================ */}
         <section id="invoicing" className="relative py-24 lg:py-36">
@@ -475,7 +641,7 @@ export default function LandingPage() {
             <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center mb-16 lg:mb-20">
               <div className="lg:col-span-5 space-y-6">
                 <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
-                  Time &amp; invoicing
+                  Also included: time &amp; invoicing
                 </div>
                 <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
                   <span className="font-display">Log the hours.</span>
@@ -487,9 +653,9 @@ export default function LandingPage() {
                   <span className="font-display">Get paid.</span>
                 </h2>
                 <p className="text-lg text-muted-foreground leading-relaxed text-pretty">
-                  Meetings are only half the job. TimeIQ gives you a weekly
-                  timesheet for the work in between, then turns those hours
-                  into a polished invoice with one click.
+                  Bill clients for your time? It&apos;s in the box at no extra cost:
+                  a weekly timesheet for the work between meetings, turned into
+                  a polished invoice with one click.
                 </p>
                 <ul className="space-y-2.5 text-sm text-foreground/80">
                   {[
@@ -649,99 +815,6 @@ export default function LandingPage() {
         </section>
 
         {/* ================================================================
-             OPEN SOURCE + HOSTED
-             ================================================================ */}
-        <section id="open-source" className="relative py-24 lg:py-36">
-          <div className="container mx-auto px-6 lg:px-10">
-            <div className="text-center max-w-2xl mx-auto mb-14">
-              <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
-                Open source
-              </div>
-              <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
-                <span className="font-display">Every line is public.</span>{" "}
-                <span className="font-display-italic text-aurora">
-                  We run it for you.
-                </span>
-              </h2>
-              <p className="text-lg text-muted-foreground mt-6 text-pretty">
-                TimeIQ is open source under the AGPL&#8209;3.0. Read the code, check
-                how your calendars and invoices are handled, or run your own
-                copy. Or let us host it for $19 a year and get back to work.
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-5 max-w-5xl mx-auto">
-              <div className="glass rounded-[1.5rem] p-8 flex flex-col">
-                <div className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-5">
-                  <Code2 className="h-3.5 w-3.5" />
-                  Self-hosted
-                </div>
-                <h3 className="font-display text-3xl tracking-[-0.02em] leading-[1.05] mb-2">
-                  Free, on your servers.
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                  Clone the repo and deploy the Next.js frontend and FastAPI
-                  backend wherever you like.
-                </p>
-                <ul className="space-y-3 text-sm mb-8">
-                  {[
-                    "You provision Postgres, Clerk auth and Resend email",
-                    "You schedule the calendar sync and invoice jobs",
-                    "You apply updates, migrations and security patches",
-                    "Changes you serve to others stay open under the AGPL",
-                  ].map((item) => (
-                    <li key={item} className="flex items-start gap-2.5 text-muted-foreground">
-                      <Server className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground/70" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="mt-auto">
-                  <Button variant="glass" size="lg" className="w-full">
-                    <GitHubIcon className="h-4 w-4" />
-                    View the code on GitHub
-                  </Button>
-                </a>
-              </div>
-
-              <div className="glass rounded-[1.5rem] p-8 flex flex-col ring-1 ring-[hsl(var(--aurora-1))]/30">
-                <div className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.15em] text-[hsl(var(--aurora-1))] mb-5">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Hosted at timeiq.app
-                </div>
-                <h3 className="font-display text-3xl tracking-[-0.02em] leading-[1.05] mb-2">
-                  $19 a year plus tax. Nothing to run.
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                  The same code, kept running, updated and backed up by the
-                  people who build it.
-                </p>
-                <ul className="space-y-3 text-sm mb-8">
-                  {[
-                    "Live in two minutes, with your booking link ready to share",
-                    "Calendars synced every hour and before every booking",
-                    "Booking and invoice email delivered from our domain",
-                    "Updates and security fixes the day they ship",
-                    "Supports the open source project you are using",
-                  ].map((item) => (
-                    <li key={item} className="flex items-start gap-2.5">
-                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--aurora-1))]" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/billing/checkout" className="mt-auto">
-                  <Button variant="aurora" size="lg" className="w-full">
-                    Claim a founder spot
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ================================================================
              PRICING
              ================================================================ */}
         <section id="pricing" className="relative py-24 lg:py-36">
@@ -792,8 +865,8 @@ export default function LandingPage() {
                   </span>
                 </h2>
                 <p className="text-lg text-white/70 mt-7 mb-10 leading-relaxed text-pretty">
-                  Book meetings, log your hours, and send invoices from one
-                  calm workspace. Founder spots are limited.
+                  Every calendar in one place, schedules that add themselves,
+                  and your free time ready to share. Founder spots are limited.
                 </p>
                 <Link href="/billing/checkout">
                   <Button variant="aurora" size="xl">
