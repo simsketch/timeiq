@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,8 +24,15 @@ class EmailImport(Base):
     resend_email_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     sender: Mapped[str | None] = mapped_column(String(320), nullable=True)
     subject: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    # processing | imported | empty | failed | rejected | undone
+    # processing | imported | empty | failed | rejected | undone | skipped,
+    # plus the meeting agent's meeting* statuses.
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="processing")
+    # Deliveries that have claimed this email. A "processing" claim older than
+    # email_import.STALE_CLAIM may be retaken by a redelivery.
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # A failure a redelivered webhook may retry (network, Resend 5xx, timeouts).
+    retryable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     event_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     undo_token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)

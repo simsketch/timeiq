@@ -186,7 +186,14 @@ async def _handle_user_updated(data: dict) -> None:
 
 
 async def _handle_user_deleted(data: dict) -> None:
-    """Handle user.deleted event."""
+    """Handle user.deleted event: cancel billing, then delete our rows.
+
+    Same order as DELETE /api/me. If Stripe can't cancel the subscription the
+    user is kept and the webhook answers 502, so Clerk redelivers it and the
+    cancellation is retried instead of the subscription charging on unseen.
+    """
+    from app.services import billing
+
     clerk_id = data.get("id")
     if not clerk_id:
         return
@@ -197,6 +204,14 @@ async def _handle_user_deleted(data: dict) -> None:
         )
         user = result.scalar_one_or_none()
         if user:
+            try:
+                billing.cancel_before_account_deletion(user)
+            except Exception as exc:
+                logger.error("Stripe cancel for deleted Clerk user %s failed: %s", clerk_id, exc)
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="Could not cancel the subscription; retry later",
+                )
             await db.delete(user)
             await db.commit()
             logger.info(f"Deleted user (clerk_id={clerk_id})")

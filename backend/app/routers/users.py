@@ -513,19 +513,15 @@ async def delete_my_account(
     """
     from app.services import billing
 
-    if billing.enabled() and user.stripe_subscription_id and user.subscription_status not in billing.ENDED_STATUSES:
-        # Deleting the account while the subscription lives on would keep
-        # charging someone we can no longer show a billing page to, so a
-        # failed cancellation stops the deletion. Retrying is safe.
-        try:
-            billing.cancel_subscription(user.stripe_subscription_id)
-        except Exception as exc:
-            logger.error("Stripe cancel during account deletion failed for %s: %s", user.email, exc)
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="We couldn't cancel your subscription, so your account was not deleted. Please try again in a few minutes.",
-            )
-        user.subscription_status = "canceled"
+    # A failed cancellation stops the deletion (see cancel_before_account_deletion).
+    try:
+        billing.cancel_before_account_deletion(user)
+    except Exception as exc:
+        logger.error("Stripe cancel during account deletion failed for %s: %s", user.email, exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="We couldn't cancel your subscription, so your account was not deleted. Please try again in a few minutes.",
+        )
 
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.delete(

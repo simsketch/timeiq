@@ -26,7 +26,8 @@ interface EmailImport {
     | "meeting_booked"
     | "meeting_accepted"
     | "meeting_error"
-    | "ignored";
+    | "ignored"
+    | "skipped";
   event_count: number;
   error: string | null;
   created_at: string;
@@ -51,6 +52,7 @@ const STATUS: Record<EmailImport["status"], string> = {
   meeting_accepted: "Accepted a time",
   meeting_error: "Error",
   ignored: "Ignored",
+  skipped: "Not read: subscription inactive",
 };
 
 /** Calendars page card: the address to email schedules to, and recent imports. */
