@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
+import { EmailSchedules } from "@/components/email-schedules";
 import { apiFetch } from "@/lib/api";
 import { Plus, Trash2, RefreshCw, CalendarDays, Clock, AlertTriangle, Link2 } from "lucide-react";
 import { format } from "date-fns";
@@ -314,6 +315,8 @@ export default function CalendarsPage() {
         </CardContent>
       </Card>
 
+      <EmailSchedules onChange={fetchAll} />
+
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Connected Calendars</h2>
         {calendars.length === 0 ? (
@@ -331,7 +334,7 @@ export default function CalendarsPage() {
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <h3 className="font-semibold">{calendar.name}</h3>
                       <Badge variant="secondary">
-                        {calendar.type === "ics_url" ? "ICS" : calendar.type.toUpperCase()}
+                        {calendar.type === "ics_url" ? "ICS" : calendar.type === "email" ? "Emailed schedules" : calendar.type.toUpperCase()}
                       </Badge>
                       {calendar.sync_status === "broken" && (
                         <Badge variant="destructive">Not syncing</Badge>
@@ -385,14 +388,16 @@ export default function CalendarsPage() {
                         {calendar.sync_status === "broken" && <span className="ml-2">Replace link</span>}
                       </Button>
                     )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleSync(calendar.id)}
-                      aria-label="Sync now"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                    </Button>
+                    {calendar.type !== "email" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleSync(calendar.id)}
+                        aria-label="Sync now"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"

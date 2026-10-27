@@ -474,6 +474,71 @@ def send_calendar_broken(user: User, source) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Emailed schedules
+# ---------------------------------------------------------------------------
+
+REPLY_EVENT_LIMIT = 40
+
+
+def _event_line(row: dict, tz_name: str) -> tuple[str, str]:
+    tz = _zone(tz_name)
+    start = row["starts_at"].astimezone(tz)
+    day = start.strftime("%a %b %-d")
+    if row.get("is_all_day"):
+        return day, f"{row['title']} (all day)"
+    end = row["ends_at"].astimezone(tz)
+    span = f"{start.strftime('%-I:%M %p')}–{end.strftime('%-I:%M %p')}".replace(":00 ", " ")
+    return day, f"{row['title']}, {span}"
+
+
+def render_schedule_import(user: User, record, rows: list[dict], schedule_name: str | None) -> tuple[str, str]:
+    """(subject, html) for the reply to an emailed schedule."""
+    tz = user.timezone or "America/New_York"
+    what = schedule_name or record.subject or "your email"
+    if record.status == "imported":
+        rows = sorted(rows, key=lambda r: r["starts_at"])
+        shown = rows[:REPLY_EVENT_LIMIT]
+        subject = f"Added {len(rows)} event{'s' if len(rows) != 1 else ''} from {what}"
+        body = (
+            t.h1(subject)
+            + t.p(
+                f"They're on your TimeIQ calendar now, in {_zone(tz).key.replace('_', ' ')} time, so nobody can book over them. "
+                "They also show up in your TimeIQ calendar feed on your phone."
+            )
+            + t.details([_event_line(r, tz) for r in shown])
+            + (t.p(f"…and {len(rows) - len(shown)} more.", muted=True) if len(rows) > len(shown) else "")
+            + t.buttons(
+                t.button("See your calendars", f"{_site()}/calendars"),
+                t.button("Undo this import", f"{_site()}/imports/undo?token={record.undo_token}", secondary=True),
+            )
+            + t.p("Something wrong? Undo it, then forward the schedule again with a note about what to fix.", muted=True)
+        )
+        return subject, t.layout("reminder", subject, body)
+    if record.status == "rejected":
+        subject = "We couldn't add that schedule"
+        message = record.error or "That email couldn't be imported."
+    elif record.status == "empty":
+        subject = "We didn't find a schedule in that email"
+        message = (
+            "TimeIQ couldn't find any dates and times in it. Forward the email with the schedule in it, or attach "
+            "the PDF, a screenshot or an .ics file."
+        )
+    else:
+        subject = "Something went wrong adding that schedule"
+        message = "TimeIQ hit an error reading it. Please try again in a few minutes; nothing was added."
+    body = t.h1(subject) + t.p(message) + t.buttons(t.button("Open TimeIQ", f"{_site()}/calendars"))
+    return subject, t.layout("reminder", subject, body)
+
+
+def send_schedule_import_reply(user: User, record, rows: list[dict], schedule_name: str | None, to: list[str]) -> None:
+    if not to:
+        return
+    _init_resend()
+    subject, html = render_schedule_import(user, record, rows, schedule_name)
+    _send({"from": FROM_EMAIL, "to": to, "subject": subject, "html": html}, "schedule import reply")
+
+
+# ---------------------------------------------------------------------------
 # Welcome
 # ---------------------------------------------------------------------------
 

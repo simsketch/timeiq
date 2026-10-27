@@ -23,6 +23,12 @@ class Settings:
     CLERK_SECRET_KEY: str = os.getenv("CLERK_SECRET_KEY", "")
     CLERK_WEBHOOK_SECRET: str = os.getenv("CLERK_WEBHOOK_SECRET", "")
     RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+    # Emailed schedules: Resend inbound (webhook secret + a key that can read
+    # received mail) and Claude to read the schedule.
+    RESEND_INBOUND_API_KEY: str = os.getenv("RESEND_INBOUND_API_KEY", "")
+    RESEND_INBOUND_WEBHOOK_SECRET: str = os.getenv("RESEND_INBOUND_WEBHOOK_SECRET", "")
+    INBOUND_DOMAIN: str = os.getenv("INBOUND_DOMAIN", "timeiq.app")
+    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
     GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
     GOOGLE_REDIRECT_URI: str = os.getenv(

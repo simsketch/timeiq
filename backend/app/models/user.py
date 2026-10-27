@@ -55,6 +55,8 @@ class User(Base):
     subscription_current_period_end: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Secret part of the address schedules are emailed to: schedule-<token>@timeiq.app.
+    inbound_token: Mapped[str | None] = mapped_column(String(32), unique=True, nullable=True)
     # Set when a founder-price checkout opens; the seat counts as taken until
     # this passes or the subscription lands (see services/billing.py).
     founder_reserved_until: Mapped[datetime | None] = mapped_column(

@@ -101,7 +101,7 @@ async def sync_all_active_calendars() -> dict[str, int]:
     """
     async with async_session() as db:
         result = await db.execute(
-            select(CalendarSource.id).where(CalendarSource.is_active.is_(True))
+            select(CalendarSource.id).where(CalendarSource.is_active.is_(True), CalendarSource.type != "email")
         )
         source_ids = list(result.scalars().all())
 
@@ -116,7 +116,7 @@ async def sync_user_calendars(user_id) -> dict[str, int]:
         result = await db.execute(
             select(CalendarSource.id).where(
                 CalendarSource.user_id == user_id,
-                CalendarSource.is_active.is_(True),
+                CalendarSource.is_active.is_(True), CalendarSource.type != "email",
             )
         )
         source_ids = list(result.scalars().all())
@@ -141,7 +141,7 @@ async def freshen_user_calendars(user_id, budget_seconds: float) -> int:
         result = await db.execute(
             select(CalendarSource.id).where(
                 CalendarSource.user_id == user_id,
-                CalendarSource.is_active.is_(True),
+                CalendarSource.is_active.is_(True), CalendarSource.type != "email",
                 or_(
                     CalendarSource.last_synced_at.is_(None),
                     CalendarSource.last_synced_at < now - STALE_AFTER,

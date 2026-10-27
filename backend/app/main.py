@@ -30,6 +30,7 @@ from app.routers import (
     calendars,
     clients,
     cron,
+    email_imports,
     event_types,
     google_auth,
     invoices,
@@ -75,6 +76,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(webhooks.router)
+app.include_router(email_imports.router)
 app.include_router(billing.router)
 app.include_router(users.router)
 app.include_router(event_types.router)

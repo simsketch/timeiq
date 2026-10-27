@@ -9,6 +9,7 @@ from app.models.time_entry import TimeEntry
 from app.models.invoice import Invoice, InvoiceLine
 from app.models.timesheet_row import TimesheetRow
 from app.models.guest_checkout import GuestCheckout
+from app.models.email_import import EmailImport
 
 __all__ = [
     "User",
@@ -23,4 +24,5 @@ __all__ = [
     "InvoiceLine",
     "TimesheetRow",
     "GuestCheckout",
+    "EmailImport",
 ]

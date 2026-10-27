@@ -29,6 +29,13 @@ class CachedEvent(Base):
         nullable=False,
         index=True,
     )
+    # Set for events read from an emailed schedule, so the import can be undone.
+    email_import_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("timeiq.email_imports.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     title: Mapped[str | None] = mapped_column(String(500), nullable=True)
     starts_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
