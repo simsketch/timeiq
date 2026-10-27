@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import re
 
@@ -55,8 +56,10 @@ async def clerk_webhook(request: Request):
     # Verify the webhook signature
     try:
         wh = Webhook(settings.CLERK_WEBHOOK_SECRET)
-        payload = wh.verify(body, headers)
-    except WebhookVerificationError:
+        wh.verify(body, headers)
+        # svix 2 only checks the signature (verify() returns None); parse the body here.
+        payload = json.loads(body)
+    except (WebhookVerificationError, ValueError):
         logger.warning("Clerk webhook signature verification failed")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -1,6 +1,7 @@
 """Email a schedule in: the Resend webhook, your address, import history and undo."""
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from datetime import datetime
@@ -60,7 +61,9 @@ def _enabled() -> bool:
 async def inbound_email(request: Request):
     body = await request.body()
     try:
-        payload = Webhook(settings.RESEND_INBOUND_WEBHOOK_SECRET).verify(body, dict(request.headers))
+        Webhook(settings.RESEND_INBOUND_WEBHOOK_SECRET).verify(body, dict(request.headers))
+        # verify() only checks the signature in current svix (it returns None), so parse the body here.
+        payload = json.loads(body)
     except (WebhookVerificationError, ValueError):
         logger.warning("Inbound email webhook failed signature verification")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid webhook signature")

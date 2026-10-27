@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from email.utils import parseaddr
 from datetime import datetime, timezone
 
 import pytest
@@ -69,17 +70,20 @@ async def env(monkeypatch):
     async def deliver(sender, to, cc=(), text="", subject="Pilot", refs=(), auth=None, headers=None, msg_id=None):
         email_id = uuid.uuid4().hex
         msg_id = msg_id or f"<{email_id}@mail.test>"
-        h = dict(headers or {})
+        # Shaped like Resend's received email: top-level to/cc name only the
+        # TimeIQ address that got this copy; the real recipients are headers.
+        h = {"from": sender, "to": ", ".join(to), **({"cc": ", ".join(cc)} if cc else {}), **(headers or {})}
         if refs:
             h["references"] = " ".join(refs)
             h["in-reply-to"] = refs[-1]
         inbox[email_id] = {
-            "from": sender, "to": list(to), "cc": list(cc), "subject": subject, "text": text,
+            "from": parseaddr(sender)[1], "to": [address], "cc": [address] if address in cc else [],
+            "subject": subject, "text": text,
             "message_id": msg_id, "headers": h, "authentication": auth or {"spf": "pass", "dkim": "pass", "dmarc": "pass"},
         }
         record = await email_import.process_inbound(
-            {"type": "email.received", "data": {"email_id": email_id, "from": sender, "to": list(to), "cc": list(cc),
-                                                 "subject": subject}},
+            {"type": "email.received", "data": {"email_id": email_id, "from": parseaddr(sender)[1], "to": [address],
+                                                 "received_for": [address], "subject": subject}},
             now=NOW,
         )
         return record, msg_id

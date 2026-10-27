@@ -237,9 +237,15 @@ async def handle(user_id, detail: dict, now: datetime | None = None) -> str | No
     now = now or datetime.now(timezone.utc)
     if is_auto_reply(detail):
         return "ignored"
-    sender = parseaddr(detail.get("from") or "")[1].strip().lower()
+    # Resend's top-level to/cc list only the address that received this copy;
+    # the real recipients (and display names) are in the headers.
+    sender = parseaddr(_header(detail, "from") or detail.get("from") or "")[1].strip().lower()
     refs = thread_refs(detail)
-    people = _addresses(detail.get("from"), detail.get("to"), detail.get("cc"))
+    people = _addresses(
+        _header(detail, "from") or detail.get("from"),
+        _header(detail, "to") or detail.get("to"),
+        _header(detail, "cc") or detail.get("cc"),
+    )
 
     async with async_session() as db:
         owner = await db.get(User, user_id)
