@@ -262,6 +262,10 @@ class ImportRejected(Exception):
     """The email can't be imported; the message is sent back to the sender."""
 
 
+class _Skip(Exception):
+    """Fetching already failed; keep the status it set."""
+
+
 async def _email_source(db: AsyncSession, user: User) -> CalendarSource:
     source = (
         await db.execute(
@@ -291,7 +295,11 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
     now = now or datetime.now(timezone.utc)
     data = payload.get("data") or {}
     email_id = data.get("email_id") or data.get("id")
-    token = token_from_recipients(data.get("to") or [])
+    # cc'd or bcc'd counts too (cc TimeIQ on a thread); received_for names the
+    # exact address Resend accepted the mail for.
+    token = token_from_recipients(
+        [*(data.get("received_for") or []), *(data.get("to") or []), *(data.get("cc") or []), *(data.get("bcc") or [])]
+    )
     sender = parseaddr(data.get("from") or "")[1].strip().lower()
     if not email_id or not token:
         return None
@@ -320,20 +328,49 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
     rows: list[dict] = []
     schedule_name: str | None = None
     status, error = "imported", None
+    detail: dict | None = None
+    attachments: list[Attachment] = []
     try:
+        detail, attachments = await fetch_email(email_id)
+        # A thread about meeting up (cc TimeIQ), or a reply on one, goes to the
+        # meeting agent; everything else is a schedule to import.
+        from app.services import meeting_agent
+
+        try:
+            routed = await meeting_agent.handle(user_id, detail, now)
+        except Exception:
+            logger.exception("Meeting agent failed on %s", email_id)
+            routed = "meeting_error"
+        if routed is not None:
+            async with async_session() as db:
+                record = (await db.execute(select(EmailImport).where(EmailImport.resend_email_id == email_id))).scalar_one()
+                record.status = routed
+                await db.commit()
+                await db.refresh(record)
+            return record
+    except ImportRejected as exc:
+        detail = None
+        status, error = "rejected", str(exc)
+    except Exception as exc:
+        logger.exception("Fetching inbound email %s failed", email_id)
+        detail = None
+        status, error = "failed", f"{type(exc).__name__}"
+
+    try:
+        if detail is None:
+            raise _Skip()
         async with async_session() as db:
             recent = (
                 await db.execute(
                     select(func.count()).select_from(EmailImport).where(
                         EmailImport.user_id == user_id,
                         EmailImport.created_at > now - timedelta(days=1),
-                        EmailImport.status != "rejected",
+                        EmailImport.status.notin_(("rejected", "ignored", "meeting", "meeting_reply", "meeting_booked", "meeting_error")),
                     )
                 )
             ).scalar_one()
         if recent > MAX_IMPORTS_PER_DAY:
             raise ImportRejected(f"TimeIQ imports up to {MAX_IMPORTS_PER_DAY} schedules a day. Try again tomorrow.")
-        detail, attachments = await fetch_email(email_id)
         async with async_session() as db:
             user = await db.get(User, user_id)
             tz = host_zone(user.timezone)
@@ -354,6 +391,8 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
             raise ImportRejected(f"That schedule has {len(rows)} events; TimeIQ imports up to {MAX_EVENTS} at a time.")
         if not rows:
             status = "empty"
+    except _Skip:
+        rows = []
     except ImportRejected as exc:
         status, error, rows = "rejected", str(exc), []
     except Exception as exc:

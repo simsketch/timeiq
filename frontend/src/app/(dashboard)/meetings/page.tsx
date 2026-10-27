@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
-import { Plus, UsersRound, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { Plus, UsersRound, CheckCircle2, Clock, XCircle, Mail, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -76,6 +76,8 @@ export default function MeetingsPage() {
   const [form, setForm] = useState(blankForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [address, setAddress] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
     const token = await getToken();
@@ -91,6 +93,31 @@ export default function MeetingsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
+
+  useEffect(() => {
+    (async () => {
+      const token = await getToken();
+      try {
+        const inbox = await apiFetch<{ address: string; enabled: boolean }>("/api/email-imports", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (inbox.enabled) setAddress(inbox.address);
+      } catch {
+        // The cc tip is optional.
+      }
+    })();
+  }, [getToken]);
+
+  async function copyAddress() {
+    if (!address) return;
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({ title: "Couldn't copy", description: address });
+    }
+  }
 
   async function create() {
     setError(null);
@@ -147,6 +174,21 @@ export default function MeetingsPage() {
         </Button>
       </div>
 
+      {address && (
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-indigo-50/60 px-4 py-3 text-sm">
+          <Mail className="h-4 w-4 shrink-0 text-indigo-700" />
+          <span className="min-w-0 flex-1">
+            <span className="font-medium">Or just cc TimeIQ.</span> Add{" "}
+            <code className="rounded bg-white/80 px-1.5 py-0.5 text-xs break-all">{address}</code> to any email thread
+            about meeting up. It replies to everyone with times, reads their answers, and books when you say so.
+          </span>
+          <Button size="sm" variant="outline" onClick={copyAddress}>
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied ? "Copied" : "Copy"}
+          </Button>
+        </div>
+      )}
+
       {meetings === null ? (
         <div className="flex justify-center py-16">
           <ClockLoader />
@@ -181,6 +223,7 @@ export default function MeetingsPage() {
                       {m.status === "booked" && m.starts_at
                         ? whenLabel(m.starts_at, m.duration_minutes, zone)
                         : `${m.duration_minutes} min · ${m.participant_count + 1} people`}
+                      {m.source === "email" && " · from an email thread"}
                     </div>
                   </div>
                   <StatusBadge m={m} />

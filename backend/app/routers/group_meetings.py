@@ -93,6 +93,7 @@ class MeetingSummary(BaseModel):
     participant_count: int
     responded_count: int
     created_at: datetime
+    source: str = "app"
 
 
 class MeetingDetail(MeetingSummary):
@@ -150,6 +151,7 @@ def _summary(m: GroupMeeting) -> dict:
         "participant_count": len(m.participants),
         "responded_count": sum(1 for p in m.participants if p.responded_at),
         "created_at": m.created_at,
+        "source": m.source,
     }
 
 
@@ -195,17 +197,6 @@ async def _participant(db: AsyncSession, token: str) -> GroupMeetingParticipant:
     if p is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="This link isn't valid. Ask the organizer for a new one.")
     return p
-
-
-async def _maybe_notify_all_answered(db: AsyncSession, meeting: GroupMeeting) -> None:
-    """Tell the organizer once, when the last person answers."""
-    if meeting.status != "open" or meeting.all_answered_notified_at or not gm.all_answered(meeting):
-        return
-    candidates = await gm.candidate_slots(db, meeting)
-    ranked = gm.rank(candidates, await gm.participant_answers(db, meeting, candidates))
-    meeting.all_answered_notified_at = datetime.now(timezone.utc)
-    await db.commit()
-    mail.send_group_all_answered(meeting, ranked[0] if ranked else None)
 
 
 # ---------------------------------------------------------------------------
@@ -419,7 +410,7 @@ async def respond(token: str, payload: RespondIn, db: AsyncSession = Depends(get
     p.responded_at = datetime.now(timezone.utc)
     await db.flush()
     await db.commit()
-    await _maybe_notify_all_answered(db, meeting)
+    await gm.notify_if_all_answered(db, meeting)
     return await _public(db, p)
 
 
@@ -442,5 +433,5 @@ async def use_calendar(
     p.responded_at = datetime.now(timezone.utc)
     await db.flush()
     await db.commit()
-    await _maybe_notify_all_answered(db, meeting)
+    await gm.notify_if_all_answered(db, meeting)
     return await _public(db, p)

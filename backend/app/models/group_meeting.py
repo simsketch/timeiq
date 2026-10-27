@@ -33,6 +33,16 @@ class GroupMeeting(Base):
     starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ical_sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    # app | email ("cc TimeIQ" on a thread; see services/meeting_agent.py)
+    source: Mapped[str] = mapped_column(String(20), nullable=False, default="app", server_default="app")
+    # Optional limits on candidate times, in the organizer's zone: minutes from
+    # midnight, and allowed weekdays (0 = Monday).
+    earliest_minute: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    latest_minute: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    weekdays: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # Message-IDs of the email thread, so replies find their meeting.
+    thread_ids: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+    thread_subject: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # Set once the organizer has been told everyone answered.
     all_answered_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

@@ -81,10 +81,40 @@ def _fits(start: datetime, minutes: int, windows: list[Window]) -> bool:
     return any(w_start <= start and end <= w_end for w_start, w_end in windows)
 
 
+def _allowed(start: datetime, meeting: GroupMeeting, tz) -> bool:
+    """The meeting's optional time-of-day and weekday limits, in the organizer's zone."""
+    local = start.astimezone(tz)
+    if meeting.weekdays and local.weekday() not in meeting.weekdays:
+        return False
+    begin = local.hour * 60 + local.minute
+    if meeting.earliest_minute is not None and begin < meeting.earliest_minute:
+        return False
+    if meeting.latest_minute is not None and begin + meeting.duration_minutes > meeting.latest_minute:
+        return False
+    return True
+
+
 async def candidate_slots(db: AsyncSession, meeting: GroupMeeting, now: datetime | None = None) -> list[datetime]:
     now = now or datetime.now(timezone.utc)
     windows = await _windows(db, meeting.organizer, meeting, now, default_hours=True)
-    return _slots_in(windows, meeting.duration_minutes)
+    tz = host_zone(meeting.organizer)
+    return [s for s in _slots_in(windows, meeting.duration_minutes) if _allowed(s, meeting, tz)]
+
+
+def spread(slots: list[datetime], tz, limit: int = 6, per_day: int = 2) -> list[datetime]:
+    """A few options to offer in words: at most per_day a day, spaced apart."""
+    picked: list[datetime] = []
+    by_day: dict = {}
+    for s in sorted(slots):
+        day = s.astimezone(tz).date()
+        mine = by_day.setdefault(day, [])
+        if len(mine) >= per_day or any(abs((s - m).total_seconds()) < 3 * 3600 for m in mine):
+            continue
+        mine.append(s)
+        picked.append(s)
+        if len(picked) >= limit:
+            break
+    return picked
 
 
 def iso(dt: datetime) -> str:
@@ -198,3 +228,17 @@ async def cancel(db: AsyncSession, meeting: GroupMeeting) -> bool:
     meeting.ical_sequence = (meeting.ical_sequence or 0) + 1
     await db.flush()
     return was_booked
+
+
+async def notify_if_all_answered(db: AsyncSession, meeting: GroupMeeting, now: datetime | None = None) -> None:
+    """Tell the organizer once, when the last person answers."""
+    from app.services import email as mail
+
+    now = now or datetime.now(timezone.utc)
+    if meeting.status != "open" or meeting.all_answered_notified_at or not all_answered(meeting):
+        return
+    candidates = await candidate_slots(db, meeting, now)
+    ranked = rank(candidates, await participant_answers(db, meeting, candidates, now))
+    meeting.all_answered_notified_at = now
+    await db.commit()
+    mail.send_group_all_answered(meeting, ranked[0] if ranked else None)

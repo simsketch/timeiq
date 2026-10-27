@@ -166,6 +166,7 @@ export default function MeetingPage() {
           <p className="text-muted-foreground mt-2">
             {m.duration_minutes} min · {total + 1} people
             {m.location ? ` · ${m.location}` : ""}
+            {m.source === "email" ? " · started from an email thread" : ""}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

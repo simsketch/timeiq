@@ -713,6 +713,9 @@ def render_group_all_answered(meeting, best: dict | None) -> str:
 
 
 def send_group_all_answered(meeting, best: dict | None) -> None:
+    if meeting.source == "email" and meeting.thread_ids:
+        send_agent_all_answered(meeting, best)
+        return
     _init_resend()
     _send(
         {
@@ -744,6 +747,9 @@ def render_group_booked(meeting, tz: str) -> str:
 
 
 def send_group_booked(meeting) -> None:
+    if meeting.source == "email" and meeting.thread_ids:
+        send_agent_booked(meeting, None)
+        return
     _init_resend()
     invite = _group_ics(meeting)
     org_tz = meeting.organizer.timezone or "UTC"
@@ -793,3 +799,153 @@ def send_group_cancelled(meeting) -> None:
             },
             "group cancelled",
         )
+
+
+# ---------------------------------------------------------------------------
+# cc TimeIQ (the meeting agent; see services/meeting_agent.py)
+# ---------------------------------------------------------------------------
+
+
+def _first_name(user: User) -> str:
+    return (user.name or user.email.split("@")[0]).split()[0]
+
+
+def _agent_from(meeting) -> str:
+    from app.services.email_import import address_for
+
+    return f"{_first_name(meeting.organizer)} via TimeIQ <{address_for(meeting.organizer)}>"
+
+
+def _re(subject: str | None) -> str:
+    s = (subject or "").strip() or "Finding a time"
+    return s if s.lower().startswith("re:") else f"Re: {s}"
+
+
+def _thread_headers(meeting, in_reply_to: str | None) -> dict:
+    refs = list(meeting.thread_ids or [])[-12:]
+    headers = {"References": " ".join(refs)} if refs else {}
+    target = in_reply_to or (refs[-1] if refs else None)
+    if target:
+        headers["In-Reply-To"] = target
+    return headers
+
+
+def _agent_html(paragraphs: list[str], footer: str) -> str:
+    """A plain, personal-looking email: no banner, just text, like an assistant would write."""
+    body = "".join(f'<p style="margin:0 0 14px;">{p}</p>' for p in paragraphs)
+    return (
+        f'<div style="font-family:{t.FONT};font-size:15px;line-height:1.55;color:{t.INK};max-width:560px;">{body}'
+        f'<p style="margin:22px 0 0;font-size:12px;color:{t.MUTED};">{footer}</p></div>'
+    )
+
+
+def _footer(meeting) -> str:
+    return (
+        f'Sent by TimeIQ, {html_escape(_first_name(meeting.organizer))}\'s scheduling assistant. '
+        f'<a href="{_site()}/?ref=agent" style="color:{t.MUTED};">Get your own</a>, $19/year.'
+    )
+
+
+def _local(dt: datetime, tz_name: str) -> str:
+    local = dt.astimezone(_zone(tz_name))
+    return local.strftime("%a %b %-d, %-I:%M %p").replace(":00 ", " ") + " " + local.strftime("%Z")
+
+
+def _send_agent(meeting, to: list[str], subject: str, html: str, in_reply_to: str | None, what: str, attachments=None) -> None:
+    _init_resend()
+    payload = {
+        "from": _agent_from(meeting),
+        "to": to,
+        "subject": _re(subject),
+        "html": html,
+        "headers": _thread_headers(meeting, in_reply_to),
+    }
+    if attachments:
+        payload["attachments"] = attachments
+    _send(payload, what)
+
+
+def render_agent_proposal(meeting, options: list[datetime]) -> str:
+    org = _first_name(meeting.organizer)
+    tz = meeting.organizer.timezone or "UTC"
+    names = [html_escape((p.name or p.email).split()[0]) for p in meeting.participants]
+    hello = f"Hi {', '.join(names[:-1])} and {names[-1]}," if len(names) > 1 else f"Hi {names[0]},"
+    paras = [
+        hello,
+        f"I'm TimeIQ, helping {html_escape(org)} find {meeting.duration_minutes} minutes for "
+        f"<strong>{html_escape(meeting.title)}</strong>.",
+    ]
+    if options:
+        items = "".join(f"<li style=\"margin:2px 0;\">{html_escape(_local(s, tz))}</li>" for s in options)
+        paras.append(f"A few times that work for {html_escape(org)}:<ul style=\"margin:6px 0 0;padding-left:20px;\">{items}</ul>")
+        paras.append("Just reply with the ones that work for you, or tap your link to see every open time:")
+    else:
+        paras.append(f"{html_escape(org)} has no open time in that range yet. Tap your link and I'll show times as they open up:")
+    links = "".join(
+        f'<li style="margin:2px 0;"><a href="{_site()}/meet/{p.token}" style="color:{t.INDIGO};">'
+        f"{html_escape(p.name or p.email)}: pick your times</a></li>"
+        for p in meeting.participants
+    )
+    paras.append(f'<ul style="margin:0;padding-left:20px;">{links}</ul>')
+    paras.append(f"Once everyone's answered, I'll check with {html_escape(org)} and send the calendar invite.")
+    return _agent_html(paras, _footer(meeting))
+
+
+def send_agent_proposal(meeting, options: list[datetime], detail: dict) -> None:
+    to = [meeting.organizer.email] + [p.email for p in meeting.participants]
+    _send_agent(meeting, to, meeting.thread_subject or meeting.title, render_agent_proposal(meeting, options),
+                detail.get("message_id"), "agent proposal")
+
+
+def send_agent_ack(meeting, participant, picked: list[datetime], detail: dict) -> None:
+    tz = meeting.organizer.timezone or "UTC"
+    first = html_escape((participant.name or participant.email).split()[0])
+    if picked:
+        times = ", ".join(html_escape(_local(s, tz)) for s in picked[:6]) + ("…" if len(picked) > 6 else "")
+        line = f"Thanks {first}, noted: {times}."
+    else:
+        line = f"Thanks {first}, noted that none of those times work. I'll let {html_escape(_first_name(meeting.organizer))} know."
+    link = f'<a href="{_site()}/meet/{participant.token}" style="color:{t.INDIGO};">See or change your times</a>.'
+    _send_agent(meeting, [participant.email], meeting.thread_subject or meeting.title,
+                _agent_html([line, link], _footer(meeting)), detail.get("message_id"), "agent ack")
+
+
+def send_agent_booked(meeting, detail: dict | None) -> None:
+    tz = meeting.organizer.timezone or "UTC"
+    when = html_escape(_when(meeting.starts_at, meeting.ends_at, tz))
+    paras = [
+        f"<strong>{html_escape(meeting.title)}</strong> is booked for {when}.",
+        "The calendar invite is attached. Open it to add it to your calendar.",
+    ]
+    if meeting.location:
+        paras.append(f"Where: {html_escape(meeting.location)}")
+    to = [meeting.organizer.email] + [p.email for p in meeting.participants]
+    _send_agent(meeting, to, meeting.thread_subject or meeting.title, _agent_html(paras, _footer(meeting)),
+                (detail or {}).get("message_id"), "agent booked", attachments=[_group_ics(meeting)])
+
+
+def send_agent_note(meeting, detail: dict, to: list[str], text: str, link: bool = False) -> None:
+    paras = [html_escape(text)]
+    if link:
+        paras.append(f'<a href="{_site()}/meetings/{meeting.id}" style="color:{t.INDIGO};">Open the meeting in TimeIQ</a>')
+    _send_agent(meeting, to, meeting.thread_subject or meeting.title, _agent_html(paras, _footer(meeting)),
+                detail.get("message_id"), "agent note")
+
+
+def send_agent_all_answered(meeting, best: dict | None) -> None:
+    """To the organizer only, on the thread, so a reply of "book it" reaches TimeIQ."""
+    tz = meeting.organizer.timezone or "UTC"
+    n = len(meeting.participants)
+    if best and best["yes"]:
+        start = datetime.fromisoformat(best["start"].replace("Z", "+00:00"))
+        who = "everyone" if best["yes"] == n else f"{best['yes']} of {n}"
+        lines = [
+            f"Everyone has answered for <strong>{html_escape(meeting.title)}</strong>. "
+            f"The best time is {html_escape(_local(start, tz))}, and {who} can make it.",
+            'Reply "book it" and I\'ll send everyone the invite, or name a different time.',
+        ]
+    else:
+        lines = [f"Everyone has answered for <strong>{html_escape(meeting.title)}</strong>, but no time works for all of you."]
+    lines.append(f'<a href="{_site()}/meetings/{meeting.id}" style="color:{t.INDIGO};">See every answer in TimeIQ</a>')
+    _send_agent(meeting, [meeting.organizer.email], meeting.thread_subject or meeting.title,
+                _agent_html(lines, _footer(meeting)), None, "agent all answered")

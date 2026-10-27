@@ -14,7 +14,18 @@ interface EmailImport {
   id: string;
   sender: string | null;
   subject: string | null;
-  status: "processing" | "imported" | "empty" | "failed" | "rejected" | "undone";
+  status:
+    | "processing"
+    | "imported"
+    | "empty"
+    | "failed"
+    | "rejected"
+    | "undone"
+    | "meeting"
+    | "meeting_reply"
+    | "meeting_booked"
+    | "meeting_error"
+    | "ignored";
   event_count: number;
   error: string | null;
   created_at: string;
@@ -33,6 +44,11 @@ const STATUS: Record<EmailImport["status"], string> = {
   failed: "Error",
   rejected: "Not added",
   undone: "Undone",
+  meeting: "Started a group meeting",
+  meeting_reply: "Meeting reply",
+  meeting_booked: "Booked a meeting",
+  meeting_error: "Error",
+  ignored: "Ignored",
 };
 
 /** Calendars page card: the address to email schedules to, and recent imports. */
@@ -97,7 +113,8 @@ export function EmailSchedules({ onChange }: { onChange?: () => void }) {
         <CardDescription>
           Forward a soccer, band or school schedule to your private address. A PDF, screenshot, .ics file or pasted text
           all work. TimeIQ adds the events to a &ldquo;From email&rdquo; calendar so nobody books over them, and replies
-          with what it added.
+          with what it added. Cc the same address on any email thread about meeting up, and TimeIQ finds a time with
+          everyone on it.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">

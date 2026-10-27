@@ -28,6 +28,7 @@ export interface MeetingSummary {
   participant_count: number;
   responded_count: number;
   created_at: string;
+  source: "app" | "email";
 }
 
 export interface MeetingDetail extends MeetingSummary {
