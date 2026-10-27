@@ -18,7 +18,8 @@ from app.schemas.availability import (
     AvailabilityRuleResponse,
     AvailableSlot,
 )
-from app.services.availability import get_available_slots
+from app.services.availability import get_available_slots, host_zone
+from app.services.free_time import free_windows
 from app.tasks import freshen_user_calendars
 
 router = APIRouter(tags=["availability"])
@@ -252,3 +253,20 @@ async def debug_slots(
         )
 
     return await get_available_slots(db, user, event_type, target_date, debug=True)
+
+
+@router.get("/api/availability/summary")
+async def availability_summary(
+    days: int = Query(7, ge=1, le=31),
+    min_minutes: int = Query(30, ge=15, le=480),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Your open windows for the coming days, to share by hand (text or image)."""
+    # Pick up events added since the last sync; past the budget, cached events stand.
+    await freshen_user_calendars(user.id, budget_seconds=4.0)
+    return {
+        "timezone": str(host_zone(user)),
+        "username": user.username,
+        "days": await free_windows(db, user, days=days, min_minutes=min_minutes),
+    }

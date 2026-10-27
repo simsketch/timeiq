@@ -9,6 +9,7 @@ import {
   CalendarDays, ExternalLink
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { ShareAvailability } from "@/components/share-availability";
 import { format } from "date-fns";
 import Link from "next/link";
 import { ClockLoader } from "@/components/ui/clock-loader";
@@ -151,7 +152,7 @@ export default function DashboardPage() {
       {profile && (
         <Card className="border-dashed">
           <CardContent className="p-6">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white">
                 <ExternalLink className="h-5 w-5 text-gray-600" />
               </div>
@@ -163,6 +164,7 @@ export default function DashboardPage() {
                   timeiq.app/book/{profile.username}
                 </p>
               </div>
+              <ShareAvailability />
               <Button
                 variant="outline"
                 size="sm"
