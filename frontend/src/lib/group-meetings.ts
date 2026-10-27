@@ -28,7 +28,7 @@ export interface MeetingSummary {
   participant_count: number;
   responded_count: number;
   created_at: string;
-  source: "app" | "email";
+  source: "app" | "email" | "accepted";
 }
 
 export interface MeetingDetail extends MeetingSummary {
@@ -62,6 +62,7 @@ export interface PublicMeeting {
   uses_calendar: boolean;
   responded: boolean;
   slots: PublicSlot[];
+  suggested: string[];
 }
 
 export function viewerZone(): string {

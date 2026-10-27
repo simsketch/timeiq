@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { apiFetch } from "@/lib/api";
-import { byDay, timeLabel, viewerZone, whenLabel, type PublicMeeting } from "@/lib/group-meetings";
+import { byDay, dayLabel, timeLabel, viewerZone, whenLabel, type PublicMeeting } from "@/lib/group-meetings";
 
 function zoneAbbr(zone: string): string {
   return (
@@ -50,11 +50,18 @@ export default function MeetInvitePage() {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [zone] = useState(viewerZone);
+  // Lead with three suggested times; the full list sits behind "pick a different time".
+  const [showAll, setShowAll] = useState(false);
 
   const accept = useCallback((data: PublicMeeting) => {
     setM(data);
-    setPicks(new Set(data.slots.filter((s) => s.mine).map((s) => s.start)));
+    const mine = new Set(data.slots.filter((s) => s.mine).map((s) => s.start));
+    // A time tapped in the email arrives as ?pick=..., preselected and ready to send.
+    const tapped = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("pick") : null;
+    if (tapped && !data.responded && data.slots.some((s) => s.start === tapped)) mine.add(tapped);
+    setPicks(mine);
     setEditing(!data.responded);
+    setShowAll(data.suggested.length === 0 || (tapped !== null && !data.suggested.includes(tapped)));
   }, []);
 
   useEffect(() => {
@@ -203,6 +210,61 @@ export default function MeetInvitePage() {
               </div>
             </div>
 
+            {!showAll && (
+              <div>
+                <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 className="text-lg font-semibold">Do any of these work?</h2>
+                  <span className="text-xs text-muted-foreground">Times in your time zone ({zoneAbbr(zone)})</span>
+                </div>
+                <div className="grid gap-2">
+                  {m.suggested.map((start) => {
+                    const on = picks.has(start);
+                    const slot = m.slots.find((x) => x.start === start);
+                    return (
+                      <button
+                        key={start}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => toggle(start)}
+                        className={`flex items-center justify-between gap-3 rounded-2xl px-5 py-4 text-left transition-all ${
+                          on ? "bg-foreground text-background shadow-lg" : "glass hover:-translate-y-0.5"
+                        }`}
+                      >
+                        <span>
+                          <span className="block font-semibold">{dayLabel(start, zone)}</span>
+                          <span className={`block text-sm ${on ? "text-background/75" : "text-muted-foreground"}`}>
+                            {whenLabel(start, m.duration_minutes, zone).slice(dayLabel(start, zone).length + 2)}
+                          </span>
+                        </span>
+                        <span className="flex items-center gap-2 text-xs">
+                          {others > 0 && slot && (
+                            <span className={on ? "text-background/70" : "text-muted-foreground"}>
+                              {slot.can_make_it + (on && !slot.mine ? 1 : 0) - (!on && slot.mine ? 1 : 0)} of {m.people} free
+                            </span>
+                          )}
+                          <span
+                            className={`flex h-6 w-6 items-center justify-center rounded-full border ${
+                              on ? "border-background bg-background text-foreground" : "border-foreground/20"
+                            }`}
+                          >
+                            {on && <CheckCircle2 className="h-4 w-4" />}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAll(true)}
+                  className="mt-3 text-sm font-medium text-[hsl(var(--aurora-1))] hover:underline"
+                >
+                  None of these work? Pick a different time
+                </button>
+              </div>
+            )}
+
+            {showAll && (
             <div>
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="text-lg font-semibold">Tick every time that works for you</h2>
@@ -246,7 +308,13 @@ export default function MeetInvitePage() {
                   ))}
                 </div>
               )}
+              {m.suggested.length > 0 && (
+                <button type="button" onClick={() => setShowAll(false)} className="mt-3 text-sm font-medium text-muted-foreground hover:text-foreground">
+                  Back to the suggested times
+                </button>
+              )}
             </div>
+            )}
 
             <div className="glass sticky bottom-4 rounded-2xl p-4">
               <div className="flex flex-wrap items-center gap-3">

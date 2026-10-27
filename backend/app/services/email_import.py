@@ -367,7 +367,7 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
                     select(func.count()).select_from(EmailImport).where(
                         EmailImport.user_id == user_id,
                         EmailImport.created_at > now - timedelta(days=1),
-                        EmailImport.status.notin_(("rejected", "ignored", "meeting", "meeting_reply", "meeting_booked", "meeting_error")),
+                        EmailImport.status.notin_(("rejected", "ignored", "meeting", "meeting_reply", "meeting_booked", "meeting_accepted", "meeting_error")),
                     )
                 )
             ).scalar_one()

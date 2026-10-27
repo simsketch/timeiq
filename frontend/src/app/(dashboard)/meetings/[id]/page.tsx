@@ -167,6 +167,7 @@ export default function MeetingPage() {
             {m.duration_minutes} min · {total + 1} people
             {m.location ? ` · ${m.location}` : ""}
             {m.source === "email" ? " · started from an email thread" : ""}
+            {m.source === "accepted" ? " · a time someone offered, accepted by TimeIQ" : ""}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -198,7 +199,11 @@ export default function MeetingPage() {
             <CalendarCheck className="h-6 w-6 shrink-0 text-emerald-700" />
             <div>
               <div className="font-semibold text-emerald-900">{whenLabel(m.starts_at, m.duration_minutes, zone)}</div>
-              <div className="text-sm text-emerald-900/75">Booked. Everyone got a calendar invite, and it&apos;s blocking time on every TimeIQ calendar involved.</div>
+              <div className="text-sm text-emerald-900/75">
+                {m.source === "accepted"
+                  ? "Accepted on the email thread and held on your calendar. The other side sends the invite."
+                  : "Booked. Everyone got a calendar invite, and it's blocking time on every TimeIQ calendar involved."}
+              </div>
             </div>
           </CardContent>
         </Card>

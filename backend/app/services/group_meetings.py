@@ -124,6 +124,22 @@ def spread(slots: list[datetime], tz, limit: int = 6, per_day: int = 2) -> list[
     return sorted(picked)[:limit]
 
 
+def suggest(slots: list[datetime], yes: dict[str, int], tz, limit: int = 3) -> list[datetime]:
+    """A short list to lead with (three times, not a wall of slots): the times
+    most people can make, spread across days, topped up with other open times."""
+    if not slots:
+        return []
+    best = max(yes.get(iso(s), 0) for s in slots)
+    top = [s for s in slots if yes.get(iso(s), 0) == best]
+    picked = spread(top, tz, limit=limit, per_day=1)
+    # Short windows have fewer days than suggestions: allow more per day.
+    for pool, per_day in ((slots, 1), (top, 3), (slots, 3)):
+        if len(picked) >= limit:
+            break
+        picked += [s for s in spread(pool, tz, limit=limit * 2, per_day=per_day) if s not in picked]
+    return sorted(picked[:limit])
+
+
 def iso(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -222,6 +238,23 @@ async def book(db: AsyncSession, meeting: GroupMeeting, start: datetime, now: da
             is_all_day=False,
             external_id=f"group-{meeting.id}",
         ))
+    await db.flush()
+
+
+async def hold(db: AsyncSession, meeting: GroupMeeting) -> None:
+    """Block an accepted time on the organizer's calendar until the other
+    side's invite arrives (they send it, so TimeIQ sends none)."""
+    source = await _meetings_source(db, meeting.organizer_id)
+    db.add(CachedEvent(
+        calendar_source_id=source.id,
+        user_id=meeting.organizer_id,
+        group_meeting_id=meeting.id,
+        title=f"Hold: {meeting.title}",
+        starts_at=meeting.starts_at,
+        ends_at=meeting.ends_at,
+        is_all_day=False,
+        external_id=f"group-{meeting.id}",
+    ))
     await db.flush()
 
 

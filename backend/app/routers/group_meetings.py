@@ -128,6 +128,8 @@ class PublicMeeting(BaseModel):
     uses_calendar: bool
     responded: bool
     slots: list[PublicSlot]
+    # Three times to lead with; the full list stays behind "pick a different time".
+    suggested: list[str] = []
 
 
 # ---------------------------------------------------------------------------
@@ -160,6 +162,11 @@ async def _own_meeting(db: AsyncSession, user: User, meeting_id: uuid.UUID) -> G
     if meeting is None or meeting.organizer_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meeting not found")
     return meeting
+
+
+async def _suggestions(db: AsyncSession, meeting: GroupMeeting) -> list[datetime]:
+    """Three times to lead invites with."""
+    return gm.suggest(await gm.candidate_slots(db, meeting), {}, host_zone(meeting.organizer))
 
 
 async def _detail(db: AsyncSession, meeting: GroupMeeting) -> MeetingDetail:
@@ -249,8 +256,9 @@ async def create_meeting(payload: MeetingCreate, user: User = Depends(get_curren
     await db.commit()
 
     if payload.send_invites:
+        suggested = await _suggestions(db, meeting)
         for p in meeting.participants:
-            mail.send_group_invite(meeting, p)
+            mail.send_group_invite(meeting, p, suggested=suggested)
     return await _detail(db, meeting)
 
 
@@ -286,7 +294,7 @@ async def add_participant(
     meeting.all_answered_notified_at = None
     await db.flush()
     await db.commit()
-    mail.send_group_invite(meeting, p)
+    mail.send_group_invite(meeting, p, suggested=await _suggestions(db, meeting))
     return await _detail(db, meeting)
 
 
@@ -313,8 +321,9 @@ async def remind(meeting_id: uuid.UUID, user: User = Depends(get_current_user), 
     if meeting.status != "open":
         raise HTTPException(status_code=400, detail="This meeting is no longer open")
     waiting = [p for p in meeting.participants if not p.responded_at]
+    suggested = await _suggestions(db, meeting) if waiting else []
     for p in waiting:
-        mail.send_group_invite(meeting, p, reminder=True)
+        mail.send_group_invite(meeting, p, reminder=True, suggested=suggested)
     return {"reminded": len(waiting)}
 
 
@@ -340,7 +349,8 @@ async def cancel_meeting(meeting_id: uuid.UUID, user: User = Depends(get_current
     except gm.GroupMeetingError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     await db.commit()
-    if was_booked:
+    # An accepted time was only held here; the other side owns the invite.
+    if was_booked and meeting.source != "accepted":
         mail.send_group_cancelled(meeting)
     return await _detail(db, meeting)
 
@@ -362,15 +372,19 @@ async def _public(db: AsyncSession, p: GroupMeetingParticipant) -> PublicMeeting
     # Load explicitly: a lazy p.meeting would do IO outside the async context.
     meeting = await db.get(GroupMeeting, p.meeting_id)
     slots: list[PublicSlot] = []
+    suggested: list[str] = []
     if meeting.status == "open":
         candidates = await gm.candidate_slots(db, meeting)
         answers = await gm.participant_answers(db, meeting, candidates)
         mine = answers.get(str(p.id), {})
+        counts: dict[str, int] = {}
         for s in candidates:
             key = gm.iso(s)
             # The organizer is free at every candidate, so they count as one.
             yes = 1 + sum(1 for a in answers.values() if a.get(key) is True)
+            counts[key] = yes
             slots.append(PublicSlot(start=key, can_make_it=yes, mine=mine.get(key)))
+        suggested = [gm.iso(s) for s in gm.suggest(candidates, counts, host_zone(meeting.organizer))]
     return PublicMeeting(
         title=meeting.title,
         note=meeting.note,
@@ -388,6 +402,7 @@ async def _public(db: AsyncSession, p: GroupMeetingParticipant) -> PublicMeeting
         uses_calendar=p.uses_calendar,
         responded=bool(p.responded_at),
         slots=slots,
+        suggested=suggested,
     )
 
 

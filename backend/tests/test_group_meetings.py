@@ -111,6 +111,8 @@ async def test_full_flow(env):
     m = await create(env)
     assert len(m["participants"]) == 2
     assert [x["to"] for x in mail] == [["ann@example.com"], [env["friend"].email]]
+    # Each invite leads with three one-tap times and a way to pick another.
+    assert all(x["html"].count("?pick=") == 3 and "Pick a different time" in x["html"] for x in mail)
     starts = {s["start"] for s in m["slots"]}
     # Organizer never set hours, so 9 to 5 weekdays applies, minus their 10-11.
     assert MON_9 in starts and MON_10 not in starts and "2026-11-02T15:30:00Z" not in starts
@@ -124,6 +126,7 @@ async def test_full_flow(env):
     assert r.status_code == 200, r.text
     assert r.json()["organizer_name"] == "Olive" and not r.json()["responded"]
     assert {s["start"] for s in r.json()["slots"]} == starts
+    assert len(r.json()["suggested"]) == 3 and set(r.json()["suggested"]) <= starts
 
     # Ann ticks two times by hand; a made-up time is ignored.
     r = await c.post(f"/api/meet/{token(ann['link'])}/respond",

@@ -121,7 +121,11 @@ async def test_thread_to_booking(env):
     assert proposal["subject"] == "Re: Pilot"
     assert proposal["headers"]["In-Reply-To"] == first_id
     assert first_id in proposal["headers"]["References"]
-    assert "Mon Nov 2, 9 AM EST" in proposal["html"] and "Tue Nov 3, 10:30 AM EST" in proposal["html"] and "Fri" not in proposal["html"].split("pick your times")[0].split("<ul")[1]
+    # Three times (not a wall of slots), each a one-tap link for Dana, plus "pick a different time".
+    offered = re.findall(r"\?pick=([^\"&]+)", proposal["html"])
+    assert len(offered) == 3
+    assert "Here are 3 times" in proposal["html"] and "Pick a different time" in proposal["html"]
+    assert "Mon Nov 2, 9 AM EST" in proposal["html"] and "Fri Nov 6" not in proposal["html"]
     assert f"/meet/{m.participants[0].token}" in proposal["html"]
 
     # Dana replies in words; Claude picks option 2 from the full list.
@@ -230,3 +234,56 @@ async def test_copy_for_another_address_is_skipped(env):
         now=NOW,
     )
     assert result is None and env["mail"] == []
+
+
+async def busy(user, start: datetime, end: datetime) -> None:
+    from app.models import CalendarSource
+    async with async_session() as db:
+        src = CalendarSource(user_id=user.id, type="ics_url", name="Work", ics_url="https://x.test/a.ics", is_active=True)
+        db.add(src)
+        await db.flush()
+        db.add(CachedEvent(calendar_source_id=src.id, user_id=user.id, title="Busy", starts_at=start, ends_at=end))
+        await db.commit()
+
+
+async def test_offered_times_accepts_a_free_one(env):
+    """An interview scheduler (or another assistant) offers three times: TimeIQ
+    skips the one the owner is busy for, accepts the next, and holds it."""
+    owner, mail, deliver = env["owner"], env["mail"], env["deliver"]
+    await busy(owner, datetime(2026, 11, 2, 15, tzinfo=timezone.utc), datetime(2026, 11, 2, 16, tzinfo=timezone.utc))
+    env["answers"]["request"] = meeting_agent.MeetingRequest(
+        intent="proposed_times", title="Interview with Acme", duration_minutes=45,
+        proposed=[
+            meeting_agent.ProposedTime(date="2026-11-02", start_time="10:00"),  # busy
+            meeting_agent.ProposedTime(date="2026-11-03", start_time="14:00"),  # free
+            meeting_agent.ProposedTime(date="2026-11-04", start_time="11:00", timezone="America/Los_Angeles"),
+        ],
+    )
+    record, first_id = await deliver("Luna <luna@acme.test>", [owner.email], cc=[env["address"]],
+                                     text="Here are three times for your interview...")
+    assert record.status == "meeting_accepted"
+    m = await meeting_for(owner)
+    assert m.source == "accepted" and m.status == "booked"
+    assert m.starts_at == datetime(2026, 11, 3, 19, tzinfo=timezone.utc) and m.duration_minutes == 45
+    async with async_session() as db:
+        holds = (await db.execute(select(CachedEvent).where(CachedEvent.group_meeting_id == m.id))).scalars().all()
+    assert [h.title for h in holds] == ["Hold: Interview with Acme"]
+    assert len(mail) == 1 and sorted(mail[0]["to"]) == sorted([owner.email, "luna@acme.test"])
+    assert "Tue Nov 3, 2 PM EST" in mail[0]["html"] and "send the calendar invite" in mail[0]["html"]
+    assert mail[0]["headers"]["In-Reply-To"] == first_id and "attachments" not in mail[0]
+
+
+async def test_offered_times_none_free_counters_with_three(env):
+    owner, mail, deliver = env["owner"], env["mail"], env["deliver"]
+    env["answers"]["request"] = meeting_agent.MeetingRequest(
+        intent="proposed_times", title="Interview with Acme", duration_minutes=30,
+        proposed=[meeting_agent.ProposedTime(date="2026-11-02", start_time="19:00"),
+                  meeting_agent.ProposedTime(date="2026-11-03", start_time="07:00")],  # outside working hours
+    )
+    record, _ = await deliver("Luna <luna@acme.test>", [owner.email], cc=[env["address"]], text="Two options...")
+    assert record.status == "meeting"
+    m = await meeting_for(owner)
+    assert m.status == "open" and [p.email for p in m.participants] == ["luna@acme.test"]
+    html = mail[0]["html"]
+    assert "none of them work for Olive" in html
+    assert len(re.findall(r"\?pick=", html)) == 3 and "Pick a different time" in html

@@ -24,6 +24,7 @@ interface EmailImport {
     | "meeting"
     | "meeting_reply"
     | "meeting_booked"
+    | "meeting_accepted"
     | "meeting_error"
     | "ignored";
   event_count: number;
@@ -47,6 +48,7 @@ const STATUS: Record<EmailImport["status"], string> = {
   meeting: "Started a group meeting",
   meeting_reply: "Meeting reply",
   meeting_booked: "Booked a meeting",
+  meeting_accepted: "Accepted a time",
   meeting_error: "Error",
   ignored: "Ignored",
 };

@@ -18,7 +18,8 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time as dtime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from email.utils import getaddresses, parseaddr
 from typing import Literal, Optional
 
@@ -124,11 +125,20 @@ def _ours(email: str) -> bool:
 # Claude
 # ---------------------------------------------------------------------------
 
+class ProposedTime(BaseModel):
+    date: str = Field(description="YYYY-MM-DD")
+    start_time: str = Field(description="24-hour HH:MM")
+    timezone: Optional[str] = Field(None, description="IANA zone if the email states one for this time, else null")
+
+
 class MeetingRequest(BaseModel):
-    intent: Literal["find_time", "schedule", "other"] = Field(
-        description="find_time: people want to set up a meeting or call together. schedule: the email shares a "
-        "schedule of events to add to a calendar (games, practices, classes). other: anything else."
+    intent: Literal["find_time", "proposed_times", "schedule", "other"] = Field(
+        description="find_time: people want to set up a meeting and no specific times are offered yet. "
+        "proposed_times: someone (a person, recruiter or another scheduling assistant) offers specific times "
+        "and wants one picked. schedule: the email shares a schedule of events to add to a calendar "
+        "(games, practices, classes). other: anything else."
     )
+    proposed: list[ProposedTime] = Field(default_factory=list, description="The specific times offered, if any")
     title: str = Field(description="Short meeting name, e.g. 'Pilot kickoff' or 'Coffee with Dana'")
     duration_minutes: Optional[int] = Field(None, description="Meeting length if stated or clearly implied")
     earliest_date: Optional[str] = Field(None, description="First acceptable day, YYYY-MM-DD, if stated")
@@ -149,9 +159,11 @@ class ThreadReply(BaseModel):
 
 REQUEST_PROMPT = """You are TimeIQ, a scheduling assistant cc'd on an email thread. \
 Decide whether the people on the thread want to find a time to meet, and if so \
-pull out what they asked for. Use today's date to resolve phrases like "next week" \
-(Monday to Friday of the following week) or "Thursday". Leave fields empty when \
-the email doesn't say."""
+pull out what they asked for. If the email offers specific times to choose from \
+(for example an interview scheduler or another assistant listing slots), the intent \
+is proposed_times: list every offered time, with its time zone when stated. Use \
+today's date to resolve phrases like "next week" (Monday to Friday of the following \
+week) or "Thursday". Leave fields empty when the email doesn't say."""
 
 REPLY_PROMPT = """You are TimeIQ, a scheduling assistant on an email thread. \
 TimeIQ offered the numbered times below. Read the newest message and say which \
@@ -264,7 +276,7 @@ async def handle(user_id, detail: dict, now: datetime | None = None) -> str | No
         tz = host_zone(owner)
         today = now.astimezone(tz).date()
         req = await read_request(detail.get("subject") or "", newest_text(detail.get("text") or ""), str(tz), today)
-        if req is None or req.intent != "find_time":
+        if req is None or req.intent not in ("find_time", "proposed_times"):
             return None
 
         recent = await db.scalar(
@@ -274,6 +286,9 @@ async def handle(user_id, detail: dict, now: datetime | None = None) -> str | No
         )
         if (recent or 0) >= MAX_MEETINGS_PER_DAY:
             return "ignored"
+
+        if req.intent == "proposed_times" and req.proposed:
+            return await _answer_proposal(db, owner, detail, req, others, refs, now)
 
         start, end = _window(req, today)
         span = TIME_OF_DAY.get(req.time_of_day)
@@ -304,7 +319,7 @@ async def handle(user_id, detail: dict, now: datetime | None = None) -> str | No
 
     from app.services import email as mail
 
-    mail.send_agent_proposal(meeting, gm.spread(slots, tz), detail)
+    mail.send_agent_proposal(meeting, gm.suggest(slots, {}, tz), detail)
     return "meeting"
 
 
@@ -389,3 +404,84 @@ async def _handle_reply(db: AsyncSession, owner: User, meeting: GroupMeeting, de
     mail.send_agent_ack(meeting, participant, picked, detail)
     await gm.notify_if_all_answered(db, meeting, now)
     return "meeting_reply"
+
+
+def _proposed_datetimes(req: MeetingRequest, tz) -> list[datetime]:
+    out: list[datetime] = []
+    for p in req.proposed:
+        try:
+            zone = tz
+            if p.timezone:
+                try:
+                    zone = ZoneInfo(p.timezone)
+                except Exception:
+                    pass
+            h, m = (int(x) for x in p.start_time.split(":")[:2])
+            out.append(datetime.combine(date.fromisoformat(p.date), dtime(h, m), tzinfo=zone).astimezone(timezone.utc))
+        except (ValueError, TypeError):
+            continue
+    return sorted(set(out))
+
+
+async def _answer_proposal(db: AsyncSession, owner: User, detail: dict, req: MeetingRequest,
+                           others: list[tuple[str, str]], refs: list[str], now: datetime) -> str:
+    """Someone offered specific times: accept the first one the owner is free
+    for, or say none work and offer three of the owner's own."""
+    from app.services import email as mail
+    from app.services.free_time import free_windows
+
+    tz = host_zone(owner)
+    minutes = min(max(req.duration_minutes or 30, 15), 240)
+    offered = [t for t in _proposed_datetimes(req, tz) if t > now]
+    title = (req.title or detail.get("subject") or "Meeting").strip()[:200]
+    common = dict(
+        organizer_id=owner.id, title=title, location=(req.location or "").strip()[:500] or None,
+        duration_minutes=minutes, source="accepted", thread_ids=refs,
+        thread_subject=(detail.get("subject") or "")[:500] or None,
+    )
+    people = [GroupMeetingParticipant(email=e, name=n or None, token=gm.new_token()) for n, e in others[: gm.MAX_PARTICIPANTS]]
+
+    free: list[datetime] = []
+    if offered:
+        days = min((offered[-1].astimezone(tz).date() - now.astimezone(tz).date()).days + 1, 90)
+        windows = [
+            (datetime.fromisoformat(w["start"]), datetime.fromisoformat(w["end"]))
+            for d in await free_windows(db, owner, days=max(days, 1), min_minutes=minutes, now=now, default_hours=True)
+            for w in d["windows"]
+        ]
+        free = [t for t in offered if gm._fits(t, minutes, windows)]
+
+    if free:
+        pick = free[0]
+        meeting = GroupMeeting(
+            **common, status="booked", starts_at=pick, ends_at=pick + timedelta(minutes=minutes),
+            window_start=pick.astimezone(tz).date(), window_end=pick.astimezone(tz).date(),
+        )
+        meeting.participants = people
+        db.add(meeting)
+        await db.flush()
+        await gm.hold(db, meeting)
+        await db.refresh(meeting, attribute_names=["organizer", "participants"])
+        await db.commit()
+        mail.send_agent_accept(meeting, detail)
+        return "meeting_accepted"
+
+    # None of the offered times work: offer the owner's own, Luna-style.
+    today = now.astimezone(tz).date()
+    start = max(offered[0].astimezone(tz).date() if offered else today, today)
+    meeting = GroupMeeting(
+        **{**common, "source": "email"}, status="open",
+        window_start=start, window_end=start + timedelta(days=6),
+    )
+    meeting.participants = people
+    db.add(meeting)
+    await db.flush()
+    await db.refresh(meeting, attribute_names=["organizer", "participants"])
+    slots = await gm.candidate_slots(db, meeting, now)
+    await db.commit()
+    org = mail._first_name(owner)
+    mail.send_agent_proposal(
+        meeting, gm.suggest(slots, {}, tz), detail,
+        intro=f"Thanks for the options. Unfortunately none of them work for {org}.",
+    )
+    return "meeting"

@@ -28,6 +28,7 @@ import { GitHubIcon, GITHUB_URL } from "@/components/github-icon";
 import { EmailScheduleDemo } from "@/components/landing/email-schedule-demo";
 import { CalendarMergeDemo } from "@/components/landing/calendar-merge-demo";
 import { AvailabilityShareDemo } from "@/components/landing/availability-share-demo";
+import { CcTimeiqDemo } from "@/components/landing/cc-timeiq-demo";
 
 export default function LandingPage() {
   return (
@@ -122,8 +123,8 @@ export default function LandingPage() {
                 <p className="reveal reveal-3 text-lg lg:text-xl text-muted-foreground max-w-2xl leading-relaxed text-pretty">
                   Email TimeIQ the soccer PDF, the band newsletter or a screenshot
                   from the team app. Every practice and game lands on your calendar,
-                  blocks your booking link and syncs to your phone. Then share
-                  when you&apos;re free, in any time zone, with one click.
+                  blocks your booking link and syncs to your phone. Need to meet
+                  with someone? Cc TimeIQ and it finds the time.
                 </p>
 
                 <div className="reveal reveal-4 flex flex-col sm:flex-row gap-3">
@@ -197,6 +198,45 @@ export default function LandingPage() {
                 <div className="relative">
                   <EmailScheduleDemo />
                 </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ================================================================
+             LIVE DEMO — cc TimeIQ
+             ================================================================ */}
+        <section id="cc" className="relative py-24 lg:py-32 scroll-mt-16">
+          <div className="container mx-auto px-6 lg:px-10">
+            <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+              <div className="lg:col-span-5">
+                <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
+                  Try it · cc TimeIQ
+                </div>
+                <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
+                  <span className="font-display">Cc TimeIQ.</span>{" "}
+                  <span className="font-display-italic text-aurora">It finds the time.</span>
+                </h2>
+                <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
+                  Add your TimeIQ address to any email about meeting up. It replies to everyone with three times you&apos;re
+                  free, reads their answers in plain English, and books it when you say so. When a recruiter&apos;s or
+                  client&apos;s assistant offers times, it picks one you&apos;re free for and holds it.
+                </p>
+                <ul className="mt-6 space-y-2 text-sm text-foreground/80">
+                  {[
+                    "Three suggestions, not a wall of slots, plus “pick a different time”",
+                    "Replies like “Tuesday after 2 works” just work",
+                    "Checks every calendar first, so it never double-books you",
+                  ].map((t) => (
+                    <li key={t} className="flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--aurora-1))]" />
+                      {t}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="lg:col-span-7">
+                <CcTimeiqDemo />
               </div>
             </div>
           </div>

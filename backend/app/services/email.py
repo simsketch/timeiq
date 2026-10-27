@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import base64
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from html import escape as html_escape
 from zoneinfo import ZoneInfo
 
@@ -656,28 +656,58 @@ def _timeiq_note() -> str:
     )
 
 
-def render_group_invite(meeting, participant) -> str:
+def _pick_url(participant, start: datetime | None = None) -> str:
+    base = f"{_site()}/meet/{participant.token}"
+    if start is None:
+        return base
+    from urllib.parse import quote
+
+    return f"{base}?pick={quote(start.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z'))}"
+
+
+def _time_buttons(participant, suggested: list[datetime], tz: str) -> str:
+    """Each suggested time as its own one-tap link (a short list, Luna-style)."""
+    rows = "".join(
+        f'<tr><td style="padding:4px 0;"><a href="{html_escape(_pick_url(participant, s), quote=True)}" '
+        f'style="display:inline-block;min-width:240px;padding:11px 16px;border:1px solid {t.CARD_BORDER};border-radius:12px;'
+        f'font-family:{t.FONT};font-size:15px;font-weight:600;color:{t.INK};text-decoration:none;background:#ffffff;">'
+        f"{html_escape(_local(s, tz))}</a></td></tr>"
+        for s in suggested
+    )
+    return f'<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 18px;">{rows}</table>'
+
+
+def render_group_invite(meeting, participant, suggested: list[datetime] | None = None) -> str:
     org = _organizer_name(meeting)
-    link = f"{_site()}/meet/{participant.token}"
+    tz = meeting.organizer.timezone or "UTC"
     rows = [
         ("Meeting", html_escape(meeting.title)),
         ("Length", f"{meeting.duration_minutes} minutes"),
-        ("Looking at", html_escape(_window_text(meeting))),
     ]
     if meeting.location:
         rows.append(("Where", html_escape(meeting.location)))
+    if suggested:
+        picker = (
+            t.p("Tap a time that works for you:", muted=True)
+            + _time_buttons(participant, suggested, tz)
+            + t.p_html(
+                f'None of these work? <a href="{_pick_url(participant)}" style="color:{t.INDIGO};">Pick a different time</a>.',
+                muted=True,
+            )
+        )
+    else:
+        picker = t.buttons(t.button("Pick times that work", _pick_url(participant)))
     body = (
         t.h1(f"{org} is finding a time to meet.")
         + (t.p(meeting.note) if meeting.note else "")
-        + t.p("Tick the times that work for you. It takes about 20 seconds and you don't need an account.", muted=True)
         + t.details(rows, rows_html=True)
-        + t.buttons(t.button("Pick times that work", link))
+        + picker
         + _timeiq_note()
     )
     return t.layout("reminder", f"{org} wants to find a time for {meeting.title}", body)
 
 
-def send_group_invite(meeting, participant, reminder: bool = False) -> None:
+def send_group_invite(meeting, participant, reminder: bool = False, suggested: list[datetime] | None = None) -> None:
     _init_resend()
     org = _organizer_name(meeting)
     _send(
@@ -686,7 +716,7 @@ def send_group_invite(meeting, participant, reminder: bool = False) -> None:
             "to": [participant.email],
             "reply_to": meeting.organizer.email,
             "subject": f"{'Reminder: ' if reminder else ''}{org} is finding a time for {meeting.title}",
-            "html": render_group_invite(meeting, participant),
+            "html": render_group_invite(meeting, participant, suggested),
         },
         "group invite",
     )
@@ -865,35 +895,53 @@ def _send_agent(meeting, to: list[str], subject: str, html: str, in_reply_to: st
     _send(payload, what)
 
 
-def render_agent_proposal(meeting, options: list[datetime]) -> str:
+def render_agent_proposal(meeting, options: list[datetime], intro: str | None = None) -> str:
     org = _first_name(meeting.organizer)
     tz = meeting.organizer.timezone or "UTC"
     names = [html_escape((p.name or p.email).split()[0]) for p in meeting.participants]
     hello = f"Hi {', '.join(names[:-1])} and {names[-1]}," if len(names) > 1 else f"Hi {names[0]},"
     paras = [
         hello,
-        f"I'm TimeIQ, helping {html_escape(org)} find {meeting.duration_minutes} minutes for "
+        intro
+        or f"I'm TimeIQ, helping {html_escape(org)} find {meeting.duration_minutes} minutes for "
         f"<strong>{html_escape(meeting.title)}</strong>.",
     ]
+    solo = meeting.participants[0] if len(meeting.participants) == 1 else None
     if options:
-        items = "".join(f"<li style=\"margin:2px 0;\">{html_escape(_local(s, tz))}</li>" for s in options)
-        paras.append(f"A few times that work for {html_escape(org)}:<ul style=\"margin:6px 0 0;padding-left:20px;\">{items}</ul>")
-        paras.append("Just reply with the ones that work for you, or tap your link to see every open time:")
+        if solo:
+            items = "".join(
+                f'<li style="margin:4px 0;"><a href="{html_escape(_pick_url(solo, s), quote=True)}" '
+                f'style="color:{t.INDIGO};font-weight:600;">{html_escape(_local(s, tz))}</a></li>'
+                for s in options
+            )
+            paras.append(f"Here are {len(options)} times that work for {html_escape(org)}. Tap one, or just reply:"
+                         f'<ul style="margin:6px 0 0;padding-left:20px;">{items}</ul>')
+            paras.append(f'None of these work? <a href="{_pick_url(solo)}" style="color:{t.INDIGO};">Pick a different time</a>.')
+        else:
+            items = "".join(f'<li style="margin:2px 0;">{html_escape(_local(s, tz))}</li>' for s in options)
+            paras.append(f"Here are {len(options)} times that work for {html_escape(org)}:"
+                         f'<ul style="margin:6px 0 0;padding-left:20px;">{items}</ul>')
+            links = "".join(
+                f'<li style="margin:2px 0;"><a href="{_pick_url(p)}" style="color:{t.INDIGO};">'
+                f"{html_escape(p.name or p.email)}: pick your times</a></li>"
+                for p in meeting.participants
+            )
+            paras.append(f"Reply with the ones that work, or tap your link to answer or pick a different time:"
+                         f'<ul style="margin:6px 0 0;padding-left:20px;">{links}</ul>')
     else:
-        paras.append(f"{html_escape(org)} has no open time in that range yet. Tap your link and I'll show times as they open up:")
-    links = "".join(
-        f'<li style="margin:2px 0;"><a href="{_site()}/meet/{p.token}" style="color:{t.INDIGO};">'
-        f"{html_escape(p.name or p.email)}: pick your times</a></li>"
-        for p in meeting.participants
-    )
-    paras.append(f'<ul style="margin:0;padding-left:20px;">{links}</ul>')
+        links = "".join(
+            f'<li style="margin:2px 0;"><a href="{_pick_url(p)}" style="color:{t.INDIGO};">{html_escape(p.name or p.email)}</a></li>'
+            for p in meeting.participants
+        )
+        paras.append(f"{html_escape(org)} has no open time in that range yet. Tap your link and I'll show times as they open up:"
+                     f'<ul style="margin:6px 0 0;padding-left:20px;">{links}</ul>')
     paras.append(f"Once everyone's answered, I'll check with {html_escape(org)} and send the calendar invite.")
     return _agent_html(paras, _footer(meeting))
 
 
-def send_agent_proposal(meeting, options: list[datetime], detail: dict) -> None:
+def send_agent_proposal(meeting, options: list[datetime], detail: dict, intro: str | None = None) -> None:
     to = [meeting.organizer.email] + [p.email for p in meeting.participants]
-    _send_agent(meeting, to, meeting.thread_subject or meeting.title, render_agent_proposal(meeting, options),
+    _send_agent(meeting, to, meeting.thread_subject or meeting.title, render_agent_proposal(meeting, options, intro),
                 detail.get("message_id"), "agent proposal")
 
 
@@ -949,3 +997,19 @@ def send_agent_all_answered(meeting, best: dict | None) -> None:
     lines.append(f'<a href="{_site()}/meetings/{meeting.id}" style="color:{t.INDIGO};">See every answer in TimeIQ</a>')
     _send_agent(meeting, [meeting.organizer.email], meeting.thread_subject or meeting.title,
                 _agent_html(lines, _footer(meeting)), None, "agent all answered")
+
+
+def send_agent_accept(meeting, detail: dict) -> None:
+    """Accept a time someone offered, on the thread, and ask them to send the invite."""
+    tz = meeting.organizer.timezone or "UTC"
+    org = html_escape(_first_name(meeting.organizer))
+    names = [html_escape((p.name or p.email).split()[0]) for p in meeting.participants]
+    hello = f"Hi {names[0]}," if len(names) == 1 else "Hi all,"
+    paras = [
+        hello,
+        f"I'm TimeIQ, {org}'s scheduling assistant. <strong>{html_escape(_local(meeting.starts_at, tz))}</strong> works for {org}.",
+        f"Please send the calendar invite to {html_escape(meeting.organizer.email)}. I've held the time on {org}'s calendar.",
+    ]
+    to = [meeting.organizer.email] + [p.email for p in meeting.participants]
+    _send_agent(meeting, to, meeting.thread_subject or meeting.title, _agent_html(paras, _footer(meeting)),
+                detail.get("message_id"), "agent accept")
