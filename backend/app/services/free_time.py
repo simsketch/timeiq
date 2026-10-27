@@ -63,7 +63,8 @@ async def free_windows(
     """Per host-local day: the open windows (UTC) inside working hours.
 
     default_hours treats a host who never set working hours as working
-    9 to 5 on weekdays, instead of never free."""
+    9 to 5 on weekdays, instead of never free. A host whose saved days are
+    all switched off did set hours, so they get none."""
     now = now or datetime.now(timezone.utc)
     days = max(1, min(days, BOOKING_HORIZON_DAYS))
     tz = host_zone(host)
@@ -71,17 +72,9 @@ async def free_windows(
     span_start = datetime.combine(today, datetime.min.time(), tzinfo=tz).astimezone(timezone.utc)
     span_end = datetime.combine(today + timedelta(days=days + 1), datetime.min.time(), tzinfo=tz).astimezone(timezone.utc)
 
-    rules = {
-        r.day_of_week: r
-        for r in (
-            await db.execute(
-                select(AvailabilityRule).where(
-                    AvailabilityRule.user_id == host.id, AvailabilityRule.is_active.is_(True)
-                )
-            )
-        ).scalars()
-    }
-    if not rules and default_hours:
+    saved = (await db.execute(select(AvailabilityRule).where(AvailabilityRule.user_id == host.id))).scalars().all()
+    rules = {r.day_of_week: r for r in saved if r.is_active}
+    if not saved and default_hours:
         rules = {d: SimpleNamespace(start_time=time(9), end_time=time(17)) for d in range(5)}
     events = (
         await db.execute(

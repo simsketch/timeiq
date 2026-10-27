@@ -46,7 +46,9 @@ def utc(s: str) -> datetime:
 
 async def busy(user: User, start: str, end: str) -> None:
     async with async_session() as db:
-        src = CalendarSource(user_id=user.id, type="ics_url", name="Work", ics_url="https://x.test/a.ics", is_active=True)
+        # Just synced, so booking doesn't re-fetch the (made-up) feed.
+        src = CalendarSource(user_id=user.id, type="ics_url", name="Work", ics_url="https://x.test/a.ics", is_active=True,
+                             last_synced_at=datetime.now(timezone.utc))
         db.add(src)
         await db.flush()
         db.add(CachedEvent(calendar_source_id=src.id, user_id=user.id, title="Busy", starts_at=utc(start), ends_at=utc(end)))

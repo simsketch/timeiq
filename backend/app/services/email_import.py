@@ -47,6 +47,15 @@ MAX_EVENTS = 300
 ICS_DAYS_AHEAD = 400
 IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 RESEND_API = "https://api.resend.com"
+TOO_BIG = "That email is over 15 MB. Send the schedule on its own, or a smaller file."
+# Deliveries of one email that may try it. A failure a redelivery can fix
+# (network, Resend 5xx, timeouts) answers the webhook with a 503 so Resend
+# sends it again, until the last attempt, which replies to the sender.
+MAX_ATTEMPTS = 5
+# A "processing" claim this old was abandoned (the function died mid-import);
+# a redelivery may take it over.
+STALE_CLAIM = timedelta(minutes=10)
+SKIPPED_INACTIVE = "subscription_inactive"
 
 
 # ---------------------------------------------------------------------------
@@ -88,8 +97,30 @@ class Attachment(BaseModel):
     data: bytes = b""
 
 
+async def _download_capped(client: httpx.AsyncClient, url: str, budget: int) -> bytes:
+    """Stream ``url``, giving up as soon as it passes ``budget`` bytes."""
+    async with client.stream("GET", url) as resp:
+        resp.raise_for_status()
+        declared = resp.headers.get("content-length", "")
+        if declared.isdigit() and int(declared) > budget:
+            raise ImportRejected(TOO_BIG)
+        chunks: list[bytes] = []
+        received = 0
+        async for chunk in resp.aiter_bytes():
+            received += len(chunk)
+            if received > budget:
+                raise ImportRejected(TOO_BIG)
+            chunks.append(chunk)
+    return b"".join(chunks)
+
+
 async def fetch_email(email_id: str) -> tuple[dict, list[Attachment]]:
-    """The received email's details and attachment bytes, from Resend."""
+    """The received email's details and attachment bytes, from Resend.
+
+    The 15 MB limit counts the attachment bytes actually received, across all
+    attachments; the listing's ``size`` is only an early check, since it may
+    be missing or wrong.
+    """
     headers = {"Authorization": f"Bearer {settings.RESEND_INBOUND_API_KEY}"}
     async with httpx.AsyncClient(timeout=20) as client:
         detail = (await client.get(f"{RESEND_API}/emails/receiving/{email_id}", headers=headers)).raise_for_status().json()
@@ -97,18 +128,25 @@ async def fetch_email(email_id: str) -> tuple[dict, list[Attachment]]:
             await client.get(f"{RESEND_API}/emails/receiving/{email_id}/attachments", headers=headers)
         ).raise_for_status().json()
         attachments: list[Attachment] = []
+        listed = 0
         total = 0
         for item in listing.get("data", []):
-            size = int(item.get("size") or 0)
-            total += size
-            if total > MAX_EMAIL_BYTES:
-                raise ImportRejected("That email is over 15 MB. Send the schedule on its own, or a smaller file.")
+            listed += int(item.get("size") or 0)
+            if listed > MAX_EMAIL_BYTES:
+                raise ImportRejected(TOO_BIG)
+            budget = MAX_EMAIL_BYTES - total
             if item.get("content"):
-                data = base64.b64decode(item["content"])
+                encoded = item["content"]
+                if len(encoded) * 3 // 4 > budget + 3:
+                    raise ImportRejected(TOO_BIG)
+                data = base64.b64decode(encoded)
             elif item.get("download_url"):
-                data = (await client.get(item["download_url"])).raise_for_status().content
+                data = await _download_capped(client, item["download_url"], budget)
             else:
                 continue
+            total += len(data)
+            if total > MAX_EMAIL_BYTES:
+                raise ImportRejected(TOO_BIG)
             attachments.append(
                 Attachment(
                     filename=item.get("filename") or "",
@@ -222,13 +260,15 @@ def rows_from_extraction(ex: Extraction, default_tz: ZoneInfo) -> list[dict]:
             day = date.fromisoformat(ev.date)
         except ValueError:
             continue
+        start = _clock(ev.start_time)
         tz = default_tz
-        if ev.timezone:
+        if ev.timezone and not (ev.all_day or start is None):
+            # An all-day event keeps the owner's own dates (the feed and free
+            # time read all-day events in the owner's zone).
             try:
                 tz = ZoneInfo(ev.timezone)
             except Exception:
                 pass
-        start = _clock(ev.start_time)
         title = (ev.title or "Event").strip()
         if ev.location and ev.location.strip() and ev.location.strip().lower() not in title.lower():
             title = f"{title} @ {ev.location.strip()}"
@@ -240,9 +280,15 @@ def rows_from_extraction(ex: Extraction, default_tz: ZoneInfo) -> list[dict]:
         else:
             starts_at = datetime.combine(day, start, tzinfo=tz)
             end = _clock(ev.end_time)
-            ends_at = datetime.combine(day, end, tzinfo=tz) if end else starts_at + timedelta(hours=1)
-            if ends_at <= starts_at:
-                ends_at = starts_at + timedelta(hours=1)
+            if end is None or end == start:
+                # No stated end: an hour of real time (UTC arithmetic, so a DST
+                # change in that hour doesn't stretch or shrink it).
+                ends_at = starts_at.astimezone(timezone.utc) + timedelta(hours=1)
+            else:
+                # A stated end earlier than the start (22:00-02:00) is the
+                # next morning. Local wall times, then converted, so the
+                # elapsed time is right across a DST change.
+                ends_at = datetime.combine(day if end > start else day + timedelta(days=1), end, tzinfo=tz)
             all_day = False
         rows.append(dict(
             title=title,
@@ -264,6 +310,79 @@ class ImportRejected(Exception):
 
 class _Skip(Exception):
     """Fetching already failed; keep the status it set."""
+
+
+def _is_transient(exc: BaseException) -> bool:
+    """A failure a redelivery of the webhook may not hit again."""
+    if isinstance(exc, (httpx.TransportError, TimeoutError, anthropic.APIConnectionError)):
+        return True  # includes connect errors and timeouts
+    if isinstance(exc, httpx.HTTPStatusError):
+        code = exc.response.status_code
+    elif isinstance(exc, anthropic.APIStatusError):
+        code = exc.status_code
+    else:
+        return False
+    return code >= 500 or code == 429
+
+
+def _entitled(user: User) -> bool:
+    """The same rule as the dashboard's subscription gate (auth.get_current_user)."""
+    from app.services import billing
+
+    return not billing.enabled() or billing.is_entitled(user)
+
+
+async def _claim(db: AsyncSession, email_id: str, now: datetime) -> tuple[EmailImport | None, bool]:
+    """Take over an existing import for a redelivered webhook.
+
+    Returns (record, claimed). claimed is True when this delivery should run
+    the import: a retryable failure, or a "processing" claim gone stale.
+    (record, False) means another delivery is still working on it; (None,
+    False) means it's finished and the webhook is a duplicate.
+    """
+    record = (
+        await db.execute(select(EmailImport).where(EmailImport.resend_email_id == email_id).with_for_update())
+    ).scalar_one_or_none()
+    if record is None:
+        return None, False
+    if record.status == "processing":
+        if (record.claimed_at or record.created_at) > now - STALE_CLAIM:
+            return record, False
+        if record.attempts >= MAX_ATTEMPTS:
+            record.status, record.error, record.retryable = "failed", "abandoned", False
+            await db.commit()
+            return None, False
+    elif not (record.status == "failed" and record.retryable and record.attempts < MAX_ATTEMPTS):
+        return None, False
+    record.status, record.error, record.retryable = "processing", None, False
+    record.attempts += 1
+    record.claimed_at = now
+    await db.commit()
+    return record, True
+
+
+def _send_inactive_notice(user: User) -> None:
+    """Tell the owner their address is paused while the subscription is off."""
+    from app.services import email as mail
+    from app.services import email_templates as t
+
+    if not user.email:
+        return
+    subject = "Your TimeIQ subscription isn't active"
+    body = (
+        t.h1(subject)
+        + t.p(
+            "TimeIQ got an email at your schedule address but didn't read it, because your subscription isn't "
+            "active. Nothing was added to your calendar and nobody on the thread got a reply. Restart your "
+            "subscription, then forward the email again."
+        )
+        + t.buttons(t.button("Restart your subscription", f"{mail._site()}/pricing?reason=subscription"))
+    )
+    mail._init_resend()
+    mail._send(
+        {"from": mail.FROM_EMAIL, "to": [user.email], "subject": subject, "html": t.layout("reminder", subject, body)},
+        "inactive subscription notice",
+    )
 
 
 async def _email_source(db: AsyncSession, user: User) -> CalendarSource:
@@ -313,25 +432,54 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
         if user is None:
             logger.info("Inbound email for an unknown address token")
             return None
+        user_id = user.id
         record = EmailImport(
-            user_id=user.id,
+            user_id=user_id,
             resend_email_id=email_id,
             sender=sender or None,
             subject=(data.get("subject") or "")[:500] or None,
             undo_token=secrets.token_urlsafe(32),
+            attempts=1,
+            claimed_at=now,
+            created_at=now,
         )
         db.add(record)
         try:
             await db.commit()
         except IntegrityError:
-            return None  # a retried webhook: already handled
-        user_id = user.id
+            # A redelivered webhook: retry a transient failure or an abandoned
+            # claim; otherwise it's already handled, or still in flight.
+            await db.rollback()
+            record, claimed = await _claim(db, email_id, now)
+            if not claimed:
+                return record
+            user = await db.get(User, user_id)
+
+        if not _entitled(user):
+            # A lapsed subscription: don't read the email or answer anyone on
+            # the thread. Tell the owner, at most once a day.
+            noticed = (
+                await db.execute(
+                    select(func.count()).select_from(EmailImport).where(
+                        EmailImport.user_id == user_id,
+                        EmailImport.status == "skipped",
+                        EmailImport.created_at > now - timedelta(days=1),
+                    )
+                )
+            ).scalar_one()
+            record.status, record.error = "skipped", SKIPPED_INACTIVE
+            await db.commit()
+            await db.refresh(record)
+            if not noticed:
+                _send_inactive_notice(user)
+            return record
 
     rows: list[dict] = []
     schedule_name: str | None = None
     status, error = "imported", None
     detail: dict | None = None
     attachments: list[Attachment] = []
+    transient = False
     try:
         detail, attachments = await fetch_email(email_id)
         # A thread about meeting up (cc TimeIQ), or a reply on one, goes to the
@@ -357,6 +505,7 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
         logger.exception("Fetching inbound email %s failed", email_id)
         detail = None
         status, error = "failed", f"{type(exc).__name__}"
+        transient = _is_transient(exc)
 
     try:
         if detail is None:
@@ -367,7 +516,7 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
                     select(func.count()).select_from(EmailImport).where(
                         EmailImport.user_id == user_id,
                         EmailImport.created_at > now - timedelta(days=1),
-                        EmailImport.status.notin_(("rejected", "ignored", "meeting", "meeting_reply", "meeting_booked", "meeting_accepted", "meeting_error")),
+                        EmailImport.status.notin_(("rejected", "ignored", "skipped", "meeting", "meeting_reply", "meeting_booked", "meeting_accepted", "meeting_error")),
                     )
                 )
             ).scalar_one()
@@ -400,6 +549,7 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
     except Exception as exc:
         logger.exception("Schedule import %s failed", email_id)
         status, error, rows = "failed", f"{type(exc).__name__}", []
+        transient = _is_transient(exc)
 
     async with async_session() as db:
         record = (await db.execute(select(EmailImport).where(EmailImport.resend_email_id == email_id))).scalar_one()
@@ -414,8 +564,11 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
         record.status = status
         record.error = error
         record.event_count = len(rows)
+        record.retryable = transient and record.attempts < MAX_ATTEMPTS
         await db.commit()
         await db.refresh(record)
+    if record.retryable:
+        return record  # a redelivery tries again; reply once it has settled
 
     from app.services.email import send_schedule_import_reply
 

@@ -24,6 +24,29 @@ function clock(h: number): string {
   return mm ? `${h12}:${String(mm).padStart(2, "0")} ${ap}` : `${h12} ${ap}`;
 }
 
+/** A window [from, to) in the first zone's hours, folded onto its 0–24 day. */
+function strip(from: number, to: number): [number, number][] {
+  const segs: [number, number][] = [];
+  for (let k = -48; k <= 48; k += 24) {
+    const a = Math.max(from + k, 0);
+    const b = Math.min(to + k, 24);
+    if (b > a) segs.push([a, b]);
+  }
+  return segs.sort((x, y) => x[0] - y[0]);
+}
+
+function intersect(xs: [number, number][], ys: [number, number][]): [number, number][] {
+  const out: [number, number][] = [];
+  for (const [a, b] of xs) {
+    for (const [c, d] of ys) {
+      const lo = Math.max(a, c);
+      const hi = Math.min(b, d);
+      if (hi > lo) out.push([lo, hi]);
+    }
+  }
+  return out.sort((x, y) => x[0] - y[0]);
+}
+
 /** Working hours several time zones share, drawn on one 24-hour strip. */
 export function TimezoneOverlapCalculator() {
   const [zones, setZones] = useState<string[]>(["America/New_York", "America/Los_Angeles", "Europe/London"]);
@@ -43,31 +66,28 @@ export function TimezoneOverlapCalculator() {
   const base = zones[0];
   const offsets = useMemo(() => zones.map((z) => offsetHours(z, at)), [zones, at]);
 
-  // Each zone's working window, expressed in the first zone's hours.
+  // Each zone's working window, expressed in the first zone's hours. An end at or
+  // before the start is an overnight shift that finishes the next morning.
   const windows = zones.map((_, i) => {
     const shift = offsets[0] - offsets[i];
-    return [start + shift, end + shift] as const;
+    return [start + shift, (end > start ? end : end + 24) + shift] as const;
   });
-  const lo = Math.max(...windows.map((w) => w[0]));
-  const hi = Math.min(...windows.map((w) => w[1]));
-  const overlap = hi > lo ? hi - lo : 0;
+  // Workdays repeat every 24 hours, so intersect them folded onto one day: across the
+  // date line, a Honolulu afternoon meets the next Sydney morning.
+  const folded = windows.slice(1).reduce((acc, [a, b]) => intersect(acc, strip(a, b)), strip(windows[0][0], windows[0][1]));
+  // Rejoin a shared stretch that runs through the first zone's midnight.
+  const shared: [number, number][] = folded.map(([a, b]) => [a, b]);
+  if (shared.length > 1 && shared[0][0] === 0 && shared[shared.length - 1][1] === 24) {
+    const first = shared.shift()!;
+    shared[shared.length - 1][1] = 24 + first[1];
+  }
+  const overlap = shared.reduce((t, [a, b]) => t + (b - a), 0);
 
   function add(zone: string) {
     if (!zone || zones.includes(zone) || !isValidZone(zone)) return;
     setZones([...zones, zone]);
     setCustom("");
   }
-
-  const strip = (from: number, to: number) => {
-    // The strip spans the first zone's day; parts outside wrap around.
-    const segs: [number, number][] = [];
-    for (const k of [-24, 0, 24]) {
-      const a = Math.max(from + k, 0);
-      const b = Math.min(to + k, 24);
-      if (b > a) segs.push([a, b]);
-    }
-    return segs;
-  };
 
   return (
     <Panel>
@@ -113,7 +133,7 @@ export function TimezoneOverlapCalculator() {
                 <div key={a} className="absolute inset-y-0 bg-[hsl(var(--aurora-1)/0.35)]" style={{ left: `${(a / 24) * 100}%`, width: `${((b - a) / 24) * 100}%` }} />
               ))}
               {overlap > 0 &&
-                strip(lo, hi).map(([a, b]) => (
+                folded.map(([a, b]) => (
                   <div key={"o" + a} className="absolute inset-y-0 bg-[hsl(var(--aurora-4)/0.85)]" style={{ left: `${(a / 24) * 100}%`, width: `${((b - a) / 24) * 100}%` }} />
                 ))}
             </div>
@@ -131,18 +151,25 @@ export function TimezoneOverlapCalculator() {
           <>
             <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Shared working hours</div>
             <div className="mt-1 text-2xl font-semibold">
-              {Math.round(overlap * 10) / 10} hour{Math.round(overlap * 10) / 10 === 1 ? "" : "s"} a day
+              {`${Math.round(overlap * 10) / 10} hour${Math.round(overlap * 10) / 10 === 1 ? "" : "s"} a day`}
             </div>
-            <ul className="mt-3 space-y-1 text-sm">
-              {zones.map((z, i) => {
-                const shift = offsets[i] - offsets[0];
-                return (
-                  <li key={z} className="tabular-nums">
-                    <span className="font-medium">{zoneAbbr(z, at)}:</span> {clock(lo + shift)}–{clock(hi + shift)}
-                  </li>
-                );
-              })}
-            </ul>
+            {shared.map(([lo, hi]) => (
+              <ul key={lo} className="mt-3 space-y-1 text-sm">
+                {zones.map((z, i) => {
+                  const shift = offsets[i] - offsets[0];
+                  // Which calendar day this is for each place, against the first zone's day.
+                  const day = Math.floor((lo + shift) / 24) - Math.floor(lo / 24);
+                  return (
+                    <li key={z} className="tabular-nums">
+                      <span className="font-medium">{zoneAbbr(z, at)}:</span> {clock(lo + shift)}–{clock(hi + shift)}
+                      {day !== 0 && (
+                        <span className="text-muted-foreground"> ({day > 0 ? "next day" : "previous day"})</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            ))}
           </>
         ) : (
           <div className="text-sm">

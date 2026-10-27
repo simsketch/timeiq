@@ -35,8 +35,9 @@ FOUNDER_RESERVATION_TTL = timedelta(minutes=35)
 # pg_advisory_xact_lock key that serializes founder-seat allocation.
 _FOUNDER_LOCK_KEY = 0x71730001
 # Anyone can open a guest checkout, so cap how many founder seats open guest
-# checkouts may hold at once. Past the cap a guest still gets the founder
-# price while seats remain, just without a hold.
+# checkouts may hold at once. Every founder-priced guest checkout holds a
+# seat; past the cap new guests get the standard price (an unheld founder
+# session could be paid after the last seat went, overselling the cap).
 MAX_GUEST_HOLDS = 10
 GUEST_REF_PREFIX = "guest:"
 
@@ -246,15 +247,17 @@ async def create_guest_checkout_session(db: AsyncSession) -> str:
     price_id = settings.STRIPE_PRICE_STANDARD
     if settings.STRIPE_PRICE_FOUNDER:
         await _lock_founder_seats(db)
-        if await founder_seats_taken(db) < settings.FOUNDER_SEATS:
+        if (
+            await founder_seats_taken(db) < settings.FOUNDER_SEATS
+            and await _guest_holds_open(db, now) < MAX_GUEST_HOLDS
+        ):
             price_id, guest.plan = settings.STRIPE_PRICE_FOUNDER, PLAN_FOUNDER
-            if await _guest_holds_open(db, now) < MAX_GUEST_HOLDS:
-                guest.reserved_until = now + FOUNDER_RESERVATION_TTL
+            guest.reserved_until = now + FOUNDER_RESERVATION_TTL
     db.add(guest)
     await db.flush()
-    extra: dict[str, Any] = {}
-    if guest.plan == PLAN_FOUNDER:
-        extra["expires_at"] = int((now + CHECKOUT_TTL).timestamp())
+    # Guest sessions are anonymous, so they all close quickly; a founder one
+    # must close before its seat hold lapses.
+    extra: dict[str, Any] = {"expires_at": int((now + CHECKOUT_TTL).timestamp())}
     session = stripe.checkout.Session.create(
         mode="subscription",
         client_reference_id=f"{GUEST_REF_PREFIX}{guest.id}",
@@ -423,6 +426,19 @@ def cancel_subscription(subscription_id: str) -> None:
         if current.get("status") in ENDED_STATUSES:
             return
         raise
+
+
+def cancel_before_account_deletion(user: User) -> None:
+    """Cancel ``user``'s live subscription before their account is deleted.
+
+    Deleting the account while the subscription lives on would keep charging
+    someone we can no longer show a billing page to, so this raises when the
+    cancellation fails and the caller must keep the account. Retrying is safe:
+    an already-ended subscription counts as cancelled.
+    """
+    if enabled() and user.stripe_subscription_id and user.subscription_status not in ENDED_STATUSES:
+        cancel_subscription(user.stripe_subscription_id)
+        user.subscription_status = "canceled"
 
 
 def _period_end(sub: Any) -> datetime | None:

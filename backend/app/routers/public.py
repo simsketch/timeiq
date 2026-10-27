@@ -15,6 +15,7 @@ from app.models.booking import Booking
 from app.models.cached_event import CachedEvent
 from app.models.event_type import EventType
 from app.models.user import User
+from app.services.calendar_sync import host_zone
 from app.services.ics_generator import generate_feed_ics
 
 router = APIRouter(prefix="/api/public", tags=["public"])
@@ -119,6 +120,7 @@ async def get_user_feed(
         bookings=bookings,
         cached_events=cached_events,
         obfuscate=user.feed_obfuscate,
+        tz=host_zone(user.timezone),
     )
 
     return Response(

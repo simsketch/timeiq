@@ -66,6 +66,14 @@ function timeRange(start: Date, end: Date, zone: string): string {
     .replace(/\s*–\s*/, "–");
 }
 
+/** Like timeRange, but a block ending at midnight reads "11 PM–12 AM" with no dates. */
+function blockRange(start: Date, end: Date, zone: string): string {
+  if (dayKey(start, zone) === dayKey(end, zone)) return timeRange(start, end, zone);
+  const fmt = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: zone });
+  const one = (d: Date) => fmt.format(d).replace(/[\u202f\u2009]/g, " ").replace(/:00(?=\s|$)/, "");
+  return `${one(start)}–${one(end)}`;
+}
+
 function dayKey(d: Date, zone: string): string {
   // en-CA gives YYYY-MM-DD.
   return new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
@@ -84,18 +92,58 @@ export interface DayGroup {
   windows: { start: Date; end: Date }[];
 }
 
-/** Windows grouped by calendar day in the primary zone (it may differ from the host's). */
-export function groupByDay(summary: AvailabilitySummary, primary: string): DayGroup[] {
+/** Minutes a zone is ahead of UTC at a given moment. */
+function offsetMinutes(zone: string, at: Date): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(at);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const asUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour") % 24, get("minute"), get("second"));
+  return Math.round((asUtc - Math.floor(at.getTime() / 1000) * 1000) / 60_000);
+}
+
+/** The instant a calendar day (YYYY-MM-DD) starts in a zone. */
+function startOfDay(key: string, zone: string): Date {
+  const [y, m, d] = key.split("-").map(Number);
+  const wall = Date.UTC(y, m - 1, d);
+  let t = wall - offsetMinutes(zone, new Date(wall)) * 60_000;
+  // A second pass settles days whose offset differs from the UTC-midnight guess.
+  t = wall - offsetMinutes(zone, new Date(t)) * 60_000;
+  return new Date(t);
+}
+
+function nextDayKey(key: string): string {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
+}
+
+/**
+ * Windows grouped by calendar day in the primary zone (it may differ from the host's).
+ * With `splitAtMidnight`, a window that runs past midnight in the primary zone is cut
+ * there and the rest lands on the following day, so a grid can draw every hour of it.
+ */
+export function groupByDay(summary: AvailabilitySummary, primary: string, splitAtMidnight = false): DayGroup[] {
   const groups = new Map<string, DayGroup>();
   if (primary === summary.timezone) {
     for (const d of summary.days) groups.set(d.date, { key: d.date, label: dayLabel(d.date), windows: [] });
   }
+  const put = (key: string, start: Date, end: Date) => {
+    if (!groups.has(key)) groups.set(key, { key, label: dayLabel(key), windows: [] });
+    groups.get(key)!.windows.push({ start, end });
+  };
   for (const d of summary.days) {
     for (const w of d.windows) {
-      const start = new Date(w.start);
-      const key = dayKey(start, primary);
-      if (!groups.has(key)) groups.set(key, { key, label: dayLabel(key), windows: [] });
-      groups.get(key)!.windows.push({ start, end: new Date(w.end) });
+      let start = new Date(w.start);
+      const end = new Date(w.end);
+      let key = dayKey(start, primary);
+      if (splitAtMidnight) {
+        for (let next = startOfDay(nextDayKey(key), primary); end > next; next = startOfDay(nextDayKey(key), primary)) {
+          put(key, start, next);
+          start = next;
+          key = nextDayKey(key);
+        }
+      }
+      if (end > start) put(key, start, end);
     }
   }
   return [...groups.values()].sort((a, b) => a.key.localeCompare(b.key));
@@ -155,7 +203,7 @@ export function drawImage(
   bookingUrl: string
 ): HTMLCanvasElement {
   const [primary, ...others] = zones;
-  const groups = groupByDay(summary, primary);
+  const groups = groupByDay(summary, primary, true);
   const cols = Math.max(groups.length, 1);
 
   // Vertical range: the span of working hours and openings, in the primary zone.
@@ -201,24 +249,56 @@ export function drawImage(
   ctx.fillText("When I'm free", left, 48);
   ctx.fillStyle = "#475569";
   ctx.font = font(400, 15);
-  // Offsets and names as of the first opening, not today, so clock changes line up.
-  const ref = groups.find((g) => g.windows.length)?.windows[0].start ?? new Date();
-  const note = others.length
-    ? `Times in ${zoneAbbr(primary, ref)}. ` + others.map((z) => {
-        const diff = hourIn(ref, z) - hourIn(ref, primary);
-        const norm = ((diff + 36) % 24) - 12;
-        const sign = norm >= 0 ? "+" : "−";
-        return `${zoneAbbr(z, ref)} is ${sign}${Math.abs(norm)}h`;
-      }).join(", ") + "."
-    : `Times in ${zoneAbbr(primary, ref)}.`;
-  ctx.fillText(note, left, 74);
+  // Names and offsets per day, as of that day's first opening (or its midday), so a
+  // week that crosses a clock change labels each side correctly.
+  const zoneNote = (at: Date) => {
+    const rel = others.map((z) => {
+      const diff = (offsetMinutes(z, at) - offsetMinutes(primary, at)) / 60;
+      const sign = diff >= 0 ? "+" : "−";
+      return { abbr: zoneAbbr(z, at), rel: `${sign}${Math.abs(diff)}h` };
+    });
+    return { abbr: zoneAbbr(primary, at), others: rel };
+  };
+  const notes = groups.map((g) => zoneNote(g.windows[0]?.start ?? new Date(startOfDay(g.key, primary).getTime() + 12 * 3_600_000)));
+  const sig = (n: ReturnType<typeof zoneNote>) => [n.abbr, ...n.others.map((o) => o.abbr + o.rel)].join("|");
+  const segments: { note: ReturnType<typeof zoneNote>; first: string; last: string }[] = [];
+  groups.forEach((g, i) => {
+    const prev = segments[segments.length - 1];
+    if (prev && sig(prev.note) === sig(notes[i])) prev.last = g.label;
+    else segments.push({ note: notes[i], first: g.label, last: g.label });
+  });
+  const mixed = segments.length > 1;
+  let note: string;
+  if (!mixed) {
+    const n = segments[0]?.note ?? zoneNote(new Date());
+    note = `Times in ${n.abbr}.` + (n.others.length ? " " + n.others.map((o) => `${o.abbr} is ${o.rel}`).join(", ") + "." : "");
+  } else {
+    note =
+      "Times in " +
+      segments
+        .map((s, i) => {
+          const desc = s.note.abbr + (s.note.others.length ? ` (${s.note.others.map((o) => `${o.abbr} ${o.rel}`).join(", ")})` : "");
+          if (i === 0) return `${desc} through ${s.last}`;
+          if (i === segments.length - 1) return `${desc} from ${s.first}`;
+          return s.first === s.last ? `${desc} on ${s.first}` : `${desc} ${s.first}–${s.last}`;
+        })
+        .join("; ") +
+      ".";
+  }
+  ctx.fillText(note, left, 74, W - left - 24);
 
   // Day headers
   groups.forEach((g, i) => {
     const x = left + i * colW;
     ctx.fillStyle = "#0f172a";
     ctx.font = font(600, 15);
-    ctx.fillText(g.label, x + 8, top - 18);
+    ctx.fillText(g.label, x + 8, mixed ? top - 30 : top - 18, colW - 16);
+    if (mixed) {
+      // The clock changes inside this range, so each column names its own zone.
+      ctx.fillStyle = "#64748b";
+      ctx.font = font(500, 12);
+      ctx.fillText(notes[i].abbr, x + 8, top - 12, colW - 16);
+    }
   });
 
   // Hour lines
@@ -254,7 +334,7 @@ export function drawImage(
       if (y2 - y1 >= 30) {
         ctx.fillStyle = "#065f46";
         ctx.font = font(600, 12);
-        ctx.fillText(timeRange(w.start, w.end, primary), x + 8, y1 + 20, colW - 20);
+        ctx.fillText(blockRange(w.start, w.end, primary), x + 8, y1 + 20, colW - 20);
       }
     }
     if (!g.windows.length) {

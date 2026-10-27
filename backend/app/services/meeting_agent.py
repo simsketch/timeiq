@@ -13,6 +13,10 @@ Safety rules:
 - Booking by email only happens when the owner's message passes DMARC (or
   DKIM), so a forged "book it" can't book anything.
 - Auto-replies and TimeIQ's own mail are ignored, so there are no reply loops.
+- No email to the thread carries a participant's link (the link is that
+  person's credential): each guest gets their own email with their own link.
+- One email that reaches several TimeIQ inboxes is acted on once: its
+  Message-ID is claimed by a single owner (see _preferred_owner).
 """
 from __future__ import annotations
 
@@ -26,12 +30,12 @@ from typing import Literal, Optional
 import anthropic
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
-from sqlalchemy.dialects.postgresql import array
+from sqlalchemy.dialects.postgresql import array, insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import async_session
-from app.models.group_meeting import GroupMeeting, GroupMeetingParticipant
+from app.models.group_meeting import AgentMessageClaim, GroupMeeting, GroupMeetingParticipant
 from app.models.user import User
 from app.services import group_meetings as gm
 from app.services.availability import host_zone
@@ -151,10 +155,14 @@ class MeetingRequest(BaseModel):
 
 
 class ThreadReply(BaseModel):
-    chosen_options: list[int] = Field(default_factory=list, description="Numbers of the listed times this person can make")
+    chosen_options: list[int] = Field(default_factory=list, description="Numbers of the offered times this person can make")
+    other_options: list[int] = Field(
+        default_factory=list,
+        description="Numbers from the other open times that the writer named explicitly (never for vague answers)",
+    )
     none_work: bool = Field(False, description="True if they said none of the times work")
     book: bool = Field(False, description="True if they ask to book, confirm or lock in a time")
-    book_option: Optional[int] = Field(None, description="Number of the time to book, if they named one")
+    book_option: Optional[int] = Field(None, description="Number of the offered time to book, if they named one")
 
 
 REQUEST_PROMPT = """You are TimeIQ, a scheduling assistant cc'd on an email thread. \
@@ -166,12 +174,15 @@ today's date to resolve phrases like "next week" (Monday to Friday of the follow
 week) or "Thursday". Leave fields empty when the email doesn't say."""
 
 REPLY_PROMPT = """You are TimeIQ, a scheduling assistant on an email thread. \
-TimeIQ offered the numbered times below. Read the newest message and say which \
-of those times the writer can make. "Any of those work" means all of them. \
-"Tuesday afternoon" means every listed Tuesday time after noon. A time they name \
-that isn't listed doesn't count. If they ask to book, confirm or lock something \
-in, set book, and book_option to the time they picked if any. Times are in \
-{zone}; if the writer names another time zone, convert."""
+TimeIQ offered the numbered times under "Times offered". Read the newest message \
+and put the offered times the writer can make in chosen_options. "Any of those \
+work" means every offered time; "the second one" means offered time 2; "Tuesday \
+afternoon" means every offered Tuesday time after noon. When the writer names a \
+specific time that wasn't offered, find it under "Other open times" and put its \
+number in other_options; only do this for a time they name, never for a vague \
+answer. A time in neither list doesn't count. If they ask to book, confirm or lock \
+something in, set book, and book_option to the offered time they picked if any. \
+Times are in {zone}; if the writer names another time zone, convert."""
 
 
 async def _parse(system: str, text: str, schema):
@@ -203,12 +214,18 @@ def option_lines(slots: list[datetime], tz) -> str:
     return "\n".join(f"{i}. {s.astimezone(tz).strftime('%a %b %-d, %-I:%M %p %Z')}" for i, s in enumerate(slots, 1))
 
 
-async def read_reply(text: str, slots: list[datetime], tz) -> ThreadReply | None:
+async def read_reply(text: str, offered: list[datetime], others: list[datetime], tz) -> ThreadReply | None:
+    """``offered`` are the times TimeIQ put in front of the writer, in order;
+    ``others`` are further open times they may name explicitly."""
     # Name the zone as of the offered times (EST after a clock change, not today's EDT).
-    abbr = (slots[0] if slots else datetime.now(timezone.utc)).astimezone(tz).strftime("%Z")
+    first = (offered or others or [datetime.now(timezone.utc)])[0]
+    abbr = first.astimezone(tz).strftime("%Z")
+    lists = f"Times offered:\n{option_lines(offered, tz) or '(none)'}"
+    if others:
+        lists += f"\n\nOther open times:\n{option_lines(others, tz)}"
     return await _parse(
         REPLY_PROMPT.format(zone=abbr),
-        f"Times offered:\n{option_lines(slots, tz)}\n\nNewest message:\n{text or '(empty)'}",
+        f"{lists}\n\nNewest message:\n{text or '(empty)'}",
         ThreadReply,
     )
 
@@ -243,6 +260,78 @@ async def _find_meeting(db: AsyncSession, user_id, refs: list[str]) -> GroupMeet
     ).scalars().first()
 
 
+def _starts(values: list | None) -> list[datetime]:
+    return [datetime.fromisoformat(v.replace("Z", "+00:00")) for v in values or []]
+
+
+def record_offer(meeting: GroupMeeting, options: list[datetime]) -> None:
+    """Remember exactly which times were offered, in order, on the meeting and
+    for each participant, so a reply is read against what they were shown."""
+    offered = [gm.iso(s) for s in options]
+    meeting.offered_starts = offered
+    for p in meeting.participants:
+        p.offered_starts = list(offered)
+
+
+async def _still_open(db: AsyncSession, meeting: GroupMeeting, starts: list[datetime], now: datetime) -> list[datetime]:
+    """The starts that are still free on the organizer's calendar right now."""
+    if not starts:
+        return []
+    windows = await gm._windows(db, meeting.organizer, meeting, now, default_hours=True)
+    tz = host_zone(meeting.organizer)
+    return [
+        s for s in starts
+        if s > now and gm._fits(s, meeting.duration_minutes, windows) and gm._allowed(s, meeting, tz)
+    ]
+
+
+def _inbound_tokens(detail: dict, people: list[tuple[str, str]]) -> set[str]:
+    from app.services.email_import import token_from_recipients
+
+    raw = [e for _, e in people] + list(detail.get("to") or []) + list(detail.get("cc") or [])
+    return {t for t in (token_from_recipients([r]) for r in raw) if t}
+
+
+async def _preferred_owner(db: AsyncSession, detail: dict, people: list[tuple[str, str]], sender: str,
+                           refs: list[str]):
+    """When one email reaches several TimeIQ inboxes on the thread, the owner
+    who should act on it: the organizer of a meeting already on the thread,
+    else the sender if they're one of those owners. None means no preference
+    (the first copy to claim the Message-ID wins)."""
+    tokens = _inbound_tokens(detail, people)
+    if len(tokens) < 2:
+        return None
+    owners = (await db.execute(select(User.id, User.email).where(User.inbound_token.in_(tokens)))).all()
+    ids = [o.id for o in owners]
+    if refs and ids:
+        organizer = await db.scalar(
+            select(GroupMeeting.organizer_id)
+            .where(GroupMeeting.organizer_id.in_(ids), GroupMeeting.thread_ids.has_any(array(refs)))
+            .order_by(GroupMeeting.created_at.desc())
+            .limit(1)
+        )
+        if organizer is not None:
+            return organizer
+    return next((o.id for o in owners if (o.email or "").lower() == sender), None)
+
+
+async def claim_message(user_id, message_id: str | None, now: datetime) -> bool:
+    """Take on an inbound Message-ID for this owner. False if any owner (this
+    one included, for a second copy) already has it. Safe under concurrency:
+    the primary key lets exactly one insert through."""
+    if not message_id:
+        return True
+    async with async_session() as db:
+        won = await db.scalar(
+            pg_insert(AgentMessageClaim)
+            .values(message_id=message_id.strip()[:500], user_id=user_id, created_at=now)
+            .on_conflict_do_nothing(index_elements=["message_id"])
+            .returning(AgentMessageClaim.message_id)
+        )
+        await db.commit()
+    return won is not None
+
+
 async def handle(user_id, detail: dict, now: datetime | None = None) -> str | None:
     """Route one inbound email. Returns a status for the import log, or None
     when it isn't about a meeting (the caller imports it as a schedule)."""
@@ -262,8 +351,11 @@ async def handle(user_id, detail: dict, now: datetime | None = None) -> str | No
     async with async_session() as db:
         owner = await db.get(User, user_id)
         owner_email = (owner.email or "").lower()
+        own_id = detail.get("message_id") or _header(detail, "message-id") or None
         meeting = await _find_meeting(db, user_id, refs)
         if meeting is not None:
+            if not await claim_message(owner.id, own_id, now):
+                return "ignored"  # another copy of this email was handled already
             return await _handle_reply(db, owner, meeting, detail, sender, people, now)
 
         others = [(n, e) for n, e in people if e != owner_email and not _ours(e)]
@@ -285,6 +377,13 @@ async def handle(user_id, detail: dict, now: datetime | None = None) -> str | No
             )
         )
         if (recent or 0) >= MAX_MEETINGS_PER_DAY:
+            return "ignored"
+
+        # The same email in several TimeIQ inboxes starts one meeting, not one each.
+        preferred = await _preferred_owner(db, detail, people, sender, refs)
+        if preferred is not None and preferred != owner.id:
+            return "ignored"
+        if not await claim_message(owner.id, own_id, now):
             return "ignored"
 
         if req.intent == "proposed_times" and req.proposed:
@@ -315,11 +414,13 @@ async def handle(user_id, detail: dict, now: datetime | None = None) -> str | No
         await db.flush()
         await db.refresh(meeting, attribute_names=["organizer", "participants"])
         slots = await gm.candidate_slots(db, meeting, now)
+        options = gm.suggest(slots, {}, tz)
+        record_offer(meeting, options)
         await db.commit()
 
     from app.services import email as mail
 
-    mail.send_agent_proposal(meeting, gm.suggest(slots, {}, tz), detail)
+    mail.send_agent_proposal(meeting, options, detail)
     return "meeting"
 
 
@@ -338,12 +439,20 @@ async def _handle_reply(db: AsyncSession, owner: User, meeting: GroupMeeting, de
         return "meeting_reply"
 
     tz = host_zone(owner)
-    slots = (await gm.candidate_slots(db, meeting, now))[:MAX_OPTIONS_IN_PROMPT]
+    candidates = await gm.candidate_slots(db, meeting, now)
     text = newest_text(detail.get("text") or "")
     owner_email = (owner.email or "").lower()
 
+    def lists(offered_iso: list | None) -> tuple[list[datetime], list[datetime]]:
+        """What the writer was offered, and the other open times they may name."""
+        if offered_iso is None:  # a meeting from before offers were recorded
+            return candidates[:MAX_OPTIONS_IN_PROMPT], []
+        offered = _starts(offered_iso)
+        return offered, [s for s in candidates if s not in offered][:MAX_OPTIONS_IN_PROMPT]
+
     if sender == owner_email:
-        parsed = await read_reply(text, slots, tz)
+        offered, others = lists(meeting.offered_starts)
+        parsed = await read_reply(text, offered, others, tz)
         await db.commit()
         if not parsed or not parsed.book:
             return "meeting_reply"
@@ -355,10 +464,13 @@ async def _handle_reply(db: AsyncSession, owner: User, meeting: GroupMeeting, de
             )
             return "meeting_reply"
         target = None
-        if parsed.book_option and 1 <= parsed.book_option <= len(slots):
-            target = slots[parsed.book_option - 1]
+        named = [others[i - 1] for i in parsed.other_options if 1 <= i <= len(others)]
+        if parsed.book_option and 1 <= parsed.book_option <= len(offered):
+            target = offered[parsed.book_option - 1]
+        elif named:
+            target = named[0]
         else:
-            ranked = gm.rank(slots, await gm.participant_answers(db, meeting, slots, now))
+            ranked = gm.rank(candidates, await gm.participant_answers(db, meeting, candidates, now))
             if ranked and ranked[0]["yes"] > 0:
                 target = datetime.fromisoformat(ranked[0]["start"].replace("Z", "+00:00"))
         if target is None:
@@ -381,7 +493,10 @@ async def _handle_reply(db: AsyncSession, owner: User, meeting: GroupMeeting, de
             await db.commit()
             return "ignored"
         name = next((n for n, e in people if e == sender), "") or None
-        participant = GroupMeetingParticipant(email=sender, name=name, token=gm.new_token())
+        participant = GroupMeetingParticipant(
+            email=sender, name=name, token=gm.new_token(),
+            offered_starts=list(meeting.offered_starts) if meeting.offered_starts is not None else None,
+        )
         meeting.participants.append(participant)
         meeting.all_answered_notified_at = None
         await db.flush()
@@ -389,11 +504,25 @@ async def _handle_reply(db: AsyncSession, owner: User, meeting: GroupMeeting, de
     if participant.uses_calendar:
         await db.commit()
         return "meeting_reply"
-    parsed = await read_reply(text, slots, tz)
+    own_offer = participant.offered_starts if participant.offered_starts is not None else meeting.offered_starts
+    offered, others = lists(own_offer)
+    parsed = await read_reply(text, offered, others, tz)
     if parsed is None:
         await db.commit()
         return "meeting_reply"
-    picked = [slots[i - 1] for i in parsed.chosen_options if 1 <= i <= len(slots)]
+    chosen = [offered[i - 1] for i in parsed.chosen_options if 1 <= i <= len(offered)]
+    chosen += [others[i - 1] for i in parsed.other_options if 1 <= i <= len(others)]
+    chosen = sorted(set(chosen))
+    # Offered times can fill up after the email went out: keep only those still free.
+    picked = await _still_open(db, meeting, chosen, now)
+    if chosen and not picked and not parsed.none_work:
+        await db.commit()
+        mail.send_agent_note(
+            meeting, detail, [participant.email],
+            "Sorry, that time was just taken. Tap your link in my earlier email to pick another, "
+            "or reply with a different time.",
+        )
+        return "meeting_reply"
     if not picked and not parsed.none_work:
         await db.commit()
         return "meeting_reply"  # nothing about times; leave their answer as it was
@@ -439,7 +568,8 @@ async def _answer_proposal(db: AsyncSession, owner: User, detail: dict, req: Mee
         duration_minutes=minutes, source="accepted", thread_ids=refs,
         thread_subject=(detail.get("subject") or "")[:500] or None,
     )
-    people = [GroupMeetingParticipant(email=e, name=n or None, token=gm.new_token()) for n, e in others[: gm.MAX_PARTICIPANTS]]
+    def people() -> list[GroupMeetingParticipant]:
+        return [GroupMeetingParticipant(email=e, name=n or None, token=gm.new_token()) for n, e in others[: gm.MAX_PARTICIPANTS]]
 
     free: list[datetime] = []
     if offered:
@@ -457,14 +587,20 @@ async def _answer_proposal(db: AsyncSession, owner: User, detail: dict, req: Mee
             **common, status="booked", starts_at=pick, ends_at=pick + timedelta(minutes=minutes),
             window_start=pick.astimezone(tz).date(), window_end=pick.astimezone(tz).date(),
         )
-        meeting.participants = people
+        meeting.participants = people()
         db.add(meeting)
         await db.flush()
-        await gm.hold(db, meeting)
-        await db.refresh(meeting, attribute_names=["organizer", "participants"])
-        await db.commit()
-        mail.send_agent_accept(meeting, detail)
-        return "meeting_accepted"
+        try:
+            await gm.hold(db, meeting, now)
+        except gm.GroupMeetingError:
+            # Taken since we looked (hold rechecks under the host's lock): counter instead.
+            await db.rollback()
+            await db.refresh(owner)  # rollback expired it; no lazy loads in async
+        else:
+            await db.refresh(meeting, attribute_names=["organizer", "participants"])
+            await db.commit()
+            mail.send_agent_accept(meeting, detail)
+            return "meeting_accepted"
 
     # None of the offered times work: offer the owner's own, Luna-style.
     today = now.astimezone(tz).date()
@@ -473,15 +609,17 @@ async def _answer_proposal(db: AsyncSession, owner: User, detail: dict, req: Mee
         **{**common, "source": "email"}, status="open",
         window_start=start, window_end=start + timedelta(days=6),
     )
-    meeting.participants = people
+    meeting.participants = people()
     db.add(meeting)
     await db.flush()
     await db.refresh(meeting, attribute_names=["organizer", "participants"])
     slots = await gm.candidate_slots(db, meeting, now)
+    options = gm.suggest(slots, {}, tz)
+    record_offer(meeting, options)
     await db.commit()
     org = mail._first_name(owner)
     mail.send_agent_proposal(
-        meeting, gm.suggest(slots, {}, tz), detail,
+        meeting, options, detail,
         intro=f"Thanks for the options. Unfortunately none of them work for {org}.",
     )
     return "meeting"

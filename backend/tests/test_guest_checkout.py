@@ -138,12 +138,40 @@ async def test_guest_holds_are_capped(env, monkeypatch):
     fake = FakeStripe(monkeypatch)
     monkeypatch.setattr(billing, "MAX_GUEST_HOLDS", 2)
     monkeypatch.setattr(settings, "FOUNDER_SEATS", 10_000)
-    sids = [await _start(env, fake) for _ in range(3)]
+    sids = []
+    try:
+        sids += [await _start(env, fake) for _ in range(3)]
+        async with async_session() as db:
+            rows = (await db.execute(select(GuestCheckout).where(GuestCheckout.stripe_session_id.in_(sids)))).scalars().all()
+            held = [g for g in rows if g.reserved_until is not None]
+        # Every founder-priced guest checkout holds a seat; past the hold cap new
+        # guests get the standard price, so unheld sessions can't oversell seats.
+        assert len(held) == 2 and all(g.plan == "founder" for g in held)
+        assert sorted(g.plan for g in rows) == ["founder", "founder", "standard"]
+        assert [c["line_items"][0]["price"] for c in fake.created] == ["price_founder", "price_founder", "price_standard"]
+        assert all("expires_at" in c for c in fake.created)
+    finally:
+        await _cleanup(*sids)
+
+
+async def test_guest_founder_cap_is_never_oversold(env, monkeypatch):
+    fake = FakeStripe(monkeypatch)
+    monkeypatch.setattr(billing, "MAX_GUEST_HOLDS", 2)
     async with async_session() as db:
-        rows = (await db.execute(select(GuestCheckout).where(GuestCheckout.stripe_session_id.in_(sids)))).scalars().all()
-        held = [g for g in rows if g.reserved_until is not None]
-    assert len(held) == 2 and all(g.plan == "founder" for g in rows)
-    await _cleanup(*sids)
+        before = await billing.founder_seats_taken(db)
+    monkeypatch.setattr(settings, "FOUNDER_SEATS", before + 3)
+    sids = []
+    try:
+        sids += [await _start(env, fake) for _ in range(4)]
+        prices = [c["line_items"][0]["price"] for c in fake.created]
+        assert prices == ["price_founder", "price_founder", "price_standard", "price_standard"]
+        for i, sid in enumerate(sids):
+            fake.pay(sid, f"cap{i}@example.com", price=prices[i])
+            assert (await env.client.get(f"/api/billing/guest-session/{sid}")).status_code == 200
+        async with async_session() as db:
+            assert await billing.founder_seats_taken(db) == before + 2 <= settings.FOUNDER_SEATS
+    finally:
+        await _cleanup(*sids)
 
 
 async def test_unknown_session_is_not_found(env, monkeypatch):
