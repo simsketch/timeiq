@@ -42,12 +42,14 @@ export const SCENES: Record<SceneId, SceneDefinition> = {
     blurb: "Golden rune circles turning around a loop of time.",
     still: "/booking/sanctum-still.webp",
     still640: "/booking/sanctum-still-640.webp",
-    backdrop: "linear-gradient(#141226, #251c3a 60%, #3a2a3a)",
+    backdrop: "linear-gradient(#101329, #1b1d35 60%, #171827)",
     ink: "light",
     camera: {
-      position: [0, 2.2, 9.5], target: [0, 2, 0], fov: 40, fovSmall: 44,
-      minDistance: 6, maxDistance: 14, minPolarAngle: 60 * deg, maxPolarAngle: 100 * deg, azimuthRange: 60 * deg,
+      position: [.5, 4.7, 11.8], positionSmall: [.25, 4.4, 9.7], target: [0, 3.3, 0], fov: 39, fovSmall: 40,
+      minDistance: 8, maxDistance: 13.5, minPolarAngle: 68 * deg, maxPolarAngle: 85 * deg, azimuthRange: 42 * deg,
     },
+    toneMappingExposure: 1.1,
+    shadows: false,
     load: () => import("./sanctum"),
   },
   orrery: {
