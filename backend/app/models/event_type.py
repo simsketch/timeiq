@@ -12,7 +12,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -48,6 +48,16 @@ class EventType(Base):
     )
     max_bookings_per_day: Mapped[int | None] = mapped_column(
         Integer, nullable=True
+    )
+    min_notice_minutes: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    max_days_ahead: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reminder_minutes: Mapped[list[int]] = mapped_column(
+        JSONB, nullable=False, default=lambda: [1440], server_default="[1440]"
+    )
+    remind_host: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
     )
     collect_phone: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     require_phone: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

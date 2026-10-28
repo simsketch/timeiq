@@ -29,6 +29,19 @@ def booking_horizon(now: datetime | None = None) -> datetime:
     return (now or datetime.now(timezone.utc)) + timedelta(days=BOOKING_HORIZON_DAYS)
 
 
+def booking_window_error(event_type: EventType, starts_at: datetime, now: datetime | None = None) -> str | None:
+    now = now or datetime.now(timezone.utc)
+    if starts_at <= now:
+        return "This time has passed. Choose a future time."
+    notice = getattr(event_type, "min_notice_minutes", 0) or 0
+    if starts_at < now + timedelta(minutes=notice):
+        return f"This meeting needs at least {notice} minutes of notice. Choose a later time."
+    days = getattr(event_type, "max_days_ahead", None) or BOOKING_HORIZON_DAYS
+    if starts_at > now + timedelta(days=min(days, BOOKING_HORIZON_DAYS)):
+        return f"Bookings can be made up to {days} days ahead. Choose an earlier date."
+    return None
+
+
 def host_zone(host: User) -> zoneinfo.ZoneInfo:
     try:
         return zoneinfo.ZoneInfo(host.timezone)
@@ -180,26 +193,17 @@ async def get_available_slots(
     available: list[str] = []
     rejected: list[dict] = []
     now_utc = datetime.now(timezone.utc)
-    horizon_utc = booking_horizon(now_utc)
 
     for slot_start_utc in candidates:
         slot_start = slot_start_utc.astimezone(host_tz)
         slot_end_utc = slot_start_utc + duration
 
-        # Don't allow booking in the past
-        if slot_start_utc <= now_utc:
+        window_error = booking_window_error(event_type, slot_start_utc, now_utc)
+        if window_error:
             if debug:
                 rejected.append({
                     "slot": slot_start.isoformat(),
-                    "reason": "in_the_past",
-                })
-            continue
-
-        if slot_start_utc > horizon_utc:
-            if debug:
-                rejected.append({
-                    "slot": slot_start.isoformat(),
-                    "reason": "beyond_booking_horizon",
+                    "reason": window_error,
                 })
             continue
 

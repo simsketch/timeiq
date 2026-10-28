@@ -3,6 +3,7 @@ welcome, and overdue reminders. All messages share the layout in
 email_templates so they look like one product."""
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 from datetime import date, datetime, timezone
@@ -121,8 +122,7 @@ def _invite(booking: Booking, event_type: EventType, host: User, summary: str, m
 def render_booking_confirmation_visitor(booking: Booking, event_type: EventType, host: User) -> str:
     host_name = host.name or host.email
     tz = booking.timezone or "UTC"
-    cancel_url = f"{_site()}/bookings/{booking.id}/cancel?token={booking.cancel_token}"
-    reschedule_url = f"{_site()}/bookings/{booking.id}/reschedule?token={booking.cancel_token}"
+    cancel_url, reschedule_url = booking_links(booking)
     body = (
         t.h1(f"You're booked with {host_name}.")
         + t.p("A calendar invite is attached. Open it to add this to your calendar.", muted=True)
@@ -139,6 +139,45 @@ def render_booking_confirmation_visitor(booking: Booking, event_type: EventType,
         + t.p(f"Need to reach {host_name} directly? Reply to this email.", muted=True)
     )
     return t.layout("confirmed", f"Confirmed with {host_name}: {_format_datetime(booking.starts_at, tz)}", body)
+
+
+def booking_links(booking: Booking) -> tuple[str, str]:
+    base = f"{_site()}/bookings/{booking.id}"
+    return (f"{base}/cancel?token={booking.cancel_token}", f"{base}/reschedule?token={booking.cancel_token}")
+
+
+def render_booking_reminder(booking: Booking, event_type: EventType, host: User, recipient: str) -> str:
+    is_host = recipient == "host"
+    tz = host.timezone if is_host else booking.timezone
+    other = booking.visitor_name if is_host else (host.name or host.email)
+    cancel_url, reschedule_url = booking_links(booking)
+    body = (
+        t.h1(f"Your meeting with {other} is coming up.")
+        + t.details([
+            ("Event", html_escape(event_type.name)),
+            ("When", html_escape(_when(booking.starts_at, booking.ends_at, tz or "UTC"))),
+            _location_row(event_type),
+        ], rows_html=True)
+        + t.buttons(t.button("Reschedule", reschedule_url, secondary=True), t.button("Cancel booking", cancel_url, secondary=True))
+    )
+    return t.layout("reminder", f"Reminder: {event_type.name} with {other}", body)
+
+
+async def send_booking_reminder(booking: Booking, event_type: EventType, host: User, minutes: int, recipient: str) -> None:
+    """Let failures reach the cron so it only records successful deliveries.
+    A stable provider key also covers a send followed by a failed DB commit."""
+    _init_resend()
+    is_host = recipient == "host"
+    payload = {
+        "from": FROM_EMAIL,
+        "to": [host.email if is_host else booking.visitor_email],
+        "reply_to": booking.visitor_email if is_host else host.email,
+        "subject": f"Reminder: {event_type.name} with {booking.visitor_name if is_host else (host.name or host.email)}",
+        "html": render_booking_reminder(booking, event_type, host, recipient),
+    }
+    await asyncio.to_thread(resend.Emails.send, payload, options={
+        "idempotency_key": f"booking-reminder/{booking.id}/{minutes}/{recipient}",
+    })
 
 
 def render_booking_confirmation_host(booking: Booking, event_type: EventType, host: User) -> str:

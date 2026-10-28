@@ -17,6 +17,10 @@
   ],
   "crons": [
     {
+      "path": "/api/cron/booking-reminders",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/sync-calendars",
       "schedule": "0 * * * *"
     },

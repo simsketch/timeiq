@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, select, text
+from sqlalchemy import and_, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_user
 from app.database import get_db
@@ -14,8 +14,7 @@ from app.models.event_type import EventType
 from app.models.user import User
 from app.schemas.booking import BookingCreate, BookingPublicResponse, BookingResponse
 from app.services.availability import (
-    BOOKING_HORIZON_DAYS,
-    booking_horizon,
+    booking_window_error,
     freshen_host_calendars,
     is_bookable,
 )
@@ -51,6 +50,22 @@ async def lock_host_bookings(db: AsyncSession, host_id: uuid.UUID) -> None:
     )
 
 
+async def limit_booking_emails(db: AsyncSession, host: User, payload: BookingCreate) -> None:
+    """Run under the host lock so concurrent requests share the same quota."""
+    recent = await db.scalar(
+        select(func.count(Booking.id)).where(
+            Booking.host_user_id == host.id,
+            func.lower(Booking.visitor_email) == str(payload.visitor_email).lower(),
+            Booking.created_at > datetime.now(timezone.utc) - timedelta(hours=1),
+        )
+    )
+    if (recent or 0) >= 5:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many bookings for this email in the past hour. Try again in an hour.",
+        )
+
+
 def _requested_window(payload: BookingCreate, event_type: EventType) -> tuple[datetime, datetime]:
     """The requested start and end in UTC, after the checks that need no database.
     The end is start + duration in elapsed time, matching the offered slots."""
@@ -59,15 +74,11 @@ def _requested_window(payload: BookingCreate, event_type: EventType) -> tuple[da
         starts_at = starts_at.replace(tzinfo=timezone.utc)
     starts_at = starts_at.astimezone(timezone.utc)
 
-    if starts_at <= datetime.now(timezone.utc):
+    error = booking_window_error(event_type, starts_at, datetime.now(timezone.utc))
+    if error:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot book a slot in the past",
-        )
-    if starts_at > booking_horizon():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Bookings can be made up to {BOOKING_HORIZON_DAYS} days ahead",
+            detail=error,
         )
     require_visitor_fields(event_type, payload)
     return starts_at, starts_at + timedelta(minutes=event_type.duration_minutes)
@@ -215,6 +226,8 @@ async def create_public_booking(
     # Sync calendars first: it can take seconds and must not hold the lock.
     await freshen_host_calendars(host)
     await lock_host_bookings(db, host.id)
+    starts_at, ends_at = _requested_window(payload, event_type)
+    await limit_booking_emails(db, host, payload)
     if not await is_bookable(db, host, event_type, starts_at, freshen=False):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -350,6 +363,8 @@ async def reschedule_booking(
 
     await freshen_host_calendars(host)
     await lock_host_bookings(db, host.id)
+    starts_at, ends_at = _requested_window(payload, event_type)
+    await limit_booking_emails(db, host, payload)
 
     # Re-read the original under a row lock: a concurrent reschedule or cancel
     # that committed while we waited has already used it up.

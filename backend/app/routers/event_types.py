@@ -82,6 +82,10 @@ async def create_event_type(
         is_active=payload.is_active,
         buffer_minutes=payload.buffer_minutes,
         max_bookings_per_day=payload.max_bookings_per_day,
+        min_notice_minutes=payload.min_notice_minutes,
+        max_days_ahead=payload.max_days_ahead,
+        reminder_minutes=sorted(set(payload.reminder_minutes)),
+        remind_host=payload.remind_host,
         **payload.intake_flags(),
     )
     db.add(event_type)
@@ -129,6 +133,8 @@ async def _do_update_event_type(
     # Use by_alias=False so we get the actual field names (duration_minutes, buffer_minutes)
     # which match the SQLAlchemy model column names.
     update_data = payload.model_dump(exclude_unset=True, by_alias=False)
+    if "reminder_minutes" in update_data:
+        update_data["reminder_minutes"] = sorted(set(update_data["reminder_minutes"]))
 
     # If name is being updated but slug is not, regenerate slug
     if "name" in update_data and "slug" not in update_data:

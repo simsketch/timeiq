@@ -6,11 +6,21 @@ import logging
 from fastapi import APIRouter, Header, HTTPException, status
 
 from app.config import settings
+from app.services.booking_reminders import send_due_booking_reminders
 from app.tasks import create_monthly_invoice_drafts, send_overdue_invoice_digests, sync_all_active_calendars
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["cron"])
+
+
+@router.get("/api/cron/booking-reminders")
+async def cron_booking_reminders(
+    authorization: str = Header(default="", description="Bearer <CRON_SECRET>"),
+):
+    """Send due booking reminders every 15 minutes."""
+    _require_cron_secret(authorization)
+    return {"status": "ok", "results": await send_due_booking_reminders()}
 
 
 def _require_cron_secret(authorization: str) -> None:
