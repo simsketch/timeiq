@@ -41,6 +41,8 @@ class User(Base):
     weekly_hours_target: Mapped[int] = mapped_column(
         Integer, nullable=False, default=40, server_default="40"
     )
+    # Which 3D scene the public booking page shows; null means the default.
+    booking_scene: Mapped[str | None] = mapped_column(String(32), nullable=True)
     # Billing
     stripe_customer_id: Mapped[str | None] = mapped_column(
         String(255), unique=True, nullable=True

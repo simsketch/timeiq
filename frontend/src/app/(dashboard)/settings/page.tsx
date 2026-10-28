@@ -22,12 +22,14 @@ import { API_BASE } from "@/lib/invoicing";
 import Link from "next/link";
 import { BillingStatus, PLAN_LABEL, fetchBillingStatus, openPortal } from "@/lib/billing";
 import { ClockLoader } from "@/components/ui/clock-loader";
+import { BookingScenePicker } from "@/components/booking-scene-picker";
 
 interface UserSettings {
   name: string;
   username: string;
   timezone: string;
   weekly_hours_target: number;
+  booking_scene?: string | null;
 }
 
 interface FeedSettings {
@@ -233,7 +235,7 @@ export default function SettingsPage() {
       await apiFetch("/api/me", {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({ name: settings.name, username: settings.username, timezone: settings.timezone, weekly_hours_target: settings.weekly_hours_target }),
       });
       toast({ title: "Settings updated successfully" });
     } catch (error: any) {
@@ -382,6 +384,8 @@ export default function SettingsPage() {
           {saving ? "Saving..." : "Save Settings"}
         </Button>
       </form>
+
+      <BookingScenePicker username={settings.username} initial={settings.booking_scene} />
 
       <Card>
         <CardHeader>

@@ -44,8 +44,13 @@ class UserResponse(BaseModel):
     timezone: str
     image_url: Optional[str]
     weekly_hours_target: int = 40
+    booking_scene: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+# Scenes the booking page can show; mirrors frontend/src/components/booking/scenes.
+BOOKING_SCENES = {"soft-watches", "time-machine", "sanctum", "orrery", "solstice"}
 
 
 class UserUpdate(BaseModel):
@@ -54,6 +59,14 @@ class UserUpdate(BaseModel):
     username: Optional[str] = Field(default=None, min_length=1, max_length=100)
     timezone: Optional[str] = Field(default=None, max_length=100)
     weekly_hours_target: Optional[int] = None
+    booking_scene: Optional[str] = Field(default=None, max_length=32)
+
+    @field_validator("booking_scene")
+    @classmethod
+    def _known_scene(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and value not in BOOKING_SCENES:
+            raise ValueError(f"Unknown scene. Choose one of: {', '.join(sorted(BOOKING_SCENES))}")
+        return value
 
     @field_validator("timezone")
     @classmethod
@@ -247,6 +260,9 @@ async def update_me(
 
     if payload.timezone is not None:
         user.timezone = payload.timezone
+
+    if payload.booking_scene is not None:
+        user.booking_scene = payload.booking_scene
 
     user.updated_at = datetime.now(timezone.utc)
     await db.flush()

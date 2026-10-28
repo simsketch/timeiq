@@ -41,6 +41,7 @@ class PublicUserProfile(BaseModel):
     username: str
     name: Optional[str]
     image_url: Optional[str]
+    booking_scene: Optional[str] = None
     event_types: list[PublicEventType]
 
 
@@ -163,6 +164,7 @@ async def get_public_profile(
         username=user.username,
         name=user.name,
         image_url=user.image_url,
+        booking_scene=user.booking_scene,
         event_types=[PublicEventType.model_validate(et) for et in event_types],
     )
 
