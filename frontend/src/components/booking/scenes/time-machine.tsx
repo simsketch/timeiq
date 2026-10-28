@@ -125,6 +125,37 @@ function wallpaperTexture() {
   const map = texture(image); map.wrapS = map.wrapT = THREE.RepeatWrapping; map.repeat.set(20, 7.5); return map;
 }
 
+function towelTexture() {
+  const { image, c } = canvas(128, 256);
+  const cloth = c.createLinearGradient(0, 0, 128, 0);
+  cloth.addColorStop(0, "#a99e80"); cloth.addColorStop(.18, "#cec3a4");
+  cloth.addColorStop(.78, "#c5ba9b"); cloth.addColorStop(1, "#a99e80");
+  c.fillStyle = cloth; c.fillRect(0, 0, 128, 256);
+  c.fillStyle = "#3e594a"; c.fillRect(0, 222, 128, 5);
+  // A quiet warp and weft, painted once rather than modeled as threads.
+  for (let x = 0; x < 128; x += 2) {
+    c.fillStyle = x % 4 ? "#fff2cf12" : "#574d3812"; c.fillRect(x, 0, 1, 256);
+  }
+  for (let y = 0; y < 256; y += 2) {
+    c.fillStyle = y % 4 ? "#fff2cf16" : "#574d3814"; c.fillRect(0, y, 128, 1);
+  }
+  c.fillStyle = "#766d5328"; c.fillRect(0, 245, 128, 1);
+  return texture(image);
+}
+
+function foldedTowelGeometry() {
+  const edge = new THREE.Shape();
+  edge.moveTo(-.195, -.37); edge.lineTo(.195, -.37);
+  edge.quadraticCurveTo(.23, -.37, .23, -.335); edge.lineTo(.23, .335);
+  edge.quadraticCurveTo(.23, .37, .195, .37); edge.lineTo(-.195, .37);
+  edge.quadraticCurveTo(-.23, .37, -.23, .335); edge.lineTo(-.23, -.335);
+  edge.quadraticCurveTo(-.23, -.37, -.195, -.37);
+  const geometry = new THREE.ExtrudeGeometry(edge, { depth: .065, steps: 1, bevelEnabled: true, bevelSize: .01, bevelThickness: .01, bevelSegments: 1, curveSegments: 2 });
+  const position = geometry.getAttribute("position"), uv = geometry.getAttribute("uv");
+  for (let i = 0; i < position.count; i++) uv.setXY(i, (position.getX(i) + .24) / .48, (position.getY(i) + .38) / .76);
+  return geometry;
+}
+
 function rugTexture() {
   const { image, c } = canvas(1024, 768);
   c.fillStyle = "#42302c"; c.fillRect(0, 0, 1024, 768);
@@ -376,7 +407,7 @@ const handrails: Point[][] = [-.59, .59].map((x) => [[x, .53, -.5], [x, 1.81, -.
 export default function TimeMachine({ active, running, reduced, small }: SceneContentProps) {
   const resources = useMemo(() => {
     const wood = woodTexture(), rug = rugTexture(), wheel = wheelTexture(), wallpaper = wallpaperTexture();
-    const halo = haloTexture(), glass = glassTexture(), moon = moonTexture();
+    const halo = haloTexture(), glass = glassTexture(), moon = moonTexture(), towelMap = towelTexture();
     // Phones use two tiny, canvas-painted reflection fields. They keep the
     // brass dimensional without compiling the desktop PBR/light variants.
     const metalReflection = reflectionTexture(true), softReflection = reflectionTexture(false);
@@ -386,6 +417,9 @@ export default function TimeMachine({ active, running, reduced, small }: SceneCo
     const ivory = small ? phoneMaterial("#e5d5af", softReflection, white) : new THREE.MeshStandardMaterial({ color: "#e5d5af", roughness: .35, metalness: .12 });
     const walnut = small ? phoneMaterial("#a48363", softReflection, white, wood) : new THREE.MeshStandardMaterial({ color: "#644831", map: wood, roughness: .48 });
     const leather = small ? phoneMaterial("#532421", softReflection, white) : new THREE.MeshStandardMaterial({ color: "#532421", roughness: .44, metalness: .06 });
+    const towel = small ? phoneMaterial("#ffffff", softReflection, white, towelMap) : new THREE.MeshStandardMaterial({ map: towelMap, roughness: 1 });
+    const foldedTowel = foldedTowelGeometry();
+    const towelHook = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([[0, .43, -.13], [0, .35, -.02], [0, .39, .095], [0, .45, .085]].map((p) => new THREE.Vector3(...p))), 8, .014, 4, false);
     const crystal = small ? phoneMaterial("#b8d8ec", softReflection, white, white, .72) : new THREE.MeshPhysicalMaterial({ color: "#c4d7e0", roughness: .1, metalness: .08, clearcoat: 1, clearcoatRoughness: .08, sheen: .5, sheenColor: "#cbb8df", iridescence: .35, iridescenceIOR: 1.3, flatShading: true, transparent: true, opacity: .72 });
     if (!small) crystal.onBeforeCompile = (shader) => {
       shader.fragmentShader = shader.fragmentShader.replace("#include <opaque_fragment>", `
@@ -413,15 +447,15 @@ export default function TimeMachine({ active, running, reduced, small }: SceneCo
     const dustMaterial = new THREE.PointsMaterial({ color: "#ffdc9b", size: small ? .017 : .012, transparent: true, opacity: .28, depthWrite: false });
     const shimmer = new THREE.MeshBasicMaterial({ color: "#c9b6ef", transparent: true, opacity: 0, wireframe: true, depthWrite: false });
     const lampGlow = new THREE.MeshBasicMaterial({ color: "#df9c4b" });
-    return { wood, rug, wheel, wallpaper, halo, glass, moon, metalReflection, softReflection, white, brass, darkBrass, ivory, walnut, leather, crystal, shade, lampShade, enamel, wheelFace, hours, days, thousands, millions, quartz, box, rivet, seat, dust, dustMaterial, shimmer, lampGlow };
+    return { wood, rug, wheel, wallpaper, halo, glass, moon, towelMap, towel, foldedTowel, towelHook, metalReflection, softReflection, white, brass, darkBrass, ivory, walnut, leather, crystal, shade, lampShade, enamel, wheelFace, hours, days, thousands, millions, quartz, box, rivet, seat, dust, dustMaterial, shimmer, lampGlow };
   }, [small]);
   useEffect(() => () => {
     resources.wood.dispose(); resources.rug.dispose(); resources.wheel.dispose(); resources.wallpaper.dispose();
-    resources.halo.dispose(); resources.glass.dispose(); resources.moon.dispose();
+    resources.halo.dispose(); resources.glass.dispose(); resources.moon.dispose(); resources.towelMap.dispose();
     resources.metalReflection.dispose(); resources.softReflection.dispose(); resources.white.dispose();
     for (const dial of [resources.hours, resources.days, resources.thousands, resources.millions]) dial.map.dispose();
-    for (const g of [resources.quartz, resources.box, resources.rivet, resources.seat, resources.dust, resources.lampShade]) g.dispose();
-    for (const m of [resources.brass, resources.darkBrass, resources.ivory, resources.walnut, resources.leather, resources.crystal, resources.shade, resources.enamel, resources.wheelFace, resources.dustMaterial, resources.shimmer, resources.lampGlow]) m.dispose();
+    for (const g of [resources.quartz, resources.box, resources.rivet, resources.seat, resources.dust, resources.lampShade, resources.foldedTowel, resources.towelHook]) g.dispose();
+    for (const m of [resources.brass, resources.darkBrass, resources.ivory, resources.walnut, resources.leather, resources.crystal, resources.shade, resources.enamel, resources.wheelFace, resources.dustMaterial, resources.shimmer, resources.lampGlow, resources.towel]) m.dispose();
   }, [resources]);
   const wheel = useRef<THREE.Group>(null), lever = useRef<THREE.Group>(null), dust = useRef<THREE.Points>(null);
   const world = useRef<THREE.Group>(null);
@@ -538,6 +572,13 @@ export default function TimeMachine({ active, running, reduced, small }: SceneCo
         <group ref={mantelHour} position={[0, .01, .272]}><mesh position={[0, .06, 0]} material={resources.darkBrass}><boxGeometry args={[.022, .15, .008]} /></mesh></group>
         <group ref={mantelMinute} position={[0, .01, .277]}><mesh position={[0, .09, 0]} material={resources.darkBrass}><boxGeometry args={[.013, .21, .008]} /></mesh></group>
       </group>
+    </group>
+
+    {/* A folded cloth on a modest brass hook beside the window. */}
+    <group position={[1.35, 2.8, -3.78]}>
+      <mesh position={[0, .43, -.13]} rotation={[Math.PI / 2, 0, 0]} material={resources.brass}><cylinderGeometry args={[.055, .055, .025, 8]} /></mesh>
+      <mesh geometry={resources.towelHook} material={resources.brass} />
+      <mesh geometry={resources.foldedTowel} material={resources.towel} castShadow receiveShadow />
     </group>
 
     <group position={[3.36, 0, -3.65]}>
