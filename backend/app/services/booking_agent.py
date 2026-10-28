@@ -241,7 +241,11 @@ async def handle(db, owner, detail, sender, refs, now, *, request=None) -> str |
         return "ignored"
     booking.email_thread_ids = list(dict.fromkeys([*(booking.email_thread_ids or []), *refs]))[-100:]
     if action and action.intent == "cancel":
-        await routes.cancel_booking_by_visitor(booking.id, token=booking.cancel_token, db=db)
+        # The host's own cancel path refunds a paid booking in full; a guest's follows the refund policy.
+        if sender == (owner.email or "").lower():
+            await routes.cancel_booking_as_host(booking.id, user=owner, db=db)
+        else:
+            await routes.cancel_booking_by_visitor(booking.id, token=booking.cancel_token, db=db)
         return "meeting_cancelled"
 
     offered = _offer_for(booking, refs, now)

@@ -64,6 +64,8 @@ def env(monkeypatch):
     monkeypatch.setattr(routes, "freshen_host_calendars", AsyncMock())
     monkeypatch.setattr(routes, "lock_host_bookings", AsyncMock())
     monkeypatch.setattr(routes, "is_bookable", AsyncMock(return_value=True))
+    monkeypatch.setattr(routes.payments, "limit_booking_emails", AsyncMock())
+    monkeypatch.setattr(routes.payments, "expire_holds", AsyncMock(return_value=0))
     return NS(owner=owner, event=event, booking=booking, db=db, detail=detail, action=action, mail=messages)
 
 
@@ -82,10 +84,16 @@ async def test_only_verified_booking_parties_can_act(env, sender, auth):
     assert env.booking.status == "confirmed" and not env.mail
 
 
-@pytest.mark.parametrize("sender", ["guest@example.com", "host@example.com"])
-async def test_cancel_uses_public_path_and_sends_calendar_cancellations(env, sender):
-    env.db.execute.side_effect = [Result(env.booking), Result(env.event), Result(env.owner)]
+@pytest.mark.parametrize("sender,as_host", [("guest@example.com", False), ("host@example.com", True)])
+async def test_cancel_uses_public_path_and_sends_calendar_cancellations(env, monkeypatch, sender, as_host):
+    cancel_payment = AsyncMock()
+    monkeypatch.setattr(routes.payments, "cancel_payment", cancel_payment)
+    if as_host:
+        env.db.execute.side_effect = [Result(env.booking), Result(env.event)]
+    else:
+        env.db.execute.side_effect = [Result(env.booking), Result(env.booking), Result(env.event), Result(env.owner)]
     assert await run(env, sender) == "meeting_cancelled"
+    assert cancel_payment.await_args.kwargs == {"as_host": as_host}
     assert env.booking.status == "cancelled" and env.booking.ical_sequence == 1
     assert {m["to"][0] for m in env.mail} == {env.owner.email, env.booking.visitor_email}
     assert all("METHOD:CANCEL" in m["attachments"][0]["content"] for m in env.mail)
@@ -205,7 +213,7 @@ async def test_cc_ambiguity_asks_one_question_and_does_not_change_booking(env, m
 
 async def test_cc_guest_cancel_selects_only_their_booking(env, monkeypatch):
     monkeypatch.setattr(agent, "find_booking", AsyncMock(return_value=None))
-    env.db.execute.side_effect = [Result([env.booking]), Result(env.booking), Result(env.booking), Result(env.event), Result(env.owner)]
+    env.db.execute.side_effect = [Result([env.booking]), Result(env.booking), Result(env.booking), Result(env.booking), Result(env.event), Result(env.owner)]
     result = await agent.handle(env.db, env.owner, env.detail, env.booking.visitor_email, [], NOW,
                                request=NS(intent="cancel"))
     assert result == "meeting_cancelled" and env.booking.status == "cancelled"

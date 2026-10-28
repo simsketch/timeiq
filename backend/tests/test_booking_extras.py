@@ -126,7 +126,11 @@ async def test_notice_is_rechecked_after_calendar_sync(monkeypatch, reschedule):
     monkeypatch.setattr(B, "freshen_host_calendars", sync)
     lock = AsyncMock()
     monkeypatch.setattr(B, "lock_host_bookings", lock)
-    et, h = event_type(min_notice_minutes=60), host()
+    # Payment holds and the per-email limit are covered in test_paid_bookings.
+    monkeypatch.setattr(B.payments, "require_payments", lambda host, event_type: None)
+    monkeypatch.setattr(B.payments, "expire_holds", AsyncMock(return_value=0))
+    monkeypatch.setattr(B.payments, "limit_booking_emails", AsyncMock())
+    et, h = event_type(min_notice_minutes=60, price_cents=None), host()
     old = booking(event_type_id=et.id, host_user_id=h.id)
     values = [old, et, h] if reschedule else [h, et]
     db = NS(execute=AsyncMock(side_effect=[result(v) for v in values]), scalar=AsyncMock())
