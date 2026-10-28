@@ -7,9 +7,6 @@ import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeom
 import type { SceneContentProps } from "./types";
 
 const TAU = Math.PI * 2;
-const SIGNS = ["Imix", "Ik'", "Ak'b'al", "K'an", "Chikchan", "Kimi", "Manik'", "Lamat", "Muluk", "Ok", "Chuwen", "Eb'", "B'en", "Ix", "Men", "K'ib'", "Kab'an", "Etz'nab'", "Kawak", "Ajaw"];
-const MONTHS = ["Pop", "Wo'", "Sip", "Sotz'", "Sek", "Xul", "Yaxk'in", "Mol", "Ch'en", "Yax", "Sak'", "Keh", "Mak", "K'ank'in", "Muwan", "Pax", "K'ayab'", "Kumk'u", "Wayeb'"];
-const UNITS = ["B'ak'tun", "K'atun", "Tun", "Winal", "K'in"];
 const fract = (v: number) => v - Math.floor(v);
 const noise = (v: number) => fract(Math.sin(v * 127.1 + 31.7) * 43758.5453);
 const mod = (v: number, n: number) => ((v % n) + n) % n;
@@ -49,17 +46,21 @@ function canvas(w: number, h = w) {
 }
 
 function limestone(c: CanvasRenderingContext2D, w: number, h: number, seed = 0) {
-  c.fillStyle = "#cdc9b1"; c.fillRect(0, 0, w, h);
+  c.fillStyle = "#dac39a"; c.fillRect(0, 0, w, h);
   const grains = c.canvas.width < 1024 ? 260 : 900;
   for (let i = 0; i < grains; i++) {
     const x = noise(i * 7 + seed) * w, y = noise(i * 11 + 2 + seed) * h;
-    c.fillStyle = i % 3 ? "#6b73531a" : "#fff4cf25";
+    c.fillStyle = i % 3 ? "#966c3c1f" : "#fff2cb38";
     c.beginPath(); c.ellipse(x, y, 1 + noise(i) * w * .025, 1 + noise(i + 5) * h * .01, noise(i + 3) * 3, 0, TAU); c.fill();
   }
   for (let i = 0; i < 40; i++) {
     const x = noise(i * 13 + seed) * w, y = noise(i * 17 + seed) * h;
-    c.strokeStyle = "#4d58432b"; c.lineWidth = .6;
+    c.strokeStyle = "#52603c66"; c.lineWidth = .6;
     c.beginPath(); c.moveTo(x, y); c.lineTo(x + w * .025, y + h * .009); c.lineTo(x + w * .04, y + h * .035); c.stroke();
+    if (i % 4 === 0) {
+      c.strokeStyle = "#a4473030"; c.lineWidth = 2 + noise(i) * 5;
+      c.beginPath(); c.moveTo(x, y + 5); c.lineTo(x + w * .035, y + 7); c.stroke();
+    }
   }
 }
 
@@ -88,13 +89,8 @@ function numeral(c: CanvasRenderingContext2D, n: number, x: number, y: number, w
   c.restore();
 }
 
-function lettering(c: CanvasRenderingContext2D, text: string, x: number, y: number, size: number) {
-  c.font = `${size}px Georgia, serif`; c.textAlign = "center"; c.textBaseline = "middle";
-  carved(c, () => c.fillText(text, x, y));
-}
-
 // Deliberately abstract marks, not purported transcriptions of Maya glyphs.
-function cartouche(c: CanvasRenderingContext2D, name: string, index: number, size: number) {
+function cartouche(c: CanvasRenderingContext2D, index: number, size: number) {
   carved(c, () => {
     c.lineWidth = 1.8;
     c.beginPath(); c.roundRect(-size * .43, -size * .48, size * .86, size * .84, size * .16); c.stroke();
@@ -102,7 +98,6 @@ function cartouche(c: CanvasRenderingContext2D, name: string, index: number, siz
     c.beginPath(); c.moveTo(-size * .22, size * .1); c.lineTo(-size * .22, -size * a); c.lineTo(size * .15, -size * a); c.lineTo(size * .15, size * .08); c.lineTo(-size * .05, size * .08); c.lineTo(-size * .05, -size * .04); c.stroke();
     for (let j = 0; j < 1 + index % 3; j++) { c.beginPath(); c.arc((j - index % 3 / 2) * size * .14, size * .24, size * .032, 0, TAU); c.fill(); }
   });
-  lettering(c, name, 0, size * .51, size * .18);
 }
 
 function wheelFace(kind: "signs" | "numbers" | "months", small: boolean) {
@@ -118,7 +113,7 @@ function wheelFace(kind: "signs" | "numbers" | "months", small: boolean) {
     const angle = kind === "months" ? -(i * 20 + (i === 18 ? 2 : 9.5)) / 365 * TAU : -i / count * TAU;
     c.save(); c.translate(Math.cos(angle) * 405, -Math.sin(angle) * 405); c.rotate(-angle + Math.PI / 2);
     if (kind === "numbers") numeral(c, i + 1, 0, 0, 78);
-    else cartouche(c, kind === "signs" ? SIGNS[i] : MONTHS[i], i + (kind === "months" ? 23 : 0), kind === "months" && i === 18 ? 53 : 87);
+    else cartouche(c, i + (kind === "months" ? 23 : 0), kind === "months" && i === 18 ? 53 : 87);
     c.restore();
   }
   if (kind === "months") for (let i = 0; i < 365; i++) {
@@ -146,15 +141,33 @@ function gear(radius: number, teeth: number, depth: number) {
 function clockFace() {
   const item = canvas(768), c = item.context;
   limestone(c, 768, 768, 8); c.translate(384, 384);
-  for (const r of [360, 344, 250]) carved(c, () => { c.lineWidth = 2; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.stroke(); });
-  for (let i = 0; i < 60; i++) {
-    const a = i / 60 * TAU;
-    carved(c, () => { c.lineWidth = i % 5 === 0 ? 2.5 : 1.1; c.beginPath(); c.moveTo(Math.sin(a) * 330, -Math.cos(a) * 330); c.lineTo(Math.sin(a) * (i % 5 === 0 ? 317 : 324), -Math.cos(a) * (i % 5 === 0 ? 317 : 324)); c.stroke(); });
+  // A sun-disc with 24 cut notches: the longer cuts mark the twelve hours.
+  // The hands retain their familiar twelve-hour travel for immediate reading.
+  for (const r of [360, 342, 255]) carved(c, () => { c.lineWidth = 4; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.stroke(); });
+  for (let i = 0; i < 24; i++) {
+    const a = i / 24 * TAU, major = i % 2 === 0;
+    carved(c, () => {
+      c.lineWidth = major ? 9 : 4;
+      c.beginPath(); c.moveTo(Math.sin(a) * 327, -Math.cos(a) * 327);
+      c.lineTo(Math.sin(a) * (major ? 278 : 305), -Math.cos(a) * (major ? 278 : 305)); c.stroke();
+    });
   }
-  for (let i = 1; i <= 12; i++) { const a = i / 12 * TAU; numeral(c, i, Math.sin(a) * 282, -Math.cos(a) * 282, 42); }
-  lettering(c, "Local time", 0, 105, 25);
-  // A quiet stepped fret, a geometric ornament rather than a figural glyph.
-  carved(c, () => { c.lineWidth = 3; c.beginPath(); c.moveTo(-90, -115); c.lineTo(-90, -150); c.lineTo(-25, -150); c.lineTo(-25, -185); c.lineTo(25, -185); c.lineTo(25, -150); c.lineTo(90, -150); c.lineTo(90, -115); c.stroke(); });
+  // Four bar-and-dot numerals orient the dial without lettering.
+  for (let i = 0; i < 4; i++) { const a = i / 4 * TAU; numeral(c, i === 0 ? 12 : i * 3, Math.sin(a) * 227, -Math.cos(a) * 227, 45); }
+  carved(c, () => {
+    c.lineWidth = 5;
+    c.beginPath(); c.arc(0, 0, 145, 0, TAU); c.stroke();
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * TAU;
+      c.save(); c.rotate(a); c.beginPath(); c.moveTo(-16, -151); c.lineTo(0, -188); c.lineTo(16, -151); c.stroke(); c.restore();
+    }
+    for (const x of [-58, 58]) {
+      c.beginPath(); c.ellipse(x, -37, 28, 18, 0, 0, TAU); c.stroke();
+      c.beginPath(); c.arc(x, -37, 7, 0, TAU); c.fill();
+    }
+    c.beginPath(); c.moveTo(-18, -17); c.lineTo(-27, 37); c.lineTo(19, 37); c.stroke();
+    c.beginPath(); c.roundRect(-57, 67, 114, 24, 7); c.stroke();
+  });
   return item.texture;
 }
 
@@ -163,17 +176,19 @@ function dynamicCarvings() {
   function drawDate(date: MayaDate) {
     const c = stela.context; limestone(c, 384, 1408, 41);
     carved(c, () => { c.lineWidth = 4; c.beginPath(); c.roundRect(25, 24, 334, 1360, 56); c.stroke(); });
-    lettering(c, "Long Count", 192, 90, 30);
+    c.save(); c.translate(192, 89); cartouche(c, 32, 75); c.restore();
     date.count.forEach((n, i) => {
       const y = 235 + i * 239;
       carved(c, () => { c.lineWidth = 2; c.beginPath(); c.roundRect(66, y - 88, 252, 171, 24); c.stroke(); });
-      numeral(c, n, 192, y - 10, 139); lettering(c, UNITS[i], 192, y + 58, 25);
+      c.save(); c.translate(113, y); cartouche(c, 36 + i, 67); c.restore();
+      numeral(c, n, 239, y, 103);
     }); stela.texture.needsUpdate = true;
     const t = today.context; limestone(t, 768, 208, 8);
     carved(t, () => { t.lineWidth = 2.5; t.beginPath(); t.roundRect(14, 12, 740, 184, 26); t.stroke(); });
-    numeral(t, date.number, 85, 87, 72); lettering(t, SIGNS[date.sign], 245, 88, 42);
-    numeral(t, date.day, 445, 87, 72); lettering(t, MONTHS[date.month], 602, 88, 42);
-    lettering(t, "Tzolk'in", 206, 160, 25); lettering(t, "Haab'", 574, 160, 25);
+    numeral(t, date.number, 97, 101, 77);
+    t.save(); t.translate(267, 109); cartouche(t, date.sign, 134); t.restore();
+    numeral(t, date.day, 462, 101, 77);
+    t.save(); t.translate(640, 109); cartouche(t, date.month + 23, 134); t.restore();
     today.texture.needsUpdate = true;
   }
   function drawDuration(minutes: number) {
@@ -182,7 +197,11 @@ function dynamicCarvings() {
     const digits: number[] = []; let remainder = value;
     do { digits.unshift(remainder % 20); remainder = Math.floor(remainder / 20); } while (remainder > 0);
     digits.forEach((digit, i) => numeral(c, digit, 135, 91 + (i - (digits.length - 1) / 2) * 65, digits.length > 1 ? 62 : 95));
-    lettering(c, wholeHours ? (value === 1 ? "hour" : "hours") : "minutes", 326, 91, 47);
+    carved(c, () => {
+      c.lineWidth = 4; c.beginPath(); c.arc(326, 91, 49, 0, TAU); c.stroke();
+      c.beginPath(); c.moveTo(326, 56); c.lineTo(326, 91); c.lineTo(wholeHours ? 351 : 326, wholeHours ? 91 : 127); c.stroke();
+      if (!wholeHours) { c.beginPath(); c.arc(326, 29, 5, 0, TAU); c.fill(); }
+    });
     carved(c, () => { c.lineWidth = 2; c.beginPath(); c.moveTo(69, 144); c.lineTo(443, 144); c.stroke(); });
     duration.texture.needsUpdate = true;
   }
@@ -196,8 +215,8 @@ function handGeometry(length: number, width: number) {
 }
 
 function stoneMaterial(small: boolean) {
-  if (small) return new THREE.MeshLambertMaterial({ color: "#d3cfb7" });
-  const material = new THREE.MeshStandardMaterial({ color: "#d3cfb7", roughness: .98 });
+  if (small) return new THREE.MeshLambertMaterial({ color: "#ede0c4" });
+  const material = new THREE.MeshStandardMaterial({ color: "#ede0c4", roughness: .98 });
   // World-space mineral grain keeps long lintels from stretching into wood.
   material.onBeforeCompile = shader => {
     shader.vertexShader = `varying vec3 vStone;\n${shader.vertexShader}`.replace("#include <project_vertex>", `
@@ -222,7 +241,9 @@ function stoneMaterial(small: boolean) {
         float pit = step(.974, grit);
         diffuseColor.rgb *= .88 + cloud * .18 + grit * .07 - pit * .18;
         float lichen = smoothstep(.64,.82,grainNoise(vStone*6.7)) * smoothstep(.42,.76,cloud);
-        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb*vec3(.65,.75,.46), lichen*.46);
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb*vec3(.47,.62,.28), lichen*.58);
+        float pigment = smoothstep(.70,.85,grainNoise(vStone*3.1+12.)) * (1.-smoothstep(.35,.6,cloud));
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.53,.19,.10), pigment*.22);
       `);
   };
   return material;
@@ -238,7 +259,7 @@ function Calendar({ active, running, reduced, small }: SceneContentProps) {
       material: stoneMaterial(small), signs: wheelFace("signs", small), numbers: wheelFace("numbers", small), months: wheelFace("months", small),
       clock: clockFace(), dynamic: dynamicCarvings(),
       smallGear: gear(1.32, 40, .36), largeGear: gear(1.85, 365, .43), numberGear: gear(.83, 26, .12),
-      hour: handGeometry(.43, .045), minute: handGeometry(.66, .028), second: handGeometry(.72, .009),
+      hour: handGeometry(.57, .085), minute: handGeometry(.84, .048), second: handGeometry(.90, .012),
       box: new RoundedBoxGeometry(1, 1, 1, 1, .065),
       warm: new THREE.Color("#dfac55"), targetColor: new THREE.Color(), previewColor: new THREE.Color("#dfac55"),
     };
@@ -278,7 +299,7 @@ function Calendar({ active, running, reduced, small }: SceneContentProps) {
   });
   const stone = <primitive object={r.material} attach="material" />;
   const face = (map: THREE.Texture) => <Surface map={map} bumpMap={map} bumpScale={.018} roughness={.95} />;
-  return <group position={[0, 0, 1.6]}>
+  return <group position={[0, 0, 1.6]} scale={small ? .94 : .86}>
     <mesh geometry={r.box} position={[0, .26, -.06]} scale={[7.1, .5, 1.72]} castShadow receiveShadow>{stone}</mesh>
     <mesh geometry={r.box} position={[0, .55, -.06]} scale={[6.55, .18, 1.45]} receiveShadow>{stone}</mesh>
     <mesh geometry={r.box} position={[-1.7, 1.05, -.1]} scale={[.55, 1.1, .72]} castShadow>{stone}</mesh>
@@ -294,8 +315,8 @@ function Calendar({ active, running, reduced, small }: SceneContentProps) {
         <mesh position={[0, 0, .067]}><circleGeometry args={[.825, 64]} />{face(r.numbers)}</mesh>
       </group>
       <mesh position={[0, 0, .36]} rotation={[Math.PI / 2, Math.PI / 4, 0]}><cylinderGeometry args={[.40, .45, .11, 4]} /><Surface color="#8d9a6b" roughness={.92} /></mesh>
-      <mesh position={[0, 0, .43]} rotation={[0, 0, Math.PI / 4]}><torusGeometry args={[.31, .024, 5, 4]} /><Surface color="#c9b47d" roughness={.7} /></mesh>
-      <mesh position={[0, 0, .43]}><sphereGeometry args={[.075, 12, 8]} /><Surface color="#c3a466" roughness={.7} /></mesh>
+      <mesh position={[0, 0, .43]} rotation={[0, 0, Math.PI / 4]}><torusGeometry args={[.31, .024, 5, 4]} /><Surface color="#637f5a" roughness={.7} /></mesh>
+      <mesh position={[0, 0, .43]}><sphereGeometry args={[.075, 12, 8]} /><Surface color="#3b735c" roughness={.7} /></mesh>
       <mesh position={[0, 0, .201]} rotation={[0, 0, JOINT - .11]}><torusGeometry args={[1.10, .009, 4, 12, .22]} /><Surface color="#e8c67b" emissive="#bc8845" emissiveIntensity={.35} roughness={.6} /></mesh>
     </group>
     <group position={[1.5, 2.54, 0]}>
@@ -306,11 +327,10 @@ function Calendar({ active, running, reduced, small }: SceneContentProps) {
       </group>
       <mesh position={[0, 0, .27]} rotation={[Math.PI / 2, 0, 0]} castShadow><cylinderGeometry args={[1.13, 1.17, .17, small ? 64 : 96]} />{stone}</mesh>
       <mesh position={[0, 0, .362]}><circleGeometry args={[1.115, 64]} />{face(r.clock)}</mesh>
-      <mesh position={[0, 0, .37]}><torusGeometry args={[1.09, .024, 6, 80]} /><Surface color="#c6ae71" metalness={.32} roughness={.67} /></mesh>
-      <mesh ref={hour} geometry={r.hour} position={[0, 0, .39]}><Surface color="#514d32" metalness={.32} roughness={.6} /></mesh>
-      <mesh ref={minute} geometry={r.minute} position={[0, 0, .416]}><Surface color="#514d32" metalness={.35} roughness={.6} /></mesh>
-      <mesh ref={second} geometry={r.second} position={[0, 0, .443]}><Surface color="#a65c34" metalness={.25} roughness={.6} /></mesh>
-      <mesh position={[0, 0, .47]}><sphereGeometry args={[.06, 12, 8]} /><Surface color="#cba356" metalness={.45} roughness={.5} /></mesh>
+      <mesh ref={hour} geometry={r.hour} position={[0, 0, .39]}><Surface color="#142b29" roughness={.5} /></mesh>
+      <mesh ref={minute} geometry={r.minute} position={[0, 0, .416]}><Surface color="#20765d" roughness={.5} /></mesh>
+      <mesh ref={second} geometry={r.second} position={[0, 0, .443]}><Surface color="#76503c" roughness={.8} /></mesh>
+      <mesh position={[0, 0, .47]}><sphereGeometry args={[.06, 12, 8]} /><Surface color="#38816a" roughness={.55} /></mesh>
       <mesh position={[0, 0, .236]} rotation={[0, 0, Math.PI + JOINT - .075]}><torusGeometry args={[1.68, .009, 4, 12, .15]} /><Surface color="#e8c67b" emissive="#bc8845" emissiveIntensity={.35} roughness={.6} /></mesh>
     </group>
     {/* Two fixed pointers touch the same interlocking day at the pitch line. */}
@@ -330,26 +350,38 @@ function Calendar({ active, running, reduced, small }: SceneContentProps) {
 
 type Stone = { position: [number, number, number]; scale: [number, number, number]; rotation?: number; color?: string };
 
+// Shared by the staircase and its hovering ribbon of light.
+const PYRAMID_X = 1.6, PYRAMID_Z = -8.6;
+const STAIR_FRONT = -3.5, STAIR_RUN = 4.0, STAIR_RISE = 6.3;
+
 function architecture() {
   const stones: Stone[] = [];
-  // Broad inward terraces, freestanding upper sanctuary, and a continuous stair.
-  for (let i = 0; i < 8; i++) {
-    const width = 9.7 - i * .89, depth = 7.7 - i * .69;
-    stones.push({ position: [0, .24 + i * .48, -7.3], scale: [width, .48, depth] });
-    stones.push({ position: [0, .465 + i * .48, -7.3], scale: [width + .13, .11, depth + .13], color: "#adab83" });
-    // Corner and terrace joints remain visible from either permitted side.
-    for (const side of [-1, 1]) for (let j = 0; j < 4; j++) stones.push({ position: [side * width / 2, .18 + i * .48, -7.3 + (j - 1.5) * depth / 4], scale: [.022, .30, .027], color: "#6e7852" });
+  // Nine high terraces, with projecting cornices and moss-dark masonry joints.
+  for (let i = 0; i < 9; i++) {
+    const width = 12.2 - i * 1.03, depth = 9.2 - i * .88, y = i * .7;
+    stones.push({ position: [0, y + .35, PYRAMID_Z], scale: [width, .7, depth] });
+    stones.push({ position: [0, y + .66, PYRAMID_Z], scale: [width + .18, .12, depth + .16], color: i % 3 === 0 ? "#c59e71" : "#e4c79a" });
+    for (const side of [-1, 1]) {
+      for (let j = 0; j < 4; j++) stones.push({ position: [side * width / 2, y + .3, PYRAMID_Z + (j - 1.5) * depth / 4], scale: [.025, .46, .043], color: "#697146" });
+      for (let j = 0; j < 3; j++) stones.push({ position: [side * (1.7 + j * (width / 2 - 1.7) / 3), y + .31, PYRAMID_Z + depth / 2 + .018], scale: [.028, .43, .025], color: "#77764e" });
+    }
+    // Surviving fragments of the red-painted terrace friezes.
+    stones.push({ position: [-width * .31, y + .5, PYRAMID_Z + depth / 2 + .021], scale: [width * .19, .07, .015], color: "#b66e4d" });
   }
-  for (let i = 0; i < 28; i++) stones.push({ position: [0, .075 + i * .14, -2.99 - i * .155], scale: [1.54, .15, .175], color: i % 3 ? "#d1bf96" : "#b6b08b" });
-  for (const side of [-1, 1]) {
-    for (let i = 0; i < 14; i++) stones.push({ position: [side * .99, .23 + i * .278, -2.99 - i * .31], scale: [.28, .34, .37], color: "#c2b28a" });
-    stones.push({ position: [side * 1.02, 4.32, -7.45], scale: [.58, 1.14, 1.76] });
+  for (let i = 0; i < 45; i++) {
+    const t = i / 45;
+    stones.push({ position: [0, .07 + t * STAIR_RISE, STAIR_FRONT - t * STAIR_RUN], scale: [1.85, .145, .13], color: i % 4 ? "#e5c89d" : "#c0a678" });
+    for (const side of [-1, 1]) stones.push({ position: [side * 1.10, .24 + t * STAIR_RISE, STAIR_FRONT - t * STAIR_RUN], scale: [.28, .32, .16], color: "#cfb28a" });
   }
-  stones.push({ position: [0, 3.96, -7.45], scale: [3.15, .22, 2.46] });
-  stones.push({ position: [0, 4.88, -7.45], scale: [3.16, .22, 2.5] });
-  stones.push({ position: [0, 5.10, -7.45], scale: [2.73, .22, 2.17] });
-  stones.push({ position: [0, 5.33, -7.45], scale: [2.04, .26, 1.7] });
-  stones.push({ position: [0, 4.43, -8.24], scale: [2.61, .95, .18], color: "#888d68" });
+  // Open temple doorway between piers, broad lintel, and a pierced roof comb.
+  stones.push({ position: [0, 6.4, PYRAMID_Z], scale: [3.95, .24, 2.6] });
+  for (const side of [-1, 1]) stones.push({ position: [side * 1.26, 7.09, PYRAMID_Z], scale: [.72, 1.25, 2.12] });
+  stones.push({ position: [0, 7.08, PYRAMID_Z - .94], scale: [2.3, 1.2, .2], color: "#8b7650" });
+  stones.push({ position: [0, 7.83, PYRAMID_Z], scale: [4.15, .30, 2.8], color: "#d7b18b" });
+  stones.push({ position: [0, 8.07, PYRAMID_Z], scale: [3.65, .19, 2.3] });
+  for (let i = -2; i <= 2; i++) stones.push({ position: [i * .60, 8.66, PYRAMID_Z - .1], scale: [.32, 1.04 - Math.abs(i) * .12, .42], color: i % 2 ? "#bb805c" : "#d2af80" });
+  stones.push({ position: [0, 9.19, PYRAMID_Z - .1], scale: [3.1, .19, .55] });
+  stones.push({ position: [0, 9.42, PYRAMID_Z - .1], scale: [1.6, .28, .6], color: "#c6a075" });
   return stones;
 }
 
@@ -362,7 +394,7 @@ function Masonry() {
     for (let x = -9; x <= 9; x++) for (let z = -9; z <= 8; z++) {
       if (z < -3 && Math.abs(x) < 5) continue;
       if (noise(x * 4 + z * 73 + 300) < .14 && Math.abs(x) > 4) continue;
-      tiles.push({ position: [x * 1.02 + (z % 2) * .5, -.04 + noise(x * 17 + z * 91) * .028, z * 1.03], scale: [.97, .12, .98], rotation: (noise(x + z * 41) - .5) * .035, color: new THREE.Color().setHSL(.13 + noise(x * 19 + z) * .04, .16, .40 + noise(x + z * 83) * .16).getStyle() });
+      tiles.push({ position: [x * 1.02 + (z % 2) * .5, -.04 + noise(x * 17 + z * 91) * .028, z * 1.03], scale: [.97, .12, .98], rotation: (noise(x + z * 41) - .5) * .035, color: new THREE.Color().setHSL(.095 + noise(x * 19 + z) * .025, .27, .49 + noise(x + z * 83) * .15).getStyle() });
     }
     return { material: stoneMaterial(small), blocks, tiles, box: new RoundedBoxGeometry(1, 1, 1, 1, .035) };
   }, [small]);
@@ -370,13 +402,13 @@ function Masonry() {
     const dummy = new THREE.Object3D(), color = new THREE.Color();
     for (const [object, items] of [[mesh.current, r.blocks], [paving.current, r.tiles]] as const) {
       if (!object) continue;
-      items.forEach((s, i) => { dummy.position.set(...s.position); dummy.scale.set(...s.scale); dummy.rotation.set(0, s.rotation ?? 0, 0); dummy.updateMatrix(); object.setMatrixAt(i, dummy.matrix); object.setColorAt(i, color.set(s.color ?? "#d4d0b8")); });
+      items.forEach((s, i) => { dummy.position.set(...s.position); dummy.scale.set(...s.scale); dummy.rotation.set(0, s.rotation ?? 0, 0); dummy.updateMatrix(); object.setMatrixAt(i, dummy.matrix); object.setColorAt(i, color.set(s.color ?? "#e6cda5")); });
       object.instanceMatrix.needsUpdate = true; if (object.instanceColor) object.instanceColor.needsUpdate = true;
     }
     return () => { r.box.dispose(); r.material.dispose(); };
   }, [r]);
   return <>
-    <instancedMesh ref={mesh} position={[2.7, 0, 0]} args={[r.box, r.material, r.blocks.length]} castShadow receiveShadow />
+    <instancedMesh ref={mesh} position={[PYRAMID_X, 0, 0]} scale={[1, small ? .93 : 1, 1]} args={[r.box, r.material, r.blocks.length]} castShadow receiveShadow />
     <instancedMesh ref={paving} args={[r.box, r.material, r.tiles.length]} receiveShadow />
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -.15, 0]} receiveShadow><planeGeometry args={[180, 180]} /><Surface color="#52604a" roughness={1} /></mesh>
   </>;
@@ -384,42 +416,66 @@ function Masonry() {
 
 function Jungle({ small, running, reduced }: Pick<SceneContentProps, "small" | "running" | "reduced">) {
   const canopy = useRef<THREE.InstancedMesh>(null), fronds = useRef<THREE.InstancedMesh>(null), trunks = useRef<THREE.InstancedMesh>(null);
+  const vines = useRef<THREE.InstancedMesh>(null), broadleaf = useRef<THREE.InstancedMesh>(null), roots = useRef<THREE.InstancedMesh>(null);
   const group = useRef<THREE.Group>(null), elapsed = useRef(0);
   const r = useMemo(() => {
     const foliage: { x: number; y: number; z: number; size: number; seed: number }[] = [];
     const trees: { x: number; z: number; h: number }[] = [];
-    for (let i = 0; i < (small ? 56 : 86); i++) {
-      const flank = i % 4 === 0;
-      const x = flank ? (i % 8 ? -1 : 1) * (14 + noise(i * 3) * 17) : (noise(i * 3) - .5) * 76;
-      const z = flank ? -13 + noise(i * 7) * 14 : -17 - noise(i * 7) * 26;
-      const h = 4 + noise(i * 13) * 3.1; trees.push({ x, z, h });
-      for (let j = 0; j < (small ? 2 : 3); j++) foliage.push({ x: x + (noise(i * 19 + j) - .5) * 3, y: h - j * .65, z: z + (noise(i * 31 + j) - .5) * 3, size: 1.4 + noise(i * 11 + j) * 1.6, seed: i * 17 + j });
+    for (let i = 0; i < (small ? 48 : 72); i++) {
+      const flank = i % 3 === 0;
+      let x = flank ? (i % 2 ? -1 : 1) * (8 + noise(i * 3) * 15) : (noise(i * 3) - .5) * 76;
+      const z = flank ? -11 + noise(i * 7) * 13 : -20 - noise(i * 7) * 26;
+      // Keep a clearing around the temple silhouette, with ceibas at its sides.
+      if (Math.abs(x - PYRAMID_X) < 7 && z > -30) x += x < PYRAMID_X ? -9 : 9;
+      const h = 9 + noise(i * 13) * 6; trees.push({ x, z, h });
+      for (let j = 0; j < 3; j++) foliage.push({ x: x + (noise(i * 19 + j) - .5) * 4, y: h - j * .9, z: z + (noise(i * 31 + j) - .5) * 4, size: 2.4 + noise(i * 11 + j) * 2.1, seed: i * 17 + j });
     }
     const leaves = new THREE.Shape(); leaves.moveTo(0, 0); leaves.quadraticCurveTo(.36, .55, 0, 1.2); leaves.quadraticCurveTo(-.24, .5, 0, 0);
     const silhouette = canvas(512), c = silhouette.context;
-    // Layered, pierced leaf silhouettes give the distant canopy a fine edge
-    // with two triangles per crown, including on phones. No billboard updates.
-    c.fillStyle = "#ffffff";
-    for (let i = 0; i < 1700; i++) {
+    // Overlapping lobes make a rounded canopy; scattered leaf tips soften its
+    // outline. Every crown is still just two triangles, including on phones.
+    for (let i = 0; i < 2400; i++) {
       const a = noise(i * 5) * TAU, radius = Math.sqrt(noise(i * 13));
-      const x = 256 + Math.cos(a) * radius * 229, y = 254 + Math.sin(a) * radius * 168;
-      const cluster = .83 + Math.sin(a * 9 + .7) * .09 + Math.sin(a * 17) * .05;
+      const cluster = .81 + Math.sin(a * 7 + .7) * .10 + Math.sin(a * 13) * .05;
       if (radius > cluster) continue;
-      c.beginPath(); c.ellipse(x, y, 5 + noise(i * 17) * 10, 2 + noise(i * 23) * 5, noise(i * 7) * TAU, 0, TAU); c.fill();
+      const x = 256 + Math.cos(a) * radius * 245, y = 254 + Math.sin(a) * radius * 200;
+      const shade = 47 + (1 - y / 512) * 35 + noise(i) * 16;
+      c.fillStyle = `rgb(${shade * .87},${shade},${shade * .70})`;
+      c.beginPath(); c.ellipse(x, y, 8 + noise(i * 17) * 19, 5 + noise(i * 23) * 10, noise(i * 7) * TAU, 0, TAU); c.fill();
     }
-    return { foliage, trees, silhouette, canopy: new THREE.PlaneGeometry(2.2, 2.2), trunk: new THREE.CylinderGeometry(.13, .28, 1, 5), leaf: new THREE.ShapeGeometry(leaves), color: new THREE.Color() };
+    const leaf = new THREE.ShapeGeometry(leaves, 8), points = leaf.attributes.position;
+    for (let i = 0; i < points.count; i++) points.setZ(i, Math.sin(points.getY(i) / 1.2 * Math.PI) * .22);
+    leaf.computeVertexNormals();
+    const root = new THREE.Shape(); root.moveTo(0, 0); root.lineTo(1.6, 0); root.quadraticCurveTo(.33, .24, 0, 1.9); root.closePath();
+    const vine = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, 0), new THREE.Vector3(.08, -.8, .03), new THREE.Vector3(-.06, -1.6, 0), new THREE.Vector3(.03, -2.5, .04)]);
+    return { foliage, trees, silhouette, canopy: new THREE.PlaneGeometry(2.2, 2.2), trunk: new THREE.CylinderGeometry(.13, .32, 1, 8), leaf, root: new THREE.ShapeGeometry(root), vine: new THREE.TubeGeometry(vine, 10, .018, 3, false), color: new THREE.Color() };
   }, [small]);
   useEffect(() => {
     const o = new THREE.Object3D();
     r.foliage.forEach((v, i) => {
       o.position.set(v.x, v.y, v.z); o.scale.set(v.size * 1.2, v.size, 1); o.rotation.set(0, (noise(v.seed + 1) - .5) * 1.1, (noise(v.seed + 2) - .5) * .17); o.updateMatrix();
-      canopy.current?.setMatrixAt(i, o.matrix); canopy.current?.setColorAt(i, r.color.setHSL(.24 + noise(v.seed) * .08, .22 + noise(v.seed + 3) * .12, .16 + noise(v.seed + 4) * .12));
+      canopy.current?.setMatrixAt(i, o.matrix); canopy.current?.setColorAt(i, r.color.setHSL(.23 + noise(v.seed) * .07, .25 + noise(v.seed + 3) * .10, .40 + noise(v.seed + 4) * .18));
     });
-    r.trees.forEach((v, i) => { o.position.set(v.x, v.h / 2, v.z); o.scale.set(1, v.h, 1); o.rotation.set(0, 0, .06 * Math.sin(i)); o.updateMatrix(); trunks.current?.setMatrixAt(i, o.matrix); });
+    r.trees.forEach((v, i) => {
+      o.position.set(v.x, v.h / 2, v.z); o.scale.set(1.5, v.h, 1.5); o.rotation.set(0, 0, .035 * Math.sin(i)); o.updateMatrix(); trunks.current?.setMatrixAt(i, o.matrix);
+      for (let j = 0; j < 3; j++) {
+        const a = j / 3 * TAU + i;
+        o.position.set(v.x, .02, v.z); o.rotation.set(0, a, 0); o.scale.setScalar(.7 + noise(i) * .7); o.updateMatrix(); roots.current?.setMatrixAt(i * 3 + j, o.matrix);
+        o.position.set(v.x + Math.cos(a), v.h - 1.1, v.z + Math.sin(a)); o.rotation.set(0, a, -.7); o.scale.set(.75, 3.1, .75); o.updateMatrix(); trunks.current?.setMatrixAt(r.trees.length + i * 3 + j, o.matrix);
+        o.position.set(v.x + Math.cos(a) * 2, v.h - 1, v.z + Math.sin(a) * 2); o.rotation.set(0, a, .06); o.scale.setScalar(1.2 + noise(i * 3 + j)); o.updateMatrix(); vines.current?.setMatrixAt(i * 3 + j, o.matrix);
+      }
+    });
+    // Curved broad leaves at the plaza edge, separate from feathered ferns.
+    for (let i = 0; i < (small ? 28 : 48); i++) {
+      const side = i % 2 ? -1 : 1, a = noise(i * 13) * TAU;
+      const x = side * (4.1 + noise(Math.floor(i / 6) * 23) * 2.8), z = 2.7 - noise(Math.floor(i / 6) * 7) * 7;
+      o.position.set(x, .12, z); o.rotation.set(.35 + noise(i * 5) * .8, a, (noise(i) - .5) * 1.7); o.scale.set(.8, 1.1 + noise(i * 7) * .9, 1); o.updateMatrix();
+      broadleaf.current?.setMatrixAt(i, o.matrix); broadleaf.current?.setColorAt(i, r.color.setHSL(.24 + noise(i) * .05, .40, .18 + noise(i * 3) * .13));
+    }
     // Feathered fern fronds: paired leaflets follow six bowed stems per plant.
     const count = small ? 12 : 20;
     for (let i = 0; i < count; i++) {
-      const x = i < 4 ? [-5.7, 5.3, -6.9, 6.1][i] : (noise(i * 5) > .5 ? 1 : -1) * (6 + noise(i) * 4);
+      const x = i < 4 ? [-4.4, 4.9, -6.9, 6.1][i] : (noise(i * 5) > .5 ? 1 : -1) * (6 + noise(i) * 4);
       const z = i < 4 ? [3.3, 2.8, -.6, -2][i] : (noise(i * 17) - .5) * 20;
       for (let stem = 0; stem < 6; stem++) for (let j = 0; j < 7; j++) for (let side = 0; side < 2; side++) {
         const a = stem / 6 * TAU + i, t = (j + 1) / 8, radius = t * 1.26, y = Math.sin(t * 2.2) * .9;
@@ -429,12 +485,15 @@ function Jungle({ small, running, reduced }: Pick<SceneContentProps, "small" | "
         fronds.current?.setMatrixAt(index, o.matrix); fronds.current?.setColorAt(index, r.color.setHSL(.21 + noise(i) * .1, .28, .22 + t * .15));
       }
     }
-    for (const object of [canopy.current, trunks.current, fronds.current]) if (object) { object.instanceMatrix.needsUpdate = true; if (object.instanceColor) object.instanceColor.needsUpdate = true; }
-    return () => { r.canopy.dispose(); r.trunk.dispose(); r.leaf.dispose(); r.silhouette.texture.dispose(); };
+    for (const object of [canopy.current, trunks.current, fronds.current, roots.current, vines.current, broadleaf.current]) if (object) { object.instanceMatrix.needsUpdate = true; if (object.instanceColor) object.instanceColor.needsUpdate = true; }
+    return () => { r.canopy.dispose(); r.trunk.dispose(); r.leaf.dispose(); r.root.dispose(); r.vine.dispose(); r.silhouette.texture.dispose(); };
   }, [r, small]);
   useFrame((_, delta) => { if (!running || reduced || !group.current) return; elapsed.current += Math.min(delta, .1); group.current.rotation.z = Math.sin(elapsed.current * .16) * .003; });
   return <>
-    <instancedMesh ref={trunks} args={[r.trunk, undefined, r.trees.length]}><Surface color="#535642" roughness={1} /></instancedMesh>
+    <instancedMesh ref={trunks} args={[r.trunk, undefined, r.trees.length * 4]}><Surface color="#817d5b" roughness={1} /></instancedMesh>
+    <instancedMesh ref={roots} args={[r.root, undefined, r.trees.length * 3]}><Surface color="#757752" side={THREE.DoubleSide} /></instancedMesh>
+    <instancedMesh ref={vines} args={[r.vine, undefined, r.trees.length * 3]}><Surface color="#445a32" /></instancedMesh>
+    <instancedMesh ref={broadleaf} args={[r.leaf, undefined, small ? 28 : 48]}><Surface side={THREE.DoubleSide} /></instancedMesh>
     <group ref={group}><instancedMesh ref={canopy} args={[r.canopy, undefined, r.foliage.length]}><Surface map={r.silhouette.texture} alphaTest={.45} roughness={1} side={THREE.DoubleSide} /></instancedMesh></group>
     <instancedMesh ref={fronds} args={[r.leaf, undefined, (small ? 12 : 20) * 84]}><Surface roughness={1} side={THREE.DoubleSide} /></instancedMesh>
   </>;
@@ -492,7 +551,7 @@ function Atmosphere({ running, reduced, small, active }: SceneContentProps) {
       vertexShader: `varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
       fragmentShader: `varying vec2 vUv; uniform float uTime,uOpacity; uniform vec3 uColor; void main(){float a=pow(max(0.,sin((vUv.y*3.5+uTime*.22)*6.283)),4.); float edge=1.-smoothstep(.22,.5,abs(vUv.x-.5));gl_FragColor=vec4(uColor,(.2+.8*a)*edge*uOpacity); #include <colorspace_fragment> }`.replace(" #include", "\n#include").replace("fragment> }", "fragment>\n}"),
     }),
-    warm: new THREE.Color("#ffcf88"), cold: new THREE.Color("#91a8d3"), hazeDay: new THREE.Color("#b9b99a"), hazeNight: new THREE.Color("#323e51"), accent: new THREE.Color(),
+    warm: new THREE.Color("#ffcf88"), cold: new THREE.Color("#91a8d3"), hazeDay: new THREE.Color("#c7c5a0"), hazeNight: new THREE.Color("#323e51"), accent: new THREE.Color(),
   }), []);
   useEffect(() => {
     const art = gl.domElement.closest<HTMLElement>('[data-scene="maya"]');
@@ -516,7 +575,7 @@ function Atmosphere({ running, reduced, small, active }: SceneContentProps) {
     const direction = r.sky.uniforms.uSun.value as THREE.Vector3;
     direction.set(Math.sin(sun.angle) * 22, Math.tan(Math.asin(sun.elevation)) * 22, -Math.cos(sun.angle) * 22);
     if (key.current) { key.current.position.copy(direction); key.current.intensity = (.7 + 2.6 * sun.daylight) * (.5 + .5 * intro); key.current.color.copy(r.cold).lerp(r.warm, sun.daylight); }
-    if (fill.current) { fill.current.intensity = .8 + sun.daylight * .75; fill.current.color.set(sun.daylight > .5 ? "#d1ded2" : "#a1b5d8"); }
+    if (fill.current) { fill.current.intensity = .8 + sun.daylight * .75; fill.current.color.set(sun.daylight > .5 ? "#eee0bf" : "#a1b5d8"); }
     if (fog.current) fog.current.color.copy(r.hazeNight).lerp(r.hazeDay, sun.daylight);
     if (flames.current) { flames.current.visible = sun.daylight < .95; flames.current.scale.y = reduced ? 1 : 1 + Math.sin(s.elapsed * 1.3) * .035; }
     if (flameLight.current) flameLight.current.intensity = (1 - sun.daylight) * 16;
@@ -526,20 +585,22 @@ function Atmosphere({ running, reduced, small, active }: SceneContentProps) {
   });
   return <>
     <mesh material={r.sky}><sphereGeometry args={[100, 24, 12]} /></mesh>
-    <fog ref={fog} attach="fog" args={["#b9b99a", 18, 67]} />
+    <fog ref={fog} attach="fog" args={["#c7c5a0", 12, 64]} />
     <hemisphereLight ref={fill} args={["#d1ded2", "#666447", 1.5]} />
     <directionalLight ref={key} position={[8, 9, 5]} intensity={3.2} color="#ffcf88" castShadow={!small} shadow-mapSize={[512, 512]} shadow-camera-left={-11} shadow-camera-right={11} shadow-camera-top={12} shadow-camera-bottom={-10} shadow-camera-near={.5} shadow-camera-far={48} shadow-bias={-.001} shadow-normalBias={.025} />
     <directionalLight position={[-4, 6, 8]} intensity={.55} color="#e9d7b0" />
-    <mesh ref={lightBand} material={r.band} position={[3.69, 2.30, -5.04]} rotation={[-.84, 0, 0]}><planeGeometry args={[.25, 5.74]} /></mesh>
-    <pointLight ref={flameLight} position={[2.7, 2.3, -3.5]} color="#ff9d48" distance={11} decay={2} intensity={0} />
-    {[-1, 1].flatMap(side => [0, 1, 2].map(i => <group key={`${side}/${i}`} position={[2.7 + side * (1.5 + i * .14), .6 + i * 1.18, -3.35 - i * 1.34]}>
-      <mesh castShadow><cylinderGeometry args={[.19, .24, .36, 8]} /><Surface color="#807b52" roughness={.94} /></mesh>
-      <mesh position={[0, .2, 0]}><cylinderGeometry args={[.27, .13, .14, 10]} /><Surface color="#5a5039" roughness={1} /></mesh>
-    </group>))}
-    <group ref={flames}>
-      {[-1, 1].flatMap(side => [0, 1, 2].map(i => <group key={`${side}/${i}`} position={[2.7 + side * (1.5 + i * .14), .99 + i * 1.18, -3.35 - i * 1.34]}>
-        <mesh scale={[.095, .27, .095]}><sphereGeometry args={[1, 8, 6]} /><meshBasicMaterial color="#e9a548" transparent opacity={.8} /></mesh>
+    <group scale={[1, small ? .93 : 1, 1]}>
+      <mesh ref={lightBand} material={r.band} position={[PYRAMID_X, STAIR_RISE / 2 + .26, STAIR_FRONT - STAIR_RUN / 2 + .03]} rotation={[-Math.atan2(STAIR_RUN, STAIR_RISE), 0, 0]}><planeGeometry args={[.62, Math.hypot(STAIR_RUN, STAIR_RISE)]} /></mesh>
+      <pointLight ref={flameLight} position={[PYRAMID_X, 3.1, -4.2]} color="#ff9d48" distance={11} decay={2} intensity={0} />
+      {[-1, 1].flatMap(side => [0, 1, 2].map(i => <group key={`${side}/${i}`} position={[PYRAMID_X + side * 1.43, .6 + i * 1.93, STAIR_FRONT - .1 - i * 1.4]}>
+        <mesh castShadow><cylinderGeometry args={[.19, .24, .36, 8]} /><Surface color="#807b52" roughness={.94} /></mesh>
+        <mesh position={[0, .2, 0]}><cylinderGeometry args={[.27, .13, .14, 10]} /><Surface color="#5a5039" roughness={1} /></mesh>
       </group>))}
+      <group ref={flames}>
+        {[-1, 1].flatMap(side => [0, 1, 2].map(i => <group key={`${side}/${i}`} position={[PYRAMID_X + side * 1.43, .99 + i * 1.93, STAIR_FRONT - .1 - i * 1.4]}>
+          <mesh scale={[.095, .27, .095]}><sphereGeometry args={[1, 8, 6]} /><meshBasicMaterial color="#e9a548" transparent opacity={.8} /></mesh>
+        </group>))}
+      </group>
     </group>
   </>;
 }
