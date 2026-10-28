@@ -62,9 +62,9 @@ export const SCENES: Record<SceneId, SceneDefinition> = {
     shadows: false,
     toneMappingExposure: 1.1,
     camera: {
-      position: [7.5, 15.2, 12.45], positionSmall: [4, 11.5, 11.3], target: [0, 0, 0],
-      fov: 35, fovSmall: 37, far: 150,
-      minDistance: 10, maxDistance: 25, minPolarAngle: 25 * deg, maxPolarAngle: 72 * deg,
+      position: [7.5, 7.6, 14], positionSmall: [3.6, 3.9, 6.7], target: [0, .25, 0],
+      fov: 38, fovSmall: 39, far: 150,
+      minDistance: 5, maxDistance: 22, minPolarAngle: 50 * deg, maxPolarAngle: 78 * deg,
       // Finite ±180° limits wrap to the same angle in OrbitControls.
       azimuthRange: Infinity,
     },

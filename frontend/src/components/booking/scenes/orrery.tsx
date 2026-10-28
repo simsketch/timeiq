@@ -6,7 +6,7 @@ import * as THREE from "three";
 import type { SceneContentProps } from "./types";
 
 const TAU = Math.PI * 2, RAD = Math.PI / 180;
-const DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const RADII = [1.55, 1.95, 2.35, 2.75, 3.15, 3.55, 3.95];
 const PALETTES = [
   ["#53798d", "#acccd0"], ["#b57255", "#ebbc85"], ["#84a5a1", "#d2ddc1"],
@@ -72,12 +72,6 @@ function dialTexture(small: boolean) {
       c.strokeStyle = major ? "#e2c68b" : "#8b7c5b"; c.lineWidth = major ? 2 : .8;
       c.beginPath(); c.moveTo(Math.sin(a) * 499, -Math.cos(a) * 499);
       c.lineTo(Math.sin(a) * (major ? 486 : 492), -Math.cos(a) * (major ? 486 : 492)); c.stroke();
-    }
-    c.font = "20px Georgia, serif"; c.textAlign = "center"; c.textBaseline = "middle";
-    for (let i = 0; i < 24; i++) {
-      const a = i / 24 * TAU;
-      c.save(); c.translate(Math.sin(a) * 472, -Math.cos(a) * 472); c.rotate(a);
-      c.fillStyle = i % 6 === 0 ? "#fff0c8" : "#cdbd96"; c.fillText(String(i).padStart(2, "0"), 0, 0); c.restore();
     }
   });
 }
@@ -163,6 +157,14 @@ function createResources(small: boolean) {
     }
   }));
   const planets = planetMaps.map((map) => new THREE.MeshStandardMaterial({ map, roughness: .55, metalness: .15, emissive: "#a77a39", emissiveIntensity: 0 }));
+  // Ring numerals keep their physical positions, but face the camera so the
+  // near-side hours never become inverted. Depth testing preserves occlusion.
+  const hours = Array.from({ length: 24 }, (_, hour) => texture(128, 96, (c) => {
+    c.fillStyle = hour % 6 === 0 ? "#fff0c8" : "#ddcba4";
+    c.font = "56px Georgia, serif"; c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillText(String(hour).padStart(2, "0"), 64, 48);
+  }));
+  const hourMaterials = hours.map((map) => new THREE.SpriteMaterial({ map, transparent: true, depthWrite: false, toneMapped: false }));
   const labels = DAYS.map((day) => texture(128, 64, (c) => {
     c.fillStyle = "#e6d6b5"; c.font = "26px Georgia, serif"; c.textAlign = "center";
     c.fillText(day, 64, 35); c.fillStyle = "#9e8a64"; c.fillRect(53, 47, 22, 1);
@@ -171,8 +173,18 @@ function createResources(small: boolean) {
   const engraving = texture(128, 64, (c) => {
     c.fillStyle = "#382b19"; c.font = "40px Georgia, serif"; c.textAlign = "center"; c.fillText("42", 64, 45);
   });
-  const readoutCanvas = document.createElement("canvas"); readoutCanvas.width = 768; readoutCanvas.height = 320;
-  const readout = new THREE.CanvasTexture(readoutCanvas); readout.colorSpace = THREE.SRGBColorSpace;
+  const clock = texture(512, 512, (c) => {
+    c.fillStyle = "#142632"; c.fillRect(0, 0, 512, 512);
+    c.strokeStyle = "#c5a467"; c.lineWidth = 4;
+    c.beginPath(); c.arc(256, 256, 246, 0, TAU); c.stroke();
+    for (let i = 0; i < 60; i++) {
+      const a = i / 60 * TAU, major = i % 5 === 0;
+      c.lineWidth = major ? 6 : 2; c.beginPath();
+      c.moveTo(256 + Math.sin(a) * 225, 256 - Math.cos(a) * 225);
+      c.lineTo(256 + Math.sin(a) * (major ? 195 : 214), 256 - Math.cos(a) * (major ? 195 : 214)); c.stroke();
+    }
+  });
+  const date = texture(512, 192, () => {});
   const nebula = texture(1024, 512, (c) => {
     c.fillStyle = "#050913"; c.fillRect(0, 0, 1024, 512);
     for (let i = 0; i < 24; i++) {
@@ -214,31 +226,25 @@ function createResources(small: boolean) {
   const gearGeometries = GEARS.map((g) => gearGeometry(g.r, g.teeth));
   const outerArc = arcGeometry(48), trailArc = arcGeometry(48);
   const arcMaterial = new THREE.MeshBasicMaterial({ color: "#9dcbe3", transparent: true, opacity: 0, side: THREE.DoubleSide, toneMapped: false, depthWrite: false });
-  return { brass, paleBrass, darkBrass, enamel, dialMat, halo, sunMap, planets, labelMaterials, engraving, readout, nebula, starGeometry, moonMaterial, sphere, cylinder, box, orbitGeometries, gearGeometries, outerArc, trailArc, arcMaterial,
+  return { brass, paleBrass, darkBrass, enamel, dialMat, halo, sunMap, planets, labelMaterials, hourMaterials, engraving, clock, date, nebula, starGeometry, moonMaterial, sphere, cylinder, box, orbitGeometries, gearGeometries, outerArc, trailArc, arcMaterial,
     dispose() {
-      [brass, paleBrass, darkBrass, enamel, dialMat, ...planets, ...labelMaterials, moonMaterial, arcMaterial].forEach((m) => m.dispose());
-      [dial, halo, sunMap, ...planetMaps, ...labels, engraving, readout, nebula].forEach((t) => t.dispose());
+      [brass, paleBrass, darkBrass, enamel, dialMat, ...planets, ...labelMaterials, ...hourMaterials, moonMaterial, arcMaterial].forEach((m) => m.dispose());
+      [dial, halo, sunMap, ...planetMaps, ...labels, ...hours, engraving, clock, date, nebula].forEach((t) => t.dispose());
       [sphere, cylinder, box, starGeometry, ...orbitGeometries, ...gearGeometries, outerArc, trailArc].forEach((g) => g.dispose());
     },
   };
 }
 
-function paintReadout(map: THREE.CanvasTexture<HTMLCanvasElement>, now: Date, duration: number, opacity: number, color: THREE.Color) {
-  const canvas = map.image;
-  const c = canvas.getContext("2d")!; c.clearRect(0, 0, 768, 320);
-  const pad = (n: number) => String(n).padStart(2, "0");
+function paintDate(map: THREE.CanvasTexture<HTMLCanvasElement>, now: Date) {
+  const c = map.image.getContext("2d")!;
+  c.clearRect(0, 0, 512, 192);
   c.textAlign = "center"; c.textBaseline = "middle";
-  c.fillStyle = "#aa9771"; c.font = "19px Georgia, serif"; c.fillText("L O C A L   T I M E", 384, 38);
-  c.fillStyle = "#f4e3be"; c.font = "90px Georgia, serif";
-  c.fillText(`${pad(now.getHours())}:${pad(now.getMinutes())}`, 360, 112);
-  c.font = "31px Georgia, serif"; c.fillStyle = "#b5a483"; c.fillText(pad(now.getSeconds()), 527, 132);
-  c.fillStyle = "#bba989"; c.font = "22px Georgia, serif";
-  c.fillText(now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" }).toUpperCase(), 384, 188);
-  c.strokeStyle = "#74644a"; c.lineWidth = 1; c.beginPath(); c.moveTo(235, 225); c.lineTo(533, 225); c.stroke();
-  if (opacity > .005) {
-    const end = new Date(now.getTime() + duration * 60000);
-    c.globalAlpha = opacity; c.fillStyle = `#${color.getHexString()}`; c.font = "26px Georgia, serif";
-    c.fillText(`+${Math.round(duration)} MIN  ·  ${pad(end.getHours())}:${pad(end.getMinutes())}`, 384, 271); c.globalAlpha = 1;
+  // Dark cuts and a fine lower highlight suggest serif lettering cut in brass.
+  const lines = [now.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }), String(now.getFullYear())];
+  for (const [i, line] of lines.entries()) {
+    c.font = `${i ? 40 : 47}px Georgia, serif`;
+    c.fillStyle = "#e9cd91"; c.fillText(line, 256, 63 + i * 72 + 2);
+    c.fillStyle = "#3d2c19"; c.fillText(line, 256, 63 + i * 72);
   }
   map.needsUpdate = true;
 }
@@ -252,8 +258,8 @@ export default function Orrery({ active, running, reduced, small }: SceneContent
   useEffect(() => () => resources.dispose(), [resources]);
   const world = useRef<THREE.Group>(null), arms = useRef<THREE.Group>(null), gears = useRef<THREE.Group>(null);
   const pointer = useRef<THREE.Group>(null), preview = useRef<THREE.Group>(null), moon = useRef<THREE.Group>(null);
-  const readout = useRef<THREE.Sprite>(null), sun = useRef<THREE.Mesh>(null), stars = useRef<THREE.Points>(null);
-  const phase = useRef({ elapsed: 0, duration: 0, visible: 0, gear: 0, lastTick: -1, lastLabel: -1, lastDuration: 0, color: new THREE.Color("#9dcbe3"), targetColor: new THREE.Color("#9dcbe3") });
+  const clockHands = useRef<THREE.Group>(null), sun = useRef<THREE.Mesh>(null), stars = useRef<THREE.Points>(null);
+  const phase = useRef({ elapsed: 0, duration: 0, visible: 0, gear: 0, lastTick: -1, lastDate: "", color: new THREE.Color("#9dcbe3"), targetColor: new THREE.Color("#9dcbe3") });
 
   useFrame(({ camera }, delta) => {
     if (!running) return;
@@ -261,7 +267,7 @@ export default function Orrery({ active, running, reduced, small }: SceneContent
     s.elapsed += dt;
     const intro = reduced ? 1 : THREE.MathUtils.smootherstep(s.elapsed / 1.6, 0, 1);
     const amount = active ? Math.max(0, active.duration_minutes) : 0;
-    if (active) { s.lastDuration = amount; s.targetColor.set(active.color); }
+    if (active) s.targetColor.set(active.color);
     s.visible = THREE.MathUtils.damp(s.visible, active ? 1 : 0, 5, dt);
     s.duration = THREE.MathUtils.damp(s.duration, amount, 3.4, dt);
     s.color.lerp(s.targetColor, 1 - Math.exp(-dt * 5));
@@ -286,7 +292,7 @@ export default function Orrery({ active, running, reduced, small }: SceneContent
       resources.planets[i].setValues({ emissiveIntensity: i === day ? .3 : 0 });
       resources.labelMaterials[i].setValues({ opacity: i === day ? 1 : .62 });
       resources.labelMaterials[i].color.set(i === day ? "#ffd48a" : "#c1ced8");
-      planet.children[2].position.y = size + .19;
+      if (!small) planet.children[3].position.y = size + .19;
     });
     if (!reduced) s.gear += dt * (.08 + s.visible * 1.4 + (1 - intro) * .7);
     if (gears.current) gears.current.children.forEach((gear, i) => {
@@ -304,13 +310,13 @@ export default function Orrery({ active, running, reduced, small }: SceneContent
     }
     const tick = Math.floor(nowMs / 1000);
     if (tick !== s.lastTick) { updateMoon(resources.moonMaterial, nowMs); s.lastTick = tick; }
-    // Repaint at 8 Hz during the duration fade, otherwise once a second.
-    const labelTick = Math.floor(nowMs / (s.visible > .005 ? 125 : 1000));
-    if (labelTick !== s.lastLabel) {
-      paintReadout(resources.readout, now, s.lastDuration, s.visible, s.color);
-      s.lastLabel = labelTick;
+    if (clockHands.current) {
+      clockHands.current.children[0].rotation.z = -hours / 12 * TAU;
+      clockHands.current.children[1].rotation.z = -(now.getMinutes() + now.getSeconds() / 60) / 60 * TAU;
+      clockHands.current.children[2].rotation.z = -(now.getSeconds() + now.getMilliseconds() / 1000) / 60 * TAU;
     }
-    if (readout.current) readout.current.material.opacity = intro;
+    const dateKey = now.toDateString();
+    if (dateKey !== s.lastDate) { paintDate(resources.date, now); s.lastDate = dateKey; }
     if (sun.current && !reduced) sun.current.scale.setScalar(.48 + Math.sin(s.elapsed * .65) * .008);
     if (stars.current && !reduced) stars.current.rotation.y = s.elapsed * .0012;
   });
@@ -333,6 +339,10 @@ export default function Orrery({ active, running, reduced, small }: SceneContent
         <mesh material={r.dialMat} position={[0, 0, .03]}><ringGeometry args={[4.41, 4.94, small ? 96 : 160]} /></mesh>
         {r.orbitGeometries.map((geometry, i) => <mesh key={i} geometry={geometry} material={r.darkBrass} position={[0, 0, .13 + i * .035]} />)}
       </group>
+      {r.hourMaterials.map((material, hour) => {
+        const a = hour / 24 * TAU;
+        return <sprite key={hour} material={material} position={[Math.sin(a) * 4.65, .085, -Math.cos(a) * 4.65]} scale={[.32, .24, 1]} />;
+      })}
       {[0, 1, 2, 3].map((i) => <group key={i} rotation={[0, i * Math.PI / 2 + .2, 0]}>
         <mesh geometry={r.box} material={r.darkBrass} position={[0, -.14, -2.7]} scale={[.055, .07, 3.75]} />
         <mesh geometry={r.sphere} material={r.paleBrass} position={[0, .04, -4.68]} scale={.065} />
@@ -359,8 +369,8 @@ export default function Orrery({ active, running, reduced, small }: SceneContent
           <group position={[0, .18, -radius]}>
             <mesh geometry={r.sphere} material={r.planets[i]} scale={.145 + i * .012} />
             <sprite scale={[1.25, 1.25, 1]}><spriteMaterial map={r.halo} transparent opacity={0} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} /></sprite>
-            <sprite material={r.labelMaterials[i]} position={[0, .4, 0]} scale={[.6, .3, 1]} />
             <mesh geometry={r.cylinder} material={r.brass} position={[0, -.12, 0]} scale={[.035, .24, .035]} />
+            {!small && <sprite material={r.labelMaterials[i]} position={[0, .4, 0]} scale={[.6, .3, 1]} />}
             {i === 4 && <mesh rotation={[.6, 0, .2]} material={r.paleBrass}><torusGeometry args={[.31, .013, 5, 48]} /></mesh>}
           </group>
         </group>)}
@@ -377,7 +387,23 @@ export default function Orrery({ active, running, reduced, small }: SceneContent
       <mesh geometry={r.outerArc} material={r.arcMaterial} />
       <mesh geometry={r.trailArc} material={r.arcMaterial} />
       <group ref={moon}><mesh material={r.moonMaterial}><planeGeometry args={[.28, .28]} /></mesh></group>
-      <sprite ref={readout} position={[0, 4.3, 0]} scale={small ? [6.5, 2.71, 1] : [5.6, 2.33, 1]} renderOrder={5}><spriteMaterial map={r.readout} transparent depthTest={false} depthWrite={false} toneMapped={false} /></sprite>
+      {/* A hinged instrument on the hub's near lip, with a finished brass back.
+          All lettering and hands share the plate's lighting and depth. */}
+      <group rotation={[0, Math.atan2(7.5, 14), 0]}>
+        {[-.56, .56].map((x) => <mesh key={x} geometry={r.cylinder} material={r.darkBrass} position={[x, -.15, 1]} scale={[.035, .32, .035]} />)}
+        <group position={[0, .04, 1.13]} rotation={[-Math.PI / 3, 0, 0]}>
+          <mesh geometry={r.box} material={r.brass} scale={[1.5, .7, .065]} />
+          <mesh position={[-.38, 0, .035]}><circleGeometry args={[.285, 48]} /><meshStandardMaterial map={r.clock} metalness={.25} roughness={.45} /></mesh>
+          <mesh position={[.31, 0, .035]}><planeGeometry args={[.66, .25]} /><meshStandardMaterial map={r.date} transparent depthWrite={false} metalness={.5} roughness={.48} /></mesh>
+          {[-.68, .68].flatMap((x) => [-.27, .27].map((y) => <mesh key={`${x}-${y}`} geometry={r.sphere} material={r.paleBrass} position={[x, y, .038]} scale={[.018, .018, .009]} />))}
+          <group ref={clockHands} position={[-.38, 0, .045]}>
+            {[{ length: .14, width: .018 }, { length: .21, width: .011 }, { length: .225, width: .004 }].map(({ length, width }, i) => <group key={i} position={[0, 0, i * .004]}>
+              <mesh geometry={r.box} material={i === 2 ? r.brass : r.paleBrass} position={[0, length / 2 - .025, 0]} scale={[width, length, .004]} />
+            </group>)}
+          </group>
+          <mesh geometry={r.sphere} material={r.paleBrass} position={[-.38, 0, .064]} scale={[.022, .022, .01]} />
+        </group>
+      </group>
     </group>
   </>;
 }
