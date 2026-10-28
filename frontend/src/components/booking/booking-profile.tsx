@@ -50,20 +50,20 @@ function DurationGlyph({ minutes }: { minutes: number }) {
   );
 }
 
-export function BookingProfile({ profile }: { profile: PublicProfile | null }) {
+export function BookingProfile({ profile, embed = false }: { profile: PublicProfile | null; embed?: boolean }) {
   const [hovered, setHovered] = useState<MeetingType | null>(null);
   const [focused, setFocused] = useState<MeetingType | null>(null);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const active = hovered || focused;
   const scene = sceneFor(profile?.booking_scene);
   // A host can choose no scene: the page is just their profile, centered.
-  const noScene = isNoScene(profile?.booking_scene);
+  const noScene = embed || isNoScene(profile?.booking_scene);
   const name = profile?.name || profile?.username || "";
   const initials = name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 
   return (
-    <main className={`${styles.page} ${noScene ? styles.noScene : ""}`}>
-      {noScene ? (
+    <main className={`${styles.page} ${noScene ? styles.noScene : ""} ${embed ? styles.embed : ""}`}>
+      {embed ? null : noScene ? (
         <Link href="/" className={styles.wordmark} aria-label="TimeIQ home">
           <LogoIcon className="h-6 w-6" />
           <span className="font-display">TimeIQ</span>
@@ -104,7 +104,7 @@ export function BookingProfile({ profile }: { profile: PublicProfile | null }) {
                 ) : profile.event_types.map((meeting) => (
                   <Link
                     key={meeting.id}
-                    href={`/book/${encodeURIComponent(profile.username)}/${encodeURIComponent(meeting.slug)}`}
+                    href={`/book/${encodeURIComponent(profile.username)}/${encodeURIComponent(meeting.slug)}${embed ? "?embed=1" : ""}`}
                     className={styles.meeting}
                     style={{ "--meeting-color": meeting.color } as CSSProperties}
                     onMouseEnter={() => setHovered(meeting)}
@@ -134,10 +134,10 @@ export function BookingProfile({ profile }: { profile: PublicProfile | null }) {
           )}
         </div>
 
-        <footer className={styles.footer}>
+        {!embed && <footer className={styles.footer}>
           <LogoIcon className="h-4 w-4 shrink-0" />
           <p>Powered by <Link href="/?utm_source=booking_page&utm_medium=powered_by">TimeIQ</Link>, a <a href="https://yoyocode.com" target="_blank" rel="noopener noreferrer">Yoyo Code</a> creation</p>
-        </footer>
+        </footer>}
       </div>
     </main>
   );

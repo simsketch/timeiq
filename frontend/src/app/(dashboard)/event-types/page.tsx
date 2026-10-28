@@ -28,6 +28,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { apiFetch } from "@/lib/api";
 import { Plus, Copy, Edit, Trash2 } from "lucide-react";
 import { ClockLoader } from "@/components/ui/clock-loader";
+import { BookingExtrasFields, DEFAULT_BOOKING_EXTRAS } from "@/components/booking-extras-fields";
+import { EmbedSnippets } from "@/components/embed-snippets";
 
 interface EventType {
   id: number;
@@ -40,6 +42,10 @@ interface EventType {
   is_active: boolean;
   buffer_time: number;
   max_bookings_per_day: number | null;
+  min_notice_minutes: number;
+  max_days_ahead: number | null;
+  reminder_minutes: number[];
+  remind_host: boolean;
   collect_phone: boolean;
   require_phone: boolean;
   collect_company: boolean;
@@ -70,6 +76,7 @@ export default function EventTypesPage() {
     color: COLOR_OPTIONS[0],
     buffer_minutes: 0,
     max_bookings_per_day: "",
+    ...DEFAULT_BOOKING_EXTRAS,
     collect_phone: false,
     require_phone: false,
     collect_company: false,
@@ -183,6 +190,10 @@ export default function EventTypesPage() {
       color: eventType.color,
       buffer_minutes: eventType.buffer_time,
       max_bookings_per_day: eventType.max_bookings_per_day?.toString() || "",
+      min_notice_minutes: eventType.min_notice_minutes ?? 0,
+      max_days_ahead: eventType.max_days_ahead ?? null,
+      reminder_minutes: eventType.reminder_minutes ?? [1440],
+      remind_host: eventType.remind_host ?? false,
       collect_phone: eventType.collect_phone,
       require_phone: eventType.require_phone,
       collect_company: eventType.collect_company,
@@ -203,6 +214,7 @@ export default function EventTypesPage() {
       color: COLOR_OPTIONS[0],
       buffer_minutes: 0,
       max_bookings_per_day: "",
+      ...DEFAULT_BOOKING_EXTRAS,
       collect_phone: false,
       require_phone: false,
       collect_company: false,
@@ -349,6 +361,7 @@ export default function EventTypesPage() {
                     min="1"
                   />
                 </div>
+                <BookingExtrasFields value={formData} onChange={(change) => setFormData({ ...formData, ...change })} />
                 <div className="space-y-3 pt-2">
                   <Label className="text-sm font-medium">Collect from guests</Label>
                   <div className="space-y-1">
@@ -471,6 +484,7 @@ export default function EventTypesPage() {
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
+              <div className="mt-3"><EmbedSnippets username={username} slug={eventType.slug} /></div>
             </CardContent>
           </Card>
         ))}
