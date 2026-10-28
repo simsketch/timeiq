@@ -61,7 +61,7 @@ export function BookingProfile({ profile }: { profile: PublicProfile | null }) {
 
   return (
     <main className={styles.page}>
-      <div className={`${styles.art} ${scene.ink === "light" ? styles.inkLight : ""}`}>
+      <div data-scene={scene.id} className={`${styles.art} ${scene.ink === "light" ? styles.inkLight : ""}`}>
         <BookingScene active={active} sceneId={scene.id} />
         <Link href="/" className={styles.wordmark} aria-label="TimeIQ home">
           <LogoIcon className="h-6 w-6" />
