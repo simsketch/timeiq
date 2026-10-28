@@ -168,11 +168,33 @@ async def test_auth_url_pkce_cookie_scopes_and_tenant(oauth):
     assert response.headers["cache-control"] == "no-store"
 
 
+async def test_proxy_frontend_starts_oauth_on_the_callback_cookie_origin(oauth):
+    client, _, _ = oauth
+    # With no NEXT_PUBLIC_API_URL, ordinary API calls go through the frontend
+    # rewrite, but the state cookie must be set on the backend callback host.
+    status = (await client.get("https://example.test/api/microsoft/status")).json()
+    auth_url = status.get("auth_url", "https://example.test/api/microsoft/auth-url")
+    auth = (await client.get(auth_url)).json()
+    params = parse_qs(urlsplit(auth["url"]).query)
+    verifier = client.cookies[microsoft_auth.STATE_COOKIE]
+    client.cookies.clear()
+    # Enforce the browser's host-only cookie rule explicitly: httpx's jar also
+    # sends host-only cookies to subdomains, unlike browsers.
+    cookie = {}
+    if urlsplit(auth_url).hostname == urlsplit(params["redirect_uri"][0]).hostname:
+        cookie["Cookie"] = f"{microsoft_auth.STATE_COOKIE}={verifier}"
+    response = await client.get(params["redirect_uri"][0], params={
+        "state": params["state"][0], "error": "access_denied",
+    }, headers=cookie)
+    assert response.status_code == 307
+    assert response.headers["location"].endswith("?microsoft=denied")
+
+
 @pytest.mark.parametrize("missing", ["MS_CLIENT_ID", "MS_CLIENT_SECRET"])
 async def test_unconfigured_is_hidden_and_makes_no_external_calls(oauth, microsoft, monkeypatch, missing):
     client, db, _ = oauth
     monkeypatch.setattr(settings, missing, "")
-    assert (await client.get("/api/microsoft/status")).json() == {"enabled": False}
+    assert (await client.get("/api/microsoft/status")).json()["enabled"] is False
     assert (await client.get("/api/microsoft/auth-url")).status_code == 501
     assert (await client.get("/api/microsoft/callback", params={"state": "ignored", "code": "ignored"})).status_code == 501
     with pytest.raises(CalendarSyncError):
@@ -187,7 +209,7 @@ async def test_status_is_public_and_auth_url_requires_sign_in(oauth):
         raise HTTPException(401, "Sign in")
 
     app.dependency_overrides[get_current_user] = unauthorized
-    assert (await client.get("/api/microsoft/status")).json() == {"enabled": True}
+    assert (await client.get("/api/microsoft/status")).json()["enabled"] is True
     assert (await client.get("/api/microsoft/auth-url")).status_code == 401
 
 

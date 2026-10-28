@@ -2,7 +2,7 @@
 
 Outlook uses read-only delegated Microsoft Graph access to the connected account's default calendar, matching Google Calendar's read-only integration. Bookings do not write events to either provider. The scopes are `offline_access Calendars.Read User.Read`; TimeIQ uses `User.Read` to identify the connected account and avoid duplicates when reconnecting.
 
-The connect button and OAuth endpoints are disabled unless both `MS_CLIENT_ID` and `MS_CLIENT_SECRET` are set. Existing Microsoft sources also skip background sync while disabled. No frontend environment variable is required.
+The connect button and OAuth endpoints are disabled unless both `MS_CLIENT_ID` and `MS_CLIENT_SECRET` are set. Existing Microsoft sources also skip background sync while disabled. No frontend environment variable is required: the status endpoint advertises the backend auth URL so the PKCE cookie is set on the callback host, including when other API requests use the frontend proxy.
 
 ## Register the Entra application
 

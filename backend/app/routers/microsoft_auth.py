@@ -77,7 +77,8 @@ def _require_configured() -> None:
 
 @router.get("/status")
 async def microsoft_status():
-    return {"enabled": settings.microsoft_enabled}
+    return {"enabled": settings.microsoft_enabled,
+            "auth_url": f"{settings.BACKEND_URL.rstrip('/')}/api/microsoft/auth-url"}
 
 
 @router.get("/auth-url")

@@ -77,15 +77,16 @@ export default function CalendarsPage() {
   // Google sign-in needs OAuth credentials on the server; hide it until they exist.
   const [googleEnabled, setGoogleEnabled] = useState(false);
   const [connectingOutlook, setConnectingOutlook] = useState(false);
-  const [outlookEnabled, setOutlookEnabled] = useState(false);
+  const [outlookAuthUrl, setOutlookAuthUrl] = useState<string | null>(null);
+  const outlookEnabled = outlookAuthUrl !== null;
 
   useEffect(() => {
     apiFetch<{ enabled: boolean }>("/api/google/status")
       .then((s) => setGoogleEnabled(s.enabled))
       .catch(() => setGoogleEnabled(false));
-    apiFetch<{ enabled: boolean }>("/api/microsoft/status")
-      .then((s) => setOutlookEnabled(s.enabled))
-      .catch(() => setOutlookEnabled(false));
+    apiFetch<{ enabled: boolean; auth_url: string }>("/api/microsoft/status")
+      .then((s) => setOutlookAuthUrl(s.enabled ? s.auth_url : null))
+      .catch(() => setOutlookAuthUrl(null));
   }, []);
 
   useEffect(() => {
@@ -138,10 +139,13 @@ export default function CalendarsPage() {
   }
 
   async function handleConnectOutlook() {
+    if (!outlookAuthUrl) return;
     setConnectingOutlook(true);
     try {
       const token = await getToken();
-      const { url } = await apiFetch<{ url: string }>("/api/microsoft/auth-url", {
+      // Set the PKCE cookie on the callback host, even when other API calls
+      // use the frontend's same-origin rewrite.
+      const { url } = await apiFetch<{ url: string }>(outlookAuthUrl, {
         headers: { Authorization: `Bearer ${token}` },
         credentials: "include",
       });
