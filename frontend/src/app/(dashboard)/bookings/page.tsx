@@ -10,8 +10,11 @@ import { apiFetch } from "@/lib/api";
 import { format, startOfWeek } from "date-fns";
 import { CalEvent, ViewToggle, WeekCalendar, colorFor, useCalendarView } from "@/components/week-calendar";
 import { ClockLoader } from "@/components/ui/clock-loader";
+import { bookingPrice } from "@/lib/booking-payments";
 
 interface Booking {
+  price_cents: number | null;
+  currency: string;
   id: number;
   visitor_name: string;
   visitor_email: string;
@@ -37,6 +40,8 @@ function BookingCard({ booking, onCancel }: { booking: Booking; onCancel?: (id: 
             <p className="text-sm text-muted-foreground mb-1">
               {booking.visitor_email}
             </p>
+            {booking.status === "pending_payment" && <p className="text-sm text-muted-foreground">Waiting for payment</p>}
+            {booking.price_cents != null && <p className="text-sm">{bookingPrice(booking.price_cents, booking.currency)}</p>}
             <p className="text-sm font-medium">
               {format(new Date(booking.starts_at), "EEEE, MMMM d, yyyy")}
             </p>
@@ -100,14 +105,16 @@ export default function BookingsPage() {
       const token = await getToken();
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [confirmed, completed, cancelled] = await Promise.all([
+      const [confirmed, completed, cancelled, pending] = await Promise.all([
         apiFetch<Booking[]>("/api/bookings?status=confirmed", { headers }),
         apiFetch<Booking[]>("/api/bookings?status=completed", { headers }),
         apiFetch<Booking[]>("/api/bookings?status=cancelled", { headers }),
+        apiFetch<Booking[]>("/api/bookings?status=pending_payment", { headers }),
       ]);
 
       const now = new Date();
-      const upcoming = confirmed.filter(b => new Date(b.starts_at) >= now);
+      const upcoming = [...confirmed, ...pending].filter(b => new Date(b.starts_at) >= now)
+        .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
       const pastConfirmed = confirmed.filter(b => new Date(b.starts_at) < now).reverse();
 
       setUpcomingBookings(upcoming);
@@ -121,7 +128,7 @@ export default function BookingsPage() {
   }
 
   async function handleCancel(id: number) {
-    if (!confirm("Are you sure you want to cancel this booking?")) return;
+    if (!confirm("Cancel this booking? Paid bookings receive a full refund.")) return;
     try {
       const token = await getToken();
       await apiFetch(`/api/bookings/${id}`, {
@@ -174,7 +181,7 @@ export default function BookingsPage() {
               start: new Date(b.starts_at),
               end: new Date(b.ends_at),
               color: colorFor(String(b.event_type_id)),
-              label: b.status === "cancelled" ? "Cancelled" : undefined,
+              label: b.status === "cancelled" ? "Cancelled" : b.status === "pending_payment" ? "Waiting for payment" : undefined,
               faded: b.status === "cancelled",
             }))}
             onSelect={(ev: CalEvent) => setSelectedId(ev.id)}
@@ -184,7 +191,7 @@ export default function BookingsPage() {
             <BookingCard
               booking={selectedBooking}
               onCancel={
-                selectedBooking.status === "confirmed" && new Date(selectedBooking.starts_at) >= new Date()
+                ["confirmed", "pending_payment"].includes(selectedBooking.status) && new Date(selectedBooking.starts_at) >= new Date()
                   ? handleCancel
                   : undefined
               }

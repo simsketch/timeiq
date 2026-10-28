@@ -61,6 +61,7 @@ uvicorn app.main:app --reload --port 8000
 | `CRON_SECRET` | Required for the cron endpoints in `backend/vercel.json` (calendar sync hourly, overdue digest weekly, monthly drafts). Cron calls are refused while it is empty. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional: Google Calendar OAuth. ICS links work without it. |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_FOUNDER`, `STRIPE_PRICE_STANDARD` | Optional. Leave unset and billing is off: every account has full access. |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | Optional. Enables paid bookings with the existing `STRIPE_SECRET_KEY`. See [Stripe Connect setup](docs/paid-bookings.md). |
 
 Tests: `python -m pytest -q` from `backend/`. Tests that need a database only run against a local `timeiq_qa*` database.
 

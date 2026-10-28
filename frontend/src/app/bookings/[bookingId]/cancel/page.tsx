@@ -11,6 +11,10 @@ import { apiFetch } from "@/lib/api";
 import { timeZoneLabel } from "@/lib/booking-time";
 
 interface BookingDetails {
+  price_cents: number | null;
+  refund_eligible: boolean;
+  refund_policy: string | null;
+  refund_status: string | null;
   id: string;
   starts_at: string;
   ends_at: string;
@@ -72,10 +76,11 @@ export default function CancelBookingPage() {
     setCancelling(true);
     setCancelError(null);
     try {
-      await apiFetch(
+      const result = await apiFetch<{ refund_status: string | null }>(
         `/api/public/bookings/${bookingId}/cancel?token=${encodeURIComponent(token)}`,
         { method: "POST" }
       );
+      setBooking((previous) => previous ? { ...previous, refund_status: result.refund_status } : previous);
       setCancelled(true);
     } catch (e: any) {
       setCancelError(e.message);
@@ -130,6 +135,7 @@ export default function CancelBookingPage() {
           </div>
           <h2 className="text-2xl font-bold tracking-tight mb-6">Booking cancelled</h2>
           <div className="mb-6">{when}</div>
+          {booking.price_cents != null && <p className="text-sm mb-4">{booking.refund_status === "succeeded" ? "A full refund was issued to your original payment method." : booking.refund_status === "pending" ? "A full refund was requested. Stripe is processing it." : "Your cancellation was within 24 hours of the start, so the payment will not be refunded."}</p>}
           <p className="text-sm text-muted-foreground mb-6">
             The host has been told, and a confirmation is on its way to your email.
           </p>
@@ -145,7 +151,7 @@ export default function CancelBookingPage() {
     );
   }
 
-  if (booking.status === "cancelled") {
+  if (["cancelled", "expired", "rescheduled"].includes(booking.status)) {
     return (
       <Notice title="Already Cancelled">
         This booking was already cancelled, so there&apos;s nothing more to do. If you rescheduled
@@ -180,6 +186,10 @@ export default function CancelBookingPage() {
         </p>
 
         <div className="rounded-xl border border-black/5 bg-white/70 p-4 mb-6">{when}</div>
+        {booking.price_cents != null && <div className="text-sm text-muted-foreground mb-6 space-y-2">
+          <p>{booking.refund_policy}</p>
+          <p>{booking.status === "pending_payment" ? "Cancelling closes checkout and releases your slot." : booking.refund_eligible ? "If you cancel now, you will receive a full refund." : "If you cancel now, your payment will not be refunded."}</p>
+        </div>}
 
         {cancelError && (
           <p role="alert" className="text-sm text-red-700 mb-4">

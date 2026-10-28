@@ -7,8 +7,11 @@ import { LogoIcon } from "@/components/logo";
 import { BookingScene } from "./booking-scene";
 import { isNoScene, sceneFor } from "./scenes";
 import styles from "./booking-profile.module.css";
+import { bookingPrice } from "@/lib/booking-payments";
 
 export interface MeetingType {
+  price_cents?: number | null;
+  currency?: string;
   id: string;
   name: string;
   slug: string;
@@ -116,6 +119,7 @@ export function BookingProfile({ profile }: { profile: PublicProfile | null }) {
                       <h2 className="font-display">{meeting.name}</h2>
                       <div className={styles.meta}>
                         <span><DurationGlyph minutes={meeting.duration_minutes} />{meeting.duration_minutes} min</span>
+                        {meeting.price_cents != null && <span>{bookingPrice(meeting.price_cents, meeting.currency || "usd")}</span>}
                         {meeting.location && <span><MapPin size={14} aria-hidden /><span className={styles.location}>{locationLabel(meeting.location)}</span></span>}
                       </div>
                       {meeting.description?.trim() && <p className={styles.description}>{meeting.description}</p>}

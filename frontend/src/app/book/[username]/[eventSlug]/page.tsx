@@ -13,8 +13,11 @@ import { Button } from "@/components/ui/button";
 import { LogoIcon } from "@/components/logo";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { describeSlot, guestTimeZone, timeZoneLabel } from "@/lib/booking-time";
+import { bookingPrice, REFUND_POLICY } from "@/lib/booking-payments";
 
 interface EventType {
+  price_cents: number | null;
+  currency: string;
   id: number;
   name: string;
   slug: string;
@@ -147,7 +150,7 @@ export default function BookingFlowPage() {
         throw new Error("That time is no longer listed. Pick another time.");
       }
 
-      await apiFetch(`/api/public/${username}/${eventSlug}/book`, {
+      const booking = await apiFetch<{ status: string; checkout_url: string | null }>(`/api/public/${username}/${eventSlug}/book`, {
         method: "POST",
         body: JSON.stringify({
           visitor_name: formData.name,
@@ -160,6 +163,10 @@ export default function BookingFlowPage() {
           timezone: guestTimeZone(),
         }),
       });
+      if (booking.status === "pending_payment" && booking.checkout_url) {
+        window.location.assign(booking.checkout_url);
+        return;
+      }
       setBookingConfirmed(true);
     } catch (e: any) {
       alert(`Booking failed: ${e.message}`);
@@ -180,9 +187,9 @@ export default function BookingFlowPage() {
         <div className="aurora-bg aurora-bg-soft" aria-hidden />
         <div className="grain" aria-hidden />
         <div className="relative glass rounded-[1.5rem] p-10 text-center max-w-md">
-          <h1 className="text-3xl font-display mb-3">Not found</h1>
+          <h1 className="text-3xl font-display mb-3">Booking unavailable</h1>
           <p className="text-muted-foreground mb-6 text-sm">
-            This event type doesn&apos;t exist or is not available.
+            {error || "This event is unavailable. Choose another event or contact the host."}
           </p>
           <Link href={`/book/${username}`}>
             <Button variant="glass">
@@ -318,6 +325,7 @@ export default function BookingFlowPage() {
                 {eventType.duration_minutes} minutes
               </span>
             </div>
+            {eventType.price_cents != null && <span>{bookingPrice(eventType.price_cents, eventType.currency)}</span>}
             {eventType.location && (
               <div className="inline-flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5" />
@@ -345,6 +353,7 @@ export default function BookingFlowPage() {
               {eventType.description}
             </p>
           )}
+          {eventType.price_cents != null && <p className="mt-4 text-sm text-muted-foreground">{REFUND_POLICY}</p>}
         </div>
 
         {/* Booking grid */}
@@ -411,6 +420,7 @@ export default function BookingFlowPage() {
                       </span>
                     </div>
                     <BookingForm
+                      submitLabel={eventType.price_cents != null ? `Continue to payment · ${bookingPrice(eventType.price_cents, eventType.currency)}` : "Confirm booking"}
                       onSubmit={handleBooking}
                       loading={bookingLoading}
                       collectPhone={eventType.collect_phone}

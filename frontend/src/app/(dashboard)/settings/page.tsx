@@ -1,5 +1,7 @@
 "use client";
 
+import { ConnectCard } from "@/components/connect-card";
+
 import { useEffect, useState } from "react";
 import { useAuth, useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -389,6 +391,7 @@ export default function SettingsPage() {
       <BookingScenePicker username={settings.username} initial={settings.booking_scene} />
 
       <ApiTokensCard />
+      <ConnectCard />
 
       <Card>
         <CardHeader>
