@@ -28,12 +28,14 @@ export const SCENES: Record<SceneId, SceneDefinition> = {
     blurb: "A Victorian brass machine in a gaslit study, its dials set to today.",
     still: "/booking/time-machine-still.webp",
     still640: "/booking/time-machine-still-640.webp",
-    backdrop: "linear-gradient(#2a1d17, #4a3020 60%, #6b4527)",
+    backdrop: "linear-gradient(#182421, #302b20 60%, #49301e)",
     ink: "light",
     camera: {
-      position: [5.2, 3.2, 8.4], target: [0, 1.4, 0], fov: 38, fovSmall: 40,
-      minDistance: 5, maxDistance: 13, minPolarAngle: 50 * deg, maxPolarAngle: 85 * deg, azimuthRange: 70 * deg,
+      position: [4.4, 4.6, 10], positionSmall: [3.9, 4.1, 10], target: [0, 1.8, 0],
+      fov: 35, fovSmall: 39, far: 45,
+      minDistance: 6.3, maxDistance: 11.5, minPolarAngle: 56 * deg, maxPolarAngle: 82 * deg, azimuthRange: 34 * deg,
     },
+    toneMappingExposure: 1.12,
     load: () => import("./time-machine"),
   },
   sanctum: {
