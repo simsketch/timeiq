@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import type { SceneContentProps } from "./types";
@@ -95,7 +95,7 @@ function mineralTexture(small: boolean) {
   return texture;
 }
 
-function stoneGeometry(width: number, height: number, depth: number, seed: number, small = false) {
+function dialBaseGeometry(width: number, height: number, depth: number, seed: number, small = false) {
   const g = new RoundedBoxGeometry(width, height, depth, small ? 3 : 7, Math.min(width, height, depth) * .28);
   const p = g.getAttribute("position"), normal = g.getAttribute("normal"), uv = g.getAttribute("uv"), colors: number[] = [];
   const color = new THREE.Color(), moss = new THREE.Color("#535c3d");
@@ -137,6 +137,64 @@ function stoneGeometry(width: number, height: number, depth: number, seed: numbe
   return g;
 }
 
+function stoneGeometry(width: number, height: number, depth: number, seed: number, small: boolean) {
+  // Uniformly spaced face vertices, unlike RoundedBox's edge-only subdivisions.
+  // Indexed faces keep a desktop upright around 1,600 vertices (phones ~500).
+  const segments = (length: number) => Math.round(THREE.MathUtils.clamp(length * (small ? 4 : 8), small ? 5 : 10, small ? 16 : 32));
+  const g = new THREE.BoxGeometry(width, height, depth, segments(width), segments(height), segments(depth));
+  const p = g.getAttribute("position"), uv = g.getAttribute("uv"), colors: number[] = [];
+  const half = new THREE.Vector3(width, height, depth).multiplyScalar(.5);
+  const radius = Math.min(width, height, depth) * .32;
+  const core = half.clone().subScalar(radius), lower = core.clone().negate();
+  const point = new THREE.Vector3(), nearest = new THREE.Vector3(), normal = new THREE.Vector3();
+  const color = new THREE.Color(), moss = new THREE.Color("#535c3d");
+  const lintel = height < Math.max(width, depth) * .35;
+  for (let i = 0; i < p.count; i++) {
+    point.fromBufferAttribute(p, i);
+    nearest.copy(point).clamp(lower, core);
+    normal.copy(point).sub(nearest).normalize();
+    point.copy(nearest).addScaledVector(normal, radius);
+    const { x, y, z } = point, level = y / height + .5;
+    const broad = field(x * 1.5, y * 1.3, z * 1.6, seed);
+    const middle = field(x * 4.3, y * 3.7, z * 4.1, seed + 3);
+    const fine = field(x * 12, y * 11, z * 13, seed + 7);
+    const hollow = Math.exp(-((x / width - .18 * Math.sin(seed)) ** 2 * 22
+      + (level - .48 - Math.sin(seed * 2) * .18) ** 2 * 19 + (z / depth - .4) ** 2 * 8));
+    const wear = Math.min(width, height, depth) * (broad * .17 + middle * .075 + fine * .018 - hollow * .19);
+    const taper = lintel ? 1 : 1 - THREE.MathUtils.smoothstep(level, .3, 1) * (.12 + noise(seed) * .2);
+    const shoulder = lintel ? 1 : 1 + Math.sin(level * 6.3 + seed) * .12 + Math.sin(level * 12 + seed * 2) * .045;
+    const long = width > depth ? x / half.x : z / half.z;
+    // Eroded bearing sockets and a bowed underside, rather than a straight beam.
+    const sag = lintel ? -.13 * (1 - long * long) : 0;
+    const sockets = lintel ? (1 - THREE.MathUtils.smoothstep(level, .15, .5)) * .13
+      * (Math.exp(-((long - .65) ** 2) * 60) + Math.exp(-((long + .65) ** 2) * 60)) : 0;
+    const crown = THREE.MathUtils.smoothstep(level, .65, 1)
+      * ((x / width * .19 + z / depth * .13) * Math.sin(seed + 1) + broad * .1);
+    p.setXYZ(i,
+      x * taper * shoulder + normal.x * wear + Math.sin(level * 4 + seed) * .065,
+      y + half.y + normal.y * wear + crown + sag + sockets,
+      z * taper * (lintel ? 1 : 1 + Math.sin(level * 7 + seed * 1.7) * .14) + normal.z * wear + x / width * .11 * Math.sin(seed));
+    if (Math.abs(normal.y) > .7) uv.setXY(i, x * .65, z * .65);
+    else if (Math.abs(normal.x) > Math.abs(normal.z)) uv.setXY(i, z * .65, y * .65);
+    else uv.setXY(i, x * .65, y * .65);
+    const base = 1 - THREE.MathUtils.smoothstep(level, .02, .28);
+    color.set("#e3ded1").multiplyScalar(.95 - base * .31 - Math.max(0, -broad) * .18);
+    color.lerp(moss, base * .32); colors.push(color.r, color.g, color.b);
+  }
+  g.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  g.computeVertexNormals();
+  // Join normals across the six UV seams after carving the continuous surface.
+  const normals = g.getAttribute("normal"), sums = new Map<string, THREE.Vector3>();
+  const key = (i: number) => `${Math.round(p.getX(i) * 10000)},${Math.round(p.getY(i) * 10000)},${Math.round(p.getZ(i) * 10000)}`;
+  for (let i = 0; i < p.count; i++) {
+    const k = key(i), n = sums.get(k) ?? new THREE.Vector3();
+    n.x += normals.getX(i); n.y += normals.getY(i); n.z += normals.getZ(i); sums.set(k, n);
+  }
+  sums.forEach((n) => n.normalize());
+  for (let i = 0; i < p.count; i++) { const n = sums.get(key(i))!; normals.setXYZ(i, n.x, n.y, n.z); }
+  return g;
+}
+
 function StoneMaterial({ small, map, color = "#ffffff", vertexColors = false, bumpScale = .035 }: {
   small: boolean; map: THREE.Texture; color?: string; vertexColors?: boolean; bumpScale?: number;
 }) {
@@ -166,24 +224,30 @@ function Stones({ small, depth }: { small: boolean; depth: THREE.RawShaderMateri
     ];
     const stones = pieces.map(([x, y, z, w, h, d, rotation, lean], i) => ({
       geometry: stoneGeometry(w, h, d, i * 11 + 5, small), position: [x, y, z] as [number, number, number], rotation, lean,
+      scale: [1, 1, 1] as [number, number, number], footprint: [w, d],
     }));
+    const rubble = [0, 1, 2].map((i) => stoneGeometry(.9, .55, .8, 190 + i * 17, small));
+    [[-3.5, -.22, 2.5], [3.4, -.19, 3.9], [-1.8, -.24, -5.4], [5.4, -.22, 1.8], [-5.2, -.21, -2.6], [1.7, -.26, 5.6]].forEach(([x, y, z], i) => {
+      const scale: [number, number, number] = [.65 + noise(i + 2) * .65, .7 + noise(i + 5) * .5, .65 + noise(i + 9) * .6];
+      stones.push({ geometry: rubble[i % 3], position: [x, y, z], rotation: noise(i * 7) * TAU, lean: (noise(i + 6) - .5) * .4, scale, footprint: [.9 * scale[0], .8 * scale[2]] });
+    });
     const contact = document.createElement("canvas"); contact.width = contact.height = 64;
     const c = contact.getContext("2d")!, fade = c.createRadialGradient(32, 32, 1, 32, 32, 32);
     fade.addColorStop(0, "#101914b0"); fade.addColorStop(.4, "#10191465"); fade.addColorStop(1, "#10191400");
     c.fillStyle = fade; c.fillRect(0, 0, 64, 64);
     const contactMap = new THREE.CanvasTexture(contact);
-    return { texture, material, stones, pieces, contactMap };
+    return { texture, material, stones, contactMap };
   }, [small]);
   useEffect(() => () => {
-    resources.stones.forEach((s) => s.geometry.dispose());
+    new Set(resources.stones.map((s) => s.geometry)).forEach((g) => g.dispose());
     resources.material.dispose(); resources.texture.userData.roughness?.dispose(); resources.texture.dispose(); resources.contactMap.dispose();
   }, [resources]);
   return <group>
     <mesh visible={false} geometry={resources.stones[0].geometry} material={depth} />
     {resources.stones.map((s, i) => <group key={i}>
-      <mesh geometry={s.geometry} material={resources.material} customDepthMaterial={depth} position={s.position} rotation={[s.lean * .4, s.rotation, s.lean]} castShadow={!small} receiveShadow={!small} />
+      <mesh geometry={s.geometry} material={resources.material} customDepthMaterial={depth} position={s.position} scale={s.scale} rotation={[s.lean * .4, s.rotation, s.lean]} castShadow={!small} receiveShadow={!small} />
       {s.position[1] < 0 && <mesh position={[s.position[0], .006, s.position[2]]} rotation={[-Math.PI / 2, 0, -s.rotation]}>
-        <planeGeometry args={[resources.pieces[i][3] * 2.2, resources.pieces[i][5] * 2.2]} />
+        <planeGeometry args={[s.footprint[0] * 2.2, s.footprint[1] * 2.2]} />
         <meshBasicMaterial map={resources.contactMap} transparent depthWrite={false} />
       </mesh>}
     </group>)}
@@ -290,6 +354,7 @@ function Meadow({ small, running, reduced }: Pick<SceneContentProps, "small" | "
 // Separate ridge layers hold their silhouettes while fog supplies aerial depth.
 function Landscape({ running, small }: Pick<SceneContentProps, "running" | "small">) {
   const trees = useRef<THREE.InstancedMesh>(null), trunks = useRef<THREE.InstancedMesh>(null);
+  const treeCount = small ? 24 : 42, lobes = 5;
   const resources = useMemo(() => {
     const ridges = [0, 1, 2].map((layer) => {
       const positions: number[] = [], indices: number[] = [];
@@ -305,24 +370,43 @@ function Landscape({ running, small }: Pick<SceneContentProps, "running" | "smal
       const geometry = new THREE.BufferGeometry(); geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3)); geometry.setIndex(indices);
       return { geometry, material: new THREE.MeshBasicMaterial({ color: "#889ca2", side: THREE.DoubleSide, fog: false, toneMapped: false }) };
     });
-    return { ridges, day: [new THREE.Color("#6e8b8c"), new THREE.Color("#95abb5"), new THREE.Color("#b5c4ce")], night: [new THREE.Color("#293d50"), new THREE.Color("#405269"), new THREE.Color("#52647c")], dusk: new THREE.Color("#a08e9b"), tree: new THREE.Color() };
-  }, []);
+    const canopy = new THREE.SphereGeometry(1, small ? 8 : 12, small ? 6 : 8), p = canopy.getAttribute("position");
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const swell = 1 + field(x * 3.4, y * 3.1, z * 3.7, 17) * .22;
+      p.setXYZ(i, x * swell, y * swell, z * swell);
+    }
+    canopy.computeVertexNormals();
+    return { ridges, canopy, day: [new THREE.Color("#6e8b8c"), new THREE.Color("#95abb5"), new THREE.Color("#b5c4ce")], night: [new THREE.Color("#293d50"), new THREE.Color("#405269"), new THREE.Color("#52647c")], dusk: new THREE.Color("#a08e9b") };
+  }, [small]);
   useEffect(() => {
     if (trees.current && trunks.current) {
       const dummy = new THREE.Object3D();
-      for (let i = 0; i < (small ? 12 : 25); i++) {
-        const x = (noise(i * 17 + 5) - .5) * 130, z = -40 - noise(i * 5 + 4) * 30;
-        const scale = .65 + noise(i * 7) * .65;
-        dummy.position.set(x, groundHeight(x, z) + scale * .65, z); dummy.rotation.set(0, noise(i * 3) * TAU, .05);
-        dummy.scale.set(scale, scale, scale); dummy.updateMatrix(); trunks.current.setMatrixAt(i, dummy.matrix);
-        dummy.position.y += scale * .95;
-        dummy.scale.set(scale * 1.5, scale * .9, scale * 1.1); dummy.updateMatrix(); trees.current.setMatrixAt(i, dummy.matrix);
+      for (let i = 0; i < treeCount; i++) {
+        // Overlapping crowns in three copses, with occasional younger trees.
+        const copse = i % 3, x = [-31, 3, 39][copse] + (noise(i * 17 + 5) - .5) * 19;
+        const z = [-63, -79, -68][copse] + (noise(i * 5 + 4) - .5) * 12;
+        const scale = .45 + noise(i * 7) * .6, ground = groundHeight(x, z);
+        dummy.position.set(x, ground + scale * .9, z); dummy.rotation.set(0, noise(i * 3) * TAU, (noise(i + 2) - .5) * .18);
+        dummy.scale.set(scale, scale * 1.3, scale); dummy.updateMatrix(); trunks.current.setMatrixAt(i, dummy.matrix);
+        for (let j = 0; j < lobes; j++) {
+          const angle = j * 2.4 + noise(i * 11) * TAU, spread = j === 0 ? 0 : .6 + noise(i * 19 + j) * .6;
+          dummy.position.set(x + Math.cos(angle) * spread * scale,
+            ground + scale * (j === 0 ? 2.65 : 1.95 + noise(i * 23 + j) * .65), z + Math.sin(angle) * spread * scale);
+          dummy.rotation.set(noise(i + j) * .4, angle, (noise(i * 3 + j) - .5) * .4);
+          const size = scale * (.7 + noise(i * 13 + j) * .4);
+          dummy.scale.set(size * 1.15, size * (.8 + noise(i + j * 7) * .4), size); dummy.updateMatrix();
+          trees.current.setMatrixAt(i * lobes + j, dummy.matrix);
+        }
       }
       trees.current.instanceMatrix.needsUpdate = true; trees.current.computeBoundingSphere();
       trunks.current.instanceMatrix.needsUpdate = true; trunks.current.computeBoundingSphere();
     }
-    return () => resources.ridges.forEach((r) => { r.geometry.dispose(); r.material.dispose(); });
-  }, [resources, small]);
+    return () => {
+      resources.canopy.dispose();
+      resources.ridges.forEach((r) => { r.geometry.dispose(); r.material.dispose(); });
+    };
+  }, [resources, treeCount]);
   useFrame(() => {
     if (!running) return;
     const date = new Date(), solar = solarTime(date.getHours() + date.getMinutes() / 60);
@@ -330,8 +414,8 @@ function Landscape({ running, small }: Pick<SceneContentProps, "running" | "smal
   });
   return <>
     {resources.ridges.map((r, i) => <mesh key={i} geometry={r.geometry} material={r.material} renderOrder={-10 - i} />)}
-    <instancedMesh ref={trees} args={[undefined, undefined, small ? 12 : 25]}><icosahedronGeometry args={[1, 2]} /><meshLambertMaterial color="#456050" /></instancedMesh>
-    <instancedMesh ref={trunks} args={[undefined, undefined, small ? 12 : 25]}><cylinderGeometry args={[.065, .12, 1.4, 5]} /><meshLambertMaterial color="#454b42" /></instancedMesh>
+    <instancedMesh ref={trees} args={[resources.canopy, undefined, treeCount * lobes]}><meshLambertMaterial color="#456050" /></instancedMesh>
+    <instancedMesh ref={trunks} args={[undefined, undefined, treeCount]}><cylinderGeometry args={[.065, .12, 1.4, 5]} /><meshLambertMaterial color="#454b42" /></instancedMesh>
   </>;
 }
 
@@ -430,8 +514,8 @@ function Sundial({ active, running, reduced, small, depth }: SceneContentProps &
   const state = useRef({ opacity: 0, span: 0, painted: "" });
   const resources = useMemo(() => {
     const dial = createDial(small), texture = mineralTexture(small);
-    const base = stoneGeometry(4.65, .62, 4.3, 108, small); base.translate(0, .2, DIAL_Z);
-    const foot = stoneGeometry(2.55, .5, 2.3, 71, small); foot.translate(0, 0, DIAL_Z);
+    const base = dialBaseGeometry(4.65, .62, 4.3, 108, small); base.translate(0, .2, DIAL_Z);
+    const foot = dialBaseGeometry(2.55, .5, 2.3, 71, small); foot.translate(0, 0, DIAL_Z);
     const gnomon = new THREE.CylinderGeometry(.035, .17, 1.22, 16, 1); gnomon.translate(0, .61, 0);
     const rim = new THREE.CylinderGeometry(2.1, 2.2, .6, 64);
     const rimUV = rim.getAttribute("uv");
@@ -513,8 +597,10 @@ const skyFragment = `
   void main() {
     vec3 d = normalize(vDirection);
     float h = max(d.y, 0.);
-    vec3 color = mix(uHorizon, uMiddle, smoothstep(-.035, .18, h));
-    color = mix(color, uTop, smoothstep(.04, .3, h));
+    // The phone camera sees a shallower strip of sky: bring indigo closer to
+    // the night horizon while preserving the established daytime gradient.
+    vec3 color = mix(uHorizon, uMiddle, smoothstep(-.035, mix(.07,.18,uDay), h));
+    color = mix(color, uTop, smoothstep(mix(.015,.04,uDay), mix(.13,.3,uDay), h));
     float alignment = max(dot(d, normalize(uSun)), 0.);
     color += vec3(1.,.49,.19) * pow(alignment, 12.) * (.025 + uGolden * .2) * uDay;
     float sunDisc = smoothstep(.99980, .99987, alignment) * uDay;
@@ -543,10 +629,10 @@ const skyFragment = `
       vec3 surface = vec3(1.25,1.34,1.5) * shade * maria;
       color = mix(color,surface,(1.-smoothstep(.97,1.02,r))*(1.-uDay));
     }
-    // Localized atmospheric veil behind the dark wordmark, even after sunset.
+    // Retain the daytime haze; night wordmark contrast is handled in CSS.
     vec2 screen = gl_FragCoord.xy / uResolution;
     float veil = exp(-pow((screen.x-.09)/.32,2.)-pow((screen.y-.97)/.24,2.));
-    color = mix(color,uVeil,veil * mix(.86,.30,uDay));
+    color = mix(color,uVeil,veil * .30 * uDay);
     gl_FragColor = vec4(color, 1.);
     #include <colorspace_fragment>
   }
@@ -583,6 +669,18 @@ function LightShafts({ running }: { running: boolean }) {
 }
 
 function Atmosphere({ running, reduced, small }: SceneContentProps) {
+  const gl = useThree((state) => state.gl);
+  useEffect(() => {
+    const art = gl.domElement.closest<HTMLElement>('[data-scene="solstice"]');
+    if (!art) return;
+    const update = () => {
+      const date = new Date(), solar = solarTime(date.getHours() + date.getMinutes() / 60);
+      art.dataset.night = String(solar.daylight < .25);
+    };
+    update();
+    const timer = running ? setInterval(update, 1000) : undefined;
+    return () => { clearInterval(timer); delete art.dataset.night; };
+  }, [gl, running]);
   const light = useRef<THREE.DirectionalLight>(null), fill = useRef<THREE.HemisphereLight>(null), rim = useRef<THREE.DirectionalLight>(null), bounce = useRef<THREE.DirectionalLight>(null);
   const fog = useRef<THREE.Fog>(null), seeds = useRef<THREE.Points>(null);
   const elapsed = useRef(0);
@@ -613,7 +711,7 @@ function Atmosphere({ running, reduced, small }: SceneContentProps) {
     for (let i = 0; i < 32; i++) positions.push((noise(i * 3 + 9) - .5) * 18, .5 + noise(i * 7) * 3.2, (noise(i * 17) - .5) * 14);
     particles.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
     const palette = {
-      night: ["#10182f", "#303a60", "#7b8d9f"],
+      night: ["#090d28", "#1b2549", "#7b8d9f"],
       dawn: ["#655d9d", "#d295b4", "#f3bb94"],
       day: ["#17558e", "#6ca5cf", "#d6e1e7"],
       golden: ["#524f91", "#c88a8e", "#f7b269"],
@@ -631,7 +729,7 @@ function Atmosphere({ running, reduced, small }: SceneContentProps) {
     live.current = resources;
     return () => { live.current = null; resources.sky.dispose(); resources.mist.dispose(); resources.particles.dispose(); };
   }, [resources]);
-  useFrame(({ gl, size }, delta) => {
+  useFrame(({ size }, delta) => {
     const resources = live.current;
     if (!running || !resources) return;
     const date = new Date(), hours = date.getHours() + date.getMinutes() / 60 + date.getSeconds() / 3600;
