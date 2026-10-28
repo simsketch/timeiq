@@ -1,7 +1,10 @@
 import type { ComponentType } from "react";
 import type { MeetingType } from "../booking-profile";
 
-export type SceneId = "soft-watches" | "time-machine" | "sanctum" | "orrery" | "solstice";
+export type SceneId = "soft-watches" | "time-machine" | "sanctum" | "orrery" | "solstice" | "maya";
+
+/** A host can also choose no scene: the booking page is just their profile. */
+export const NO_SCENE = "none";
 
 /**
  * What every scene's content receives. The shared SceneCanvas owns the

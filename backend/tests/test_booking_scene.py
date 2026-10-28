@@ -23,7 +23,8 @@ def test_unknown_scene_is_rejected():
 def test_scene_list_matches_the_frontend_registry():
     # The SceneId union in the frontend is the source of truth for what exists.
     union = re.search(r"export type SceneId = ([^;]+);", REGISTRY.read_text()).group(1)
-    assert set(re.findall(r'"([a-z-]+)"', union)) == BOOKING_SCENES
+    # Plus "none", a host's choice to show no scene at all.
+    assert set(re.findall(r'"([a-z-]+)"', union)) | {"none"} == BOOKING_SCENES
 
 
 def test_public_profile_carries_the_scene_and_defaults_to_none():

@@ -1,6 +1,7 @@
-import type { SceneDefinition, SceneId } from "./types";
+import { NO_SCENE, type SceneDefinition, type SceneId } from "./types";
 
 export type { SceneId } from "./types";
+export { NO_SCENE } from "./types";
 
 export const DEFAULT_SCENE: SceneId = "soft-watches";
 
@@ -88,9 +89,28 @@ export const SCENES: Record<SceneId, SceneDefinition> = {
     toneMappingExposure: .98,
     load: () => import("./solstice"),
   },
+  maya: {
+    id: "maya",
+    name: "Maya calendar",
+    blurb: "Carved calendar wheels set to today's Maya date, beside a stepped pyramid.",
+    still: "/booking/maya-still.webp",
+    still640: "/booking/maya-still-640.webp",
+    backdrop: "linear-gradient(#e9c79a, #d79a62 60%, #6f7a4a)",
+    ink: "dark",
+    camera: {
+      position: [7, 4, 13], target: [0, 2, 0], fov: 38, fovSmall: 42,
+      minDistance: 8, maxDistance: 22, minPolarAngle: 50 * deg, maxPolarAngle: 86 * deg, azimuthRange: 60 * deg,
+    },
+    load: () => import("./maya"),
+  },
 };
 
 export const SCENE_IDS = Object.keys(SCENES) as SceneId[];
+
+/** True when the host chose to show no scene on their booking page. */
+export function isNoScene(id: string | null | undefined): boolean {
+  return id === NO_SCENE;
+}
 
 export function sceneFor(id: string | null | undefined): SceneDefinition {
   return SCENES[(id && id in SCENES ? id : DEFAULT_SCENE) as SceneId];
