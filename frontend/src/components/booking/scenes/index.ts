@@ -79,12 +79,13 @@ export const SCENES: Record<SceneId, SceneDefinition> = {
     blurb: "An ancient stone circle keeping time by the sun.",
     still: "/booking/solstice-still.webp",
     still640: "/booking/solstice-still-640.webp",
-    backdrop: "linear-gradient(#c9d4e6, #ecd8bf 60%, #b8a07a)",
+    backdrop: "linear-gradient(#a9c9e1, #d5dfdf 55%, #64744e)",
     ink: "dark",
     camera: {
-      position: [9, 4.5, 14], target: [0, 1.5, 0], fov: 36, fovSmall: 40,
-      minDistance: 9, maxDistance: 26, minPolarAngle: 45 * deg, maxPolarAngle: 86 * deg, azimuthRange: 180 * deg,
+      position: [9.5, 4.8, 18.8], positionSmall: [7.8, 7.6, 19.5], target: [0, 2.45, 0], fov: 40, fovSmall: 40, far: 210,
+      minDistance: 15, maxDistance: 28, minPolarAngle: 45 * deg, maxPolarAngle: 84 * deg, azimuthRange: 45 * deg,
     },
+    toneMappingExposure: .98,
     load: () => import("./solstice"),
   },
 };

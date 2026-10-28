@@ -40,4 +40,7 @@ alembic/versions/__pycache__/
 .vercel
 .playwright-mcp/
 
+# Local scene review captures
+/solstice-*.png
+
 .claude/worktrees/
