@@ -491,6 +491,10 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
     transient = False
     try:
         detail, attachments = await fetch_email(email_id)
+        if booking_id:
+            # Preserve the delivery context even for Bcc/forwarded mail whose
+            # To/Cc headers omit the booking address. It is not an import inbox.
+            detail["received_for"] = [f"booking-{booking_id}@{settings.INBOUND_DOMAIN}"]
         # A thread about meeting up (cc TimeIQ), or a reply on one, goes to the
         # meeting agent; everything else is a schedule to import.
         from app.services import meeting_agent

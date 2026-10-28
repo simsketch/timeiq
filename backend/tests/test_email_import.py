@@ -1,9 +1,12 @@
 """Email a schedule in. Resend and Claude are mocked; the database is real."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import uuid
+from unittest.mock import AsyncMock
 from zoneinfo import ZoneInfo
 
+import pytest
 from sqlalchemy import select
 
 from app.config import settings
@@ -12,6 +15,8 @@ from app.models.cached_event import CachedEvent
 from app.models.calendar_source import CalendarSource
 from app.models.email_import import EmailImport
 from app.models.user import User
+from app.models.booking import Booking
+from app.models.event_type import EventType
 from app.services import email_import
 from app.services.email_import import Attachment, ExtractedEvent, Extraction, rows_from_extraction, token_from_recipients
 from tests.test_qa_db_races import env, pytestmark as db_only  # noqa: F401
@@ -87,6 +92,42 @@ async def _setup(env, monkeypatch, attachments, extraction=None, text="See attac
 def _payload(token, email_id, sender="parent@example.com"):
     return {"type": "email.received", "data": {"email_id": email_id, "from": f"Parent <{sender}>",
                                                "to": [f"schedule-{token}@{settings.INBOUND_DOMAIN}"], "subject": "Fall soccer"}}
+
+
+@db_only
+@pytest.mark.parametrize("booking_status,authentication", [
+    ("pending_payment", {"dmarc": "pass"}),
+    ("confirmed", {"dmarc": "fail", "dkim": "fail"}),
+])
+async def test_booking_envelope_cannot_fall_through_to_schedule_import(env, monkeypatch, booking_status, authentication):
+    user, _, calls = await _setup(env, monkeypatch, [Attachment(filename="season.ics", content_type="text/calendar", data=ICS)])
+    async with async_session() as db:
+        event = EventType(user_id=user.id, name="Call", slug="call", duration_minutes=30)
+        db.add(event)
+        await db.flush()
+        booking = Booking(event_type_id=event.id, host_user_id=user.id, visitor_name="Guest",
+                          visitor_email="guest@example.com", starts_at=NOW + timedelta(days=1),
+                          ends_at=NOW + timedelta(days=1, minutes=30), timezone="UTC", status=booking_status)
+        db.add(booking)
+        await db.commit()
+    from app.services import booking_agent
+    action = AsyncMock()
+    monkeypatch.setattr(booking_agent, "read_action", action)
+    # A Bcc/envelope recipient need not appear in the message's To/Cc headers.
+    async def fetch(email_id):
+        return {"from": user.email, "to": [user.email], "headers": {"From": user.email},
+                "authentication": authentication, "text": "See attached schedule."}, [
+                    Attachment(filename="season.ics", content_type="text/calendar", data=ICS)]
+    monkeypatch.setattr(email_import, "fetch_email", fetch)
+    record = await email_import.process_inbound({"type": "email.received", "data": {
+        "email_id": f"em_booking_{uuid.uuid4().hex}", "from": user.email,
+        "received_for": [booking_agent.reply_address(booking)], "to": [user.email],
+    }}, now=NOW)
+    assert record.status == "ignored" and record.event_count == 0
+    action.assert_not_awaited()
+    assert calls == [] and env.mail == []
+    async with async_session() as db:
+        assert (await db.execute(select(CachedEvent).where(CachedEvent.user_id == user.id))).first() is None
 
 
 @db_only

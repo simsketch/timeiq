@@ -97,7 +97,7 @@ async def test_cancel_uses_public_path_and_sends_calendar_cancellations(env, mon
     assert env.booking.status == "cancelled" and env.booking.ical_sequence == 1
     assert {m["to"][0] for m in env.mail} == {env.owner.email, env.booking.visitor_email}
     assert all("METHOD:CANCEL" in m["attachments"][0]["content"] for m in env.mail)
-    env.db.commit.assert_awaited_once()
+    assert env.db.commit.await_count == 2
 
 
 async def test_rate_limit_prevents_more_agent_replies(env):

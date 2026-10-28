@@ -11,6 +11,7 @@ import json
 import re
 import time
 import uuid
+from unittest.mock import AsyncMock
 from datetime import datetime, time as day_time, timedelta, timezone
 from types import SimpleNamespace as NS
 
@@ -277,6 +278,51 @@ async def test_double_book_race_creates_one_checkout(env):
     responses = await asyncio.gather(*[env.client.post(f"/api/public/{env.host.username}/call/book", json=payload(visitor_email=f"guest{i}@example.com")) for i in range(6)])
     assert sorted(r.status_code for r in responses) == [201] + [409] * 5
     assert len(env.fake.created) == 1 and env.mail == []
+
+
+async def test_email_cancellation_and_public_reschedule_share_lock_order(env, monkeypatch):
+    from app.services import booking_agent, meeting_agent
+
+    booking = await book(env)
+    await pay(env, booking)
+    email_locked = asyncio.Event()
+    booking_locked = asyncio.Event()
+    limit = P.limit_booking_emails
+    find = booking_agent.find_booking
+
+    async def limit_with_barrier(db, email, *, cancellation=False):
+        await limit(db, email, cancellation=cancellation)
+        if not cancellation:
+            email_locked.set()
+            await booking_locked.wait()
+
+    async def find_with_barrier(*args):
+        found = await find(*args)
+        booking_locked.set()
+        return found
+
+    monkeypatch.setattr(P, "limit_booking_emails", limit_with_barrier)
+    monkeypatch.setattr(booking_agent, "find_booking", find_with_barrier)
+    monkeypatch.setattr(booking_agent, "read_action", AsyncMock(return_value=booking_agent.BookingAction(intent="cancel")))
+    monkeypatch.setattr(meeting_agent, "claim_message", AsyncMock(return_value=True))
+
+    async def cancel_by_email():
+        await email_locked.wait()
+        async with async_session() as db:
+            owner = await db.get(User, env.host.id)
+            return await booking_agent.handle(db, owner, {
+                "to": [booking_agent.reply_address(booking)], "authentication": {"dmarc": "pass"},
+                "text": "Please cancel", "message_id": f"<{uuid.uuid4()}@example.com>",
+            }, booking.visitor_email, [], datetime.now(timezone.utc))
+
+    response, outcome = await asyncio.wait_for(asyncio.gather(
+        env.client.post(f"/api/public/bookings/{booking.id}/reschedule?token={booking.cancel_token}",
+                        json=payload(starts_at=(booking.starts_at + timedelta(hours=1)).isoformat())),
+        cancel_by_email(),
+    ), timeout=5)
+    assert response.status_code in (201, 400), response.text
+    assert outcome in ("meeting_cancelled", "ignored")
+    assert (response.status_code == 201) == (outcome == "ignored")
 
 
 async def test_expiry_closes_checkout_before_releasing_slot(env):

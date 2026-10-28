@@ -106,7 +106,7 @@ async def find_booking(db, owner, refs, detail) -> Booking | None:
     from app.services.meeting_agent import _header
 
     recipients = [_header(detail, "to"), _header(detail, "cc")]
-    for field in ("to", "cc"):
+    for field in ("received_for", "to", "cc"):
         value = detail.get(field) or []
         recipients.extend([value] if isinstance(value, str) else value)
     addressed = booking_id_from_recipients(recipients)
@@ -209,6 +209,8 @@ async def handle(db, owner, detail, sender, refs, now, *, request=None) -> str |
         return "ignored"
     if booking is not None and sender not in {(owner.email or "").lower(), booking.visitor_email.lower()}:
         return "ignored"
+    if booking is not None and (booking.status != "confirmed" or booking.starts_at <= now):
+        return "ignored"
     recent = await db.scalar(select(func.count()).select_from(EmailImport).where(
         EmailImport.user_id == owner.id, EmailImport.created_at > now - timedelta(days=1),
         EmailImport.status != "ignored",
@@ -242,10 +244,18 @@ async def handle(db, owner, detail, sender, refs, now, *, request=None) -> str |
     booking.email_thread_ids = list(dict.fromkeys([*(booking.email_thread_ids or []), *refs]))[-100:]
     if action and action.intent == "cancel":
         # The host's own cancel path refunds a paid booking in full; a guest's follows the refund policy.
-        if sender == (owner.email or "").lower():
-            await routes.cancel_booking_as_host(booking.id, user=owner, db=db)
-        else:
-            await routes.cancel_booking_by_visitor(booking.id, token=booking.cancel_token, db=db)
+        # Release the thread's row lock before the public path takes its email
+        # lock. Both routes recheck the booking under their own row lock.
+        await db.commit()
+        try:
+            if sender == (owner.email or "").lower():
+                await routes.cancel_booking_as_host(booking.id, user=owner, db=db)
+            else:
+                await routes.cancel_booking_by_visitor(booking.id, token=booking.cancel_token, db=db)
+        except HTTPException as exc:
+            if exc.status_code != 400:
+                raise
+            return "ignored"  # A concurrent cancellation or reschedule won.
         return "meeting_cancelled"
 
     offered = _offer_for(booking, refs, now)
