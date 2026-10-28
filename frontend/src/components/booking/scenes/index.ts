@@ -109,12 +109,14 @@ export const SCENES: Record<SceneId, SceneDefinition> = {
     blurb: "Antique clocks, each keeping the real time in a city around the world.",
     still: "/booking/world-clocks-still.webp",
     still640: "/booking/world-clocks-still-640.webp",
-    backdrop: "linear-gradient(#3a2c22, #5a4330 60%, #2c211a)",
+    backdrop: "linear-gradient(#38291d, #67452b 55%, #302118)",
     ink: "light",
     camera: {
-      position: [0, 2.2, 9], target: [0, 2.2, 0], fov: 40, fovSmall: 46,
-      minDistance: 5, maxDistance: 12, minPolarAngle: 70 * deg, maxPolarAngle: 100 * deg, azimuthRange: 35 * deg,
+      position: [.25, 3.45, 14.6], positionSmall: [.15, 3.35, 11.8], target: [0, 3.05, .1],
+      fov: 35, fovSmall: 40, far: 65,
+      minDistance: 10.6, maxDistance: 17.5, minPolarAngle: 84 * deg, maxPolarAngle: 96 * deg, azimuthRange: 26 * deg,
     },
+    toneMappingExposure: 1.12,
     load: () => import("./world-clocks"),
   },
   "atomic": {
