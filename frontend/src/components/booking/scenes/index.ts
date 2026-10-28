@@ -1,7 +1,7 @@
-import { NO_SCENE, type SceneDefinition, type SceneId } from "./types";
+import { NO_SCENE, RANDOM_SCENE, type SceneDefinition, type SceneId } from "./types";
 
 export type { SceneId } from "./types";
-export { NO_SCENE } from "./types";
+export { NO_SCENE, RANDOM_SCENE } from "./types";
 
 export const DEFAULT_SCENE: SceneId = "soft-watches";
 
@@ -104,9 +104,71 @@ export const SCENES: Record<SceneId, SceneDefinition> = {
     toneMappingExposure: 1.05,
     load: () => import("./maya"),
   },
+  "world-clocks": {
+    id: "world-clocks",
+    name: "Wall of clocks",
+    blurb: "Antique clocks, each keeping the real time in a city around the world.",
+    still: "/booking/world-clocks-still.webp",
+    still640: "/booking/world-clocks-still-640.webp",
+    backdrop: "linear-gradient(#3a2c22, #5a4330 60%, #2c211a)",
+    ink: "light",
+    camera: {
+      position: [0, 2.2, 9], target: [0, 2.2, 0], fov: 40, fovSmall: 46,
+      minDistance: 5, maxDistance: 12, minPolarAngle: 70 * deg, maxPolarAngle: 100 * deg, azimuthRange: 35 * deg,
+    },
+    load: () => import("./world-clocks"),
+  },
+  "atomic": {
+    id: "atomic",
+    name: "Atomic clock",
+    blurb: "Laser-cooled atoms rising and falling in a cesium fountain, ticking real seconds.",
+    still: "/booking/atomic-still.webp",
+    still640: "/booking/atomic-still-640.webp",
+    backdrop: "linear-gradient(#0b1020, #141b33 60%, #0d1222)",
+    ink: "light",
+    camera: {
+      position: [6, 3.5, 9], target: [0, 2.2, 0], fov: 38, fovSmall: 42,
+      minDistance: 6, maxDistance: 15, minPolarAngle: 50 * deg, maxPolarAngle: 92 * deg, azimuthRange: 70 * deg,
+    },
+    load: () => import("./atomic"),
+  },
+  "lava-lamp": {
+    id: "lava-lamp",
+    name: "Lava lamp lounge",
+    blurb: "A warm seventies den, lava lamps glowing beside a flip clock.",
+    still: "/booking/lava-lamp-still.webp",
+    still640: "/booking/lava-lamp-still-640.webp",
+    backdrop: "linear-gradient(#3b1d2b, #6a2f3a 60%, #2a1520)",
+    ink: "light",
+    camera: {
+      position: [3.5, 2.6, 8], target: [0, 1.6, 0], fov: 38, fovSmall: 42,
+      minDistance: 5, maxDistance: 12, minPolarAngle: 55 * deg, maxPolarAngle: 92 * deg, azimuthRange: 50 * deg,
+    },
+    load: () => import("./lava-lamp"),
+  },
+  "digital-rain": {
+    id: "digital-rain",
+    name: "Digital rain",
+    blurb: "Falling green code, with the real time resolving out of the stream.",
+    still: "/booking/digital-rain-still.webp",
+    still640: "/booking/digital-rain-still-640.webp",
+    backdrop: "linear-gradient(#020604, #04120a 60%, #010302)",
+    ink: "light",
+    camera: {
+      position: [0, 0, 10], target: [0, 0, 0], fov: 45, fovSmall: 52,
+      minDistance: 6, maxDistance: 14, minPolarAngle: 70 * deg, maxPolarAngle: 110 * deg, azimuthRange: 40 * deg,
+    },
+    load: () => import("./digital-rain"),
+  },
 };
 
 export const SCENE_IDS = Object.keys(SCENES) as SceneId[];
+
+/** Resolve a stored choice for one page view: Random picks any scene. */
+export function resolveSceneChoice(id: string | null | undefined): string | null | undefined {
+  if (id !== RANDOM_SCENE) return id;
+  return SCENE_IDS[Math.floor(Math.random() * SCENE_IDS.length)];
+}
 
 /** True when the host chose to show no scene on their booking page. */
 export function isNoScene(id: string | null | undefined): boolean {
