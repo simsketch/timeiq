@@ -36,6 +36,12 @@ const withClerk = clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {
     await auth.protect();
   }
+  if (request.nextUrl.pathname.startsWith("/book/")) {
+    const response = NextResponse.next();
+    response.headers.set("Content-Security-Policy", "frame-ancestors 'self'");
+    response.headers.set("X-Frame-Options", "SAMEORIGIN");
+    return response;
+  }
 });
 
 export default function middleware(request: NextRequest, event: NextFetchEvent) {
