@@ -9,7 +9,7 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
     <div className="relative min-h-screen overflow-hidden">
       <div className="aurora-bg aurora-bg-soft" aria-hidden />
       <div className="grain" aria-hidden />
-      <header className="relative z-10 container mx-auto flex items-center justify-between gap-4 px-6 py-5 lg:px-10">
+      <header className="relative z-10 container mx-auto flex items-center justify-between gap-4 px-4 py-5 sm:px-6 lg:px-10">
         <Link href="/" className="flex items-center gap-2.5">
           <LogoIcon />
           <span className="text-xl font-semibold tracking-tight">TimeIQ</span>
@@ -17,6 +17,7 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
         <nav className="flex items-center gap-1 text-sm sm:gap-5">
           <Link href="/tools" className="px-2 py-1 text-muted-foreground hover:text-foreground">Free tools</Link>
           <Link href="/blog" className="px-2 py-1 text-muted-foreground hover:text-foreground">Blog</Link>
+          <Link href="/mcp" className="hidden px-2 py-1 text-muted-foreground hover:text-foreground lg:inline">AI assistants</Link>
           <Link href="/pricing" className="hidden px-2 py-1 text-muted-foreground hover:text-foreground sm:inline">Pricing</Link>
           <Link href="/billing/checkout" className="hidden sm:inline">
             <Button size="sm">Get started</Button>
@@ -25,11 +26,12 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
       </header>
       <main className="relative z-10">{children}</main>
       <footer className="relative z-10 border-t border-foreground/5">
-        <div className="container mx-auto flex flex-wrap items-center justify-between gap-4 px-6 py-10 text-sm text-muted-foreground lg:px-10">
+        <div className="container mx-auto flex flex-wrap items-center justify-between gap-4 px-4 py-10 text-sm text-muted-foreground sm:px-6 lg:px-10">
           <span>© 2026 TimeIQ, a Yoyo Code creation</span>
-          <div className="flex gap-5">
+          <div className="flex flex-wrap gap-x-5 gap-y-3">
             <Link href="/tools" className="hover:text-foreground">Free tools</Link>
             <Link href="/blog" className="hover:text-foreground">Blog</Link>
+            <Link href="/mcp" className="hover:text-foreground">AI assistants</Link>
             <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
             <Link href="/terms" className="hover:text-foreground">Terms</Link>
           </div>
