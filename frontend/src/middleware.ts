@@ -1,5 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -22,19 +22,30 @@ const isPublicRoute = createRouteMatcher([
   "/api(.*)",
 ]);
 
-export default clerkMiddleware(async (auth, request) => {
+// An embedded booking page loads in a third-party iframe, where Clerk's
+// handshake redirect can't be framed. Booking pages are public, so embeds
+// skip Clerk entirely.
+function isEmbeddedBooking(request: NextRequest) {
+  const params = request.nextUrl.searchParams;
+  return request.nextUrl.pathname.startsWith("/book/")
+    && params.getAll("embed").length === 1
+    && params.get("embed") === "1";
+}
+
+const withClerk = clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {
     await auth.protect();
   }
-  if (request.nextUrl.pathname.startsWith("/book/")) {
+});
+
+export default function middleware(request: NextRequest, event: NextFetchEvent) {
+  if (isEmbeddedBooking(request)) {
     const response = NextResponse.next();
-    const embedded = request.nextUrl.searchParams.getAll("embed").length === 1
-      && request.nextUrl.searchParams.get("embed") === "1";
-    response.headers.set("Content-Security-Policy", `frame-ancestors ${embedded ? "*" : "'self'"}`);
-    if (!embedded) response.headers.set("X-Frame-Options", "SAMEORIGIN");
+    response.headers.set("Content-Security-Policy", "frame-ancestors *");
     return response;
   }
-});
+  return withClerk(request, event);
+}
 
 export const config = {
   matcher: [
