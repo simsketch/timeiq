@@ -26,14 +26,16 @@ Booking pages, weekly timesheets and invoices for freelancers, in one app.
 
 TimeIQ runs an [MCP](https://modelcontextprotocol.io) server at `/mcp` on the API (`https://api.timeiq.app/mcp` for the hosted app), so Claude, ChatGPT, Cursor and other MCP clients can work with your account: check your free times, find a time with several people, import a schedule from text, log hours and send invoices.
 
-1. In TimeIQ, open **Settings → AI assistants (MCP)** and create a token.
-2. Add the server to your client, sending the token as a Bearer header. For Claude Code:
+1. In Claude (web or desktop) or ChatGPT, add a custom connector with `https://api.timeiq.app/mcp`, sign in to TimeIQ and click Allow. Manage connected apps in **Settings → AI assistants (MCP)**.
+2. For Claude Code, Cursor and clients that use headers, create a personal token in the same Settings card. For Claude Code:
 
    ```sh
    claude mcp add --transport http timeiq https://api.timeiq.app/mcp --header "Authorization: Bearer tiq_…"
    ```
 
 Tools call TimeIQ's own API with your token, so they follow the same rules as the app. Tools that email people or change shared calendars are marked destructive, so clients confirm with you first. Tokens can't create other tokens or delete your account, and you can revoke one any time in Settings.
+
+OAuth uses `BACKEND_URL` as its issuer and MCP resource base, `FRONTEND_URL` for consent, and `NEXT_PUBLIC_API_URL` for the connector URL in Settings. Use public HTTPS URLs outside localhost. Apply migration `023_oauth` after `022_api_tokens` before deploying OAuth; no new secrets are required.
 
 ## Self-hosting
 

@@ -18,6 +18,13 @@ interface ApiToken {
   last_used_at: string | null;
 }
 
+interface ConnectedApp {
+  id: string;
+  client_name: string;
+  created_at: string;
+  last_used_at: string | null;
+}
+
 const MCP_URL = `${API_BASE.replace(/\/$/, "")}/mcp`;
 
 type Client = "claude-code" | "json";
@@ -41,6 +48,8 @@ export function ApiTokensCard() {
   const { getToken } = useAuth();
   const { toast } = useToast();
   const [tokens, setTokens] = useState<ApiToken[] | null>(null);
+  const [apps, setApps] = useState<ConnectedApp[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<string | null>(null);
@@ -51,9 +60,16 @@ export function ApiTokensCard() {
 
   const load = useCallback(async () => {
     try {
-      setTokens(await apiFetch<ApiToken[]>("/api/me/tokens", { headers: await authed() }));
+      const headers = await authed();
+      const [tokens, apps] = await Promise.all([
+        apiFetch<ApiToken[]>("/api/me/tokens", { headers }),
+        apiFetch<ConnectedApp[]>("/api/me/connections", { headers }),
+      ]);
+      setTokens(tokens);
+      setApps(apps);
+      setLoadError(false);
     } catch {
-      setTokens([]);
+      setLoadError(true);
     }
   }, [authed]);
 
@@ -99,6 +115,16 @@ export function ApiTokensCard() {
     setTimeout(() => setCopied((c) => (c === what ? null : c)), 1600);
   }
 
+  async function disconnect(app: ConnectedApp) {
+    try {
+      await apiFetch(`/api/me/connections/${app.id}`, { method: "DELETE", headers: await authed() });
+      toast({ title: `Disconnected ${app.client_name}` });
+      await load();
+    } catch (error) {
+      toast({ title: "Couldn't disconnect the app", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -110,11 +136,44 @@ export function ApiTokensCard() {
         </p>
       </CardHeader>
       <CardContent className="space-y-5">
+        <div className="space-y-2">
+          <p className="text-sm">Claude (web and desktop) and ChatGPT: add a custom connector with this URL.</p>
+          <div className="flex gap-2">
+            <Input value={MCP_URL} readOnly className="font-mono text-xs" aria-label="MCP connector URL" />
+            <Button type="button" variant="outline" onClick={() => copy(MCP_URL, "url")} aria-label="Copy connector URL">
+              {copied === "url" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">Sign in and click Allow. No token needed.</p>
+        </div>
+
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">Connected apps</h3>
+          {apps === null ? !loadError && <p className="text-sm text-muted-foreground">Loading connected apps…</p> : apps.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No connected apps yet.</p>
+          ) : (
+            <ul className="divide-y rounded-lg border">
+              {apps.map((app) => (
+                <li key={app.id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{app.client_name}</p>
+                    <p className="text-xs text-muted-foreground">Connected {when(app.created_at)} · last used {when(app.last_used_at)}</p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={() => disconnect(app)}>Disconnect</Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {loadError && <p role="alert" className="text-sm text-destructive">Couldn&apos;t load your connections. <button type="button" onClick={load} className="underline">Try again</button>.</p>}
+
+        <h3 className="text-sm font-medium">Personal tokens for Claude Code, Cursor and other clients</h3>
         <form onSubmit={create} className="flex gap-2">
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Name this token, e.g. Claude Desktop"
+            placeholder="Name this token, e.g. Claude Code"
             maxLength={100}
             aria-label="Token name"
           />
@@ -133,7 +192,7 @@ export function ApiTokensCard() {
               </Button>
             </div>
             <div className="flex gap-1 text-xs" role="tablist" aria-label="Setup instructions">
-              {([["claude-code", "Claude Code"], ["json", "Claude Desktop, Cursor & others"]] as const).map(([id, label]) => (
+              {([["claude-code", "Claude Code"], ["json", "Cursor and other clients"]] as const).map(([id, label]) => (
                 <button
                   key={id}
                   type="button"
@@ -162,7 +221,7 @@ export function ApiTokensCard() {
             <p className="text-xs text-muted-foreground">
               {client === "claude-code"
                 ? "Run it in a terminal; TimeIQ's tools appear in your next Claude Code session."
-                : "Add it to the client's MCP settings (Claude Desktop: Settings → Developer → Edit config; Cursor: Settings → MCP)."}
+                : "Add this JSON to the client's MCP settings (Cursor: Settings → MCP)."}
               {" "}Server URL: <code className="font-mono">{MCP_URL}</code>
             </p>
           </div>

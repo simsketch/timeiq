@@ -98,7 +98,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
       }
     }
 
-    throw new Error(errorMessage(error?.detail));
+    throw new Error(errorMessage(error?.detail ?? error?.error_description));
   }
   if (res.status === 204) {
     return undefined as T;
