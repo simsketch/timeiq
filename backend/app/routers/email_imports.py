@@ -103,6 +103,35 @@ async def new_address(user: User = Depends(get_current_user), db: AsyncSession =
     return await _inbox(db, user)
 
 
+class TextImportIn(BaseModel):
+    text: str
+    name: Optional[str] = None
+
+
+class ImportedEvent(BaseModel):
+    title: str
+    starts_at: datetime
+    ends_at: datetime
+    is_all_day: bool
+
+
+class TextImportOut(BaseModel):
+    id: uuid.UUID
+    status: str
+    name: Optional[str]
+    events: list[ImportedEvent]
+
+
+@router.post("/api/email-imports/text", response_model=TextImportOut, status_code=status.HTTP_201_CREATED)
+async def import_text(data: TextImportIn, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Import a schedule from pasted text into the "From email" calendar (undo as usual)."""
+    try:
+        record, rows = await email_import.import_text(db, user, data.text, data.name)
+    except email_import.ImportRejected as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    return {"id": record.id, "status": record.status, "name": record.subject, "events": rows}
+
+
 @router.post("/api/email-imports/{import_id}/undo", response_model=UndoResult)
 async def undo_import(import_id: uuid.UUID, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     record = await db.get(EmailImport, import_id)

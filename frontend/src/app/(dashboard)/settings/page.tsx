@@ -23,6 +23,7 @@ import Link from "next/link";
 import { BillingStatus, PLAN_LABEL, fetchBillingStatus, openPortal } from "@/lib/billing";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { BookingScenePicker } from "@/components/booking-scene-picker";
+import { ApiTokensCard } from "@/components/api-tokens-card";
 
 interface UserSettings {
   name: string;
@@ -386,6 +387,8 @@ export default function SettingsPage() {
       </form>
 
       <BookingScenePicker username={settings.username} initial={settings.booking_scene} />
+
+      <ApiTokensCard />
 
       <Card>
         <CardHeader>

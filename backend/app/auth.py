@@ -52,8 +52,8 @@ def _find_rsa_key(jwks: dict[str, Any], kid: str) -> dict[str, Any] | None:
 CLERK_USER_ID = re.compile(r"user_[A-Za-z0-9]+")
 
 
-async def get_current_user_clerk_id(request: Request) -> str:
-    """Verify the Clerk JWT from the Authorization header and return the clerk_id (sub claim)."""
+async def get_current_user_clerk_id(request: Request, db: AsyncSession = Depends(get_db)) -> str:
+    """Return the clerk_id of the caller: a Clerk session JWT, or a personal access token."""
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(
@@ -62,6 +62,17 @@ async def get_current_user_clerk_id(request: Request) -> str:
         )
 
     token = auth_header.split(" ", 1)[1]
+
+    # Personal access tokens (Settings → API tokens), used by MCP clients and scripts.
+    from app.services import api_tokens
+
+    if api_tokens.looks_like_token(token):
+        user = await api_tokens.user_for(db, token)
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or revoked API token")
+        request.state.auth_method = "token"
+        return user.clerk_id
+    request.state.auth_method = "session"
 
     try:
         # Decode header to get kid
@@ -123,6 +134,16 @@ async def get_current_user_clerk_id(request: Request) -> str:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token: {str(e)}",
+        )
+
+
+def require_session_auth(request: Request) -> None:
+    """Refuse API tokens: for creating tokens and deleting the account, so a leaked
+    token can't mint more tokens or destroy the account."""
+    if getattr(request.state, "auth_method", None) == "token":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Sign in on timeiq.app to do this; API tokens can't.",
         )
 
 
