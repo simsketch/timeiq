@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowUpRight, MapPin } from "lucide-react";
 import { LogoIcon } from "@/components/logo";
 import { BookingScene } from "./booking-scene";
+import { sceneFor } from "./scenes";
 import styles from "./booking-profile.module.css";
 
 export interface MeetingType {
@@ -21,6 +22,7 @@ export interface PublicProfile {
   username: string;
   name: string;
   image_url: string | null;
+  booking_scene?: string | null;
   event_types: MeetingType[];
 }
 
@@ -53,13 +55,14 @@ export function BookingProfile({ profile }: { profile: PublicProfile | null }) {
   const [focused, setFocused] = useState<MeetingType | null>(null);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const active = hovered || focused;
+  const scene = sceneFor(profile?.booking_scene);
   const name = profile?.name || profile?.username || "";
   const initials = name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 
   return (
     <main className={styles.page}>
-      <div className={styles.art}>
-        <BookingScene active={active} />
+      <div className={`${styles.art} ${scene.ink === "light" ? styles.inkLight : ""}`}>
+        <BookingScene active={active} sceneId={scene.id} />
         <Link href="/" className={styles.wordmark} aria-label="TimeIQ home">
           <LogoIcon className="h-6 w-6" />
           <span className="font-display">TimeIQ</span>

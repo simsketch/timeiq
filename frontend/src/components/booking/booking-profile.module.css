@@ -51,3 +51,15 @@
 @media (prefers-reduced-motion: reduce) {
   .meeting, .meeting::before, .rowArrow { transition: none; }
 }
+
+.cameraControls { position: absolute; right: 18px; bottom: 16px; z-index: 2; display: flex; gap: 2px; padding: 4px; border-radius: 999px; background: #faf9f6b8; box-shadow: 0 6px 20px #2823391a; backdrop-filter: blur(10px); opacity: .55; transition: opacity 200ms; }
+.art:hover .cameraControls, .cameraControls:focus-within { opacity: 1; }
+.cameraControls button { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #4a4352; transition: background 160ms, color 160ms; }
+.cameraControls button:hover { background: #38323f14; color: #282734; }
+.cameraControls button:focus-visible { outline: 2px solid #7760ee; outline-offset: 1px; }
+.cameraControls svg { width: 16px; height: 16px; }
+.inkLight .wordmark, .inkLight .artCaption { color: #f3eee6; }
+.inkLight .cameraControls { background: #17141fa6; box-shadow: 0 6px 20px #0000003a; }
+.inkLight .cameraControls button { color: #e9e3da; }
+.inkLight .cameraControls button:hover { background: #ffffff1a; color: #fff; }
+@media (prefers-reduced-motion: reduce) { .cameraControls { transition: none; } }

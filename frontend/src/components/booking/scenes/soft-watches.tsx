@@ -3,16 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import type { MeetingType } from "./booking-profile";
+import type { MeetingType } from "../booking-profile";
+import type { SceneContentProps } from "./types";
 
-interface SceneProps {
-  active: MeetingType | null;
-  running: boolean;
-  reduced: boolean;
-  small: boolean;
-  /** Called once the shaders have compiled and the first frame can show. */
-  onReady?: () => void;
-}
 
 type WatchShape = "hanging" | "ledge" | "puddle";
 const TAU = Math.PI * 2;
@@ -440,37 +433,15 @@ function brassShader(shader: THREE.WebGLProgramParametersWithUniforms) {
   `);
 }
 
-function Landscape({ active, running, reduced, small }: SceneProps) {
-  const { invalidate, camera, pointer } = useThree();
+function Landscape({ active, running, reduced }: SceneContentProps) {
   const elapsed = useRef(0), time = useRef(0);
   const enamel = useMemo(() => createEnamel(), []);
-  const base = useMemo(() => new THREE.Vector3(small ? 4.5 : 4.6, small ? 5.6 : 5.4, small ? 16.8 : 15.8), [small]);
-  const aim = useMemo(() => new THREE.Vector3(-.05, 2.5, 0), []);
-  const target = useMemo(() => new THREE.Vector3(), []);
-  useEffect(() => {
-    if (!running) return;
-    invalidate();
-    // Demand rendering is completely paused when hidden/offscreen. Reduced
-    // motion still wakes on the minute; wall time never depends on the drip.
-    let timer: ReturnType<typeof setTimeout>;
-    const next = () => {
-      invalidate();
-      timer = setTimeout(next, reduced ? 60000 - Date.now() % 60000 + 20 : 1000 / (small ? 16 : 24));
-    };
-    next();
-    return () => clearTimeout(timer);
-  }, [running, reduced, small, invalidate]);
-  useEffect(() => { if (running) invalidate(); }, [active, running, reduced, small, invalidate]);
+  // The shared SceneCanvas owns the camera and frame pacing; this only keeps
+  // the wall clock and the melt's elapsed time for the watches.
   useFrame((_, delta) => {
     if (!running) return;
     time.current = Date.now();
     elapsed.current += Math.min(delta, .1);
-    const zoom = active && !reduced ? .18 : 0;
-    const px = reduced || small ? 0 : pointer.x * .12, py = reduced || small ? 0 : pointer.y * .08;
-    target.set(base.x + px - zoom, base.y + py, base.z - zoom * 2);
-    if (reduced || elapsed.current < .15) camera.position.copy(target);
-    else camera.position.lerp(target, 1 - Math.exp(-Math.min(delta, .1) * 3));
-    camera.lookAt(aim);
   }, -1);
   const watch = { active: null, running, reduced, elapsed, time, enamel };
   return <>
@@ -496,30 +467,4 @@ function Landscape({ active, running, reduced, small }: SceneProps) {
   </>;
 }
 
-function WarmShaders({ onReady }: { onReady: (ready: boolean) => void }) {
-  const { gl, scene, camera } = useThree();
-  useEffect(() => {
-    let cancelled = false;
-    gl.compileAsync(scene, camera).then(() => { if (!cancelled) onReady(true); });
-    return () => { cancelled = true; };
-  }, [gl, scene, camera, onReady]);
-  return null;
-}
-
-export default function DesertScene(props: SceneProps) {
-  const [compiled, setCompiled] = useState(false);
-  const { onReady } = props;
-  const handleReady = useCallback((ready: boolean) => {
-    setCompiled(ready);
-    if (ready) onReady?.();
-  }, [onReady]);
-  return <Canvas
-    aria-hidden="true" frameloop={props.running && compiled ? "demand" : "never"}
-    dpr={[1, props.small ? 1.25 : 1.75]} shadows={{ type: THREE.PCFShadowMap }}
-    camera={{ position: [4.6, 5.4, 15.8], fov: props.small ? 31 : 33.5, near: .1, far: 190 }}
-    gl={{ antialias: true, alpha: false, powerPreference: "low-power", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1 }}
-    style={{ position: "absolute", inset: 0, opacity: compiled ? 1 : 0 }}
-  >
-    <Landscape {...props} running={props.running && compiled} /><WarmShaders onReady={handleReady} />
-  </Canvas>;
-}
+export default Landscape;
