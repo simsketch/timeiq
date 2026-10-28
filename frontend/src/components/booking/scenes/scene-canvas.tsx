@@ -155,7 +155,7 @@ export function SceneCanvas({ definition, Content, active, running, small, rigRe
       aria-hidden="true"
       frameloop={live ? "demand" : "never"}
       dpr={[1, small ? 1.25 : 1.75]}
-      shadows={definition.shadows === false ? false : { type: THREE.PCFShadowMap }}
+      shadows={small || definition.shadows === false ? false : { type: THREE.PCFShadowMap }}
       camera={{ position: small && cam.positionSmall ? cam.positionSmall : cam.position, fov: small ? cam.fovSmall : cam.fov, near: cam.near ?? .1, far: cam.far ?? 200 }}
       gl={{ antialias: true, alpha: false, powerPreference: "low-power", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: definition.toneMappingExposure ?? 1 }}
       style={{ position: "absolute", inset: 0, opacity: compiled ? 1 : 0, cursor: small ? "default" : "grab" }}
