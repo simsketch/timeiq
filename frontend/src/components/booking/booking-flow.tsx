@@ -59,6 +59,7 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
   // Numbers each slots request. Only the newest one may update the list, so a
   // slow response for a previous date never shows up under the current one.
   const [slotRequests] = useState(() => ({ latest: 0 }));
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetchEventType();
@@ -164,6 +165,10 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
         }),
       });
       if (booking.status === "pending_payment" && booking.checkout_url) {
+        if (embed) {
+          setCheckoutUrl(booking.checkout_url);
+          return;
+        }
         window.location.assign(booking.checkout_url);
         return;
       }
@@ -199,6 +204,20 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
           </Link>
         </div>
       </div>
+    );
+  }
+
+  if (checkoutUrl) {
+    return (
+      <main className="min-h-screen flex items-center justify-center px-6 py-8">
+        <div className="glass rounded-[1.5rem] p-8 text-center max-w-md space-y-4">
+          <h1 className="text-2xl font-display">Complete your payment</h1>
+          <p className="text-sm text-muted-foreground">Your time is held while you check out. Open the secure payment page in a new tab to finish booking.</p>
+          <Button asChild>
+            <a href={checkoutUrl} target="_blank" rel="noopener noreferrer">Continue to payment</a>
+          </Button>
+        </div>
+      </main>
     );
   }
 
