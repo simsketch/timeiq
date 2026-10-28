@@ -63,6 +63,7 @@ export function BookingScene({ active }: { active: MeetingType | null }) {
 
     // Reduced motion or no WebGL: go straight to the painting, no spinner.
     if (matchMedia("(prefers-reduced-motion: reduce)").matches || !("WebGL2RenderingContext" in window)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- these browser capabilities don't exist during SSR
       setPhase("still");
       return () => {
         observer.disconnect();
