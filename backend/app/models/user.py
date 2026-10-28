@@ -41,6 +41,8 @@ class User(Base):
     weekly_hours_target: Mapped[int] = mapped_column(
         Integer, nullable=False, default=40, server_default="40"
     )
+    weekly_summary_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    weekly_summary_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Which 3D scene the public booking page shows; null means the default.
     booking_scene: Mapped[str | None] = mapped_column(String(32), nullable=True)
     # Billing

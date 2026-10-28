@@ -105,3 +105,6 @@ class AgentMessageClaim(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )
+    # Outgoing clarification questions also reserve their Message-ID, retaining
+    # the request so a short answer can complete it without quoted history.
+    reply_context: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

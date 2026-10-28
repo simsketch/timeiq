@@ -42,6 +42,7 @@ from app.routers import (
     timesheet_rows,
     users,
     webhooks,
+    weekly_summary,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -95,6 +96,7 @@ app.include_router(invoices.public_router)  # before public.router: see invoices
 app.include_router(google_auth.router)
 app.include_router(public.router)
 app.include_router(cron.router)
+app.include_router(weekly_summary.router)
 app.include_router(api_tokens.router)
 
 # MCP server (Streamable HTTP): AI assistants connect with a personal access token.

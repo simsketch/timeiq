@@ -7,6 +7,7 @@ from fastapi import APIRouter, Header, HTTPException, status
 
 from app.config import settings
 from app.tasks import create_monthly_invoice_drafts, send_overdue_invoice_digests, sync_all_active_calendars
+from app.services import weekly_summary
 
 logger = logging.getLogger(__name__)
 
@@ -63,3 +64,10 @@ async def cron_monthly_invoices(
     results = await create_monthly_invoice_drafts()
     logger.info(f"Monthly drafts completed: {results}")
     return {"status": "ok", "results": results}
+
+
+@router.get("/api/cron/weekly-summary")
+@router.get("/api/cron/weekly-summary-east")
+async def cron_weekly_summary(authorization: str = Header(..., description="Bearer <CRON_SECRET>")):
+    _require_cron_secret(authorization)
+    return {"status": "ok", "results": await weekly_summary.send_weekly_summaries()}

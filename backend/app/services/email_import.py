@@ -421,14 +421,23 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
     token = token_from_recipients(
         data.get("received_for") or [*(data.get("to") or []), *(data.get("cc") or []), *(data.get("bcc") or [])]
     )
+    from app.models.booking import Booking
+    from app.services.booking_agent import booking_id_from_recipients
+
+    booking_id = booking_id_from_recipients(
+        data.get("received_for") or [*(data.get("to") or []), *(data.get("cc") or []), *(data.get("bcc") or [])]
+    )
     sender = parseaddr(data.get("from") or "")[1].strip().lower()
-    if not email_id or not token:
+    if not email_id or not (token or booking_id):
         return None
     if sender.endswith("@" + settings.INBOUND_DOMAIN.lower()):
         return None  # never answer our own mail (no reply loops)
 
     async with async_session() as db:
-        user = (await db.execute(select(User).where(User.inbound_token == token))).scalar_one_or_none()
+        if booking_id:
+            user = (await db.execute(select(User).join(Booking, Booking.host_user_id == User.id).where(Booking.id == booking_id))).scalar_one_or_none()
+        else:
+            user = (await db.execute(select(User).where(User.inbound_token == token))).scalar_one_or_none()
         if user is None:
             logger.info("Inbound email for an unknown address token")
             return None
@@ -516,7 +525,7 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
                     select(func.count()).select_from(EmailImport).where(
                         EmailImport.user_id == user_id,
                         EmailImport.created_at > now - timedelta(days=1),
-                        EmailImport.status.notin_(("rejected", "ignored", "skipped", "meeting", "meeting_reply", "meeting_booked", "meeting_accepted", "meeting_error")),
+                        EmailImport.status.notin_(("rejected", "ignored", "skipped", "meeting", "meeting_reply", "meeting_booked", "meeting_accepted", "meeting_error", "meeting_cancelled", "meeting_rescheduled")),
                     )
                 )
             ).scalar_one()

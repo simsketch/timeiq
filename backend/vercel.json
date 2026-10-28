@@ -17,6 +17,14 @@
   ],
   "crons": [
     {
+      "path": "/api/cron/weekly-summary-east",
+      "schedule": "0 * * * 0"
+    },
+    {
+      "path": "/api/cron/weekly-summary",
+      "schedule": "0 * * * 1"
+    },
+    {
       "path": "/api/cron/sync-calendars",
       "schedule": "0 * * * *"
     },
