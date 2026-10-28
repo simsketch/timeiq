@@ -75,30 +75,32 @@ function glowTexture() {
   c.fillStyle = glow; c.fillRect(0, 0, 64, 64); return texture;
 }
 
-function clockTexture() {
-  const result = canvasTexture(1024, 320);
-  function draw(now: Date) {
-    const c = result.c; c.clearRect(0, 0, 1024, 320);
-    c.textAlign = "center"; c.textBaseline = "middle";
-    c.fillStyle = "#bfa585"; c.font = "19px Georgia, serif"; c.fillText("L O C A L   T I M E", 512, 66);
-    c.fillStyle = "#ffe7b6"; c.font = "96px Georgia, serif";
-    c.fillText([now.getHours(), now.getMinutes(), now.getSeconds()].map((v) => String(v).padStart(2, "0")).join(":"), 512, 152);
-    c.strokeStyle = "#ad895755"; c.lineWidth = 1; c.beginPath(); c.moveTo(320, 218); c.lineTo(704, 218); c.stroke();
-    result.texture.needsUpdate = true;
+function rosetteTexture() {
+  const { c, texture } = canvasTexture(512);
+  c.translate(256, 256); c.strokeStyle = "#fff0c9"; c.fillStyle = GOLD;
+  c.shadowColor = GOLD; c.shadowBlur = 12; c.lineWidth = 2;
+  for (let i = 0; i < 8; i++) {
+    c.save(); c.rotate(i / 8 * TAU);
+    c.beginPath(); c.moveTo(0, 0); c.bezierCurveTo(-92, -65, -45, -146, 0, -178);
+    c.bezierCurveTo(45, -146, 92, -65, 0, 0); c.stroke();
+    c.beginPath(); c.arc(0, -201, 3, 0, TAU); c.fill(); c.restore();
   }
-  return { ...result, draw };
+  for (const r of [40, 188, 215]) { c.beginPath(); c.arc(0, 0, r, 0, TAU); c.stroke(); }
+  c.beginPath(); c.moveTo(0, -28); c.lineTo(20, 0); c.lineTo(0, 28); c.lineTo(-20, 0); c.closePath(); c.fill();
+  return texture;
 }
 
-function durationTexture() {
-  const { c, texture } = canvasTexture(512, 96);
-  c.textAlign = "center"; c.textBaseline = "middle"; c.font = "30px Georgia, serif"; c.fillStyle = "#ffffff";
-  return { texture, draw(duration: number) {
-    c.clearRect(0, 0, 512, 96); c.fillText(`${duration} MINUTES`, 256, 48); texture.needsUpdate = true;
-  } };
+function softBandTexture() {
+  const { c, texture } = canvasTexture(128, 8), g = c.createLinearGradient(0, 0, 128, 0);
+  g.addColorStop(0, "#ffffff00"); g.addColorStop(.72, "#ffffff35");
+  g.addColorStop(.92, "#ffffff90"); g.addColorStop(1, "#ffffff00");
+  c.fillStyle = g; c.fillRect(0, 0, 128, 8); return texture;
 }
 
 function arcGeometry(segments: number) {
-  const geometry = new THREE.BufferGeometry(), indices: number[] = [];
+  const geometry = new THREE.BufferGeometry(), indices: number[] = [], uv: number[] = [];
+  for (let i = 0; i <= segments; i++) uv.push(0, i / segments, 1, i / segments);
+  geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
   for (let i = 0; i < segments; i++) { const v = i * 2; indices.push(v, v + 1, v + 2, v + 1, v + 3, v + 2); }
   geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array((segments + 1) * 6), 3).setUsage(THREE.DynamicDrawUsage));
   geometry.setIndex(indices);
@@ -145,6 +147,8 @@ function hallGeometry(small: boolean) {
     for (let v = 0; v < positions.count; v++) uv.setXY(v, (positions.getX(v) + 1.05) / 2.1, (positions.getY(v) - 2.5) / 4.9);
     windows.push(place(window, a, -radius - .05));
     const col = new THREE.CylinderGeometry(.25, .33, 8.3, small ? 10 : 16);
+    const colUv = col.getAttribute("uv");
+    for (let v = 0; v < colUv.count; v++) colUv.setXY(v, colUv.getX(v) * 1.8, colUv.getY(v) * 8.3);
     col.translate(-width / 2 + .06, 4.15, -radius + .32); col.rotateY(a); columns.push(col);
     for (const y of [.23, .52, 8.1, 8.38]) {
       const g = new THREE.CylinderGeometry(.46, .48, .16, small ? 10 : 16);
@@ -170,55 +174,148 @@ function skyTexture() {
   return texture;
 }
 
-function stoneTexture() {
-  const { c, texture } = canvasTexture(256), data = c.createImageData(256, 256);
-  for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) {
-    const value = 170 + noise(x + y * 256) * 28 + Math.sin(x * .023 + Math.sin(y * .04)) * 13, p = (y * 256 + x) * 4;
-    data.data[p] = value; data.data[p + 1] = value; data.data[p + 2] = value; data.data[p + 3] = 255;
+function stoneTexture(small: boolean) {
+  const size = small ? 256 : 512;
+  const { c, texture } = canvasTexture(size), data = c.createImageData(size, size);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const sx = x * 512 / size, sy = y * 512 / size;
+    const row = Math.floor(sy / 64), col = Math.floor((sx + (row % 2) * 128) / 256);
+    const block = noise(row * 17 + col + 42) * 24;
+    const value = 140 + block + noise(x + y * size) * 25 + Math.sin(sx * .07 + Math.sin(sy * .04)) * 7;
+    const p = (y * size + x) * 4;
+    data.data[p] = value + 7; data.data[p + 1] = value + 4; data.data[p + 2] = value; data.data[p + 3] = 255;
   }
-  c.putImageData(data, 0, 0); c.strokeStyle = "#666977"; c.lineWidth = 1;
-  for (let y = 0; y <= 256; y += 64) {
-    c.beginPath(); c.moveTo(0, y); c.lineTo(256, y); c.stroke();
-    for (let x = (y % 128 === 0 ? 0 : 64); x < 256; x += 128) { c.beginPath(); c.moveTo(x, y); c.lineTo(x, y + 64); c.stroke(); }
+  c.putImageData(data, 0, 0); c.scale(size / 512, size / 512);
+  for (let y = 0; y <= 512; y += 64) {
+    c.strokeStyle = "#343039"; c.lineWidth = 4;
+    c.beginPath(); c.moveTo(0, y); c.lineTo(512, y); c.stroke();
+    c.strokeStyle = "#d4c9ad66"; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(0, y + 3); c.lineTo(512, y + 3); c.stroke();
+    for (let x = (y % 128 === 0 ? 0 : 128); x < 512; x += 256) {
+      c.strokeStyle = "#39343d"; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(x, y); c.lineTo(x, y + 64); c.stroke();
+    }
   }
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping; texture.repeat.set(.7, .55); return texture;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping; texture.repeat.set(.55, .7); return texture;
 }
 
-function Chamber({ small }: { small: boolean }) {
+function moonTexture() {
+  const { c, texture } = canvasTexture(128, 256);
+  const g = c.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, "#b1caff00"); g.addColorStop(.15, "#b1caff12");
+  g.addColorStop(.9, "#c1d4ff38"); g.addColorStop(1, "#b1caff00");
+  c.fillStyle = g; c.fillRect(0, 0, 128, 256);
+  c.globalCompositeOperation = "destination-in";
+  const edge = c.createLinearGradient(0, 0, 128, 0);
+  edge.addColorStop(0, "#ffffff00"); edge.addColorStop(.2, "#ffffffff");
+  edge.addColorStop(.8, "#ffffffff"); edge.addColorStop(1, "#ffffff00");
+  c.fillStyle = edge; c.fillRect(0, 0, 128, 256); return texture;
+}
+
+function floorRuneTexture() {
+  const { c, texture } = canvasTexture(1024);
+  c.translate(512, 512); c.strokeStyle = "#1a111c"; c.fillStyle = "#79644d"; c.lineWidth = 5;
+  for (let i = 0; i < 64; i++) {
+    c.save(); c.rotate(i / 64 * TAU); c.translate(0, -442); c.scale(1.2, 1.2);
+    sigil(c, i); c.translate(0, 1.5); c.strokeStyle = "#b9a17c70"; c.lineWidth = 1; sigil(c, i); c.restore();
+  }
+  return texture;
+}
+
+function carvedBandTexture() {
+  const { c, texture } = canvasTexture(1024, 128);
+  c.strokeStyle = "#211923"; c.fillStyle = "#a28b67"; c.lineWidth = 4;
+  for (let i = 0; i < 32; i++) {
+    c.save(); c.translate(16 + i * 32, 64); c.scale(1, 1.8); sigil(c, i);
+    c.translate(0, 1.2); c.strokeStyle = "#c3b69880"; c.lineWidth = 1; sigil(c, i); c.restore();
+  }
+  return texture;
+}
+
+function chamberDetails(small: boolean) {
+  const shafts: THREE.BufferGeometry[] = [], pools: THREE.BufferGeometry[] = [], sconces: THREE.BufferGeometry[] = [];
+  const flames: [number, number, number][] = [];
+  for (let i = 0; i < 8; i++) {
+    const a = i / 8 * TAU;
+    // Two triangles per window: the light slants down from the arch into the hall.
+    const shaft = new THREE.BufferGeometry();
+    shaft.setAttribute("position", new THREE.Float32BufferAttribute([-.95, 6.8, -14.8, .95, 6.8, -14.8, -1.55, .04, -6.5, 1.55, .04, -6.5], 3));
+    shaft.setAttribute("uv", new THREE.Float32BufferAttribute([0, 1, 1, 1, 0, 0, 1, 0], 2));
+    shaft.setIndex([0, 2, 1, 1, 2, 3]); shaft.rotateY(a); shafts.push(shaft);
+    const pool = new THREE.PlaneGeometry(3.1, 6); pool.rotateX(-Math.PI / 2); pool.translate(0, .018, -9.2); pool.rotateY(a); pools.push(pool);
+    for (const [g, y, z] of [
+      [new THREE.CylinderGeometry(.28, .13, .22, 8), 3.1, -14.2],
+      [new THREE.BoxGeometry(.12, .7, .15), 2.82, -14.5],
+      [new THREE.BoxGeometry(.13, .12, .7), 2.75, -14.4],
+    ] as const) { g.translate(2.2, y, z); g.rotateY(a); sconces.push(g); }
+    const v = new THREE.Vector3(2.2, 3.38, -14.2).applyAxisAngle(new THREE.Vector3(0, 1, 0), a);
+    flames.push([v.x, v.y, v.z]);
+  }
+  const profile = [[0, 0], [1.48, 0], [1.48, .12], [1.35, .2], [1.25, .24], [1.16, .34], [1.16, .64], [1.3, .72], [1.35, .79], [1.35, .88], [0, .88]].map(([x, y]) => new THREE.Vector2(x, y));
+  const pedestal = new THREE.LatheGeometry(profile, small ? 16 : 32);
+  const uv = pedestal.getAttribute("uv");
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 5, uv.getY(i));
+  const merge = (parts: THREE.BufferGeometry[]) => { const g = mergeGeometries(parts)!; parts.forEach((p) => p.dispose()); return g; };
+  return { shafts: merge(shafts), pools: merge(pools), sconces: merge(sconces), pedestal, flames };
+}
+
+function Chamber({ small, running, reduced }: Pick<SceneContentProps, "small" | "running" | "reduced">) {
   const resources = useMemo(() => {
-    // A one-pixel map lets plain stone and textured stone share one vertex-lit shader.
-    // Keep side/map/tone-mapping variants consistent to make compilation cheap.
     const flat = canvasTexture(1); flat.c.fillStyle = "#ffffff"; flat.c.fillRect(0, 0, 1, 1);
-    return { ...hallGeometry(small), sky: skyTexture(), stone: stoneTexture(), flat: flat.texture };
+    return { ...hallGeometry(small), sky: skyTexture(), stone: stoneTexture(small), flat: flat.texture,
+      moon: moonTexture(), glow: glowTexture(), floorRunes: floorRuneTexture(), carvedBand: carvedBandTexture() };
   }, [small]);
+  const details = useMemo(() => chamberDetails(small), [small]);
+  const candles = useRef<THREE.Group>(null), flicker = useRef(0);
+  useFrame((_, delta) => {
+    if (!running || reduced || !candles.current) return;
+    flicker.current += Math.min(delta, .1);
+    const t = flicker.current;
+    candles.current.children.forEach((child, i) => {
+      const f = .87 + Math.sin(t * 6 + i * 2) * .08 + Math.sin(t * 13 + i) * .05;
+      if (child instanceof THREE.Sprite) child.scale.y = (child.userData.halo ? 1.4 : .48) * f;
+      if (child instanceof THREE.Mesh) (child.material as THREE.MeshBasicMaterial).opacity = .32 * f;
+    });
+  });
   useEffect(() => () => Object.values(resources).forEach((v) => v.dispose()), [resources]);
+  useEffect(() => () => { details.shafts.dispose(); details.pools.dispose(); details.sconces.dispose(); details.pedestal.dispose(); }, [details]);
   return <>
-    <mesh geometry={resources.walls}><meshLambertMaterial color="#4c4c66" map={resources.stone} side={THREE.DoubleSide} /></mesh>
-    <mesh geometry={resources.frames}><meshLambertMaterial map={resources.flat} side={THREE.DoubleSide} color="#787286" /></mesh>
-    <mesh geometry={resources.columns}><meshLambertMaterial color="#706a7b" map={resources.stone} side={THREE.DoubleSide} /></mesh>
-    <mesh geometry={resources.trim}><meshLambertMaterial map={resources.flat} side={THREE.DoubleSide} color="#7e7168" /></mesh>
+    <mesh geometry={resources.walls}><meshLambertMaterial color="#676176" map={resources.stone} side={THREE.DoubleSide} /></mesh>
+    <mesh geometry={resources.frames}><meshLambertMaterial map={resources.stone} side={THREE.DoubleSide} color="#8c8291" /></mesh>
+    <mesh geometry={resources.columns}><meshLambertMaterial color="#8b7e8a" map={resources.stone} side={THREE.DoubleSide} /></mesh>
+    <mesh geometry={resources.trim}><meshLambertMaterial map={resources.stone} side={THREE.DoubleSide} color="#928475" /></mesh>
     <mesh geometry={resources.windows}><meshBasicMaterial map={resources.sky} color="#b9c9ff" side={THREE.DoubleSide} toneMapped={false} /></mesh>
-    {/* The oculus and all sixteen bays continue behind the visitor. */}
     <mesh position={[0, 8.4, -9.5]} rotation={[Math.PI / 2, 0, 0]}><ringGeometry args={[2.8, 30, 64]} /><meshLambertMaterial map={resources.flat} color="#272a43" side={THREE.DoubleSide} /></mesh>
     <mesh position={[0, 8.35, -9.5]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[2.85, .12, 6, 64]} /><meshLambertMaterial map={resources.flat} side={THREE.DoubleSide} color="#82766f" emissive="#343954" emissiveIntensity={.3} /></mesh>
     <mesh position={[0, 8.55, -9.5]} rotation={[Math.PI / 2, 0, 0]}><circleGeometry args={[2.8, 48]} /><meshBasicMaterial map={resources.sky} side={THREE.DoubleSide} color="#a6b9ff" toneMapped={false} /></mesh>
     <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}><circleGeometry args={[22, small ? 64 : 96]} /><meshLambertMaterial map={resources.flat} side={THREE.DoubleSide} color="#07080f" depthWrite={false} /></mesh>
-    {[3.1, 3.22, 6.7, 6.76].map((r) => <mesh key={r} position={[0, .012, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={3}><ringGeometry args={[r, r + .012, small ? 64 : 128]} /><meshBasicMaterial color="#ad8b5b" side={THREE.DoubleSide} toneMapped={false} transparent opacity={r < 4 ? .28 : .16} depthWrite={false} /></mesh>)}
-    <mesh position={[0, .18, 0]}><cylinderGeometry args={[1.23, 1.45, .36, small ? 32 : 64]} /><meshLambertMaterial map={resources.flat} side={THREE.DoubleSide} color="#2a2a39" /></mesh>
-    <mesh position={[0, .38, 0]} rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[1.16, .018, 5, 64]} /><meshBasicMaterial color="#b69c66" side={THREE.DoubleSide} toneMapped={false} /></mesh>
+    <mesh geometry={details.shafts}><meshBasicMaterial map={resources.moon} transparent blending={THREE.AdditiveBlending} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} /></mesh>
+    <mesh geometry={details.pools} renderOrder={3}><meshBasicMaterial map={resources.moon} color="#a5bfff" transparent opacity={.45} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} /></mesh>
+    {[3.1, 3.62, 6.7, 6.76].map((r) => <mesh key={r} position={[0, .022, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={3}><ringGeometry args={[r, r + .012, small ? 64 : 128]} /><meshBasicMaterial color="#ad8b5b" side={THREE.DoubleSide} toneMapped={false} transparent opacity={r < 4 ? .28 : .16} depthWrite={false} /></mesh>)}
+    <mesh position={[0, .025, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={3}><planeGeometry args={[8, 8]} /><meshBasicMaterial map={resources.floorRunes} transparent opacity={.44} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} /></mesh>
+    <mesh geometry={details.pedestal}><meshLambertMaterial map={resources.stone} side={THREE.DoubleSide} color="#777080" /></mesh>
+    <mesh position={[0, .49, 0]}><cylinderGeometry args={[1.165, 1.165, .29, small ? 16 : 32, 1, true]} /><meshBasicMaterial map={resources.carvedBand} transparent opacity={.75} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} /></mesh>
+    <mesh position={[0, .89, 0]} rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[1.19, .012, 4, 64]} /><meshBasicMaterial color="#b69c66" side={THREE.DoubleSide} toneMapped={false} /></mesh>
+    <mesh geometry={details.sconces}><meshLambertMaterial map={resources.flat} color="#66503a" side={THREE.DoubleSide} /></mesh>
+    <group ref={candles}>
+      {details.flames.map((position, i) => <sprite key={`halo-${i}`} position={position} scale={[1.15, 1.4, 1]} userData={{ halo: true }}><spriteMaterial map={resources.glow} color="#ff913b" transparent opacity={.4} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} /></sprite>)}
+      {details.flames.map((position, i) => <sprite key={i} position={position} scale={[.16, .48, 1]}><spriteMaterial map={resources.glow} color="#ffdd8d" transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} /></sprite>)}
+      {/* Wall light is a two-triangle glow, keeping the original point-light/shader budget. */}
+      {[1, 7].map((i) => <mesh key={i} position={details.flames[i]} rotation={[0, i / 8 * TAU, 0]}><planeGeometry args={[4.5, 5.5]} /><meshBasicMaterial map={resources.glow} color="#ffad5f" transparent opacity={.32} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} /></mesh>)}
+    </group>
   </>;
 }
 
-type EngineTextures = { hours: THREE.Texture; minutes: THREE.Texture; seconds: THREE.Texture; runes: THREE.Texture; glow: THREE.Texture };
+type EngineTextures = { hours: THREE.Texture; minutes: THREE.Texture; seconds: THREE.Texture; runes: THREE.Texture; glow: THREE.Texture; rosette: THREE.Texture; sector: THREE.Texture };
 
 function Engine({ active, running, reduced, small, reflection = false, textures }: SceneContentProps & { reflection?: boolean; textures: EngineTextures }) {
   const hour = useRef<THREE.Group>(null), minute = useRef<THREE.Group>(null), second = useRef<THREE.Group>(null);
   const gimbal = useRef<THREE.Group>(null), rune = useRef<THREE.Group>(null), loop = useRef<THREE.Mesh>(null);
   const markerH = useRef<THREE.Group>(null), markerM = useRef<THREE.Group>(null), markerS = useRef<THREE.Group>(null);
-  const arcMaterial = useRef<THREE.MeshBasicMaterial>(null);
+  const arcMaterial = useRef<THREE.MeshBasicMaterial>(null), sectorMaterial = useRef<THREE.MeshBasicMaterial>(null), rosette = useRef<THREE.Mesh>(null);
   const state = useRef({ elapsed: 0, reveal: 0, duration: 0, hover: 0, pulse: 9, key: "", color: new THREE.Color(GOLD), accent: new THREE.Color() });
-  const resources = useMemo(() => ({ arc: arcGeometry(small ? 64 : 120), loop: loopGeometry(small) }), [small]);
-  useEffect(() => () => { resources.arc.dispose(); resources.loop.dispose(); }, [resources]);
+  const resources = useMemo(() => ({ arc: arcGeometry(small ? 48 : 96), sector: arcGeometry(small ? 48 : 96), loop: loopGeometry(small) }), [small]);
+  useEffect(() => () => { resources.arc.dispose(); resources.sector.dispose(); resources.loop.dispose(); }, [resources]);
   const strength = reflection ? .11 : 1;
   useFrame((_, delta) => {
     if (!running) return;
@@ -231,9 +328,10 @@ function Engine({ active, running, reduced, small, reflection = false, textures 
     s.hover = THREE.MathUtils.damp(s.hover, active ? 1 : 0, 5, dt);
     if (active) s.color.lerp(s.accent.set(active.color), 1 - Math.exp(-dt * 5));
     const seconds = now.getSeconds() + now.getMilliseconds() / 1000, minutes = now.getMinutes() + seconds / 60, hours = now.getHours() + minutes / 60;
-    // The markers remain honest while the rune gimbals anticipate the meeting.
-    if (markerH.current) markerH.current.rotation.z = -hours / 24 * TAU;
-    if (markerM.current) markerM.current.rotation.z = -minutes / 60 * TAU;
+    // Preview the meeting's span, then settle precisely back onto live time.
+    const anticipate = reduced || s.pulse > 2.8 ? 0 : Math.sin(Math.PI * s.pulse / 2.8) ** 2 * Math.min(s.duration / 60, 1);
+    if (markerH.current) markerH.current.rotation.z = -(hours / 24 + anticipate / 24) * TAU;
+    if (markerM.current) markerM.current.rotation.z = -(minutes / 60 + anticipate) * TAU;
     if (markerS.current) markerS.current.rotation.z = -seconds / 60 * TAU;
     const t = s.elapsed;
     const ignite = (group: THREE.Group | null, delay: number) => {
@@ -250,84 +348,87 @@ function Engine({ active, running, reduced, small, reflection = false, textures 
     if (hour.current) hour.current.rotation.set(.03 + Math.sin(t * .09) * .035, Math.sin(t * .08) * .09, 0);
     if (minute.current) minute.current.rotation.set(-.13, .21 + Math.sin(t * .12) * .06, 0);
     if (second.current) second.current.rotation.set(.14, -.23, 0);
-    const anticipate = reduced || s.pulse > 2.2 ? 0 : Math.sin(Math.PI * s.pulse / 2.2) ** 2 * Math.min(s.duration / 60, 1) * TAU;
-    if (gimbal.current) gimbal.current.rotation.set(.76 + Math.sin(t * .07) * .09, -.62 + Math.sin(t * .09) * .12, t * .025 + anticipate);
-    if (rune.current) rune.current.rotation.z = -t * .045 - anticipate * .7;
+    if (gimbal.current) gimbal.current.rotation.set(.76 + Math.sin(t * .07) * .09, -.62 + Math.sin(t * .09) * .12, t * .025 + anticipate * TAU);
+    if (rune.current) rune.current.rotation.z = -t * .045 - anticipate * TAU * .7;
     if (loop.current) {
       loop.current.rotation.set(.35 + Math.sin(t * .12) * .13, t * .055, -.3);
       (loop.current.material as THREE.MeshBasicMaterial).opacity = smooth(s.reveal / .65) * strength * .85;
     }
-    if (s.hover < .001) { if (arcMaterial.current) arcMaterial.current.opacity = 0; return; }
-    const p = resources.arc.getAttribute("position") as THREE.BufferAttribute;
+    if (rosette.current) {
+      rosette.current.rotation.z = t * .075;
+      (rosette.current.material as THREE.MeshBasicMaterial).opacity = smooth(s.reveal / 1.2) * strength * (.8 + Math.sin(t * .6) * .12);
+    }
+    if (s.hover < .001) {
+      if (arcMaterial.current) arcMaterial.current.opacity = 0;
+      if (sectorMaterial.current) sectorMaterial.current.opacity = 0;
+      return;
+    }
+    const p = resources.arc.getAttribute("position") as THREE.BufferAttribute, fill = resources.sector.getAttribute("position") as THREE.BufferAttribute;
     const count = p.count / 2 - 1, span = Math.min(s.duration / 60, 1) * TAU * s.hover;
     for (let i = 0; i <= count; i++) {
       const a = minutes / 60 * TAU + i / count * span;
-      for (let edge = 0; edge < 2; edge++) { const r = edge ? 1.785 : 1.717; p.setXYZ(i * 2 + edge, Math.sin(a) * r, Math.cos(a) * r, .035); }
+      for (let edge = 0; edge < 2; edge++) {
+        const r = edge ? 1.785 : 1.717, fr = edge ? 1.8 : 1.34;
+        p.setXYZ(i * 2 + edge, Math.sin(a) * r, Math.cos(a) * r, .035);
+        fill.setXYZ(i * 2 + edge, Math.sin(a) * fr, Math.cos(a) * fr, .028);
+      }
     }
-    p.needsUpdate = true;
+    p.needsUpdate = true; fill.needsUpdate = true;
+    if (sectorMaterial.current) { sectorMaterial.current.color.copy(s.color); sectorMaterial.current.opacity = s.hover * strength * .55; }
     if (arcMaterial.current) { arcMaterial.current.color.copy(s.color); arcMaterial.current.opacity = s.hover * strength * .95; }
   });
   const lightMaterial = (map?: THREE.Texture) => <meshBasicMaterial map={map} color={map ? "#ffffff" : GOLD} transparent opacity={strength} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} />;
-  const marker = (radius: number, size: number) => <>
-    <mesh position={[0, radius, .045]} rotation={[0, 0, Math.PI / 4]}><planeGeometry args={[size, size]} /><meshBasicMaterial color="#fff3d2" transparent opacity={strength} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} /></mesh>
-    <sprite position={[0, radius, .05]} scale={[size * 6, size * 6, 1]}><spriteMaterial map={textures.glow} color={GOLD} blending={THREE.AdditiveBlending} transparent opacity={strength} depthWrite={false} toneMapped={false} /></sprite>
+  const marker = (radius: number, size: number, length: number, color: string) => <>
+    <mesh position={[0, radius - length / 2, .05]}><planeGeometry args={[size * .6, length]} /><meshBasicMaterial map={textures.glow} color={color} transparent opacity={strength} blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} /></mesh>
+    <mesh position={[0, radius, .055]} rotation={[0, 0, Math.PI / 4]}><planeGeometry args={[size, size]} /><meshBasicMaterial color={color} transparent opacity={strength} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} /></mesh>
+    <mesh position={[0, 0, .045]} rotation={[0, 0, Math.PI / 2]}><ringGeometry args={[radius - size * .35, radius + size * .35, 20, 1, 0, .32]} />{lightMaterial()}</mesh>
+    <sprite position={[0, radius, .06]} scale={[size * 7, size * 7, 1]}><spriteMaterial map={textures.glow} color={color} blending={THREE.AdditiveBlending} transparent opacity={strength} depthWrite={false} toneMapped={false} /></sprite>
   </>;
   return <group position={[0, reflection ? -CENTER : CENTER, 0]} scale={[1, reflection ? -1 : 1, 1]} renderOrder={reflection ? 2 : 0}>
     <group ref={hour}>
       <mesh><planeGeometry args={[5.2, 5.2]} />{lightMaterial(textures.hours)}</mesh>
-      <group ref={markerH}>{marker(2.25, .095)}</group>
+      <group ref={markerH}>{marker(2.25, .095, .85, "#ffe5a3")}</group>
     </group>
     <group ref={minute}>
       <mesh><planeGeometry args={[3.96, 3.96]} />{lightMaterial(textures.minutes)}</mesh>
-      <group ref={markerM}>{marker(1.72, .075)}</group>
+      <group ref={markerM}>{marker(1.72, .075, .62, "#fff6dc")}</group>
+      <mesh geometry={resources.sector} userData={{ ignition: false }}><meshBasicMaterial ref={sectorMaterial} map={textures.sector} transparent opacity={0} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} /></mesh>
       <mesh geometry={resources.arc} userData={{ ignition: false }}><meshBasicMaterial ref={arcMaterial} transparent opacity={0} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} /></mesh>
     </group>
     <group ref={second}>
       <mesh><planeGeometry args={[2.94, 2.94]} />{lightMaterial(textures.seconds)}</mesh>
-      <group ref={markerS}>{marker(1.28, .045)}</group>
+      <group ref={markerS}>{marker(1.28, .035, .3, "#bcffea")}</group>
     </group>
     <group ref={gimbal}>
       <mesh><torusGeometry args={[2.49, .012, 4, small ? 96 : 160]} />{lightMaterial()}</mesh>
       <mesh><planeGeometry args={[5.65, 5.65]} />{lightMaterial(textures.runes)}</mesh>
       <group ref={rune} rotation={[.85, .6, 0]}><mesh><planeGeometry args={[4.62, 4.62]} />{lightMaterial(textures.runes)}</mesh></group>
     </group>
+    <mesh ref={rosette} position={[0, 0, .12]}><planeGeometry args={[1.32, 1.32]} />{lightMaterial(textures.rosette)}</mesh>
     <mesh ref={loop} geometry={resources.loop}><meshBasicMaterial color="#68f3b0" transparent opacity={strength * .8} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} /></mesh>
   </group>;
 }
 
 export default function Sanctum(props: SceneContentProps) {
-  const { active, running, reduced, small } = props;
+  const { running, reduced, small } = props;
   const resources = useMemo(() => ({
     hours: dialTexture("hours", small), minutes: dialTexture("minutes", small), seconds: dialTexture("seconds", small),
-    runes: dialTexture("runes", small), glow: glowTexture(), clock: clockTexture(), duration: durationTexture(),
+    runes: dialTexture("runes", small), glow: glowTexture(), rosette: rosetteTexture(), sector: softBandTexture(),
   }), [small]);
   const dust = useMemo(() => {
     const geometry = new THREE.BufferGeometry(), count = small ? 36 : 70, positions = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) { positions[i * 3] = (noise(i) - .5) * 7; positions[i * 3 + 1] = noise(i + 100) * 7; positions[i * 3 + 2] = (noise(i + 200) - .5) * 6; }
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3)); return geometry;
   }, [small]);
-  const timeDisplay = useRef<THREE.Mesh>(null), durationDisplay = useRef<THREE.MeshBasicMaterial>(null), points = useRef<THREE.Points>(null), warmLight = useRef<THREE.PointLight>(null);
-  const state = useRef({ elapsed: 0, reveal: 0, second: -1, duration: -1, hover: 0, accent: new THREE.Color(GOLD), resources });
+  const points = useRef<THREE.Points>(null), warmLight = useRef<THREE.PointLight>(null);
+  const state = useRef({ elapsed: 0, reveal: 0 });
   useEffect(() => () => {
-    resources.hours.dispose(); resources.minutes.dispose(); resources.seconds.dispose(); resources.runes.dispose(); resources.glow.dispose(); resources.clock.texture.dispose(); resources.duration.texture.dispose(); dust.dispose();
+    resources.hours.dispose(); resources.minutes.dispose(); resources.seconds.dispose(); resources.runes.dispose(); resources.glow.dispose(); resources.rosette.dispose(); resources.sector.dispose(); dust.dispose();
   }, [resources, dust]);
   useFrame((_, delta) => {
     if (!running) return;
-    const dt = Math.min(delta, .1), s = state.current, now = Date.now();
-    if (s.resources !== resources) { s.resources = resources; s.second = -1; s.duration = -1; s.hover = 0; }
+    const dt = Math.min(delta, .1), s = state.current;
     s.reveal += delta; if (!reduced) s.elapsed += dt;
-    const duration = active?.duration_minutes ?? 0, second = Math.floor(now / 1000);
-    if (second !== s.second) { resources.clock.draw(new Date(now)); s.second = second; }
-    if (active && duration !== s.duration && s.hover < .04) {
-      resources.duration.draw(duration);
-      s.duration = duration;
-    }
-    s.hover = THREE.MathUtils.damp(s.hover, active && duration === s.duration ? 1 : 0, 7, dt);
-    if (durationDisplay.current) {
-      durationDisplay.current.opacity = s.hover;
-      if (active) durationDisplay.current.color.lerp(s.accent.set(active.color), 1 - Math.exp(-dt * 5));
-    }
-    if (timeDisplay.current) (timeDisplay.current.material as THREE.MeshBasicMaterial).opacity = reduced ? 1 : smooth((s.reveal - .35) / 1.1);
     if (warmLight.current) warmLight.current.intensity = 64 * smooth(s.reveal / 1.5);
     if (points.current && !reduced) {
       const p = dust.getAttribute("position") as THREE.BufferAttribute;
@@ -343,11 +444,9 @@ export default function Sanctum(props: SceneContentProps) {
     <pointLight ref={warmLight} position={[0, 3.25, .8]} color="#ffc477" intensity={0} distance={15} decay={2} />
     <pointLight position={[0, 7, -5.5]} color="#95acff" intensity={38} distance={19} decay={2} />
     <directionalLight position={[-4, 8, 4]} color="#9fb8ff" intensity={.85} />
-    <Chamber small={small} />
+    <Chamber small={small} running={running} reduced={reduced} />
     <Engine {...props} textures={resources} />
     <Engine {...props} textures={resources} reflection />
-    <mesh ref={timeDisplay} position={[0, CENTER, 1.55]} renderOrder={4}><planeGeometry args={[2.65, .828]} /><meshBasicMaterial map={resources.clock.texture} transparent opacity={0} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} /></mesh>
-    <mesh position={[0, CENTER - .29, 1.56]} renderOrder={4}><planeGeometry args={[1.8, .3375]} /><meshBasicMaterial ref={durationDisplay} map={resources.duration.texture} transparent opacity={0} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} /></mesh>
     <points ref={points} geometry={dust}><pointsMaterial map={resources.glow} color="#ffd39b" size={small ? .07 : .065} transparent opacity={.62} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} /></points>
   </>;
 }
