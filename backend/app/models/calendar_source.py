@@ -29,7 +29,7 @@ class CalendarSource(Base):
     )
     type: Mapped[str] = mapped_column(
         String(20), nullable=False
-    )  # 'google' or 'ics_url'
+    )  # 'google', 'microsoft' or 'ics_url'
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     google_access_token: Mapped[str | None] = mapped_column(Text, nullable=True)
     google_refresh_token: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -39,6 +39,12 @@ class CalendarSource(Base):
     google_calendar_id: Mapped[str | None] = mapped_column(
         String(255), nullable=True
     )
+    microsoft_access_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    microsoft_refresh_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    microsoft_token_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    microsoft_account_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     ics_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     last_synced_at: Mapped[datetime | None] = mapped_column(

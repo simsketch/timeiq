@@ -490,4 +490,8 @@ async def sync_calendar_source(db: AsyncSession, source: CalendarSource, *, ics_
         return await sync_ics_source(db, source, ics_calendar)
     elif source.type == "google":
         return await sync_google_source(db, source)
+    elif source.type == "microsoft":
+        from app.services.microsoft_calendar import sync_microsoft_source
+
+        return await sync_microsoft_source(db, source)
     return 0

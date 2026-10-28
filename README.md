@@ -62,6 +62,7 @@ uvicorn app.main:app --reload --port 8000
 | `FRONTEND_URL`, `BACKEND_URL` | Public URLs, used in links and OAuth redirects |
 | `CRON_SECRET` | Required for the cron endpoints in `backend/vercel.json` (calendar sync hourly, overdue digest weekly, monthly drafts). Cron calls are refused while it is empty. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional: Google Calendar OAuth. ICS links work without it. |
+| `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MS_TENANT` | Optional: Outlook / Microsoft 365 OAuth. Hidden and disabled unless both credentials are set; tenant defaults to `common`. See [Outlook setup](docs/outlook-setup.md). |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_FOUNDER`, `STRIPE_PRICE_STANDARD` | Optional. Leave unset and billing is off: every account has full access. |
 
 Tests: `python -m pytest -q` from `backend/`. Tests that need a database only run against a local `timeiq_qa*` database.

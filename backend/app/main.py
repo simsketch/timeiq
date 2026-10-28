@@ -36,6 +36,7 @@ from app.routers import (
     group_meetings,
     event_types,
     google_auth,
+    microsoft_auth,
     invoices,
     oauth,
     public,
@@ -96,6 +97,7 @@ app.include_router(timesheet_rows.router)
 app.include_router(invoices.router)
 app.include_router(invoices.public_router)  # before public.router: see invoices.py
 app.include_router(google_auth.router)
+app.include_router(microsoft_auth.router)
 app.include_router(public.router)
 app.include_router(cron.router)
 app.include_router(api_tokens.router)
