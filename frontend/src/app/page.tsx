@@ -234,6 +234,10 @@ export default function LandingPage() {
                     </li>
                   ))}
                 </ul>
+                <Link href="/mcp" className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium underline underline-offset-4 hover:text-[hsl(var(--aurora-1))]">
+                  Use TimeIQ inside Claude, ChatGPT and Cursor
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                </Link>
               </div>
               <div className="lg:col-span-7">
                 <CcTimeiqDemo />
@@ -820,7 +824,7 @@ export default function LandingPage() {
                 · &copy; 2026
               </span>
             </div>
-            <div className="flex items-center gap-5 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-center gap-5 text-sm text-muted-foreground">
               <a
                 href={GITHUB_URL}
                 target="_blank"
@@ -835,6 +839,9 @@ export default function LandingPage() {
               </Link>
               <Link href="/blog" className="hover:text-foreground transition-colors">
                 Blog
+              </Link>
+              <Link href="/mcp" className="hover:text-foreground transition-colors">
+                AI assistants
               </Link>
               <Link href="/privacy" className="hover:text-foreground transition-colors">
                 Privacy
