@@ -65,5 +65,7 @@
 @media (prefers-reduced-motion: reduce) { .cameraControls { transition: none; } }
 
 /* Scene-local night ink lets the sky stay dark all the way to the zenith. */
-.art[data-scene="solstice"][data-night="true"] .wordmark { color: #e6e8f3; text-shadow: 0 1px 10px #090d2859; }
-.art[data-scene="solstice"] .artCaption { color: #f1eddf; text-shadow: 0 1px 8px #19251a80; }
+.art[data-scene="solstice"][data-night="true"] .wordmark,
+.art[data-scene="maya"][data-night="true"] .wordmark { color: #e6e8f3; text-shadow: 0 1px 10px #090d2859; }
+.art[data-scene="solstice"] .artCaption,
+.art[data-scene="maya"][data-night="true"] .artCaption { color: #f1eddf; text-shadow: 0 1px 8px #19251a80; }
