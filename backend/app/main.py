@@ -4,6 +4,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from starlette.routing import Route
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
@@ -24,6 +25,7 @@ from app.models import (  # noqa: F401
     User,
 )
 from app.routers import (
+    api_tokens,
     availability,
     billing,
     bookings,
@@ -93,6 +95,12 @@ app.include_router(invoices.public_router)  # before public.router: see invoices
 app.include_router(google_auth.router)
 app.include_router(public.router)
 app.include_router(cron.router)
+app.include_router(api_tokens.router)
+
+# MCP server (Streamable HTTP): AI assistants connect with a personal access token.
+from app.mcp_server import MCPEndpoint  # noqa: E402
+
+app.router.routes.append(Route("/mcp", endpoint=MCPEndpoint(), methods=["GET", "POST", "DELETE"]))
 
 
 @app.get("/api/health")

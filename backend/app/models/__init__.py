@@ -11,6 +11,7 @@ from app.models.timesheet_row import TimesheetRow
 from app.models.guest_checkout import GuestCheckout
 from app.models.email_import import EmailImport
 from app.models.group_meeting import AgentMessageClaim, GroupMeeting, GroupMeetingParticipant
+from app.models.api_token import ApiToken
 
 __all__ = [
     "User",
@@ -29,4 +30,5 @@ __all__ = [
     "GroupMeeting",
     "GroupMeetingParticipant",
     "AgentMessageClaim",
+    "ApiToken",
 ]

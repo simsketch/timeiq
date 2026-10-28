@@ -22,6 +22,19 @@ Booking pages, weekly timesheets and invoices for freelancers, in one app.
 | Payments | Stripe (optional) |
 | Deploy | Vercel (two projects: `frontend/` and `backend/`), or any Node and Python host |
 
+## AI assistants (MCP)
+
+TimeIQ runs an [MCP](https://modelcontextprotocol.io) server at `/mcp` on the API (`https://api.timeiq.app/mcp` for the hosted app), so Claude, ChatGPT, Cursor and other MCP clients can work with your account: check your free times, find a time with several people, import a schedule from text, log hours and send invoices.
+
+1. In TimeIQ, open **Settings → AI assistants (MCP)** and create a token.
+2. Add the server to your client, sending the token as a Bearer header. For Claude Code:
+
+   ```sh
+   claude mcp add --transport http timeiq https://api.timeiq.app/mcp --header "Authorization: Bearer tiq_…"
+   ```
+
+Tools call TimeIQ's own API with your token, so they follow the same rules as the app. Tools that email people or change shared calendars are marked destructive, so clients confirm with you first. Tokens can't create other tokens or delete your account, and you can revoke one any time in Settings.
+
 ## Self-hosting
 
 Requirements: Node 24, Python 3.11+, PostgreSQL 14+, a [Clerk](https://clerk.com) application and a [Resend](https://resend.com) API key.

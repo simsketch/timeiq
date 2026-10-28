@@ -586,3 +586,55 @@ async def undo(db: AsyncSession, record: EmailImport, now: datetime | None = Non
     record.undone_at = now or datetime.now(timezone.utc)
     await db.flush()
     return result.rowcount or 0
+
+
+# ---------------------------------------------------------------------------
+# Pasted text (API and MCP)
+# ---------------------------------------------------------------------------
+
+MAX_TEXT_CHARS = 50_000
+
+
+async def import_text(db: AsyncSession, user: User, text: str, name: str | None = None,
+                      now: datetime | None = None) -> tuple[EmailImport, list[dict]]:
+    """Import a schedule from pasted text: same extraction, limits and undo as an
+    emailed schedule, without the email. Raises ImportRejected with a reason."""
+    now = now or datetime.now(timezone.utc)
+    text = (text or "").strip()
+    if not text:
+        raise ImportRejected("Paste the schedule's text to import it.")
+    if len(text) > MAX_TEXT_CHARS:
+        raise ImportRejected(f"That's more than {MAX_TEXT_CHARS:,} characters; paste one schedule at a time.")
+    recent = (
+        await db.execute(
+            select(func.count()).select_from(EmailImport).where(
+                EmailImport.user_id == user.id,
+                EmailImport.created_at > now - timedelta(days=1),
+                EmailImport.status.in_(("imported", "empty", "failed", "undone")),
+            )
+        )
+    ).scalar_one()
+    if recent >= MAX_IMPORTS_PER_DAY:
+        raise ImportRejected(f"TimeIQ imports up to {MAX_IMPORTS_PER_DAY} schedules a day. Try again tomorrow.")
+
+    tz = host_zone(user.timezone)
+    ex = await extract_events(name or "", text, [], str(tz), now.astimezone(tz).date())
+    rows = _dedupe(rows_from_extraction(ex, tz))
+    if len(rows) > MAX_EVENTS:
+        raise ImportRejected(f"That schedule has {len(rows)} events; TimeIQ imports up to {MAX_EVENTS} at a time.")
+
+    record = EmailImport(
+        id=uuid.uuid4(), user_id=user.id, resend_email_id=f"text:{uuid.uuid4()}",
+        subject=(name or ex.schedule_name or "Pasted schedule")[:500],
+        status="imported" if rows else "empty", event_count=len(rows),
+        undo_token=secrets.token_urlsafe(32), created_at=now,
+    )
+    db.add(record)
+    if rows:
+        source = await _email_source(db, user)
+        for row in rows:
+            db.add(CachedEvent(id=uuid.uuid4(), calendar_source_id=source.id, user_id=user.id, email_import_id=record.id, **row))
+        source.last_synced_at = now
+    await db.commit()
+    await db.refresh(record)
+    return record, rows
