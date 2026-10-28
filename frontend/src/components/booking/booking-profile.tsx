@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowUpRight, MapPin } from "lucide-react";
 import { LogoIcon } from "@/components/logo";
 import { BookingScene } from "./booking-scene";
-import { sceneFor } from "./scenes";
+import { isNoScene, sceneFor } from "./scenes";
 import styles from "./booking-profile.module.css";
 
 export interface MeetingType {
@@ -56,11 +56,19 @@ export function BookingProfile({ profile }: { profile: PublicProfile | null }) {
   const [avatarFailed, setAvatarFailed] = useState(false);
   const active = hovered || focused;
   const scene = sceneFor(profile?.booking_scene);
+  // A host can choose no scene: the page is just their profile, centered.
+  const noScene = isNoScene(profile?.booking_scene);
   const name = profile?.name || profile?.username || "";
   const initials = name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 
   return (
-    <main className={styles.page}>
+    <main className={`${styles.page} ${noScene ? styles.noScene : ""}`}>
+      {noScene ? (
+        <Link href="/" className={styles.wordmark} aria-label="TimeIQ home">
+          <LogoIcon className="h-6 w-6" />
+          <span className="font-display">TimeIQ</span>
+        </Link>
+      ) : (
       <div data-scene={scene.id} className={`${styles.art} ${scene.ink === "light" ? styles.inkLight : ""}`}>
         <BookingScene active={active} sceneId={scene.id} />
         <Link href="/" className={styles.wordmark} aria-label="TimeIQ home">
@@ -72,6 +80,7 @@ export function BookingProfile({ profile }: { profile: PublicProfile | null }) {
           <span className={styles.captionLine} />
         </div>
       </div>
+      )}
 
       <div className={styles.panel}>
         <div className={styles.content}>

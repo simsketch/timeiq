@@ -67,3 +67,12 @@
 /* Scene-local night ink lets the sky stay dark all the way to the zenith. */
 .art[data-scene="solstice"][data-night="true"] .wordmark { color: #e6e8f3; text-shadow: 0 1px 10px #090d2859; }
 .art[data-scene="solstice"] .artCaption { color: #f1eddf; text-shadow: 0 1px 8px #19251a80; }
+
+/* No scene: the profile alone, centered, with the wordmark in the corner. */
+.noScene { position: relative; display: block; }
+.noScene .panel { min-height: 100svh; padding-top: 96px; background: radial-gradient(ellipse at 50% 0, #e8d5b733, transparent 60%), #faf9f6; box-shadow: none; }
+@media (min-width: 1024px) {
+  .page.noScene { display: block; }
+  .noScene .panel { padding: 110px 40px 35px; }
+  .noScene .content { max-width: 540px; }
+}
