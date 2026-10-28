@@ -124,12 +124,14 @@ export const SCENES: Record<SceneId, SceneDefinition> = {
     blurb: "Laser-cooled atoms rising and falling in a cesium fountain, ticking real seconds.",
     still: "/booking/atomic-still.webp",
     still640: "/booking/atomic-still-640.webp",
-    backdrop: "linear-gradient(#0b1020, #141b33 60%, #0d1222)",
+    backdrop: "linear-gradient(#09131f, #152332 65%, #0b1520)",
     ink: "light",
     camera: {
-      position: [6, 3.5, 9], target: [0, 2.2, 0], fov: 38, fovSmall: 42,
-      minDistance: 6, maxDistance: 15, minPolarAngle: 50 * deg, maxPolarAngle: 92 * deg, azimuthRange: 70 * deg,
+      position: [4.7, 4.5, 11.6], positionSmall: [4.3, 4.4, 11.3], target: [0, 2.4, 0],
+      fov: 36.5, fovSmall: 40, far: 60,
+      minDistance: 8.6, maxDistance: 16, minPolarAngle: 58 * deg, maxPolarAngle: 84 * deg, azimuthRange: 30 * deg,
     },
+    toneMappingExposure: 1.15,
     load: () => import("./atomic"),
   },
   "lava-lamp": {
