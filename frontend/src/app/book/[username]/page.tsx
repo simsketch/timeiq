@@ -1,13 +1,14 @@
 import { BookingProfile, type PublicProfile } from "@/components/booking/booking-profile";
 import { resolveSceneChoice } from "@/components/booking/scenes";
+import { EmbedFrame } from "@/components/booking/embed-frame";
 
 export default async function BookingProfilePage({ params, searchParams }: {
   params: Promise<{ username: string }>;
-  searchParams: Promise<{ scene?: string }>;
+  searchParams: Promise<{ scene?: string; embed?: string }>;
 }) {
   const { username } = await params;
   // ?scene= previews another scene on any page (used by the Settings picker).
-  const { scene } = await searchParams;
+  const { scene, embed } = await searchParams;
   let profile: PublicProfile | null = null;
   try {
     const base = process.env.NEXT_PUBLIC_API_URL || "https://api.timeiq.app";
@@ -23,5 +24,7 @@ export default async function BookingProfilePage({ params, searchParams }: {
   } catch {
     // An unavailable or missing profile keeps the public page usable.
   }
-  return <BookingProfile profile={profile} />;
+  const embedded = embed === "1";
+  const content = <BookingProfile profile={profile} embed={embedded} />;
+  return embedded ? <EmbedFrame enabled>{content}</EmbedFrame> : content;
 }

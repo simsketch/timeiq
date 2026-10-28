@@ -3,8 +3,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -12,7 +12,13 @@ from app.database import Base
 
 class Booking(Base):
     __tablename__ = "bookings"
-    __table_args__ = {"schema": "timeiq"}
+    __table_args__ = (
+        Index(
+            "ix_bookings_confirmed_starts_at", "starts_at",
+            postgresql_where=text("status = 'confirmed'"),
+        ),
+        {"schema": "timeiq"},
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -59,6 +65,9 @@ class Booking(Base):
     ical_uid: Mapped[str | None] = mapped_column(String(255), nullable=True)
     ical_sequence: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
+    )
+    reminder_sent: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

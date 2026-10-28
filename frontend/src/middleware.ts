@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -23,6 +24,14 @@ const isPublicRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {
     await auth.protect();
+  }
+  if (request.nextUrl.pathname.startsWith("/book/")) {
+    const response = NextResponse.next();
+    const embedded = request.nextUrl.searchParams.getAll("embed").length === 1
+      && request.nextUrl.searchParams.get("embed") === "1";
+    response.headers.set("Content-Security-Policy", `frame-ancestors ${embedded ? "*" : "'self'"}`);
+    if (!embedded) response.headers.set("X-Frame-Options", "SAMEORIGIN");
+    return response;
   }
 });
 

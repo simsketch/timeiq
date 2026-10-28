@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -18,6 +18,10 @@ class EventTypeCreate(BaseModel):
     is_active: bool = True
     buffer_minutes: int = Field(default=0, ge=0, le=120, alias="buffer_time")
     max_bookings_per_day: Optional[int] = Field(default=None, ge=1)
+    min_notice_minutes: int = Field(default=0, ge=0, le=2880)
+    max_days_ahead: Optional[int] = Field(default=None, ge=1, le=90)
+    reminder_minutes: list[Literal[15, 60, 1440]] = Field(default_factory=lambda: [1440], max_length=3)
+    remind_host: bool = False
     collect_phone: bool = False
     require_phone: bool = False
     collect_company: bool = False
@@ -41,6 +45,7 @@ class EventTypeCreate(BaseModel):
 # Fields the database requires; an explicit null for any of them is a 422.
 NON_NULLABLE_UPDATE_FIELDS = (
     "name", "slug", "duration_minutes", "color", "is_active", "buffer_minutes",
+    "min_notice_minutes", "reminder_minutes", "remind_host",
     *(f"{kind}_{f}" for f in INTAKE_FIELDS for kind in ("collect", "require")),
 )
 
@@ -55,6 +60,10 @@ class EventTypeUpdate(BaseModel):
     is_active: Optional[bool] = None
     buffer_minutes: Optional[int] = Field(default=None, ge=0, le=120, alias="buffer_time")
     max_bookings_per_day: Optional[int] = Field(default=None, ge=1)
+    min_notice_minutes: Optional[int] = Field(default=None, ge=0, le=2880)
+    max_days_ahead: Optional[int] = Field(default=None, ge=1, le=90)
+    reminder_minutes: Optional[list[Literal[15, 60, 1440]]] = Field(default=None, max_length=3)
+    remind_host: Optional[bool] = None
     collect_phone: Optional[bool] = None
     require_phone: Optional[bool] = None
     collect_company: Optional[bool] = None
@@ -84,6 +93,10 @@ class EventTypeResponse(BaseModel):
     is_active: bool
     buffer_time: int = Field(validation_alias="buffer_minutes")
     max_bookings_per_day: Optional[int]
+    min_notice_minutes: int = 0
+    max_days_ahead: Optional[int] = None
+    reminder_minutes: list[int] = Field(default_factory=lambda: [1440])
+    remind_host: bool = False
     collect_phone: bool = False
     require_phone: bool = False
     collect_company: bool = False

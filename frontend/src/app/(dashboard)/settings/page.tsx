@@ -24,6 +24,7 @@ import { BillingStatus, PLAN_LABEL, fetchBillingStatus, openPortal } from "@/lib
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { BookingScenePicker } from "@/components/booking-scene-picker";
 import { ApiTokensCard } from "@/components/api-tokens-card";
+import { EmbedSnippets } from "@/components/embed-snippets";
 
 interface UserSettings {
   name: string;
@@ -365,6 +366,7 @@ export default function SettingsPage() {
             <p className="text-xs text-muted-foreground mt-2">
               Share this link with anyone to let them book time with you
             </p>
+            <div className="mt-3"><EmbedSnippets username={settings.username || null} /></div>
           </CardContent>
         </Card>
 

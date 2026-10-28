@@ -78,3 +78,7 @@
   .noScene .panel { padding: 110px 40px 35px; }
   .noScene .content { max-width: 540px; }
 }
+
+.page.embed { min-height: 0; background: transparent; }
+.embed.noScene .panel { min-height: 0; padding: 28px 24px; background: transparent; box-shadow: none; }
+.embed .content { padding: 0; }
