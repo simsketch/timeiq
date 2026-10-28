@@ -44,6 +44,7 @@ class UserResponse(BaseModel):
     timezone: str
     image_url: Optional[str]
     weekly_hours_target: int = 40
+    weekly_summary_enabled: bool = True
     booking_scene: Optional[str] = None
 
     model_config = {"from_attributes": True}
@@ -64,6 +65,7 @@ class UserUpdate(BaseModel):
     username: Optional[str] = Field(default=None, min_length=1, max_length=100)
     timezone: Optional[str] = Field(default=None, max_length=100)
     weekly_hours_target: Optional[int] = None
+    weekly_summary_enabled: Optional[bool] = None
     booking_scene: Optional[str] = Field(default=None, max_length=32)
 
     @field_validator("booking_scene")
@@ -237,6 +239,8 @@ async def update_me(
 ):
     if payload.name is not None:
         user.name = payload.name.strip() or None
+    if payload.weekly_summary_enabled is not None:
+        user.weekly_summary_enabled = payload.weekly_summary_enabled
     if payload.weekly_hours_target is not None:
         if not 0 <= payload.weekly_hours_target <= 168:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Weekly target must be between 0 and 168 hours")

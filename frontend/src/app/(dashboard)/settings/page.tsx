@@ -33,6 +33,7 @@ interface UserSettings {
   username: string;
   timezone: string;
   weekly_hours_target: number;
+  weekly_summary_enabled: boolean;
   booking_scene?: string | null;
 }
 
@@ -108,6 +109,7 @@ export default function SettingsPage() {
     username: "",
     timezone: "America/New_York",
     weekly_hours_target: 40,
+    weekly_summary_enabled: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -225,6 +227,7 @@ export default function SettingsPage() {
         username: user?.username || user?.id || "",
         timezone: "America/New_York",
         weekly_hours_target: 40,
+        weekly_summary_enabled: true,
       });
     } finally {
       setLoading(false);
@@ -239,7 +242,7 @@ export default function SettingsPage() {
       await apiFetch("/api/me", {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: settings.name, username: settings.username, timezone: settings.timezone, weekly_hours_target: settings.weekly_hours_target }),
+        body: JSON.stringify({ name: settings.name, username: settings.username, timezone: settings.timezone, weekly_hours_target: settings.weekly_hours_target, weekly_summary_enabled: settings.weekly_summary_enabled }),
       });
       toast({ title: "Settings updated successfully" });
     } catch (error: any) {
@@ -383,6 +386,18 @@ export default function SettingsPage() {
             onChange={(e) => setSettings({ ...settings, weekly_hours_target: Number(e.target.value) })}
           />
           <p className="text-xs text-muted-foreground">Shown on the timesheet as progress for the week.</p>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 max-w-md">
+          <div className="space-y-1">
+            <Label htmlFor="weekly_summary_enabled">Your week email</Label>
+            <p className="text-xs text-muted-foreground">Your bookings, open time and billing every Monday around 7 am in your timezone.</p>
+          </div>
+          <Switch
+            id="weekly_summary_enabled"
+            checked={settings.weekly_summary_enabled}
+            onCheckedChange={(value) => setSettings({ ...settings, weekly_summary_enabled: value })}
+          />
         </div>
 
         <Button type="submit" disabled={saving}>

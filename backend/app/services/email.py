@@ -152,7 +152,7 @@ def render_booking_confirmation_visitor(booking: Booking, event_type: EventType,
         )
         + _payment_copy(booking)
         + t.buttons(t.button("Reschedule", reschedule_url, secondary=True), t.button("Cancel booking", cancel_url, secondary=True))
-        + t.p(f"Need to reach {host_name} directly? Reply to this email.", muted=True)
+        + t.p("Reply to this email to ask TimeIQ to reschedule or cancel your booking.", muted=True)
     )
     return t.layout("confirmed", f"Confirmed with {host_name}: {_format_datetime(booking.starts_at, tz)}", body)
 
@@ -213,6 +213,7 @@ def render_booking_confirmation_host(booking: Booking, event_type: EventType, ho
         + t.details(rows, rows_html=True)
         + _payment_copy(booking)
         + t.buttons(t.button("View bookings", f"{_site()}/bookings"))
+        + t.p("Reply to ask TimeIQ to reschedule or cancel this booking.", muted=True)
     )
     return t.layout("new-booking", f"{booking.visitor_name} booked {event_type.name}", body)
 
@@ -221,11 +222,13 @@ async def send_booking_confirmation(booking: Booking, event_type: EventType, hos
     """Confirmation to the visitor and a heads-up to the host, each in their own timezone."""
     _init_resend()
     host_name = host.name or host.email
+    from app.services.booking_agent import confirmation_id, reply_address
     _send(
         {
             "from": FROM_EMAIL,
             "to": [booking.visitor_email],
-            "reply_to": host.email,
+            "reply_to": reply_address(booking),
+            "headers": {"Message-ID": confirmation_id(booking, "guest")},
             "subject": f"Confirmed: {event_type.name} with {host_name}",
             "html": render_booking_confirmation_visitor(booking, event_type, host),
             "attachments": [_invite(booking, event_type, host, f"{host_name} 1:1")],
@@ -236,7 +239,8 @@ async def send_booking_confirmation(booking: Booking, event_type: EventType, hos
         {
             "from": FROM_EMAIL,
             "to": [host.email],
-            "reply_to": booking.visitor_email,
+            "reply_to": reply_address(booking),
+            "headers": {"Message-ID": confirmation_id(booking, "host")},
             "subject": f"New booking: {booking.visitor_name}, {event_type.name}",
             "html": render_booking_confirmation_host(booking, event_type, host),
             "attachments": [_invite(booking, event_type, host, f"{booking.visitor_name} 1:1")],
@@ -315,6 +319,48 @@ async def send_cancellation_notice(booking: Booking, event_type: EventType, host
 # ---------------------------------------------------------------------------
 # Invoices
 # ---------------------------------------------------------------------------
+
+
+def send_booking_agent_note(booking, owner, sender: str, detail: dict, text: str, *, message_id=None, options=None) -> None:
+    from app.services.booking_agent import reply_address
+    from app.services.meeting_agent import thread_refs
+
+    _init_resend()
+    refs = [ref for ref in dict.fromkeys([*(booking.email_thread_ids or []), *thread_refs(detail)]) if ref != message_id][-12:]
+    headers = {"References": " ".join(refs)} if refs else {}
+    target = detail.get("message_id")
+    if target:
+        headers["In-Reply-To"] = target
+    if message_id:
+        headers["Message-ID"] = message_id
+    paragraphs = [html_escape(text)]
+    if options:
+        items = "".join(f"<li>{html_escape(_local(s, owner.timezone))}</li>" for s in options)
+        paragraphs += [f"<ol>{items}</ol>", "Reply with the number of the time you want to book."]
+    _send({
+        "from": FROM_EMAIL, "to": list(dict.fromkeys([owner.email, booking.visitor_email])) if options else [sender],
+        "reply_to": reply_address(booking), "subject": _re(detail.get("subject") or "Your booking"),
+        "headers": headers, "html": _agent_html(paragraphs, "TimeIQ scheduling assistant"),
+    }, "booking agent reply")
+
+
+def send_booking_agent_offer(booking, owner, detail, options, message_id) -> None:
+    send_booking_agent_note(booking, owner, owner.email, detail,
+        "Here are open times for your booking. The current booking stays in place until you choose one.",
+        message_id=message_id, options=options)
+
+
+def send_booking_clarification(owner, sender, detail, intent, *, message_id) -> None:
+    from app.services.email_import import address_for
+
+    _init_resend()
+    _send({
+        "from": FROM_EMAIL, "to": [sender], "reply_to": [address_for(owner), owner.email],
+        "subject": _re(f"{intent.capitalize()} a booking"),
+        "headers": {"Message-ID": message_id, **({"In-Reply-To": detail["message_id"]} if detail.get("message_id") else {})},
+        "html": _agent_html(["Which booking would you like to change? Please include the guest and current date."],
+                             "TimeIQ scheduling assistant"),
+    }, "booking clarification")
 
 
 def render_invoice(

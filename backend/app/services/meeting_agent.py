@@ -73,7 +73,7 @@ def _addresses(*fields) -> list[tuple[str, str]]:
 
 def _header(detail: dict, name: str) -> str:
     headers = detail.get("headers") or {}
-    value = headers.get(name) or headers.get(name.title()) or ""
+    value = next((v for k, v in headers.items() if k.lower() == name.lower()), "")
     return " ".join(value) if isinstance(value, list) else str(value)
 
 
@@ -136,11 +136,11 @@ class ProposedTime(BaseModel):
 
 
 class MeetingRequest(BaseModel):
-    intent: Literal["find_time", "proposed_times", "schedule", "other"] = Field(
+    intent: Literal["find_time", "proposed_times", "schedule", "reschedule", "cancel", "other"] = Field(
         description="find_time: people want to set up a meeting and no specific times are offered yet. "
         "proposed_times: someone (a person, recruiter or another scheduling assistant) offers specific times "
         "and wants one picked. schedule: the email shares a schedule of events to add to a calendar "
-        "(games, practices, classes). other: anything else."
+        "(games, practices, classes). reschedule: move an existing booking. cancel: cancel an existing booking. other: anything else."
     )
     proposed: list[ProposedTime] = Field(default_factory=list, description="The specific times offered, if any")
     title: str = Field(description="Short meeting name, e.g. 'Pilot kickoff' or 'Coffee with Dana'")
@@ -171,7 +171,8 @@ pull out what they asked for. If the email offers specific times to choose from 
 (for example an interview scheduler or another assistant listing slots), the intent \
 is proposed_times: list every offered time, with its time zone when stated. Use \
 today's date to resolve phrases like "next week" (Monday to Friday of the following \
-week) or "Thursday". Leave fields empty when the email doesn't say."""
+week) or "Thursday". Requests to move or cancel an existing booking have intent \
+reschedule or cancel. Leave fields empty when the email doesn't say."""
 
 REPLY_PROMPT = """You are TimeIQ, a scheduling assistant on an email thread. \
 TimeIQ offered the numbered times under "Times offered". Read the newest message \
@@ -350,8 +351,15 @@ async def handle(user_id, detail: dict, now: datetime | None = None) -> str | No
 
     async with async_session() as db:
         owner = await db.get(User, user_id)
+        if owner is None or _ours(sender):
+            return "ignored"
         owner_email = (owner.email or "").lower()
         own_id = detail.get("message_id") or _header(detail, "message-id") or None
+        from app.services import booking_agent
+
+        routed = await booking_agent.handle(db, owner, detail, sender, refs, now)
+        if routed is not None:
+            return routed
         meeting = await _find_meeting(db, user_id, refs)
         if meeting is not None:
             if not await claim_message(owner.id, own_id, now):
@@ -359,7 +367,7 @@ async def handle(user_id, detail: dict, now: datetime | None = None) -> str | No
             return await _handle_reply(db, owner, meeting, detail, sender, people, now)
 
         others = [(n, e) for n, e in people if e != owner_email and not _ours(e)]
-        if not others:
+        if not others and not re.search(r"\b(cancel|reschedule|move)\b", newest_text(detail.get("text") or ""), re.I):
             return None  # just the owner and TimeIQ: a forwarded schedule
         if owner_email not in {e for _, e in people}:
             logger.info("Meeting request without the account owner on the thread; ignored")
@@ -368,6 +376,8 @@ async def handle(user_id, detail: dict, now: datetime | None = None) -> str | No
         tz = host_zone(owner)
         today = now.astimezone(tz).date()
         req = await read_request(detail.get("subject") or "", newest_text(detail.get("text") or ""), str(tz), today)
+        if req is not None and req.intent in ("reschedule", "cancel"):
+            return await booking_agent.handle(db, owner, detail, sender, refs, now, request=req)
         if req is None or req.intent not in ("find_time", "proposed_times"):
             return None
 

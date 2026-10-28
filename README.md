@@ -61,12 +61,15 @@ uvicorn app.main:app --reload --port 8000
 | `RESEND_API_KEY` | Booking, invoice and notification email |
 | `FRONTEND_URL`, `BACKEND_URL` | Public URLs, used in links and OAuth redirects |
 | `CRON_SECRET` | Required for the cron endpoints in `backend/vercel.json` (booking reminders every 15 minutes, calendar sync hourly, overdue digest weekly, monthly drafts). Cron calls are refused while it is empty. |
+| `WEEKLY_SUMMARY_SECRET` | Optional signing secret for weekly-summary unsubscribe links; falls back to `CRON_SECRET`. Keep it stable so existing links work. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional: Google Calendar OAuth. ICS links work without it. |
 | `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MS_TENANT` | Optional: Outlook / Microsoft 365 OAuth. Hidden and disabled unless both credentials are set; tenant defaults to `common`. See [Outlook setup](docs/outlook-setup.md). |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_FOUNDER`, `STRIPE_PRICE_STANDARD` | Optional. Leave unset and billing is off: every account has full access. |
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | Optional. Enables paid bookings with the existing `STRIPE_SECRET_KEY`. See [Stripe Connect setup](docs/paid-bookings.md). |
 
 Tests: `python -m pytest -q` from `backend/`. Tests that need a database only run against a local `timeiq_qa*` database.
+
+Booking email replies need Resend inbound delivery for `booking-<uuid>@INBOUND_DOMAIN`, in addition to the existing `schedule-<token>` addresses. Use the existing signed inbound-email webhook and inbound Resend/Anthropic keys. Weekly summaries use cached calendars and send Monday around 7 am in each user's timezone; the Sunday UTC companion cron covers eastern timezones. Users can opt out in Settings or through the signed unsubscribe link.
 
 ### Frontend
 

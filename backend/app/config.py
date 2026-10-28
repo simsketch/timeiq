@@ -40,6 +40,7 @@ class Settings:
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
     BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:8000")
     CRON_SECRET: str = os.getenv("CRON_SECRET", "")
+    WEEKLY_SUMMARY_SECRET: str = os.getenv("WEEKLY_SUMMARY_SECRET", "")
     # Billing (Stripe). Leave STRIPE_SECRET_KEY empty to disable the paywall.
     # STRIPE_SECRET_KEY wins; *_TEST is a convenience for local dev files.
     STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY") or os.getenv(

@@ -408,6 +408,8 @@ async def reschedule_booking(
     old_booking.status = "rescheduled" if old_booking.price_cents is not None else "cancelled"
     old_booking.cancelled_at = datetime.now(timezone.utc)
 
+    from app.services.booking_agent import confirmation_id
+
     new_booking = _booking_from_payload(
         payload, event_type, host, starts_at, ends_at,
         rescheduled_from_id=old_booking.id,
@@ -417,6 +419,7 @@ async def reschedule_booking(
         currency=old_booking.currency,
         stripe_connect_account_id=old_booking.stripe_connect_account_id,
         stripe_payment_intent_id=old_booking.stripe_payment_intent_id,
+        email_thread_ids=[*(old_booking.email_thread_ids or []), confirmation_id(old_booking, "host"), confirmation_id(old_booking, "guest")][-100:],
     )
     db.add(new_booking)
     await db.flush()

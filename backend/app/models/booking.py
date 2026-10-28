@@ -80,6 +80,9 @@ class Booking(Base):
     reminder_sent: Mapped[list[str]] = mapped_column(
         JSONB, nullable=False, default=list, server_default="[]"
     )
+    email_thread_ids: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+    # Each outgoing offer's Message-ID maps to the exact ordered starts shown.
+    reschedule_offers: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
