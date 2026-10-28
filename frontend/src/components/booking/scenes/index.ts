@@ -137,12 +137,13 @@ export const SCENES: Record<SceneId, SceneDefinition> = {
     blurb: "A warm seventies den, lava lamps glowing beside a flip clock.",
     still: "/booking/lava-lamp-still.webp",
     still640: "/booking/lava-lamp-still-640.webp",
-    backdrop: "linear-gradient(#3b1d2b, #6a2f3a 60%, #2a1520)",
+    backdrop: "linear-gradient(#302017, #5d3b27 65%, #39251a)",
     ink: "light",
     camera: {
-      position: [3.5, 2.6, 8], target: [0, 1.6, 0], fov: 38, fovSmall: 42,
-      minDistance: 5, maxDistance: 12, minPolarAngle: 55 * deg, maxPolarAngle: 92 * deg, azimuthRange: 50 * deg,
+      position: [4, 4.1, 11.5], positionSmall: [3.5, 4.7, 11.8], target: [0, 2.05, .25], fov: 40, fovSmall: 42, far: 70,
+      minDistance: 8, maxDistance: 15, minPolarAngle: 60 * deg, maxPolarAngle: 84 * deg, azimuthRange: 32 * deg,
     },
+    toneMappingExposure: 1.12,
     load: () => import("./lava-lamp"),
   },
   "digital-rain": {
