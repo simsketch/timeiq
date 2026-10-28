@@ -30,8 +30,12 @@ import { Plus, Copy, Edit, Trash2 } from "lucide-react";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { BookingExtrasFields, DEFAULT_BOOKING_EXTRAS } from "@/components/booking-extras-fields";
 import { EmbedSnippets } from "@/components/embed-snippets";
+import { BookingPriceFields } from "@/components/booking-price-fields";
+import { bookingPrice } from "@/lib/booking-payments";
 
 interface EventType {
+  price_cents: number | null;
+  currency: string;
   id: number;
   name: string;
   slug: string;
@@ -68,6 +72,8 @@ export default function EventTypesPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [price, setPrice] = useState("");
+  const [currency, setCurrency] = useState("usd");
   const [formData, setFormData] = useState({
     name: "",
     duration_minutes: 30,
@@ -120,8 +126,12 @@ export default function EventTypesPage() {
     e.preventDefault();
     try {
       const token = await getToken();
+      const original = eventTypes.find((et) => et.id === editingId);
+      const priceCents = price === "" ? null : Math.round(Number(price) * 100);
       const payload = {
         ...formData,
+        ...(!original || priceCents !== original.price_cents || currency !== original.currency
+          ? { price_cents: priceCents, currency } : {}),
         location: formData.location || null,
         max_bookings_per_day: formData.max_bookings_per_day ? parseInt(formData.max_bookings_per_day) : null,
       };
@@ -181,6 +191,8 @@ export default function EventTypesPage() {
   }
 
   function handleEdit(eventType: EventType) {
+    setPrice(eventType.price_cents == null ? "" : (eventType.price_cents / 100).toFixed(2));
+    setCurrency(eventType.currency);
     setEditingId(eventType.id);
     setFormData({
       name: eventType.name,
@@ -205,6 +217,8 @@ export default function EventTypesPage() {
   }
 
   function resetForm() {
+    setPrice("");
+    setCurrency("usd");
     setEditingId(null);
     setFormData({
       name: "",
@@ -363,6 +377,7 @@ export default function EventTypesPage() {
                 </div>
                 <BookingExtrasFields value={formData} onChange={(change) => setFormData({ ...formData, ...change })} />
                 <div className="space-y-3 pt-2">
+                  <BookingPriceFields price={price} currency={currency} onChange={(p, c) => { setPrice(p); setCurrency(c); }} />
                   <Label className="text-sm font-medium">Collect from guests</Label>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
@@ -452,6 +467,7 @@ export default function EventTypesPage() {
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
                 {eventType.duration} minutes
+                {eventType.price_cents != null && ` · ${bookingPrice(eventType.price_cents, eventType.currency)}`}
               </p>
               {eventType.description && (
                 <p className="text-sm mb-4">{eventType.description}</p>

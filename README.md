@@ -64,6 +64,7 @@ uvicorn app.main:app --reload --port 8000
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional: Google Calendar OAuth. ICS links work without it. |
 | `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MS_TENANT` | Optional: Outlook / Microsoft 365 OAuth. Hidden and disabled unless both credentials are set; tenant defaults to `common`. See [Outlook setup](docs/outlook-setup.md). |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_FOUNDER`, `STRIPE_PRICE_STANDARD` | Optional. Leave unset and billing is off: every account has full access. |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | Optional. Enables paid bookings with the existing `STRIPE_SECRET_KEY`. See [Stripe Connect setup](docs/paid-bookings.md). |
 
 Tests: `python -m pytest -q` from `backend/`. Tests that need a database only run against a local `timeiq_qa*` database.
 

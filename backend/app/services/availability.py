@@ -141,14 +141,14 @@ async def get_available_slots(
     )
     cached_events = ce_result.scalars().all()
 
-    # 5. Existing confirmed bookings in the window, with their own buffers
+    # 5. Confirmed bookings and payment holds, with their own buffers
     bk_result = await db.execute(
         select(Booking, EventType.buffer_minutes)
         .join(EventType, EventType.id == Booking.event_type_id)
         .where(
             and_(
                 Booking.host_user_id == host.id,
-                Booking.status == "confirmed",
+                Booking.status.in_(("confirmed", "pending_payment")),
                 Booking.starts_at < window_end_utc,
                 Booking.ends_at > window_start_utc,
                 Booking.id != exclude_booking_id if exclude_booking_id else True,
@@ -250,7 +250,7 @@ async def get_available_slots(
                 and_(
                     Booking.event_type_id == event_type.id,
                     Booking.host_user_id == host.id,
-                    Booking.status == "confirmed",
+                    Booking.status.in_(("confirmed", "pending_payment")),
                     Booking.starts_at >= day_start,
                     Booking.starts_at < day_end,
                     Booking.id != exclude_booking_id if exclude_booking_id else True,

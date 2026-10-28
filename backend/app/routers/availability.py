@@ -21,6 +21,7 @@ from app.schemas.availability import (
 from app.services.availability import get_available_slots, host_zone
 from app.services.free_time import free_windows
 from app.tasks import freshen_user_calendars
+from app.services.booking_payments import expire_holds, require_payments
 
 router = APIRouter(tags=["availability"])
 
@@ -147,6 +148,7 @@ async def get_reschedule_slots(
         )
 
     target_date = _parse_date(date_str)
+    await expire_holds(db, host.id)
     slots = await get_available_slots(
         db, host, event_type, target_date, exclude_booking_id=booking.id
     )
@@ -203,6 +205,8 @@ async def get_public_slots(
             detail="Invalid date format. Use YYYY-MM-DD.",
         )
 
+    require_payments(host, event_type)
+    await expire_holds(db, host.id)
     slots = await get_available_slots(db, host, event_type, target_date)
     return [AvailableSlot(start=s) for s in slots]
 

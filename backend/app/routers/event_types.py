@@ -13,6 +13,7 @@ from app.database import get_db
 from app.models.booking import Booking
 from app.models.event_type import EventType
 from app.models.user import User
+from app.services.booking_payments import require_pricing_ready
 from app.schemas.event_type import (
     INTAKE_FIELDS,
     EventTypeCreate,
@@ -54,6 +55,8 @@ async def create_event_type(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new event type. Slug is auto-generated from the name."""
+    if payload.price_cents is not None or payload.currency != "usd":
+        await require_pricing_ready(user)
     base_slug = _slugify(payload.name)
     slug = base_slug
 
@@ -86,6 +89,8 @@ async def create_event_type(
         max_days_ahead=payload.max_days_ahead,
         reminder_minutes=sorted(set(payload.reminder_minutes)),
         remind_host=payload.remind_host,
+        price_cents=payload.price_cents,
+        currency=payload.currency,
         **payload.intake_flags(),
     )
     db.add(event_type)
@@ -135,6 +140,13 @@ async def _do_update_event_type(
     update_data = payload.model_dump(exclude_unset=True, by_alias=False)
     if "reminder_minutes" in update_data:
         update_data["reminder_minutes"] = sorted(set(update_data["reminder_minutes"]))
+    currency_changed = "currency" in update_data and update_data["currency"] != event_type.currency
+    paid_price_changed = (
+        ("price_cents" in update_data or "currency" in update_data)
+        and update_data.get("price_cents", event_type.price_cents) is not None
+    )
+    if currency_changed or paid_price_changed:
+        await require_pricing_ready(user)
 
     # If name is being updated but slug is not, regenerate slug
     if "name" in update_data and "slug" not in update_data:
@@ -233,7 +245,7 @@ async def delete_event_type(
     upcoming = await db.scalar(
         select(exists().where(
             Booking.event_type_id == event_type.id,
-            Booking.status == "confirmed",
+            Booking.status.in_(("confirmed", "pending_payment")),
             Booking.ends_at > now,
         ))
     )

@@ -3,10 +3,13 @@ from __future__ import annotations
 import hmac
 import logging
 
-from fastapi import APIRouter, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.services.booking_reminders import send_due_booking_reminders
+from app.database import get_db
+from app.services.booking_payments import expire_holds
 from app.tasks import create_monthly_invoice_drafts, send_overdue_invoice_digests, sync_all_active_calendars
 
 logger = logging.getLogger(__name__)
@@ -21,6 +24,12 @@ async def cron_booking_reminders(
     """Send due booking reminders every 15 minutes."""
     _require_cron_secret(authorization)
     return {"status": "ok", "results": await send_due_booking_reminders()}
+
+
+@router.get("/api/cron/expire-booking-payments")
+async def cron_expire_booking_payments(authorization: str = Header(...), db: AsyncSession = Depends(get_db)):
+    _require_cron_secret(authorization)
+    return {"status": "ok", "processed": await expire_holds(db)}
 
 
 def _require_cron_secret(authorization: str) -> None:

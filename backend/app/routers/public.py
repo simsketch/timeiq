@@ -17,6 +17,7 @@ from app.models.event_type import EventType
 from app.models.user import User
 from app.services.calendar_sync import host_zone
 from app.services.ics_generator import generate_feed_ics
+from app.services.booking_payments import require_payments
 
 router = APIRouter(prefix="/api/public", tags=["public"])
 
@@ -26,6 +27,8 @@ FEED_FUTURE_DAYS = 365
 
 
 class PublicEventType(BaseModel):
+    price_cents: Optional[int] = None
+    currency: str = "usd"
     id: uuid.UUID
     name: str
     slug: str
@@ -46,6 +49,8 @@ class PublicUserProfile(BaseModel):
 
 
 class PublicEventTypeDetail(BaseModel):
+    price_cents: Optional[int] = None
+    currency: str = "usd"
     id: uuid.UUID
     name: str
     slug: str
@@ -165,7 +170,8 @@ async def get_public_profile(
         name=user.name,
         image_url=user.image_url,
         booking_scene=user.booking_scene,
-        event_types=[PublicEventType.model_validate(et) for et in event_types],
+        event_types=[PublicEventType.model_validate(et) for et in event_types
+                     if et.price_cents is None or (user.stripe_connect_account_id and user.stripe_connect_charges_enabled)],
     )
 
 
@@ -203,6 +209,7 @@ async def get_public_event_type(
         )
 
     detail = PublicEventTypeDetail.model_validate(event_type)
+    require_payments(user, event_type)
     detail.host_name = user.name
     return detail
 

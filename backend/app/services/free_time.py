@@ -90,7 +90,7 @@ async def free_windows(
             .where(
                 and_(
                     Booking.host_user_id == host.id,
-                    Booking.status == "confirmed",
+                    Booking.status.in_(("confirmed", "pending_payment")),
                     Booking.starts_at < span_end,
                     Booking.ends_at > span_start,
                 )

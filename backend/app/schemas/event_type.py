@@ -7,9 +7,12 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 INTAKE_FIELDS = ("phone", "company", "url")
+BookingCurrency = Literal["usd", "eur", "gbp", "cad", "aud", "nzd", "chf", "sgd", "hkd"]
 
 
 class EventTypeCreate(BaseModel):
+    price_cents: Optional[int] = Field(default=None, ge=50, le=99999999, strict=True)
+    currency: BookingCurrency = "usd"
     name: str = Field(..., min_length=1, max_length=200)
     description: Optional[str] = None
     location: Optional[str] = Field(default=None, max_length=500)
@@ -44,13 +47,15 @@ class EventTypeCreate(BaseModel):
 
 # Fields the database requires; an explicit null for any of them is a 422.
 NON_NULLABLE_UPDATE_FIELDS = (
-    "name", "slug", "duration_minutes", "color", "is_active", "buffer_minutes",
+    "name", "slug", "duration_minutes", "color", "is_active", "buffer_minutes", "currency",
     "min_notice_minutes", "reminder_minutes", "remind_host",
     *(f"{kind}_{f}" for f in INTAKE_FIELDS for kind in ("collect", "require")),
 )
 
 
 class EventTypeUpdate(BaseModel):
+    price_cents: Optional[int] = Field(default=None, ge=50, le=99999999, strict=True)
+    currency: Optional[BookingCurrency] = None
     name: Optional[str] = Field(default=None, min_length=1, max_length=200)
     slug: Optional[str] = Field(default=None, min_length=1, max_length=200)
     description: Optional[str] = None
@@ -82,6 +87,8 @@ class EventTypeUpdate(BaseModel):
 
 
 class EventTypeResponse(BaseModel):
+    price_cents: Optional[int] = None
+    currency: str = "usd"
     id: uuid.UUID
     user_id: uuid.UUID
     slug: str
