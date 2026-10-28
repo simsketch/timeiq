@@ -95,12 +95,13 @@ export const SCENES: Record<SceneId, SceneDefinition> = {
     blurb: "Carved calendar wheels set to today's Maya date, beside a stepped pyramid.",
     still: "/booking/maya-still.webp",
     still640: "/booking/maya-still-640.webp",
-    backdrop: "linear-gradient(#e9c79a, #d79a62 60%, #6f7a4a)",
+    backdrop: "linear-gradient(#adb8a6, #d6c5a0 60%, #697154)",
     ink: "dark",
     camera: {
-      position: [7, 4, 13], target: [0, 2, 0], fov: 38, fovSmall: 42,
-      minDistance: 8, maxDistance: 22, minPolarAngle: 50 * deg, maxPolarAngle: 86 * deg, azimuthRange: 60 * deg,
+      position: [4.8, 5.3, 17.8], positionSmall: [2, 4.4, 12.8], target: [-.35, 2.1, -.8], fov: 39, fovSmall: 46, far: 130,
+      minDistance: 10, maxDistance: 24, minPolarAngle: 58 * deg, maxPolarAngle: 83 * deg, azimuthRange: 32 * deg,
     },
+    toneMappingExposure: 1.05,
     load: () => import("./maya"),
   },
 };
