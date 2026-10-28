@@ -51,6 +51,17 @@ class Booking(Base):
     cancelled_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Payment terms survive event type edits and travel with a reschedule.
+    price_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="usd", server_default="usd")
+    stripe_connect_account_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    stripe_checkout_session_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
+    stripe_payment_intent_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    stripe_refund_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    refund_status: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    payment_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    payment_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
+    checkout_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     rescheduled_from_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True
     )

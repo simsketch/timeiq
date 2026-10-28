@@ -5,7 +5,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, select, text
+import stripe
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_user
 from app.database import get_db
@@ -21,6 +22,8 @@ from app.services.availability import (
 )
 from app.services.email import send_booking_confirmation, send_cancellation_notice
 from app.services.ics_generator import ical_uid_for
+from app.services import booking_payments as payments
+from app.services.booking_lock import lock_host_bookings
 
 
 def require_visitor_fields(event_type: EventType, payload) -> None:
@@ -36,19 +39,6 @@ def require_visitor_fields(event_type: EventType, payload) -> None:
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"A {label} is required for this booking",
             )
-
-
-async def lock_host_bookings(db: AsyncSession, host_id: uuid.UUID) -> None:
-    """Serialize booking decisions for one host until this transaction ends.
-
-    Checking availability and inserting are two statements, so without this two
-    requests can both see a slot as free and both book it. A transaction-scoped
-    advisory lock keyed on the host makes the second wait, then re-check against
-    the first one's committed booking."""
-    await db.execute(
-        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
-        {"key": f"timeiq-booking-host:{host_id}"},
-    )
 
 
 def _requested_window(payload: BookingCreate, event_type: EventType) -> tuple[datetime, datetime]:
@@ -145,12 +135,14 @@ async def cancel_booking_as_host(
             detail="Booking not found",
         )
 
-    if booking.status == "cancelled":
+    if booking.status not in ("confirmed", "pending_payment"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Booking is already cancelled",
         )
 
+    was_confirmed = booking.status == "confirmed"
+    await payments.cancel_payment(booking, as_host=True)
     _cancel(booking)
     await db.flush()
     await db.refresh(booking)
@@ -161,7 +153,7 @@ async def cancel_booking_as_host(
     )
     event_type = et_result.scalar_one_or_none()
     await db.commit()
-    if event_type:
+    if event_type and was_confirmed:
         await send_cancellation_notice(booking, event_type, user)
 
     return booking
@@ -211,9 +203,18 @@ async def create_public_booking(
         )
 
     starts_at, ends_at = _requested_window(payload, event_type)
+    payments.require_payments(host, event_type)
+    if event_type.price_cents is not None:
+        try:
+            await payments.refresh_account(host)
+        except stripe.StripeError:
+            raise HTTPException(status_code=502, detail="Stripe could not check the host's account. Try booking again shortly.")
+        payments.require_payments(host, event_type)
 
     # Sync calendars first: it can take seconds and must not hold the lock.
     await freshen_host_calendars(host)
+    await payments.expire_holds(db, host.id)
+    await payments.limit_booking_emails(db, payload.visitor_email)
     await lock_host_bookings(db, host.id)
     if not await is_bookable(db, host, event_type, starts_at, freshen=False):
         raise HTTPException(
@@ -229,6 +230,11 @@ async def create_public_booking(
         ical_sequence=0,
     )
     db.add(booking)
+    if event_type.price_cents is not None:
+        try:
+            await payments.create_checkout(booking, event_type, host)
+        except stripe.StripeError:
+            raise HTTPException(status_code=502, detail="Stripe could not start checkout. Try booking again shortly.")
     await db.flush()
     await db.refresh(booking)
     # Commit (releasing the host lock) before mail goes out, so a guest is never
@@ -236,7 +242,8 @@ async def create_public_booking(
     await db.commit()
 
     # Send confirmation emails synchronously (serverless has no background tasks)
-    await send_booking_confirmation(booking, event_type, host)
+    if booking.status == "confirmed":
+        await send_booking_confirmation(booking, event_type, host)
 
     return booking
 
@@ -286,6 +293,11 @@ async def get_booking_for_reschedule(
         "username": host.username if host else None,
         "event_type_name": event_type.name if event_type else None,
         "duration_minutes": event_type.duration_minutes if event_type else None,
+        "price_cents": booking.price_cents,
+        "currency": booking.currency,
+        "refund_status": booking.refund_status,
+        "refund_eligible": payments.refund_due(booking, as_host=False),
+        "refund_policy": payments.REFUND_POLICY if booking.price_cents is not None else None,
     }
 
 
@@ -349,6 +361,8 @@ async def reschedule_booking(
     starts_at, ends_at = _requested_window(payload, event_type)
 
     await freshen_host_calendars(host)
+    await payments.expire_holds(db, host.id)
+    await payments.limit_booking_emails(db, payload.visitor_email)
     await lock_host_bookings(db, host.id)
 
     # Re-read the original under a row lock: a concurrent reschedule or cancel
@@ -376,7 +390,7 @@ async def reschedule_booking(
 
     # Cancel the old booking. Its guest gets no CANCEL: the new booking's
     # REQUEST carries the same UID and replaces the event.
-    old_booking.status = "cancelled"
+    old_booking.status = "rescheduled" if old_booking.price_cents is not None else "cancelled"
     old_booking.cancelled_at = datetime.now(timezone.utc)
 
     new_booking = _booking_from_payload(
@@ -384,6 +398,10 @@ async def reschedule_booking(
         rescheduled_from_id=old_booking.id,
         ical_uid=ical_uid_for(old_booking),
         ical_sequence=(old_booking.ical_sequence or 0) + 1,
+        price_cents=old_booking.price_cents,
+        currency=old_booking.currency,
+        stripe_connect_account_id=old_booking.stripe_connect_account_id,
+        stripe_payment_intent_id=old_booking.stripe_payment_intent_id,
     )
     db.add(new_booking)
     await db.flush()
@@ -415,7 +433,6 @@ async def cancel_booking_by_visitor(
             Booking.id == booking_id,
             Booking.cancel_token == token,
         )
-        .with_for_update()
     )
     booking = result.scalar_one_or_none()
     if booking is None:
@@ -424,12 +441,23 @@ async def cancel_booking_by_visitor(
             detail="Booking not found or invalid cancellation token",
         )
 
-    if booking.status == "cancelled":
+    if booking.status not in ("confirmed", "pending_payment"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Booking is already cancelled",
         )
 
+    # Match reschedule's lock order: email first, then the booking row.
+    await payments.limit_booking_emails(db, booking.visitor_email, cancellation=True)
+    booking = (await db.execute(
+        select(Booking).where(Booking.id == booking_id, Booking.cancel_token == token)
+        .with_for_update().execution_options(populate_existing=True)
+    )).scalar_one()
+    if booking.status not in ("confirmed", "pending_payment"):
+        raise HTTPException(status_code=400, detail="Booking is already cancelled")
+
+    was_confirmed = booking.status == "confirmed"
+    await payments.cancel_payment(booking, as_host=False)
     _cancel(booking)
     await db.flush()
     await db.refresh(booking)
@@ -445,7 +473,7 @@ async def cancel_booking_by_visitor(
     host = host_result.scalar_one_or_none()
     await db.commit()
 
-    if event_type and host:
+    if event_type and host and was_confirmed:
         await send_cancellation_notice(booking, event_type, host)
 
     return booking

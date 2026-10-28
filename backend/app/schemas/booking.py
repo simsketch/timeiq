@@ -35,6 +35,9 @@ class BookingCreate(BaseModel):
 
 
 class BookingResponse(BaseModel):
+    price_cents: Optional[int] = None
+    currency: str = "usd"
+    refund_status: Optional[str] = None
     id: uuid.UUID
     event_type_id: uuid.UUID
     host_user_id: uuid.UUID
@@ -68,5 +71,9 @@ class BookingPublicResponse(BaseModel):
     timezone: str
     status: str
     created_at: datetime
+    checkout_url: Optional[str] = None
+    price_cents: Optional[int] = None
+    currency: str = "usd"
+    refund_status: Optional[str] = None
 
     model_config = {"from_attributes": True}

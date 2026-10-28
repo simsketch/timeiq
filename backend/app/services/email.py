@@ -118,6 +118,21 @@ def _invite(booking: Booking, event_type: EventType, host: User, summary: str, m
 # ---------------------------------------------------------------------------
 
 
+def _payment_copy(booking: Booking, *, cancelled: bool = False) -> str:
+    if getattr(booking, "price_cents", None) is None:
+        return ""
+    if cancelled:
+        refund_status = getattr(booking, "refund_status", None)
+        if refund_status == "succeeded":
+            return t.p("A full refund was issued to the original payment method.")
+        if refund_status == "pending":
+            return t.p("A full refund was requested. Stripe is processing it.")
+        return t.p("This guest cancellation was within 24 hours of the start, so the payment will not be refunded.")
+    from app.services.booking_payments import REFUND_POLICY
+    amount = f"{booking.currency.upper()} {booking.price_cents / 100:,.2f}"
+    return t.p(f"Paid: {amount}.") + t.p(REFUND_POLICY, muted=True)
+
+
 def render_booking_confirmation_visitor(booking: Booking, event_type: EventType, host: User) -> str:
     host_name = host.name or host.email
     tz = booking.timezone or "UTC"
@@ -135,6 +150,7 @@ def render_booking_confirmation_visitor(booking: Booking, event_type: EventType,
             ],
             rows_html=True,
         )
+        + _payment_copy(booking)
         + t.buttons(t.button("Reschedule", reschedule_url, secondary=True), t.button("Cancel booking", cancel_url, secondary=True))
         + t.p(f"Need to reach {host_name} directly? Reply to this email.", muted=True)
     )
@@ -156,6 +172,7 @@ def render_booking_confirmation_host(booking: Booking, event_type: EventType, ho
         t.h1(f"{booking.visitor_name} booked {event_type.name}.")
         + t.p("It's on your calendar; the invite is attached.", muted=True)
         + t.details(rows, rows_html=True)
+        + _payment_copy(booking)
         + t.buttons(t.button("View bookings", f"{_site()}/bookings"))
     )
     return t.layout("new-booking", f"{booking.visitor_name} booked {event_type.name}", body)
@@ -202,6 +219,7 @@ def render_cancellation_visitor(booking: Booking, event_type: EventType, host: U
                 ("Was", _format_datetime(booking.starts_at, tz)),
             ]
         )
+        + _payment_copy(booking, cancelled=True)
         + t.p(f"If you still want to meet, {host_name}'s calendar is open.", muted=True)
         + t.buttons(t.button("Book another time", rebook_url))
     )
@@ -219,6 +237,7 @@ def render_cancellation_host(booking: Booking, event_type: EventType, host: User
                 ("Was", _format_datetime(booking.starts_at, tz)),
             ]
         )
+        + _payment_copy(booking, cancelled=True)
         + t.p("The slot is open again on your booking page.", muted=True)
         + t.buttons(t.button("View bookings", f"{_site()}/bookings", secondary=True))
     )

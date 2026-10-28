@@ -43,6 +43,7 @@ class Settings:
         "STRIPE_SECRET_KEY_TEST", ""
     )
     STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    STRIPE_CONNECT_WEBHOOK_SECRET: str = os.getenv("STRIPE_CONNECT_WEBHOOK_SECRET", "")
     STRIPE_PRICE_FOUNDER: str = os.getenv("STRIPE_PRICE_FOUNDER", "")
     STRIPE_PRICE_STANDARD: str = os.getenv("STRIPE_PRICE_STANDARD", "")
     FOUNDER_SEATS: int = int(os.getenv("FOUNDER_SEATS", "100"))

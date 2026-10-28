@@ -44,6 +44,9 @@ class User(Base):
     # Which 3D scene the public booking page shows; null means the default.
     booking_scene: Mapped[str | None] = mapped_column(String(32), nullable=True)
     # Billing
+    stripe_connect_account_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    stripe_connect_charges_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    stripe_connect_payouts_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     stripe_customer_id: Mapped[str | None] = mapped_column(
         String(255), unique=True, nullable=True
     )

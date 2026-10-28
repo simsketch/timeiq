@@ -49,6 +49,8 @@ class EventType(Base):
     max_bookings_per_day: Mapped[int | None] = mapped_column(
         Integer, nullable=True
     )
+    price_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="usd", server_default="usd")
     collect_phone: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     require_phone: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     collect_company: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
