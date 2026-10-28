@@ -76,11 +76,16 @@ export default function CalendarsPage() {
   const [connectingGoogle, setConnectingGoogle] = useState(false);
   // Google sign-in needs OAuth credentials on the server; hide it until they exist.
   const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [connectingOutlook, setConnectingOutlook] = useState(false);
+  const [outlookEnabled, setOutlookEnabled] = useState(false);
 
   useEffect(() => {
     apiFetch<{ enabled: boolean }>("/api/google/status")
       .then((s) => setGoogleEnabled(s.enabled))
       .catch(() => setGoogleEnabled(false));
+    apiFetch<{ enabled: boolean }>("/api/microsoft/status")
+      .then((s) => setOutlookEnabled(s.enabled))
+      .catch(() => setOutlookEnabled(false));
   }, []);
 
   useEffect(() => {
@@ -93,6 +98,20 @@ export default function CalendarsPage() {
         description: "Its events now block times on your booking page.",
       });
       params.delete("google");
+      const query = params.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+    }
+    const outlook = params.get("microsoft");
+    if (outlook) {
+      toast(outlook === "connected" ? {
+        title: "Outlook connected",
+        description: "Check its sync status below to confirm events are blocking your booking page.",
+      } : {
+        title: "Outlook connection did not finish",
+        description: "Choose Connect Outlook to try again and allow calendar access.",
+        variant: "destructive",
+      });
+      params.delete("microsoft");
       const query = params.toString();
       window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
     }
@@ -115,6 +134,25 @@ export default function CalendarsPage() {
         variant: "destructive",
       });
       setConnectingGoogle(false);
+    }
+  }
+
+  async function handleConnectOutlook() {
+    setConnectingOutlook(true);
+    try {
+      const token = await getToken();
+      const { url } = await apiFetch<{ url: string }>("/api/microsoft/auth-url", {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
+      });
+      window.location.href = url;
+    } catch (error: unknown) {
+      toast({
+        title: "Couldn't start Outlook sign-in",
+        description: error instanceof Error ? error.message : "Try connecting Outlook again.",
+        variant: "destructive",
+      });
+      setConnectingOutlook(false);
     }
   }
 
@@ -288,6 +326,12 @@ export default function CalendarsPage() {
                 {connectingGoogle ? "Opening Google..." : "Connect Google Calendar"}
               </Button>
               )}
+              {outlookEnabled && (
+                <Button size="sm" onClick={handleConnectOutlook} disabled={connectingOutlook}>
+                  <CalendarDays className="h-4 w-4 mr-2" />
+                  {connectingOutlook ? "Opening Outlook..." : "Connect Outlook"}
+                </Button>
+              )}
               {!showAddForm && (
                 <Button
                   size="sm"
@@ -370,7 +414,7 @@ export default function CalendarsPage() {
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <h3 className="font-semibold">{calendar.name}</h3>
                       <Badge variant="secondary">
-                        {calendar.type === "ics_url" ? "ICS" : calendar.type === "email" ? "Emailed schedules" : calendar.type === "meetings" ? "Group meetings" : calendar.type.toUpperCase()}
+                        {calendar.type === "microsoft" ? "Outlook" : calendar.type === "ics_url" ? "ICS" : calendar.type === "email" ? "Emailed schedules" : calendar.type === "meetings" ? "Group meetings" : calendar.type.toUpperCase()}
                       </Badge>
                       {calendar.sync_status === "broken" && (
                         <Badge variant="destructive">Not syncing</Badge>
@@ -399,6 +443,17 @@ export default function CalendarsPage() {
                     )}
                   </div>
                   <div className="flex gap-2">
+                    {calendar.type === "microsoft" && outlookEnabled && calendar.sync_status !== "ok" && (
+                      <Button
+                        size="sm"
+                        variant={calendar.sync_status === "broken" ? "default" : "outline"}
+                        onClick={handleConnectOutlook}
+                        disabled={connectingOutlook}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Reconnect
+                      </Button>
+                    )}
                     {calendar.type === "google" && calendar.sync_status !== "ok" && (
                       <Button
                         size="sm"
