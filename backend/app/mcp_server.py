@@ -1,7 +1,7 @@
 """TimeIQ's MCP server, at /mcp (Streamable HTTP, stateless, JSON responses).
 
-People connect Claude, ChatGPT, Cursor and other MCP clients with a personal
-access token (Settings → API tokens), sent as ``Authorization: Bearer tiq_…``.
+People connect MCP clients with OAuth, or with an existing personal access
+token (Settings → AI assistants), sent as ``Authorization: Bearer tiq_…``.
 
 Every tool calls TimeIQ's own HTTP API in-process with the caller's token, so
 tools get exactly the validation, ownership checks and subscription gate the
@@ -28,7 +28,7 @@ from starlette.types import Receive, Scope, Send
 
 from app.config import settings
 from app.database import async_session
-from app.services import api_tokens
+from app.services import api_tokens, oauth
 
 _token: contextvars.ContextVar[str] = contextvars.ContextVar("timeiq_mcp_token")
 
@@ -276,7 +276,8 @@ def _unauthorized(detail: str) -> JSONResponse:
     return JSONResponse(
         {"error": "invalid_token", "error_description": detail},
         status_code=401,
-        headers={"WWW-Authenticate": 'Bearer realm="TimeIQ"'},
+        headers={"WWW-Authenticate": f'Bearer resource_metadata="{oauth.issuer()}/.well-known/oauth-protected-resource/mcp", scope="{oauth.SCOPE}"',
+                 "Cache-Control": "no-store"},
     )
 
 
@@ -290,12 +291,12 @@ class MCPEndpoint:
         auth = headers.get("authorization", "")
         raw = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
         if not raw:
-            await _unauthorized("Create a token in TimeIQ → Settings → API tokens and send it as a Bearer token.")(scope, receive, send)
+            await _unauthorized("Connect TimeIQ using OAuth, or send a personal token from Settings → AI assistants.")(scope, receive, send)
             return
         async with async_session() as db:
-            user = await api_tokens.user_for(db, raw)
+            user = await oauth.user_for(db, raw) if oauth.looks_like_token(raw) else await api_tokens.user_for(db, raw)
         if user is None:
-            await _unauthorized("That TimeIQ token is invalid or has been revoked.")(scope, receive, send)
+            await _unauthorized("This token expired or was revoked. Reconnect TimeIQ or create a personal token in Settings.")(scope, receive, send)
             return
 
         reset = _token.set(raw)

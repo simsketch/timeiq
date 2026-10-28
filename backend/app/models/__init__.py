@@ -12,6 +12,7 @@ from app.models.guest_checkout import GuestCheckout
 from app.models.email_import import EmailImport
 from app.models.group_meeting import AgentMessageClaim, GroupMeeting, GroupMeetingParticipant
 from app.models.api_token import ApiToken
+from app.models.oauth import OAuthClient, OAuthGrant, OAuthAuthorizationCode, OAuthAccessToken, OAuthRefreshToken
 
 __all__ = [
     "User",
@@ -31,4 +32,9 @@ __all__ = [
     "GroupMeetingParticipant",
     "AgentMessageClaim",
     "ApiToken",
+    "OAuthClient",
+    "OAuthGrant",
+    "OAuthAuthorizationCode",
+    "OAuthAccessToken",
+    "OAuthRefreshToken",
 ]

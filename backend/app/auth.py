@@ -53,7 +53,7 @@ CLERK_USER_ID = re.compile(r"user_[A-Za-z0-9]+")
 
 
 async def get_current_user_clerk_id(request: Request, db: AsyncSession = Depends(get_db)) -> str:
-    """Return the clerk_id of the caller: a Clerk session JWT, or a personal access token."""
+    """Return the clerk_id of the caller: a Clerk session JWT, personal token or OAuth access token."""
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(
@@ -63,9 +63,17 @@ async def get_current_user_clerk_id(request: Request, db: AsyncSession = Depends
 
     token = auth_header.split(" ", 1)[1]
 
-    # Personal access tokens (Settings → API tokens), used by MCP clients and scripts.
-    from app.services import api_tokens
+    from app.services import api_tokens, oauth
 
+    if oauth.looks_like_token(token):
+        user = await oauth.user_for(db, token)
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                                detail="This app connection expired or was disconnected. Add the TimeIQ connector again.")
+        request.state.auth_method = "token"
+        return user.clerk_id
+
+    # Personal access tokens (Settings → API tokens), used by MCP clients and scripts.
     if api_tokens.looks_like_token(token):
         user = await api_tokens.user_for(db, token)
         if user is None:

@@ -37,6 +37,7 @@ from app.routers import (
     event_types,
     google_auth,
     invoices,
+    oauth,
     public,
     time_entries,
     timesheet_rows,
@@ -78,6 +79,8 @@ app.add_middleware(
 )
 
 # Include routers
+app.add_middleware(oauth.OAuthPublicCors)
+app.include_router(oauth.router)
 app.include_router(webhooks.router)
 app.include_router(email_imports.router)
 app.include_router(group_meetings.router)
@@ -97,7 +100,7 @@ app.include_router(public.router)
 app.include_router(cron.router)
 app.include_router(api_tokens.router)
 
-# MCP server (Streamable HTTP): AI assistants connect with a personal access token.
+# MCP server (Streamable HTTP): AI assistants connect with OAuth or a personal token.
 from app.mcp_server import MCPEndpoint  # noqa: E402
 
 app.router.routes.append(Route("/mcp", endpoint=MCPEndpoint(), methods=["GET", "POST", "DELETE"]))
