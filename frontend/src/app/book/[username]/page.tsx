@@ -1,4 +1,5 @@
 import { BookingProfile, type PublicProfile } from "@/components/booking/booking-profile";
+import { resolveSceneChoice } from "@/components/booking/scenes";
 
 export default async function BookingProfilePage({ params, searchParams }: {
   params: Promise<{ username: string }>;
@@ -16,6 +17,9 @@ export default async function BookingProfilePage({ params, searchParams }: {
     });
     if (response.ok) profile = await response.json();
     if (profile && scene) profile = { ...profile, booking_scene: scene };
+    // Random resolves here, per request, so the loader backdrop, painted still
+    // and scene all agree from the first paint.
+    if (profile) profile = { ...profile, booking_scene: resolveSceneChoice(profile.booking_scene) };
   } catch {
     // An unavailable or missing profile keeps the public page usable.
   }

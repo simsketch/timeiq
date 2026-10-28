@@ -49,8 +49,13 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# Scenes the booking page can show (mirrors frontend/src/components/booking/scenes), or "none".
-BOOKING_SCENES = {"soft-watches", "time-machine", "sanctum", "orrery", "solstice", "maya", "none"}
+# Scenes the booking page can show (mirrors frontend/src/components/booking/scenes),
+# or "none" (no scene) or "random" (a different scene on each visit).
+BOOKING_SCENES = {
+    "soft-watches", "time-machine", "sanctum", "orrery", "solstice", "maya",
+    "world-clocks", "atomic", "lava-lamp", "digital-rain",
+    "none", "random",
+}
 
 
 class UserUpdate(BaseModel):

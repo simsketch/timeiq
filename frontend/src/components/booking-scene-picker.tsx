@@ -7,14 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { apiFetch } from "@/lib/api";
-import { DEFAULT_SCENE, NO_SCENE, SCENE_IDS, SCENES, type SceneId } from "@/components/booking/scenes";
+import { DEFAULT_SCENE, NO_SCENE, RANDOM_SCENE, SCENE_IDS, SCENES, type SceneId } from "@/components/booking/scenes";
 
-type Choice = SceneId | typeof NO_SCENE;
+type Choice = SceneId | typeof NO_SCENE | typeof RANDOM_SCENE;
 
-const label = (choice: Choice) => (choice === NO_SCENE ? "No scene" : SCENES[choice].name);
+const label = (choice: Choice) => (choice === NO_SCENE ? "No scene" : choice === RANDOM_SCENE ? "Random" : SCENES[choice].name);
 
 function initialChoice(initial: string | null | undefined): Choice {
-  if (initial === NO_SCENE) return NO_SCENE;
+  if (initial === NO_SCENE || initial === RANDOM_SCENE) return initial;
   return initial && initial in SCENES ? (initial as SceneId) : DEFAULT_SCENE;
 }
 
@@ -36,7 +36,11 @@ export function BookingScenePicker({ username, initial }: { username: string; in
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({ booking_scene: choice }),
       });
-      toast({ title: choice === NO_SCENE ? "Booking page set to no scene" : `Booking page scene set to ${label(choice)}` });
+      toast({
+        title: choice === NO_SCENE ? "Booking page set to no scene"
+          : choice === RANDOM_SCENE ? "Booking page set to a random scene on each visit"
+          : `Booking page scene set to ${label(choice)}`,
+      });
     } catch (error) {
       setSelected(previous);
       toast({ title: "Couldn't change the scene", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
@@ -46,7 +50,7 @@ export function BookingScenePicker({ username, initial }: { username: string; in
   }
 
   const pageUrl = (choice: Choice) => `/book/${username}?scene=${choice}`;
-  const choices: Choice[] = [...SCENE_IDS, NO_SCENE];
+  const choices: Choice[] = [...SCENE_IDS, RANDOM_SCENE, NO_SCENE];
 
   return (
     <Card>
@@ -67,7 +71,7 @@ export function BookingScenePicker({ username, initial }: { username: string; in
         <div role="radiogroup" aria-label="Booking page scene" className="grid gap-4 grid-cols-2 lg:grid-cols-3">
           {choices.map((choice) => {
             const isSelected = choice === selected;
-            const scene = choice === NO_SCENE ? null : SCENES[choice];
+            const scene = choice === NO_SCENE || choice === RANDOM_SCENE ? null : SCENES[choice];
             return (
               <div key={choice} className="group relative">
                 <button
@@ -83,6 +87,14 @@ export function BookingScenePicker({ username, initial }: { username: string; in
                     {scene ? (
                       // eslint-disable-next-line @next/next/no-img-element -- static WebP stills, already sized
                       <img src={scene.still640} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                    ) : choice === RANDOM_SCENE ? (
+                      // A shuffled deck of four scenes.
+                      <span aria-hidden className="grid h-full grid-cols-2 grid-rows-2 gap-px bg-border">
+                        {SCENE_IDS.slice(0, 4).map((id) => (
+                          // eslint-disable-next-line @next/next/no-img-element -- static WebP stills, already sized
+                          <img key={id} src={SCENES[id].still640} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                        ))}
+                      </span>
                     ) : (
                       // A miniature of the plain page: avatar, heading and two meeting rows.
                       <span aria-hidden className="flex h-full flex-col justify-center gap-2.5 bg-[#faf9f6] px-[18%]">
@@ -104,7 +116,9 @@ export function BookingScenePicker({ username, initial }: { username: string; in
                   <span className="block p-3">
                     <span className="block text-sm font-medium">{label(choice)}</span>
                     <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
-                      {scene ? scene.blurb : "Just your profile and meetings, the fastest page."}
+                      {scene ? scene.blurb
+                        : choice === RANDOM_SCENE ? "A different scene each time someone opens your page."
+                        : "Just your profile and meetings, the fastest page."}
                     </span>
                   </span>
                 </button>
