@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import or_, select, text
 
+from app.config import settings
 from app.database import async_session
 from app.models.calendar_source import LOCAL_SOURCE_TYPES, CalendarSource
 from app.models.user import User
@@ -55,6 +56,8 @@ async def sync_source(source_id, *, force: bool = False, stale_before: datetime 
             return "skipped"
         source = await db.get(CalendarSource, source_id)
         if source is None or not source.is_active:
+            return "skipped"
+        if source.type == "microsoft" and not settings.microsoft_enabled:
             return "skipped"
         if not force and not is_due(source, now):
             return "skipped"

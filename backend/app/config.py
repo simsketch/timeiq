@@ -34,6 +34,9 @@ class Settings:
     GOOGLE_REDIRECT_URI: str = os.getenv(
         "GOOGLE_REDIRECT_URI", "http://localhost:8000/api/google/callback"
     )
+    MS_CLIENT_ID: str = os.getenv("MS_CLIENT_ID", "")
+    MS_CLIENT_SECRET: str = os.getenv("MS_CLIENT_SECRET", "")
+    MS_TENANT: str = os.getenv("MS_TENANT", "common")
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
     BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:8000")
     CRON_SECRET: str = os.getenv("CRON_SECRET", "")
@@ -47,6 +50,14 @@ class Settings:
     STRIPE_PRICE_STANDARD: str = os.getenv("STRIPE_PRICE_STANDARD", "")
     FOUNDER_SEATS: int = int(os.getenv("FOUNDER_SEATS", "100"))
     VERCEL_ENV: str = os.getenv("VERCEL_ENV", "")
+
+    @property
+    def microsoft_enabled(self) -> bool:
+        return bool(self.MS_CLIENT_ID.strip() and self.MS_CLIENT_SECRET.strip())
+
+    @property
+    def microsoft_redirect_uri(self) -> str:
+        return f"{self.BACKEND_URL.rstrip('/')}/api/microsoft/callback"
 
     @property
     def async_database_url(self) -> str:
