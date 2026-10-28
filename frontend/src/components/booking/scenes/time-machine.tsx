@@ -92,8 +92,8 @@ function polishedBrass(shader: THREE.WebGLProgramParametersWithUniforms) {
     float upper = smoothstep(-.4, .8, reflected.y);
     float lamp = pow(max(dot(reflected, normalize(vec3(-.6,.7,.7))), 0.), 24.);
     float windowLight = pow(max(dot(reflected, normalize(vec3(1.,.5,-.6))), 0.), 18.);
-    outgoingLight += mix(vec3(.045,.018,.006), vec3(.24,.15,.065), upper);
-    outgoingLight += vec3(.9,.55,.19) * lamp + vec3(.23,.32,.39) * windowLight;
+    outgoingLight += mix(vec3(.008,.004,.002), vec3(.055,.034,.014), upper);
+    outgoingLight += vec3(.85,.44,.12) * lamp + vec3(.3,.43,.6) * windowLight;
     #include <opaque_fragment>
   `);
 }
@@ -127,26 +127,26 @@ function wallpaperTexture() {
 
 function rugTexture() {
   const { image, c } = canvas(1024, 768);
-  c.fillStyle = "#602d2b"; c.fillRect(0, 0, 1024, 768);
+  c.fillStyle = "#42302c"; c.fillRect(0, 0, 1024, 768);
   const diamond = (x: number, y: number, w: number, h: number, fill: string) => {
     c.fillStyle = fill; c.beginPath(); c.moveTo(x, y - h); c.lineTo(x + w, y);
     c.lineTo(x, y + h); c.lineTo(x - w, y); c.closePath(); c.fill();
   };
-  for (const [inset, color, weight] of [[22, "#c39659", 5], [37, "#202f30", 17], [62, "#b48c59", 3], [91, "#c89c60", 4]] as const) {
+  for (const [inset, color, weight] of [[22, "#715b43", 3], [37, "#303432", 13], [62, "#65533f", 2], [80, "#756047", 2]] as const) {
     c.strokeStyle = color; c.lineWidth = weight; c.strokeRect(inset, inset, 1024 - inset * 2, 768 - inset * 2);
   }
-  for (let x = 66; x < 1000; x += 44) { diamond(x, 68, 9, 15, "#c7a16b"); diamond(x, 700, 9, 15, "#c7a16b"); }
-  for (let y = 110; y < 680; y += 44) { diamond(68, y, 15, 9, "#c7a16b"); diamond(956, y, 15, 9, "#c7a16b"); }
-  for (let row = 0; row < 7; row++) for (let col = 0; col < 12; col++) {
-    const x = 126 + col * 70, y = 135 + row * 82;
-    diamond(x, y, 12, 21, "#b68c5660"); diamond(x, y, 5, 10, "#243a36");
-    c.fillStyle = "#bb8b55"; c.fillRect(x - 2, y - 29, 4, 5); c.fillRect(x - 2, y + 24, 4, 5);
+  for (let x = 65; x < 1000; x += 24) { diamond(x, 58, 4, 7, "#79644e"); diamond(x, 710, 4, 7, "#79644e"); }
+  for (let y = 94; y < 690; y += 24) { diamond(58, y, 7, 4, "#79644e"); diamond(966, y, 7, 4, "#79644e"); }
+  for (let row = 0; row < 17; row++) for (let col = 0; col < 24; col++) {
+    const x = 102 + col * 36 + row % 2 * 18, y = 100 + row * 35;
+    diamond(x, y, 7, 12, "#7e64404d"); diamond(x, y, 3, 6, "#303d36");
   }
-  diamond(512, 384, 220, 265, "#bd9056"); diamond(512, 384, 203, 246, "#283c39");
-  diamond(512, 384, 174, 213, "#ba8857"); diamond(512, 384, 160, 195, "#60362c");
-  diamond(512, 384, 107, 140, "#c0a06b"); diamond(512, 384, 89, 116, "#293c39"); diamond(512, 384, 37, 57, "#a67446");
+  // Faded traffic patches and broken weft, rather than a dominant medallion.
+  const wear = c.createRadialGradient(520, 420, 30, 520, 420, 460);
+  wear.addColorStop(0, "#a39a7838"); wear.addColorStop(1, "#a39a7800");
+  c.fillStyle = wear; c.fillRect(0, 0, 1024, 768);
   for (let i = 0; i < 16000; i++) {
-    c.fillStyle = i % 2 ? "#130e0920" : "#f8dfad0c"; c.fillRect(noise(i) * 1024, noise(i + 610) * 768, 1, 2);
+    c.fillStyle = i % 2 ? "#130e0928" : "#b3a08720"; c.fillRect(noise(i) * 1024, noise(i + 610) * 768, 2 + noise(i + 80) * 6, 1);
   }
   return texture(image);
 }
@@ -198,25 +198,33 @@ function makeDial(kind: DialKind) {
     ["XII", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI"].forEach((n, i) => {
       const a = i / 12 * TAU; c.fillText(n, 256 + Math.sin(a) * 177, 256 - Math.cos(a) * 177);
     });
-    c.font = "13px Georgia, serif"; c.fillText("LOCAL HOURS", 256, 150);
   } else if (kind === "days") {
-    c.font = "23px Georgia, serif"; c.fillText("DAYS", 256, 128);
-    c.font = "12px Georgia, serif"; c.fillText("THE PRESENT", 256, 369);
+    c.font = "23px Georgia, serif";
+    for (const day of [1, 5, 10, 15, 20, 25, 31]) {
+      const a = (day - 1) / 31 * TAU;
+      c.fillText(String(day), 256 + Math.sin(a) * 174, 256 - Math.cos(a) * 174);
+    }
+    // A recessed, engraved calendar wheel sits behind a brass aperture.
+    c.fillStyle = "#927b53"; c.fillRect(206, 306, 100, 65);
+    c.fillStyle = "#d1c2a0"; c.fillRect(210, 311, 92, 56);
+    c.strokeStyle = "#f1dfb8"; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(207, 372); c.lineTo(307, 372); c.lineTo(307, 307); c.stroke();
   } else {
-    c.font = "26px Georgia, serif"; c.fillText(kind === "thousands" ? "THOUSANDS" : "MILLIONS", 256, 296);
-    c.font = "20px Georgia, serif"; c.fillText("OF DAYS", 256, 334);
+    c.font = "22px Georgia, serif"; c.fillText(kind === "thousands" ? "Thousands" : "Millions", 256, 325);
     c.font = "30px Georgia, serif"; c.fillText("0", 256, 116); c.fillText("5", 398, 260); c.fillText("10", 256, 405);
     c.strokeStyle = "#473e2e"; c.lineWidth = 7; c.beginPath(); c.moveTo(256, 256); c.lineTo(185, 165); c.stroke();
     c.fillStyle = "#8f642e"; c.beginPath(); c.arc(256, 256, 12, 0, TAU); c.fill();
   }
   const map = texture(live.image);
-  const draw = (now: Date, minutes: number, strength: number, accent: string, duration: number) => {
+  const draw = (now: Date, minutes: number, strength: number, accent: string) => {
     const ink = live.c; ink.clearRect(0, 0, size, size); ink.drawImage(base.image, 0, 0);
     ink.save(); ink.scale(size / 512, size / 512); ink.textAlign = "center"; ink.textBaseline = "middle";
     if (kind === "days") {
-      ink.fillStyle = "#3f392f"; ink.font = "100px Georgia, serif"; ink.fillText(String(now.getDate()).padStart(2, "0"), 256, 236);
-      ink.font = "27px Georgia, serif"; ink.fillText(now.toLocaleDateString("en", { month: "short", year: "numeric" }).toUpperCase(), 256, 316);
-      ink.font = "18px Georgia, serif"; ink.fillText(now.toLocaleDateString("en", { weekday: "long" }).toUpperCase(), 256, 174);
+      ink.fillStyle = "#544632"; ink.font = "43px Georgia, serif";
+      ink.fillText(String(now.getDate()), 256, 340);
+      ink.save(); ink.translate(256, 256); ink.rotate((now.getDate() - 1) / 31 * TAU);
+      ink.fillStyle = "#473e2e"; ink.beginPath(); ink.moveTo(0, -148); ink.lineTo(6, 22); ink.lineTo(-6, 22); ink.closePath(); ink.fill(); ink.restore();
+      ink.fillStyle = "#8f642e"; ink.beginPath(); ink.arc(256, 256, 10, 0, TAU); ink.fill();
     } else if (kind === "hours") {
       const realMinutes = now.getMinutes() + now.getSeconds() / 60;
       const hand = (angle: number, length: number, width: number, color: string) => {
@@ -234,14 +242,6 @@ function makeDial(kind: DialKind) {
       hand((now.getHours() % 12 + shifted / 60) / 12 * TAU, 104, 9, "#3a342c");
       hand(shifted / 60 * TAU, 158, 6, "#3a342c");
       ink.fillStyle = "#a27438"; ink.beginPath(); ink.arc(256, 256, 12, 0, TAU); ink.fill();
-      // Actual local time remains legible even while the hands take a trip.
-      ink.fillStyle = "#41392c"; ink.font = "29px Georgia, serif";
-      ink.fillText(`${String(now.getHours() % 12 || 12).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`, 256, 333);
-      ink.font = "12px Georgia, serif"; ink.fillText(now.getHours() < 12 ? "A.M. · LOCAL TIME" : "P.M. · LOCAL TIME", 256, 363);
-      if (strength > .002) {
-        ink.globalAlpha = strength; ink.fillStyle = accent; ink.font = "bold 23px Georgia, serif";
-        ink.fillText(`+ ${duration} MIN`, 256, 405); ink.globalAlpha = 1;
-      }
     }
     ink.restore(); map.needsUpdate = true;
   };
@@ -277,19 +277,64 @@ function Copies({ transforms, geometry, material }: { transforms: Transform[]; g
 }
 
 function quartzGeometry() {
-  const geometry = new THREE.CylinderGeometry(.105, .12, 1.17, 6, 9, false), p = geometry.getAttribute("position");
+  const geometry = new THREE.CylinderGeometry(.12, .14, 1.17, 6, 12, false), p = geometry.getAttribute("position");
   for (let i = 0; i < p.count; i++) {
-    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = y * 1.3, taper = 1 - .45 * Math.pow(Math.abs(y) / .585, 8);
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = y * 3.5, taper = 1 - .45 * Math.pow(Math.abs(y) / .585, 8);
     p.setXYZ(i, (x * Math.cos(a) - z * Math.sin(a)) * taper, y, (x * Math.sin(a) + z * Math.cos(a)) * taper);
   }
   geometry.computeVertexNormals(); return geometry;
 }
 
-// Bake stationary phone meshes into material batches. Moving groups get their
+function haloTexture() {
+  const { image, c } = canvas(128);
+  const glow = c.createRadialGradient(64, 64, 0, 64, 64, 64);
+  glow.addColorStop(0, "#ffdfb080"); glow.addColorStop(.16, "#ffdfb038"); glow.addColorStop(.5, "#ffdfb010"); glow.addColorStop(1, "#ffdfb000");
+  c.fillStyle = glow; c.fillRect(0, 0, 128, 128); return texture(image);
+}
+
+function glassTexture() {
+  const { image, c } = canvas(256, 128);
+  c.fillStyle = "#9e8155"; c.fillRect(0, 0, 256, 128);
+  c.strokeStyle = "#e0bd7c"; c.lineWidth = 1;
+  for (let x = 0; x < 256; x += 16) {
+    c.beginPath(); c.moveTo(x, 0); c.bezierCurveTo(x - 12, 32, x + 12, 64, x, 96); c.lineTo(x, 128); c.stroke();
+    c.beginPath(); c.ellipse(x + 8, 67, 4, 13, 0, 0, TAU); c.stroke();
+  }
+  for (let i = 0; i < 1800; i++) {
+    c.fillStyle = i % 2 ? "#f2dba31c" : "#684e2820";
+    c.fillRect(noise(i) * 256, noise(i + 64) * 128, 1, 1);
+  }
+  return texture(image);
+}
+
+function moonTexture() {
+  const { image, c } = canvas(256);
+  const surface = c.createRadialGradient(85, 74, 12, 128, 128, 153);
+  surface.addColorStop(0, "#c4d4db"); surface.addColorStop(.65, "#9dabb9"); surface.addColorStop(1, "#42566e");
+  c.fillStyle = surface; c.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 140; i++) {
+    const x = noise(i + 10) * 256, y = noise(i + 300) * 256, r = 2 + noise(i + 80) * 15;
+    c.fillStyle = "#42526a18"; c.beginPath(); c.ellipse(x, y, r, r * .8, -.5, 0, TAU); c.fill();
+    c.strokeStyle = "#e1e5df12"; c.lineWidth = 1; c.stroke();
+  }
+  return texture(image);
+}
+
+// A two-triangle vignette, with no render target or postprocessing pass.
+function RoomFalloff() {
+  return <mesh frustumCulled={false} renderOrder={20}>
+    <planeGeometry args={[2, 2]} />
+    <shaderMaterial transparent depthTest={false} depthWrite={false}
+      vertexShader={`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }`}
+      fragmentShader={`varying vec2 vUv; void main() { float edge = smoothstep(.28, .73, length((vUv - .5) * vec2(1., .95))); gl_FragColor = vec4(.014, .019, .024, edge * .5); }`} />
+  </mesh>;
+}
+
+// Bake stationary meshes into material/shadow batches. Moving groups get their
 // own local batches, so orbiting, clock hands and the lever remain fully 3D.
-function batchMeshes(root: THREE.Group, exclude: Set<THREE.Object3D>) {
+function batchMeshes(root: THREE.Group, exclude: Set<THREE.Object3D>, shadows: boolean) {
   const originals: THREE.Mesh[] = [], batches: THREE.Mesh[] = [];
-  const buckets = new Map<THREE.Material, { positions: number[]; normals: number[]; uvs: number[]; indices: number[] }>();
+  const buckets = new Map<string, { material: THREE.Material; cast: boolean; receive: boolean; positions: number[]; normals: number[]; uvs: number[]; indices: number[] }>();
   root.updateWorldMatrix(true, true);
   const inverse = root.matrixWorld.clone().invert(), transform = new THREE.Matrix4(), normalTransform = new THREE.Matrix3();
   const vertex = new THREE.Vector3(), normal = new THREE.Vector3();
@@ -298,8 +343,10 @@ function batchMeshes(root: THREE.Group, exclude: Set<THREE.Object3D>) {
     if (object instanceof THREE.Mesh && !(object instanceof THREE.InstancedMesh) && !Array.isArray(object.material)) {
       const source = object.geometry, position = source.getAttribute("position"), n = source.getAttribute("normal"), uv = source.getAttribute("uv");
       if (!position || !n || !uv) return;
-      let bucket = buckets.get(object.material);
-      if (!bucket) { bucket = { positions: [], normals: [], uvs: [], indices: [] }; buckets.set(object.material, bucket); }
+      const cast = shadows && object.castShadow, receive = shadows && object.receiveShadow;
+      const key = `${object.material.uuid}:${cast}:${receive}`;
+      let bucket = buckets.get(key);
+      if (!bucket) { bucket = { material: object.material, cast, receive, positions: [], normals: [], uvs: [], indices: [] }; buckets.set(key, bucket); }
       const offset = bucket.positions.length / 3;
       transform.multiplyMatrices(inverse, object.matrixWorld); normalTransform.getNormalMatrix(transform);
       for (let i = 0; i < position.count; i++) {
@@ -313,12 +360,12 @@ function batchMeshes(root: THREE.Group, exclude: Set<THREE.Object3D>) {
     object.children.forEach(collect);
   };
   root.children.forEach(collect);
-  buckets.forEach((data, material) => {
+  buckets.forEach((data) => {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.Float32BufferAttribute(data.positions, 3));
     geometry.setAttribute("normal", new THREE.Float32BufferAttribute(data.normals, 3));
     geometry.setAttribute("uv", new THREE.Float32BufferAttribute(data.uvs, 2)); geometry.setIndex(data.indices); geometry.computeBoundingSphere();
-    const mesh = new THREE.Mesh(geometry, material); root.add(mesh); batches.push(mesh);
+    const mesh = new THREE.Mesh(geometry, data.material); mesh.castShadow = data.cast; mesh.receiveShadow = data.receive; root.add(mesh); batches.push(mesh);
   });
   return () => { batches.forEach((mesh) => { root.remove(mesh); mesh.geometry.dispose(); }); originals.forEach((mesh) => { mesh.visible = true; }); };
 }
@@ -329,6 +376,7 @@ const handrails: Point[][] = [-.59, .59].map((x) => [[x, .53, -.5], [x, 1.81, -.
 export default function TimeMachine({ active, running, reduced, small }: SceneContentProps) {
   const resources = useMemo(() => {
     const wood = woodTexture(), rug = rugTexture(), wheel = wheelTexture(), wallpaper = wallpaperTexture();
+    const halo = haloTexture(), glass = glassTexture(), moon = moonTexture();
     // Phones use two tiny, canvas-painted reflection fields. They keep the
     // brass dimensional without compiling the desktop PBR/light variants.
     const metalReflection = reflectionTexture(true), softReflection = reflectionTexture(false);
@@ -338,7 +386,16 @@ export default function TimeMachine({ active, running, reduced, small }: SceneCo
     const ivory = small ? phoneMaterial("#e5d5af", softReflection, white) : new THREE.MeshStandardMaterial({ color: "#e5d5af", roughness: .35, metalness: .12 });
     const walnut = small ? phoneMaterial("#a48363", softReflection, white, wood) : new THREE.MeshStandardMaterial({ color: "#644831", map: wood, roughness: .48 });
     const leather = small ? phoneMaterial("#532421", softReflection, white) : new THREE.MeshStandardMaterial({ color: "#532421", roughness: .44, metalness: .06 });
-    const crystal = small ? phoneMaterial("#c5dce1", softReflection, white, white, .76) : new THREE.MeshPhysicalMaterial({ color: "#c5dce1", roughness: .12, metalness: .2, clearcoat: 1, transparent: true, opacity: .76 });
+    const crystal = small ? phoneMaterial("#b8d8ec", softReflection, white, white, .72) : new THREE.MeshPhysicalMaterial({ color: "#c4d7e0", roughness: .1, metalness: .08, clearcoat: 1, clearcoatRoughness: .08, sheen: .5, sheenColor: "#cbb8df", iridescence: .35, iridescenceIOR: 1.3, flatShading: true, transparent: true, opacity: .72 });
+    if (!small) crystal.onBeforeCompile = (shader) => {
+      shader.fragmentShader = shader.fragmentShader.replace("#include <opaque_fragment>", `
+        float edge = pow(1. - max(dot(normal, geometryViewDir), 0.), 2.);
+        outgoingLight += vec3(.09, .14, .19) * edge;
+        #include <opaque_fragment>
+      `);
+    };
+    const shade = small ? phoneMaterial("#efc187", softReflection, white, glass, .8) : new THREE.MeshStandardMaterial({ color: "#d5ac72", map: glass, emissive: "#e6ad61", emissiveMap: glass, emissiveIntensity: .85, roughness: .64, transparent: true, opacity: .64, side: THREE.DoubleSide, depthWrite: false });
+    const lampShade = new THREE.LatheGeometry([[.12, -.2], [.23, -.17], [.3, -.05], [.29, .07], [.2, .18], [.1, .22]].map(([x, y]) => new THREE.Vector2(x, y)), small ? 20 : 32);
     const enamel = small ? phoneMaterial("#eadabd", softReflection, white) : new THREE.MeshStandardMaterial({ color: "#eadabd", roughness: .7 });
     const wheelFace = small ? phoneMaterial("#ffffff", softReflection, white, wheel) : new THREE.MeshStandardMaterial({ map: wheel, metalness: .58, roughness: .34 });
     if (!small) brass.onBeforeCompile = darkBrass.onBeforeCompile = wheelFace.onBeforeCompile = polishedBrass;
@@ -355,15 +412,16 @@ export default function TimeMachine({ active, running, reduced, small }: SceneCo
     dust.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     const dustMaterial = new THREE.PointsMaterial({ color: "#ffdc9b", size: small ? .017 : .012, transparent: true, opacity: .28, depthWrite: false });
     const shimmer = new THREE.MeshBasicMaterial({ color: "#c9b6ef", transparent: true, opacity: 0, wireframe: true, depthWrite: false });
-    const lampGlow = new THREE.MeshBasicMaterial({ color: "#ffdf9e", toneMapped: false });
-    return { wood, rug, wheel, wallpaper, metalReflection, softReflection, white, brass, darkBrass, ivory, walnut, leather, crystal, enamel, wheelFace, hours, days, thousands, millions, quartz, box, rivet, seat, dust, dustMaterial, shimmer, lampGlow };
+    const lampGlow = new THREE.MeshBasicMaterial({ color: "#df9c4b" });
+    return { wood, rug, wheel, wallpaper, halo, glass, moon, metalReflection, softReflection, white, brass, darkBrass, ivory, walnut, leather, crystal, shade, lampShade, enamel, wheelFace, hours, days, thousands, millions, quartz, box, rivet, seat, dust, dustMaterial, shimmer, lampGlow };
   }, [small]);
   useEffect(() => () => {
     resources.wood.dispose(); resources.rug.dispose(); resources.wheel.dispose(); resources.wallpaper.dispose();
+    resources.halo.dispose(); resources.glass.dispose(); resources.moon.dispose();
     resources.metalReflection.dispose(); resources.softReflection.dispose(); resources.white.dispose();
     for (const dial of [resources.hours, resources.days, resources.thousands, resources.millions]) dial.map.dispose();
-    for (const g of [resources.quartz, resources.box, resources.rivet, resources.seat, resources.dust]) g.dispose();
-    for (const m of [resources.brass, resources.darkBrass, resources.ivory, resources.walnut, resources.leather, resources.crystal, resources.enamel, resources.wheelFace, resources.dustMaterial, resources.shimmer, resources.lampGlow]) m.dispose();
+    for (const g of [resources.quartz, resources.box, resources.rivet, resources.seat, resources.dust, resources.lampShade]) g.dispose();
+    for (const m of [resources.brass, resources.darkBrass, resources.ivory, resources.walnut, resources.leather, resources.crystal, resources.shade, resources.enamel, resources.wheelFace, resources.dustMaterial, resources.shimmer, resources.lampGlow]) m.dispose();
   }, [resources]);
   const wheel = useRef<THREE.Group>(null), lever = useRef<THREE.Group>(null), dust = useRef<THREE.Points>(null);
   const world = useRef<THREE.Group>(null);
@@ -371,13 +429,13 @@ export default function TimeMachine({ active, running, reduced, small }: SceneCo
   const gas = useRef<THREE.PointLight>(null), fire = useRef<THREE.PointLight>(null), key = useRef<THREE.DirectionalLight>(null);
   const mantelHour = useRef<THREE.Group>(null), mantelMinute = useRef<THREE.Group>(null);
   useEffect(() => {
-    if (!small || !world.current || !wheel.current || !lever.current) return;
+    if (!world.current || !wheel.current || !lever.current) return;
     const moving = new Set<THREE.Object3D>();
     for (const object of [wheel.current, lever.current, dust.current, aura.current, mantelHour.current, mantelMinute.current]) if (object) moving.add(object);
-    const clean = [batchMeshes(world.current, moving), batchMeshes(wheel.current, new Set()), batchMeshes(lever.current, new Set())];
+    const clean = [batchMeshes(world.current, moving, !small), batchMeshes(wheel.current, new Set(), !small), batchMeshes(lever.current, new Set(), !small)];
     return () => clean.forEach((dispose) => dispose());
   }, [small, resources]);
-  const animation = useRef({ elapsed: 0, hover: 0, minutes: 0, lastPaint: -1, lastDate: "", duration: 0, accent: "#a5c4bc", color: new THREE.Color("#a5c4bc"), target: new THREE.Color() });
+  const animation = useRef({ elapsed: 0, hover: 0, minutes: 0, lastPaint: -1, lastDate: "", accent: "#a5c4bc", color: new THREE.Color("#a5c4bc"), target: new THREE.Color() });
   useFrame((_, delta) => {
     if (!running) return;
     const now = Date.now(), date = new Date(now), s = animation.current, dt = Math.min(delta, .1);
@@ -385,15 +443,15 @@ export default function TimeMachine({ active, running, reduced, small }: SceneCo
     const intro = reduced ? 1 : THREE.MathUtils.smoothstep(s.elapsed, 0, 1.5), goal = active ? 1 : 0, duration = Math.max(0, active?.duration_minutes ?? 0);
     s.hover = reduced ? goal : THREE.MathUtils.damp(s.hover, goal, 4, dt);
     s.minutes = reduced ? duration : THREE.MathUtils.damp(s.minutes, duration, 3.5, dt);
-    if (active) { s.duration = duration; s.accent = active.color; }
+    if (active) s.accent = active.color;
     s.target.set(s.accent); s.color.lerp(s.target, 1 - Math.exp(-dt * 4));
     if (wheel.current && !reduced) wheel.current.rotation.z -= dt * intro * (.032 + s.hover * .53);
     if (lever.current) lever.current.rotation.x = -.12 + s.hover * .63;
     if (dust.current && !reduced) { dust.current.position.y = Math.sin(s.elapsed * .15) * .12; dust.current.rotation.y = Math.sin(s.elapsed * .07) * .04; }
-    if (gas.current) gas.current.intensity = (5 + 18 * intro) * (reduced ? 1 : 1 + Math.sin(s.elapsed * 1.7) * .015);
-    if (fire.current) fire.current.intensity = (4 + 15 * intro) * (reduced ? 1 : 1 + Math.sin(s.elapsed * 2.6) * .05 + Math.sin(s.elapsed * 4.1) * .025);
-    if (key.current) key.current.intensity = .8 + 2 * intro;
-    resources.lampGlow.color.setRGB(1, .53 + .27 * intro, .24 + .27 * intro);
+    const flicker = reduced ? 0 : Math.sin(s.elapsed * 2.6) * .04 + Math.sin(s.elapsed * 4.1 + .8) * .025 + Math.sin(s.elapsed * 7.3) * .012;
+    if (gas.current) gas.current.intensity = (3 + 5 * intro) * (reduced ? 1 : 1 + Math.sin(s.elapsed * 1.7) * .012);
+    if (fire.current) { fire.current.intensity = (7 + 16 * intro) * (1 + flicker); fire.current.color.setHSL(.065 + flicker * .06, .87, .58); }
+    if (key.current) { key.current.intensity = (.35 + .8 * intro) * (1 + flicker); key.current.color.setHSL(.095 + flicker * .06, .65, .73); }
     if (aura.current) {
       aura.current.material.color.copy(s.color); aura.current.material.opacity = s.hover * .018;
       if (!reduced) aura.current.rotation.y = s.elapsed * .06;
@@ -404,9 +462,9 @@ export default function TimeMachine({ active, running, reduced, small }: SceneCo
     const colorChange = Math.abs(s.color.r - s.target.r) + Math.abs(s.color.g - s.target.g) + Math.abs(s.color.b - s.target.b);
     const moving = Math.abs(s.minutes - duration) > .02 || Math.abs(s.hover - goal) > .002 || colorChange > .002;
     const tick = Math.floor(now / (moving ? 100 : 1000));
-    if (tick !== s.lastPaint) { resources.hours.draw(date, s.minutes, s.hover, `#${s.color.getHexString()}`, s.duration); s.lastPaint = tick; }
+    if (tick !== s.lastPaint) { resources.hours.draw(date, s.minutes, s.hover, `#${s.color.getHexString()}`); s.lastPaint = tick; }
     const day = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-    if (day !== s.lastDate) { resources.days.draw(date, 0, 0, "", 0); s.lastDate = day; }
+    if (day !== s.lastDate) { resources.days.draw(date, 0, 0, ""); s.lastDate = day; }
   });
   const rivets = useMemo(() => Array.from({ length: small ? 36 : 48 }, (_, i) => ({ position: [Math.sin(i / (small ? 36 : 48) * TAU) * 1.43, Math.cos(i / (small ? 36 : 48) * TAU) * 1.43, .115] as Point })), [small]);
   const panelTrim = useMemo(() => {
@@ -431,15 +489,14 @@ export default function TimeMachine({ active, running, reduced, small }: SceneCo
   </group>;
 
   return <>
-    <color attach="background" args={["#141b1b"]} />
-    <fog attach="fog" args={["#141b1b", 15, 33]} />
+    <color attach="background" args={["#0b1115"]} />
+    <fog attach="fog" args={["#0b1115", 12, 29]} />
     <group ref={world}>
-    <hemisphereLight args={["#b5c9df", "#6c4325", .48]} />
-    <directionalLight ref={key} position={[-3, 6, 5]} intensity={.8} color="#ffd096" castShadow={!small} shadow-mapSize={[512, 512]} shadow-camera-left={-4} shadow-camera-right={4} shadow-camera-top={5} shadow-camera-bottom={-3} shadow-camera-far={18} shadow-normalBias={.035} shadow-bias={-.0003} />
-    <directionalLight position={[4, 5, -2]} color="#a7c9e3" intensity={1.7} />
-    <directionalLight position={[1, 3, 7]} color="#ffdeb0" intensity={.5} />
-    <pointLight ref={gas} position={[-2.3, 2.8, -.25]} color="#ffc16e" intensity={5} distance={11} decay={2} />
-    <pointLight ref={fire} position={[-3.25, .9, -2.9]} color="#ff863b" intensity={4} distance={9} decay={2} />
+    <hemisphereLight args={["#8bacc8", "#3a261c", .095]} />
+    <directionalLight ref={key} position={[-4, 4, 5]} intensity={.35} color="#e8ac65" castShadow={!small} shadow-mapSize={[512, 512]} shadow-camera-left={-4} shadow-camera-right={4} shadow-camera-top={5} shadow-camera-bottom={-3} shadow-camera-far={18} shadow-normalBias={.035} shadow-bias={-.0003} />
+    <directionalLight position={[-.7, 5.5, -4]} color="#9bbadd" intensity={.75} />
+    <pointLight ref={gas} position={[-2.3, 2.6, -.25]} color="#eab26c" intensity={3} distance={6} decay={2} />
+    <pointLight ref={fire} position={[-3.25, .9, -2.9]} color="#ee8a3b" intensity={7} distance={7} decay={2} />
 
     {/* A full room encloses every allowed orbit, including the front wall. */}
     <mesh position={[0, 4.88, 4]}><boxGeometry args={[24, 10, 26]} />{small ? <meshBasicMaterial color="#111b1a" side={THREE.BackSide} /> : <meshStandardMaterial color="#1d2927" side={THREE.BackSide} roughness={1} />}</mesh>
@@ -453,13 +510,15 @@ export default function TimeMachine({ active, running, reduced, small }: SceneCo
     </group>)}
     <mesh position={[0, .012, .05]} rotation={[-Math.PI / 2, 0, -.08]} receiveShadow><planeGeometry args={[5.5, 4.5]} />{small ? <meshBasicMaterial map={resources.rug} color="#b4a18b" /> : <meshStandardMaterial map={resources.rug} roughness={1} />}</mesh>
 
-    <group position={[-.35, 3.5, -3.88]}>
-      <mesh material={resources.walnut}><boxGeometry args={[2.02, 2.85, .14]} /></mesh>
-      <mesh position={[0, 0, .08]}><planeGeometry args={[1.8, 2.63]} /><meshBasicMaterial color="#223643" /></mesh>
-      <mesh position={[.52, .82, .09]}><circleGeometry args={[.14, 24]} /><meshBasicMaterial color="#8b9eaa" /></mesh>
-      {[0, -.43].map((x) => <mesh key={x} position={[x, 0, .13]} material={resources.walnut}><boxGeometry args={[.045, 2.65, .09]} /></mesh>)}
-      {[-.43, .44].map((y) => <mesh key={y} position={[0, y, .13]} material={resources.walnut}><boxGeometry args={[1.8, .045, .09]} /></mesh>)}
-      {[-1.17, 1.17].map((x) => <mesh key={x} position={[x, .03, .04]}><boxGeometry args={[.35, 3.1, .15]} />{small ? <meshBasicMaterial color="#301d21" /> : <meshStandardMaterial color="#422729" roughness={.9} />}</mesh>)}
+    <group position={[-1.05, 4.05, -3.88]}>
+      <mesh material={resources.walnut}><boxGeometry args={[3.02, 3.85, .14]} /></mesh>
+      <mesh position={[0, 0, .08]}><planeGeometry args={[2.8, 3.63]} /><meshBasicMaterial color="#233a51" /></mesh>
+      <sprite position={[.64, 1.02, .095]} scale={[1.4, 1.4, 1]}><spriteMaterial map={resources.halo} color="#a8c5eb" transparent opacity={.45} depthWrite={false} /></sprite>
+      <mesh position={[.64, 1.02, .1]}><circleGeometry args={[.23, 40]} /><meshBasicMaterial map={resources.moon} color="#c1cfde" /></mesh>
+      {[[.99, 1.5], [-1.12, 1.32], [-.57, .98], [1.21, .32], [-.94, -.43]].map(([x, y], i) => <mesh key={i} position={[x, y, .1]}><circleGeometry args={[.008 + i % 2 * .004, 5]} /><meshBasicMaterial color="#8296b1" /></mesh>)}
+      {[-.47, .47].map((x) => <mesh key={x} position={[x, 0, .18]} material={resources.walnut}><boxGeometry args={[.065, 3.65, .12]} /></mesh>)}
+      {[-.61, .61].map((y) => <mesh key={y} position={[0, y, .18]} material={resources.walnut}><boxGeometry args={[2.8, .065, .12]} /></mesh>)}
+      {[-1.67, 1.67].map((x) => <mesh key={x} position={[x, .03, .04]}><boxGeometry args={[.35, 4.1, .15]} />{small ? <meshBasicMaterial color="#281e25" /> : <meshStandardMaterial color="#302329" roughness={.9} />}</mesh>)}
     </group>
 
     <group position={[-3.2, 0, -3.58]}>
@@ -493,10 +552,12 @@ export default function TimeMachine({ active, running, reduced, small }: SceneCo
       <mesh position={[0, .12, 0]} material={resources.darkBrass}><cylinderGeometry args={[.34, .4, .14, 24]} /></mesh>
       <mesh position={[0, 1.28, 0]} material={resources.brass}><cylinderGeometry args={[.035, .055, 2.3, 10]} /></mesh>
       <mesh position={[0, .31, 0]} material={resources.brass}><sphereGeometry args={[.11, 12, 8]} /></mesh>
-      <mesh position={[0, 2.61, 0]} material={resources.lampGlow}><sphereGeometry args={[.28, 24, 16, 0, TAU, .3, Math.PI - .7]} /></mesh>
-      <mesh position={[0, 2.83, 0]} material={resources.brass}><torusGeometry args={[.11, .022, 6, 24]} /></mesh>
+      <mesh position={[0, 2.61, 0]} material={resources.lampGlow} scale={[.65, 1.4, .65]}><sphereGeometry args={[.1, 12, 8]} /></mesh>
+      <mesh position={[0, 2.61, 0]} geometry={resources.lampShade} material={resources.shade} />
+      <sprite position={[0, 2.61, 0]} scale={[1.8, 1.8, 1]}><spriteMaterial map={resources.halo} color="#e3a657" transparent opacity={.75} blending={THREE.AdditiveBlending} depthWrite={false} /></sprite>
+      {[[-.2, .12], [.22, .1]].map(([y, r]) => <mesh key={y} position={[0, 2.61 + y, 0]} rotation={[Math.PI / 2, 0, 0]} material={resources.brass}><torusGeometry args={[r, .018, 6, 24]} /></mesh>)}
       <mesh position={[0, 2.39, 0]} material={resources.darkBrass}><cylinderGeometry args={[.14, .08, .14, 16]} /></mesh>
-      <mesh position={[0, 2.89, 0]} material={resources.crystal}><cylinderGeometry args={[.067, .067, .31, 12, 1, true]} /></mesh>
+      <mesh position={[0, 2.88, 0]} material={resources.darkBrass}><cylinderGeometry args={[.06, .1, .12, 12]} /></mesh>
     </group>
     <mesh position={[-1.5, 1.425, .025]} rotation={[-.18, 0, .58]}>
       <coneGeometry args={[1.05, 3, 16, 1, true]} />
@@ -512,9 +573,9 @@ export default function TimeMachine({ active, running, reduced, small }: SceneCo
     {[-1, 1].map((side) => <group key={side}>
       <Rod from={[side * .77, .53, -.94]} to={[side * .91, 2.5, -.86]} radius={.066} material={resources.darkBrass} />
       <Rod from={[side * .78, .53, .95]} to={[side * 1.02, 1.37, 1.42]} radius={.047} material={resources.brass} />
-      <mesh geometry={resources.quartz} material={resources.crystal} position={[side * .65, 1.15, -.1]} castShadow />
-      {[.55, 1.74].map((y) => <mesh key={y} position={[side * .65, y, -.1]} material={resources.ivory}><cylinderGeometry args={[.14, .14, .16, 12]} /></mesh>)}
-      <mesh position={[side * .65, 1.86, -.1]} material={resources.brass}><sphereGeometry args={[.075, 12, 8]} /></mesh>
+      <mesh geometry={resources.quartz} material={resources.crystal} position={[side * .9, 1.55, -.65]} scale={[1, 1.5, 1]} castShadow />
+      {[.67, 2.43].map((y) => <mesh key={y} position={[side * .9, y, -.65]} material={resources.brass}><cylinderGeometry args={[.145, .145, .12, 12]} /></mesh>)}
+      <mesh position={[side * .9, 2.54, -.65]} material={resources.brass}><sphereGeometry args={[.075, 12, 8]} /></mesh>
     </group>)}
     {handrails.map((points, i) => <Tube key={i} points={points} material={resources.brass} small={small} />)}
     <mesh position={[0, 1.26, .04]} material={resources.ivory}><cylinderGeometry args={[.12, .17, 1.45, 12]} /></mesh>
@@ -558,6 +619,7 @@ export default function TimeMachine({ active, running, reduced, small }: SceneCo
     <mesh ref={aura} position={[0, 1.8, 0]} scale={[1.5, 1.9, 1.75]} material={resources.shimmer}><icosahedronGeometry args={[1, 2]} /></mesh>
     <points ref={dust} geometry={resources.dust} material={resources.dustMaterial} />
     </group>
+    <RoomFalloff />
   </>;
 }
 

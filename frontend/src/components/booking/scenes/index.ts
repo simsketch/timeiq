@@ -31,11 +31,11 @@ export const SCENES: Record<SceneId, SceneDefinition> = {
     backdrop: "linear-gradient(#182421, #302b20 60%, #49301e)",
     ink: "light",
     camera: {
-      position: [4.4, 4.6, 10], positionSmall: [3.9, 4.1, 10], target: [0, 1.8, 0],
+      position: [5.6, 5.8, 13.2], positionSmall: [3.9, 4.1, 10], target: [0, 1.8, 0],
       fov: 35, fovSmall: 39, far: 45,
-      minDistance: 6.3, maxDistance: 11.5, minPolarAngle: 56 * deg, maxPolarAngle: 82 * deg, azimuthRange: 34 * deg,
+      minDistance: 6.3, maxDistance: 16.5, minPolarAngle: 56 * deg, maxPolarAngle: 82 * deg, azimuthRange: 34 * deg,
     },
-    toneMappingExposure: 1.12,
+    toneMappingExposure: 1,
     load: () => import("./time-machine"),
   },
   sanctum: {
