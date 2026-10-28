@@ -154,12 +154,14 @@ export const SCENES: Record<SceneId, SceneDefinition> = {
     blurb: "Falling green code, with the real time resolving out of the stream.",
     still: "/booking/digital-rain-still.webp",
     still640: "/booking/digital-rain-still-640.webp",
-    backdrop: "linear-gradient(#020604, #04120a 60%, #010302)",
+    backdrop: "#010705",
     ink: "light",
     camera: {
-      position: [0, 0, 10], target: [0, 0, 0], fov: 45, fovSmall: 52,
-      minDistance: 6, maxDistance: 14, minPolarAngle: 70 * deg, maxPolarAngle: 110 * deg, azimuthRange: 40 * deg,
+      position: [.65, 1.3, 13.4], positionSmall: [.3, .9, 13.2], target: [0, -.1, 1.1],
+      fov: 42, fovSmall: 40, far: 70,
+      minDistance: 10.8, maxDistance: 17, minPolarAngle: 77 * deg, maxPolarAngle: 92 * deg, azimuthRange: 32 * deg,
     },
+    shadows: false,
     load: () => import("./digital-rain"),
   },
 };
