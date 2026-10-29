@@ -238,14 +238,15 @@ async def test_onboarding_status_country_links_and_account_updates(env):
     r = await env.client.post("/api/connect/onboarding", json={"country": "CA"})
     assert r.status_code == 200
     assert env.fake.account_creates[0]["country"] == "CA"
-    assert env.fake.account_creates[0]["type"] == "express"
+    assert env.fake.account_creates[0]["controller"]["losses"] == {"payments": "stripe"}
+    assert "type" not in env.fake.account_creates[0]
     assert env.fake.links[0]["return_url"].endswith("/event-types?connect=return")
     assert env.fake.links[0]["refresh_url"].endswith("/event-types?connect=refresh")
     await env.client.post("/api/connect/onboarding", json={})
     assert len(env.fake.account_creates) == 1
     assert (await env.client.get("/api/connect/status")).json()["status"] == "ready"
     assert (await env.client.post("/api/connect/dashboard")).status_code == 200
-    assert env.fake.login_accounts == ["acct_test_host"]
+    assert (await env.client.post("/api/connect/dashboard")).json()["url"] == "https://dashboard.stripe.com/"
     env.fake.account["charges_enabled"] = False
     await webhook(env, "account.updated", {"id": "acct_test_host", "charges_enabled": True, "payouts_enabled": True})
     assert (await env.client.get("/api/connect/status")).json()["status"] == "needs_info"

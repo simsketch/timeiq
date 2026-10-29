@@ -54,7 +54,11 @@ async def connect_onboarding(payload: OnboardingRequest, user: User = Depends(ge
     try:
         if not user.stripe_connect_account_id:
             account = await payments.stripe_call(
-                stripe.Account.create, type="express", country=payload.country,
+                # Stripe carries losses and hosts pay their own fees with a full Stripe Dashboard,
+                # matching the platform setup (direct charges, no platform fee).
+                stripe.Account.create, country=payload.country,
+                controller={"stripe_dashboard": {"type": "full"}, "fees": {"payer": "account"},
+                            "losses": {"payments": "stripe"}},
                 email=user.email, capabilities={"card_payments": {"requested": True}, "transfers": {"requested": True}},
                 metadata={"timeiq_user_id": str(user.id)}, idempotency_key=f"connect-account:{user.id}",
             )
@@ -78,11 +82,8 @@ async def connect_dashboard(user: User = Depends(get_current_user_unrestricted))
     require_connect()
     if not user.stripe_connect_account_id:
         raise HTTPException(status_code=409, detail="Connect Stripe on the Booking page before opening the dashboard.")
-    try:
-        link = await payments.stripe_call(stripe.Account.create_login_link, user.stripe_connect_account_id)
-    except stripe.StripeError:
-        raise HTTPException(status_code=502, detail="Stripe could not open your dashboard. Try again shortly.")
-    return {"url": link["url"]}
+    # Hosts have full Stripe Dashboard accounts and sign in to Stripe directly.
+    return {"url": "https://dashboard.stripe.com/"}
 
 
 @router.post("/api/webhooks/stripe-connect")
