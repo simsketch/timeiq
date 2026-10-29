@@ -60,7 +60,7 @@ async def connect_onboarding(payload: OnboardingRequest, user: User = Depends(ge
                 controller={"stripe_dashboard": {"type": "full"}, "fees": {"payer": "account"},
                             "losses": {"payments": "stripe"}},
                 email=user.email, capabilities={"card_payments": {"requested": True}, "transfers": {"requested": True}},
-                metadata={"timeiq_user_id": str(user.id)}, idempotency_key=f"connect-account:{user.id}",
+                metadata={"timeiq_user_id": str(user.id)}, idempotency_key=f"connect-account:v2:{user.id}",
             )
             user.stripe_connect_account_id = account["id"]
             # Keep the account even if link creation fails, so retrying resumes it.
