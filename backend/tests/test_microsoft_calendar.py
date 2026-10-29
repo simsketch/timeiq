@@ -273,6 +273,20 @@ async def test_denied_consent_clears_cookie_without_calling_graph(oauth, microso
     assert microsoft[1] == [] and db.added == []
 
 
+
+@pytest.mark.parametrize("params", [
+    {"error": "consent_required"},
+    {"error": "access_denied", "error_description": "AADSTS65001: The user or administrator has not consented."},
+    {"error": "access_denied", "error_description": "AADSTS90094: Admin consent is required."},
+])
+async def test_admin_consent_required_points_to_admin_outcome(oauth, microsoft, params):
+    client, db, _ = oauth
+    auth = (await client.get("/api/microsoft/auth-url")).json()
+    state = parse_qs(urlsplit(auth["url"]).query)["state"][0]
+    response = await client.get("/api/microsoft/callback", params={"state": state, **params})
+    assert response.headers["location"].endswith("?microsoft=admin")
+    assert microsoft[1] == [] and db.added == []
+
 @pytest.mark.parametrize("body", [
     {"error": "invalid_grant"}, {"access_token": "access"}, {"refresh_token": "refresh"},
     {"access_token": "access", "refresh_token": "refresh", "expires_in": "invalid"},

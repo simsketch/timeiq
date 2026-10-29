@@ -6,8 +6,10 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import re
 from datetime import date, datetime, timezone
 from html import escape as html_escape
+from html.parser import HTMLParser
 from zoneinfo import ZoneInfo
 
 import resend
@@ -64,10 +66,63 @@ def _fmt_date(d: date) -> str:
     return d.strftime("%b %d, %Y")
 
 
+class _TextExtractor(HTMLParser):
+    """Plain-text rendering of our HTML mail: block tags become line breaks and
+    links keep their URL, so text-only clients and spam filters see the same
+    message."""
+
+    _BLOCKS = {"p", "div", "tr", "br", "h1", "h2", "h3", "li", "table"}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self._href: str | None = None
+        self._skip = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("style", "script", "head"):
+            self._skip += 1
+        elif tag in self._BLOCKS:
+            self.parts.append("\n")
+        elif tag == "td":
+            self.parts.append(" ")
+        elif tag == "a":
+            self._href = dict(attrs).get("href")
+
+    def handle_endtag(self, tag):
+        if tag in ("style", "script", "head"):
+            self._skip = max(0, self._skip - 1)
+        elif tag in self._BLOCKS:
+            self.parts.append("\n")
+        elif tag == "a" and self._href:
+            if self._href.startswith(("http://", "https://")):
+                self.parts.append(f" ({self._href})")
+            self._href = None
+
+    def handle_data(self, data):
+        if not self._skip:
+            self.parts.append(data)
+
+
+def html_to_text(html: str) -> str:
+    parser = _TextExtractor()
+    parser.feed(html)
+    lines = [" ".join(line.split()) for line in "".join(parser.parts).splitlines()]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+
+
+def with_text(payload: dict) -> dict:
+    """Every message carries a plain-text part next to its HTML; HTML-only mail
+    scores worse with Outlook.com and Gmail filters."""
+    if payload.get("html") and not payload.get("text"):
+        payload["text"] = html_to_text(payload["html"])
+    return payload
+
+
 def _send(payload: dict, what: str) -> None:
     """Send and log; booking/notification mail must never break the request."""
     try:
-        resend.Emails.send(payload)
+        resend.Emails.send(with_text(payload))
     except Exception as exc:
         logger.error("Failed to send %s: %s", what, exc)
 
@@ -191,7 +246,7 @@ async def send_booking_reminder(booking: Booking, event_type: EventType, host: U
         "subject": f"Reminder: {event_type.name} with {booking.visitor_name if is_host else (host.name or host.email)}",
         "html": render_booking_reminder(booking, event_type, host, recipient),
     }
-    await asyncio.to_thread(resend.Emails.send, payload, options={
+    await asyncio.to_thread(resend.Emails.send, with_text(payload), options={
         "idempotency_key": f"booking-reminder/{booking.id}/{minutes}/{recipient}",
     })
 
@@ -434,7 +489,7 @@ def send_invoice(
         else f"Reminder: invoice {invoice.number} from {sender_name} is past due"
     )
     try:
-        resend.Emails.send(
+        resend.Emails.send(with_text(
             {
                 "from": FROM_EMAIL,
                 "to": recipients or split_emails(invoice.client_billing_email),
@@ -450,7 +505,7 @@ def send_invoice(
                     }
                 ],
             }
-        )
+        ))
     except Exception as exc:
         logger.error("Failed to send invoice %s: %s", invoice.number, exc)
         raise RuntimeError("Failed to send invoice email") from exc
@@ -460,7 +515,7 @@ def send_invoice_copy(invoice, pdf_bytes: bytes, sender: User, hosted_url: str) 
     """Email the sender their own copy of an invoice that has already gone out."""
     _init_resend()
     try:
-        resend.Emails.send(
+        resend.Emails.send(with_text(
             {
                 "from": FROM_EMAIL,
                 "to": [sender.email],
@@ -479,7 +534,7 @@ def send_invoice_copy(invoice, pdf_bytes: bytes, sender: User, hosted_url: str) 
                     }
                 ],
             }
-        )
+        ))
     except Exception as exc:
         logger.error("Failed to send copy of invoice %s: %s", invoice.number, exc)
         raise RuntimeError("Failed to send your copy") from exc

@@ -117,18 +117,30 @@ def _redirect(outcome: str) -> RedirectResponse:
     return redirect
 
 
+# AADSTS65001 and AADSTS90094: the user's organization requires an admin to
+# consent before its members can connect this app.
+ADMIN_CONSENT_CODES = ("AADSTS65001", "AADSTS90094", "AADSTS90095")
+
+
+def _error_outcome(error: str, description: str | None) -> str:
+    if error == "consent_required" or any(code in (description or "") for code in ADMIN_CONSENT_CODES):
+        return "admin"
+    return "denied" if error == "access_denied" else "failed"
+
+
 @router.get("/callback")
 async def microsoft_callback(
     state: str = Query(...),
     code: str | None = Query(default=None),
     error: str | None = Query(default=None),
+    error_description: str | None = Query(default=None),
     verifier_cookie: str | None = Cookie(default=None, alias=STATE_COOKIE),
     db: AsyncSession = Depends(get_db),
 ):
     _require_configured()
     user_id = read_state(state, verifier_cookie)
     if error:
-        return _redirect("denied" if error == "access_denied" else "failed")
+        return _redirect(_error_outcome(error, error_description))
     if not code:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Outlook returned no sign-in code. Start connecting Outlook again.")
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()

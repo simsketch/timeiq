@@ -172,11 +172,11 @@ async def send_for_user(db, user, now) -> None:
     url = f"{settings.BACKEND_URL.rstrip('/')}/api/weekly-summary/unsubscribe?token={token}"
     mail._init_resend()
     # Provider idempotency also covers a crash after send and before DB commit.
-    mail.resend.Emails.send({
+    mail.resend.Emails.send(mail.with_text({
         "from": mail.FROM_EMAIL, "to": [user.email], "subject": "Your week",
         "html": render_content(user, content, url),
         "headers": {"List-Unsubscribe": f"<{url}>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"},
-    }, {"idempotency_key": f"weekly-summary-{user.id}-{content['start'].date().isoformat()}"})
+    }), {"idempotency_key": f"weekly-summary-{user.id}-{content['start'].date().isoformat()}"})
     user.weekly_summary_sent_at = now
     await db.commit()
 

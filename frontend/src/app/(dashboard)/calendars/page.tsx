@@ -107,6 +107,10 @@ export default function CalendarsPage() {
       toast(outlook === "connected" ? {
         title: "Outlook connected",
         description: "Check its sync status below to confirm events are blocking your booking page.",
+      } : outlook === "admin" ? {
+        title: "Your organization needs to approve TimeIQ",
+        description: "Ask your IT admin to approve TimeIQ, or add your Outlook calendar with its ICS link instead: in Outlook on the web, open Settings, Calendar, Shared calendars, and publish your calendar.",
+        variant: "destructive",
       } : {
         title: "Outlook connection did not finish",
         description: "Choose Connect Outlook to try again and allow calendar access.",
