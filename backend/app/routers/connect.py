@@ -73,7 +73,11 @@ async def connect_onboarding(payload: OnboardingRequest, user: User = Depends(ge
         )
     except stripe.StripeError as exc:
         logger.warning("Connect onboarding failed for user %s: %s", user.id, exc.user_message or exc)
-        raise HTTPException(status_code=502, detail="Stripe could not start onboarding. Check your country and try again.")
+        if getattr(exc, "param", None) == "country":
+            detail = "Stripe doesn't support that country code. Check it and try again."
+        else:
+            detail = "Stripe payouts aren't available right now. Try again later."
+        raise HTTPException(status_code=502, detail=detail)
     return {"url": link["url"]}
 
 
