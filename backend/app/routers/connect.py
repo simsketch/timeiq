@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 
 import stripe
@@ -15,6 +16,8 @@ from app.models.booking import Booking
 from app.models.user import User
 from app.services import booking_payments as payments
 from app.services.booking_lock import lock_host_bookings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["booking payments"])
 
@@ -64,7 +67,8 @@ async def connect_onboarding(payload: OnboardingRequest, user: User = Depends(ge
             return_url=f"{settings.FRONTEND_URL.rstrip('/')}/event-types?connect=return",
             refresh_url=f"{settings.FRONTEND_URL.rstrip('/')}/event-types?connect=refresh",
         )
-    except stripe.StripeError:
+    except stripe.StripeError as exc:
+        logger.warning("Connect onboarding failed for user %s: %s", user.id, exc.user_message or exc)
         raise HTTPException(status_code=502, detail="Stripe could not start onboarding. Check your country and try again.")
     return {"url": link["url"]}
 
