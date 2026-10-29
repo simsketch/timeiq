@@ -1,6 +1,6 @@
 # Paid bookings
 
-Hosts connect an Express account in Booking page → Get paid for bookings. They choose their business country (US by default), complete Stripe onboarding, then set a price on an event type. Charges and payouts must both be enabled before setting a price. TimeIQ creates direct charges on the host's account and takes no application fee. Stripe fees apply.
+Hosts connect an Express account on the Booking page → Get paid for bookings. They choose their business country (US by default), complete Stripe onboarding, then set a price on an event type. Charges and payouts must both be enabled before setting a price. TimeIQ creates direct charges on the host's account and takes no application fee. Stripe fees apply.
 
 ## Owner setup
 

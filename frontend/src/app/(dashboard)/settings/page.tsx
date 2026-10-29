@@ -193,7 +193,7 @@ export default function SettingsPage() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Your booking link, page look, payments and website widget are on{" "}
+        Your booking link, page look, payments and website widget are on the{" "}
         <Link href="/event-types" className="underline underline-offset-4">Booking page</Link>.
         {" "}Find your calendar subscription on{" "}
         <Link href="/calendars#subscription" className="underline underline-offset-4">Calendars</Link>.

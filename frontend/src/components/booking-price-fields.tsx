@@ -38,6 +38,6 @@ export function BookingPriceFields({ price, currency, onChange, onSetupClick }: 
       </select>
     </div>
     <p className="text-xs text-muted-foreground">Leave the price empty for free bookings. TimeIQ takes no platform fee.</p>
-    {!ready && <p className="text-xs text-muted-foreground"><Link href="/event-types#payments" onClick={onSetupClick} className="underline">Finish Stripe setup on Booking page</Link> to set a price. {price && <button type="button" className="underline" onClick={() => onChange("", currency)}>Make this event free</button>}</p>}
+    {!ready && <p className="text-xs text-muted-foreground"><Link href="/event-types#payments" onClick={onSetupClick} className="underline">Finish Stripe setup on the Booking page</Link> to set a price. {price && <button type="button" className="underline" onClick={() => onChange("", currency)}>Make this event free</button>}</p>}
   </div>;
 }

@@ -47,7 +47,7 @@ export function ConnectCard() {
           window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
         }
       } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : "Account status did not load. Reload Booking page to try again.");
+        if (active) setError(e instanceof Error ? e.message : "Account status did not load. Reload the Booking page to try again.");
       }
     }
     load();
