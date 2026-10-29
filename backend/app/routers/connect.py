@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 
 import stripe
@@ -60,7 +61,9 @@ async def connect_onboarding(payload: OnboardingRequest, user: User = Depends(ge
                 controller={"stripe_dashboard": {"type": "full"}, "fees": {"payer": "account"},
                             "losses": {"payments": "stripe"}},
                 email=user.email, capabilities={"card_payments": {"requested": True}, "transfers": {"requested": True}},
-                metadata={"timeiq_user_id": str(user.id)}, idempotency_key=f"connect-account:v2:{user.id}",
+                metadata={"timeiq_user_id": str(user.id)}, # Stripe replays a key's stored result (errors included) for 24h, so a
+                # 5-minute window absorbs double clicks without pinning a past refusal.
+                idempotency_key=f"connect-account:{user.id}:{int(time.time() // 300)}",
             )
             user.stripe_connect_account_id = account["id"]
             # Keep the account even if link creation fails, so retrying resumes it.
