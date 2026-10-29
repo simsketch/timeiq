@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { addDays, addWeeks, format, isSameDay, startOfWeek } from "date-fns";
 import { CalendarDays, ChevronLeft, ChevronRight, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { calendarDate } from "@/lib/calendar-time";
 import { cn } from "@/lib/utils";
 
 export interface CalEvent {
@@ -17,6 +18,13 @@ export interface CalEvent {
   /** Small second line, e.g. the calendar it came from. */
   label?: string;
   faded?: boolean;
+}
+
+export interface WeeklyHours {
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  is_active: boolean;
 }
 
 export type CalendarView = "calendar" | "list";
@@ -110,8 +118,13 @@ function placeDay(events: CalEvent[], day: Date, startHour: number, endHour: num
     const used = new Set(cluster.filter((p) => p.ev.end.getTime() > s).map((p) => p.col));
     let col = 0;
     while (used.has(col)) col++;
-    const top = ((s - dayStart.getTime()) / 3_600_000) * HOUR_PX;
-    cluster.push({ ev, top, height: Math.max(((e - s) / 3_600_000) * HOUR_PX, 18), col, cols: 1 });
+    // Grid rows represent wall-clock hours, including on daylight-saving days.
+    const minutes = (timestamp: number) => {
+      const date = new Date(timestamp);
+      return isSameDay(date, day) ? date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60 : 24 * 60;
+    };
+    const top = ((minutes(s) - startHour * 60) / 60) * HOUR_PX;
+    cluster.push({ ev, top, height: Math.max(((minutes(e) - minutes(s)) / 60) * HOUR_PX, 18), col, cols: 1 });
     clusterEnd = Math.max(clusterEnd, e);
   }
   if (cluster.length) flush();
@@ -119,18 +132,27 @@ function placeDay(events: CalEvent[], day: Date, startHour: number, endHour: num
 }
 
 export function WeekCalendar({
-  events,
+  events: sourceEvents,
+  availableHours = [],
+  timezone,
   weekStart,
   onWeekChange,
   onSelect,
   emptyHint,
 }: {
   events: CalEvent[];
+  availableHours?: WeeklyHours[];
+  timezone?: string;
   weekStart: Date;
   onWeekChange: (start: Date) => void;
   onSelect?: (ev: CalEvent) => void;
   emptyHint?: string;
 }) {
+  const events = useMemo(() => timezone ? sourceEvents.map((event) => ({
+    ...event,
+    start: calendarDate(event.start, timezone),
+    end: calendarDate(event.end, timezone),
+  })) : sourceEvents, [sourceEvents, timezone]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
@@ -141,12 +163,25 @@ export function WeekCalendar({
     return () => clearInterval(t);
   }, []);
 
+  const displayNow = now && (timezone ? calendarDate(now, timezone) : now);
+  const openBlocks: CalEvent[] = days.flatMap((day) => availableHours
+    .filter((rule) => rule.is_active && rule.day_of_week === (day.getDay() + 6) % 7)
+    .flatMap((rule, index) => {
+      const start = new Date(day);
+      const end = new Date(day);
+      const [startHour, startMinute] = rule.start_time.split(":").map(Number);
+      const [endHour, endMinute] = rule.end_time.split(":").map(Number);
+      start.setHours(startHour, startMinute, 0, 0);
+      end.setHours(endHour, endMinute, 0, 0);
+      return end > start ? [{ id: `open-${day.getTime()}-${index}`, title: "Available", start, end, color: "#10b981" }] : [];
+    }));
+
   // Show 7 AM to 9 PM, stretched to fit anything earlier or later this week.
   const weekEnd = addDays(weekStart, 7);
   const inWeek = events.filter((e) => e.end > weekStart && e.start < weekEnd);
   let startHour = 7;
   let endHour = 21;
-  for (const e of inWeek) {
+  for (const e of [...inWeek, ...openBlocks]) {
     if (e.allDay) continue;
     startHour = Math.min(startHour, e.start.getHours());
     endHour = Math.max(endHour, e.end.getHours() + (e.end.getMinutes() ? 1 : 0) || 24);
@@ -163,7 +198,7 @@ export function WeekCalendar({
   return (
     <div className="w-full min-w-0 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="outline" onClick={() => onWeekChange(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
+        <Button size="sm" variant="outline" onClick={() => onWeekChange(startOfWeek(timezone ? calendarDate(new Date(), timezone) : new Date(), { weekStartsOn: 1 }))}>
           Today
         </Button>
         <Button size="icon" variant="ghost" aria-label="Previous week" onClick={() => onWeekChange(addWeeks(weekStart, -1))}>
@@ -182,10 +217,10 @@ export function WeekCalendar({
           <div className="grid grid-cols-[52px_repeat(7,1fr)] border-b bg-muted/30">
             <div />
             {days.map((d) => {
-              const today = now && isSameDay(d, now);
+              const today = displayNow && isSameDay(d, displayNow);
               return (
                 <div key={d.toISOString()} className="px-2 py-2 text-center">
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground">{format(d, "EEE")}</div>
+                  <div className="text-xs text-muted-foreground">{format(d, "EEE")}</div>
                   <div
                     className={cn(
                       "mx-auto mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold",
@@ -201,14 +236,14 @@ export function WeekCalendar({
 
           {hasAllDay && (
             <div className="grid grid-cols-[52px_repeat(7,1fr)] border-b">
-              <div className="px-1 py-1.5 text-right text-[10px] uppercase text-muted-foreground">All day</div>
+              <div className="px-1 py-1.5 text-right text-[10px] text-muted-foreground">All day</div>
               {days.map((d) => (
                 <div key={d.toISOString()} className="space-y-1 border-l p-1">
                   {allDayFor(d).map((e) => (
                     <button
                       key={e.id + d.toISOString()}
                       type="button"
-                      onClick={() => onSelect?.(e)}
+                      onClick={() => onSelect?.(sourceEvents.find((event) => event.id === e.id) ?? e)}
                       className={cn("block w-full truncate rounded px-1.5 py-0.5 text-left text-xs font-medium text-white", e.faded && "opacity-50")}
                       style={{ background: e.color }}
                       title={e.title}
@@ -234,17 +269,23 @@ export function WeekCalendar({
             </div>
             {days.map((d) => {
               const placed = placeDay(inWeek, d, startHour, endHour);
-              const showNow = now && isSameDay(d, now) && now.getHours() >= startHour && now.getHours() < endHour;
+              const showNow = displayNow && isSameDay(d, displayNow) && displayNow.getHours() >= startHour && displayNow.getHours() < endHour;
               return (
                 <div key={d.toISOString()} className="relative border-l">
                   {hours.map((h) => (
                     <div key={h} className="border-t border-dashed border-border/60" style={{ height: HOUR_PX }} />
                   ))}
+                  {placeDay(openBlocks, d, startHour, endHour).map(({ ev, top, height }) => (
+                    <div key={ev.id} className="pointer-events-none absolute inset-x-0 overflow-hidden border-y border-emerald-500/20 bg-emerald-500/10 px-1.5 py-1 text-[10px] text-emerald-800 dark:text-emerald-300"
+                      style={{ top, height }} title={`Available · ${format(ev.start, "h:mm a")}–${format(ev.end, "h:mm a")}`}>
+                      Available
+                    </div>
+                  ))}
                   {placed.map(({ ev, top, height, col, cols }) => (
                     <button
                       key={ev.id}
                       type="button"
-                      onClick={() => onSelect?.(ev)}
+                      onClick={() => onSelect?.(sourceEvents.find((event) => event.id === ev.id) ?? ev)}
                       className={cn(
                         "absolute overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left text-xs leading-tight shadow-sm transition-opacity hover:opacity-90",
                         ev.faded && "opacity-50"
@@ -271,7 +312,7 @@ export function WeekCalendar({
                   {showNow && (
                     <div
                       className="pointer-events-none absolute left-0 right-0 z-10 border-t-2 border-red-500"
-                      style={{ top: ((now!.getHours() - startHour) + now!.getMinutes() / 60) * HOUR_PX }}
+                      style={{ top: ((displayNow!.getHours() - startHour) + displayNow!.getMinutes() / 60) * HOUR_PX }}
                     />
                   )}
                 </div>

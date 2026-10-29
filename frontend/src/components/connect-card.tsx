@@ -7,12 +7,14 @@ import { ConnectStatus } from "@/lib/booking-payments";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/use-toast";
 import { Label } from "@/components/ui/label";
 
 const STATUS_LABEL = { not_connected: "Not connected", needs_info: "Needs info", ready: "Ready" };
 
 export function ConnectCard() {
   const { getToken } = useAuth();
+  const { toast } = useToast();
   const [status, setStatus] = useState<ConnectStatus | null>(null);
   const [country, setCountry] = useState("US");
   const [busy, setBusy] = useState(false);
@@ -24,14 +26,33 @@ export function ConnectCard() {
       try {
         const token = await getToken();
         const data = await apiFetch<ConnectStatus>("/api/connect/status", { headers: { Authorization: `Bearer ${token}` } });
-        if (active) setStatus(data);
+        if (!active) return;
+        setStatus(data);
+        const params = new URLSearchParams(window.location.search);
+        const result = params.get("connect");
+        if (result === "return" || result === "refresh") {
+          toast(result === "refresh" ? {
+            title: "Stripe onboarding link expired",
+            description: "Continue onboarding below to get a new link.",
+            variant: "destructive",
+          } : data.status === "ready" ? {
+            title: "Stripe connected",
+            description: "You can now set prices on your event types.",
+          } : {
+            title: "Stripe setup needs more information",
+            description: "Continue onboarding below to enable charges and payouts.",
+          });
+          params.delete("connect");
+          const query = params.toString();
+          window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+        }
       } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : "Account status did not load. Reload Settings to try again.");
+        if (active) setError(e instanceof Error ? e.message : "Account status did not load. Reload Booking page to try again.");
       }
     }
     load();
     return () => { active = false; };
-  }, [getToken]);
+  }, [getToken, toast]);
 
   async function open(action: "onboarding" | "dashboard") {
     setBusy(true);
@@ -50,7 +71,7 @@ export function ConnectCard() {
   }
 
   return (
-    <Card>
+    <Card id="payments" className="scroll-mt-6">
       <CardHeader><CardTitle>Get paid for bookings</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">Connect your Stripe account to charge for event types. Payments go to your account. TimeIQ takes no platform fee. Stripe fees apply.</p>

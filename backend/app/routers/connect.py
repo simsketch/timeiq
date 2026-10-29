@@ -61,8 +61,8 @@ async def connect_onboarding(payload: OnboardingRequest, user: User = Depends(ge
         link = await payments.stripe_call(
             stripe.AccountLink.create, account=user.stripe_connect_account_id,
             type="account_onboarding",
-            return_url=f"{settings.FRONTEND_URL.rstrip('/')}/settings?connect=return",
-            refresh_url=f"{settings.FRONTEND_URL.rstrip('/')}/settings?connect=refresh",
+            return_url=f"{settings.FRONTEND_URL.rstrip('/')}/event-types?connect=return",
+            refresh_url=f"{settings.FRONTEND_URL.rstrip('/')}/event-types?connect=refresh",
         )
     except stripe.StripeError:
         raise HTTPException(status_code=502, detail="Stripe could not start onboarding. Check your country and try again.")
@@ -73,7 +73,7 @@ async def connect_onboarding(payload: OnboardingRequest, user: User = Depends(ge
 async def connect_dashboard(user: User = Depends(get_current_user_unrestricted)):
     require_connect()
     if not user.stripe_connect_account_id:
-        raise HTTPException(status_code=409, detail="Connect Stripe in Settings before opening the dashboard.")
+        raise HTTPException(status_code=409, detail="Connect Stripe on Booking page before opening the dashboard.")
     try:
         link = await payments.stripe_call(stripe.Account.create_login_link, user.stripe_connect_account_id)
     except stripe.StripeError:

@@ -53,13 +53,13 @@ async def refresh_account(user: User) -> dict:
 
 async def require_pricing_ready(user: User) -> None:
     if not enabled() or not user.stripe_connect_account_id:
-        raise HTTPException(status_code=409, detail="Connect Stripe in Settings and finish onboarding before setting a price.")
+        raise HTTPException(status_code=409, detail="Connect Stripe on Booking page and finish onboarding before setting a price.")
     try:
         await refresh_account(user)
     except stripe.StripeError:
         raise HTTPException(status_code=502, detail="Stripe could not check your account. Try saving again.")
     if not ready(user):
-        raise HTTPException(status_code=409, detail="Finish Stripe onboarding in Settings before setting a price.")
+        raise HTTPException(status_code=409, detail="Finish Stripe onboarding on Booking page before setting a price.")
 
 
 async def limit_booking_emails(db: AsyncSession, email: str, *, cancellation: bool = False) -> None:

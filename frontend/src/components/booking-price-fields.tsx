@@ -8,7 +8,8 @@ import { BOOKING_CURRENCIES, ConnectStatus } from "@/lib/booking-payments";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function BookingPriceFields({ price, currency, onChange }: {
+export function BookingPriceFields({ price, currency, onChange, onSetupClick }: {
+  onSetupClick?: () => void;
   price: string; currency: string; onChange: (price: string, currency: string) => void;
 }) {
   const { getToken } = useAuth();
@@ -37,6 +38,6 @@ export function BookingPriceFields({ price, currency, onChange }: {
       </select>
     </div>
     <p className="text-xs text-muted-foreground">Leave the price empty for free bookings. TimeIQ takes no platform fee.</p>
-    {!ready && <p className="text-xs text-muted-foreground"><Link href="/settings" className="underline">Finish Stripe setup in Settings</Link> to set a price. {price && <button type="button" className="underline" onClick={() => onChange("", currency)}>Make this event free</button>}</p>}
+    {!ready && <p className="text-xs text-muted-foreground"><Link href="/event-types#payments" onClick={onSetupClick} className="underline">Finish Stripe setup on Booking page</Link> to set a price. {price && <button type="button" className="underline" onClick={() => onChange("", currency)}>Make this event free</button>}</p>}
   </div>;
 }

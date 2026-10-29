@@ -80,6 +80,27 @@ async def test_connect_signature_failure(monkeypatch):
         assert (await client.post("/api/webhooks/stripe-connect", content=body, headers=signed(body))).status_code == 200
 
 
+async def test_onboarding_returns_to_booking_page_without_external_services(monkeypatch):
+    from app.routers.connect import OnboardingRequest, connect_onboarding
+
+    monkeypatch.setattr(settings, "STRIPE_SECRET_KEY", "sk_test_fake")
+    monkeypatch.setattr(settings, "STRIPE_CONNECT_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setattr(settings, "FRONTEND_URL", "https://timeiq.example/")
+    user = NS(id=uuid.uuid4(), stripe_connect_account_id="acct_test_host")
+    db = NS(execute=AsyncMock(return_value=NS(scalar_one=lambda: user)))
+    stripe_call = AsyncMock(return_value={"url": "https://connect.stripe.test/onboarding"})
+    monkeypatch.setattr(P, "stripe_call", stripe_call)
+
+    assert await connect_onboarding(OnboardingRequest(), user=user, db=db) == {
+        "url": "https://connect.stripe.test/onboarding",
+    }
+    stripe_call.assert_awaited_once_with(
+        stripe.AccountLink.create, account="acct_test_host", type="account_onboarding",
+        return_url="https://timeiq.example/event-types?connect=return",
+        refresh_url="https://timeiq.example/event-types?connect=refresh",
+    )
+
+
 class FakeStripe:
     def __init__(self, monkeypatch):
         self.account = {"id": "acct_test_host", "charges_enabled": True, "payouts_enabled": True}
@@ -218,8 +239,8 @@ async def test_onboarding_status_country_links_and_account_updates(env):
     assert r.status_code == 200
     assert env.fake.account_creates[0]["country"] == "CA"
     assert env.fake.account_creates[0]["type"] == "express"
-    assert env.fake.links[0]["return_url"].endswith("/settings?connect=return")
-    assert env.fake.links[0]["refresh_url"].endswith("/settings?connect=refresh")
+    assert env.fake.links[0]["return_url"].endswith("/event-types?connect=return")
+    assert env.fake.links[0]["refresh_url"].endswith("/event-types?connect=refresh")
     await env.client.post("/api/connect/onboarding", json={})
     assert len(env.fake.account_creates) == 1
     assert (await env.client.get("/api/connect/status")).json()["status"] == "ready"

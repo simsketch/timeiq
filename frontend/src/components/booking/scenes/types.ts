@@ -53,7 +53,7 @@ export interface SceneCamera {
 export interface SceneDefinition {
   id: SceneId;
   name: string;
-  /** One line for the Settings picker. */
+  /** One line for the Booking page picker. */
   blurb: string;
   /** Painted fallback (1024x1536 and 640x960 WebP) under /public/booking. */
   still: string;

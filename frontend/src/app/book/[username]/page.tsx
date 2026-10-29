@@ -7,7 +7,7 @@ export default async function BookingProfilePage({ params, searchParams }: {
   searchParams: Promise<{ scene?: string; embed?: string }>;
 }) {
   const { username } = await params;
-  // ?scene= previews another scene on any page (used by the Settings picker).
+  // ?scene= previews another scene on any page (used by the Booking page picker).
   const { scene, embed } = await searchParams;
   let profile: PublicProfile | null = null;
   try {

@@ -53,10 +53,10 @@ export function BookingScenePicker({ username, initial }: { username: string; in
   const choices: Choice[] = [...SCENE_IDS, RANDOM_SCENE, NO_SCENE];
 
   return (
-    <Card>
+    <Card id="look" className="scroll-mt-6">
       <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
         <div className="space-y-1.5">
-          <CardTitle>Booking page scene</CardTitle>
+          <CardTitle>Look</CardTitle>
           <p className="text-sm text-muted-foreground">
             The 3D scene beside your meeting list. Every scene shows your visitor&apos;s real time.
           </p>

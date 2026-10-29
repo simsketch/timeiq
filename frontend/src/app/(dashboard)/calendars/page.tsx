@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
+import { CalendarSubscriptionCard } from "@/components/calendar-subscription-card";
 import { EmailSchedules } from "@/components/email-schedules";
 import { apiFetch } from "@/lib/api";
 import { Plus, Trash2, RefreshCw, CalendarDays, Clock, AlertTriangle, Link2 } from "lucide-react";
@@ -404,6 +405,8 @@ export default function CalendarsPage() {
       </Card>
 
       <EmailSchedules onChange={fetchAll} />
+
+      <CalendarSubscriptionCard />
 
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Connected Calendars</h2>

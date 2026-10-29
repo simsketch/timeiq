@@ -71,7 +71,7 @@ export function MobileNav() {
         aria-hidden={!open}
       >
         <div className="relative h-full">
-          <Sidebar />
+          <Sidebar onNavigate={() => setOpen(false)} />
           <button
             type="button"
             aria-label="Close navigation"

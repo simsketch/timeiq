@@ -2,7 +2,7 @@
 
 Booking pages, weekly timesheets and invoices for freelancers, in one app.
 
-- **Booking pages** that check every calendar you use. Add Google Calendar or any ICS / webcal link (Outlook, iCloud, work calendars) and clients only see the times you are actually free. Buffers, daily booking caps, minimum notice, booking windows, intake questions, and reschedule / cancel links in every confirmation. Choose email reminders for guests and hosts per event type. Settings and event types include **Add to your website** with iframe, auto-resizing widget, and popup snippets.
+- **Booking pages** that check every calendar you use. Add Google Calendar or any ICS / webcal link (Outlook, iCloud, work calendars) and clients only see the times you are actually free. Buffers, daily booking caps, minimum notice, booking windows, intake questions, and reschedule / cancel links in every confirmation. Choose email reminders for guests and hosts per event type. Booking page and each event type include **Add to your website** with iframe, auto-resizing widget, and popup snippets.
 - **Weekly timesheets** with a grid per client, saved rows and suggestions pulled from your calendar.
 - **Invoices** generated from logged hours, with expenses, PDF output, email delivery, overdue reminders and monthly auto-drafts.
 

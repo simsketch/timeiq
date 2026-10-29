@@ -15,6 +15,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { apiFetch } from "@/lib/api";
+import { AvailabilityWeek } from "@/components/availability-week";
+import { ShareAvailability } from "@/components/share-availability";
 import { ClockLoader } from "@/components/ui/clock-loader";
 
 interface AvailabilityRule {
@@ -52,6 +54,7 @@ export default function AvailabilityPage() {
   const [availability, setAvailability] = useState<AvailabilityRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [usingDefaults, setUsingDefaults] = useState(false);
 
   async function fetchAvailability() {
     try {
@@ -61,6 +64,7 @@ export default function AvailabilityPage() {
       });
 
       // Initialize with default availability if empty
+      setUsingDefaults(data.length === 0);
       if (data.length === 0) {
         const defaultAvailability: AvailabilityRule[] = DAYS.map((_, index) => ({
           day_of_week: index,
@@ -96,6 +100,7 @@ export default function AvailabilityPage() {
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({ rules: availability }),
       });
+      setUsingDefaults(false);
       toast({ title: "Availability updated successfully" });
     } catch (error: any) {
       toast({
@@ -139,80 +144,92 @@ export default function AvailabilityPage() {
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Weekly Hours</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {DAYS.map((day, index) => {
-            const rule = availability.find((r) => r.day_of_week === index);
-            if (!rule) return null;
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Weekly hours</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {usingDefaults && <p className="text-sm text-muted-foreground">No weekly hours saved yet. These default hours are a starting point. Adjust them and save your availability.</p>}
+            {DAYS.map((day, index) => {
+              const rule = availability.find((r) => r.day_of_week === index);
+              if (!rule) return null;
 
-            return (
-              <div
-                key={index}
-                className="flex items-center gap-4 p-4 border rounded-lg"
-              >
-                <div className="w-32">
-                  <Label className="font-medium">{day}</Label>
+              return (
+                <div
+                  key={index}
+                  className="flex flex-wrap items-center gap-3 p-4 border rounded-lg"
+                >
+                  <div className="w-24">
+                    <Label className="font-medium">{day}</Label>
+                  </div>
+                  <Switch
+                    checked={rule.is_active}
+                    onCheckedChange={(checked) =>
+                      updateDay(index, { is_active: checked })
+                    }
+                  />
+                  {rule.is_active && (
+                    <>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Select
+                          value={rule.start_time}
+                          onValueChange={(value) =>
+                            updateDay(index, { start_time: value })
+                          }
+                        >
+                          <SelectTrigger className="w-28">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {TIME_SLOTS.map((slot) => (
+                              <SelectItem key={slot.value} value={slot.value}>
+                                {slot.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <span className="text-muted-foreground">to</span>
+                        <Select
+                          value={rule.end_time}
+                          onValueChange={(value) =>
+                            updateDay(index, { end_time: value })
+                          }
+                        >
+                          <SelectTrigger className="w-28">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {TIME_SLOTS.map((slot) => (
+                              <SelectItem key={slot.value} value={slot.value}>
+                                {slot.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  )}
                 </div>
-                <Switch
-                  checked={rule.is_active}
-                  onCheckedChange={(checked) =>
-                    updateDay(index, { is_active: checked })
-                  }
-                />
-                {rule.is_active && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <Select
-                        value={rule.start_time}
-                        onValueChange={(value) =>
-                          updateDay(index, { start_time: value })
-                        }
-                      >
-                        <SelectTrigger className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TIME_SLOTS.map((slot) => (
-                            <SelectItem key={slot.value} value={slot.value}>
-                              {slot.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <span className="text-muted-foreground">to</span>
-                      <Select
-                        value={rule.end_time}
-                        onValueChange={(value) =>
-                          updateDay(index, { end_time: value })
-                        }
-                      >
-                        <SelectTrigger className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TIME_SLOTS.map((slot) => (
-                            <SelectItem key={slot.value} value={slot.value}>
-                              {slot.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </>
-                )}
-              </div>
-            );
-          })}
-          <div className="pt-4">
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Saving..." : "Save Availability"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+              );
+            })}
+            <div className="pt-4">
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? "Saving..." : "Save availability"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Share availability</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">Copy your open times as text or an image to share with anyone. Save your weekly hours first to include your changes.</p>
+            <ShareAvailability />
+          </CardContent>
+        </Card>
+      </div>
+
+      <AvailabilityWeek hours={availability} />
     </div>
   );
 }

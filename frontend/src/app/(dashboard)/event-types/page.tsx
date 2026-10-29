@@ -30,6 +30,9 @@ import { Plus, Copy, Edit, Trash2 } from "lucide-react";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { BookingExtrasFields, DEFAULT_BOOKING_EXTRAS } from "@/components/booking-extras-fields";
 import { EmbedSnippets } from "@/components/embed-snippets";
+import { BookingLinkCard } from "@/components/booking-link-card";
+import { BookingScenePicker } from "@/components/booking-scene-picker";
+import { ConnectCard } from "@/components/connect-card";
 import { BookingPriceFields } from "@/components/booking-price-fields";
 import { bookingPrice } from "@/lib/booking-payments";
 
@@ -67,7 +70,9 @@ export default function EventTypesPage() {
   const { getToken } = useAuth();
   const { toast } = useToast();
   // Booking links use the TimeIQ username from /api/me, which can differ from Clerk's.
-  const [username, setUsername] = useState<string | null>(null);
+  const [profile, setProfile] = useState<{ username: string; booking_scene: string | null } | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const username = profile?.username ?? null;
   const [eventTypes, setEventTypes] = useState<EventType[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -99,12 +104,13 @@ export default function EventTypesPage() {
   async function fetchUsername() {
     try {
       const token = await getToken();
-      const me = await apiFetch<{ username: string }>("/api/me", {
+      const me = await apiFetch<{ username: string; booking_scene: string | null }>("/api/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setUsername(me.username);
+      setProfile(me);
+      setProfileError(null);
     } catch (error) {
-      console.error("Failed to load profile:", error);
+      setProfileError(error instanceof Error ? error.message : "Your booking link did not load. Try again.");
     }
   }
 
@@ -260,31 +266,47 @@ export default function EventTypesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
-        <ClockLoader size="lg" label="Loading event types" />
+        <ClockLoader size="lg" label="Loading booking page" />
       </div>
     );
   }
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Event Types</h1>
-          <p className="text-muted-foreground mt-2">
-            Create and manage your booking event types
-          </p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Booking page</h1>
+        <p className="text-muted-foreground mt-2">Set up your booking link, meeting types, page look, payments and website widget.</p>
+      </div>
+
+      {profile ? (
+        <BookingLinkCard username={profile.username} onSaved={(username) => setProfile({ ...profile, username })} />
+      ) : (
+        <Card>
+          <CardHeader><CardTitle>Your booking link</CardTitle></CardHeader>
+          <CardContent>
+            {profileError ? (
+              <div role="alert" className="space-y-3 text-sm">
+                <p>{profileError}</p>
+                <Button variant="outline" onClick={fetchUsername}>Try again</Button>
+              </div>
+            ) : <ClockLoader label="Loading booking link" />}
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h2 className="text-xl font-semibold">Event types</h2>
         <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              New Event Type
+              New event type
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <form onSubmit={handleSubmit}>
               <DialogHeader>
-                <DialogTitle>{editingId ? "Edit" : "Create"} Event Type</DialogTitle>
+                <DialogTitle>{editingId ? "Edit" : "Create"} event type</DialogTitle>
                 <DialogDescription>
                   Set up a new type of meeting that people can book with you.
                 </DialogDescription>
@@ -377,7 +399,7 @@ export default function EventTypesPage() {
                 </div>
                 <BookingExtrasFields value={formData} onChange={(change) => setFormData({ ...formData, ...change })} />
                 <div className="space-y-3 pt-2">
-                  <BookingPriceFields price={price} currency={currency} onChange={(p, c) => { setPrice(p); setCurrency(c); }} />
+                  <BookingPriceFields onSetupClick={() => { setDialogOpen(false); resetForm(); }} price={price} currency={currency} onChange={(p, c) => { setPrice(p); setCurrency(c); }} />
                   <Label className="text-sm font-medium">Collect from guests</Label>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
@@ -511,6 +533,17 @@ export default function EventTypesPage() {
           <p className="text-muted-foreground">No event types yet. Create your first one!</p>
         </div>
       )}
+      {profile && <BookingScenePicker username={profile.username} initial={profile.booking_scene} />}
+
+      <ConnectCard />
+
+      <Card id="embed" className="scroll-mt-6">
+        <CardHeader><CardTitle>Add to your website</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">Let guests book from your website with an iframe, an auto-resizing widget or a popup button.</p>
+          <EmbedSnippets username={username} />
+        </CardContent>
+      </Card>
     </div>
   );
 }
