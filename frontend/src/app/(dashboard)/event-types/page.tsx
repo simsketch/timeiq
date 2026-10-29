@@ -26,7 +26,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { apiFetch } from "@/lib/api";
-import { Plus, Copy, Edit, Trash2 } from "lucide-react";
+import { Plus, Copy, CopyPlus, Edit, Trash2 } from "lucide-react";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { BookingExtrasFields, DEFAULT_BOOKING_EXTRAS } from "@/components/booking-extras-fields";
 import { EmbedSnippets } from "@/components/embed-snippets";
@@ -220,6 +220,13 @@ export default function EventTypesPage() {
       require_url: eventType.require_url,
     });
     setDialogOpen(true);
+  }
+
+  // Opens the create dialog prefilled from an existing event type; saving makes a new one.
+  function handleClone(eventType: EventType) {
+    handleEdit(eventType);
+    setEditingId(null);
+    setFormData((f) => ({ ...f, name: `${eventType.name} (copy)` }));
   }
 
   function resetForm() {
@@ -504,6 +511,8 @@ export default function EventTypesPage() {
                   size="sm"
                   variant="outline"
                   onClick={() => copyBookingLink(eventType.slug)}
+                  title="Copy booking link"
+                  aria-label="Copy booking link"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -511,13 +520,26 @@ export default function EventTypesPage() {
                   size="sm"
                   variant="outline"
                   onClick={() => handleEdit(eventType)}
+                  title="Edit"
+                  aria-label="Edit"
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
+                  onClick={() => handleClone(eventType)}
+                  title="Clone"
+                  aria-label="Clone"
+                >
+                  <CopyPlus className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
                   onClick={() => handleDelete(eventType.id)}
+                  title="Delete"
+                  aria-label="Delete"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -533,8 +555,6 @@ export default function EventTypesPage() {
           <p className="text-muted-foreground">No event types yet. Create your first one!</p>
         </div>
       )}
-      {profile && <BookingScenePicker username={profile.username} initial={profile.booking_scene} />}
-
       <ConnectCard />
 
       <Card id="embed" className="scroll-mt-6">
@@ -544,6 +564,8 @@ export default function EventTypesPage() {
           <EmbedSnippets username={username} />
         </CardContent>
       </Card>
+
+      {profile && <BookingScenePicker username={profile.username} initial={profile.booking_scene} />}
     </div>
   );
 }
