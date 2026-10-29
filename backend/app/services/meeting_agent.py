@@ -64,7 +64,9 @@ def _addresses(*fields) -> list[tuple[str, str]]:
             continue
         raw += f if isinstance(f, list) else [f]
     out: list[tuple[str, str]] = []
-    for name, email in getaddresses(raw):
+    # One value at a time: strict getaddresses (Python 3.11.10+) discards the
+    # whole list when any value in it is malformed.
+    for name, email in (pair for value in raw if value for pair in getaddresses([value])):
         email = email.strip().lower()
         if email and "@" in email and all(e != email for _, e in out):
             out.append((name.strip().strip('"'), email))

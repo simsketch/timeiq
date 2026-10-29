@@ -35,7 +35,9 @@ def confirmation_id(booking: Booking, recipient: str) -> str:
 
 def booking_id_from_recipients(recipients) -> uuid.UUID | None:
     values = [recipients] if isinstance(recipients, str) else recipients or []
-    for _, address in getaddresses(values):
+    # One value at a time: strict getaddresses (Python 3.11.10+) discards the
+    # whole list when any value in it is empty or malformed.
+    for _, address in (pair for value in values if value for pair in getaddresses([value])):
         local, _, domain = address.lower().partition("@")
         if domain == settings.INBOUND_DOMAIN.lower() and local.startswith("booking-"):
             try:
