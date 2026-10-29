@@ -12,15 +12,18 @@ import re
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from mcp.shared.auth import OAuthToken
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.oauth import OAuthAccessToken, OAuthAuthorizationCode, OAuthClient, OAuthGrant, OAuthRefreshToken
 from app.models.user import User
+
+if TYPE_CHECKING:  # the MCP SDK is slow to import; load it only when issuing tokens
+    from mcp.shared.auth import OAuthToken
 
 ACCESS_PREFIX = "tiqoa_"
 REFRESH_PREFIX = "tiqor_"
@@ -187,6 +190,8 @@ async def _replay(db: AsyncSession, grant: OAuthGrant) -> None:
 
 
 async def _issue(db: AsyncSession, grant: OAuthGrant) -> OAuthToken:
+    from mcp.shared.auth import OAuthToken
+
     access = ACCESS_PREFIX + secrets.token_urlsafe(32)
     refresh = REFRESH_PREFIX + secrets.token_urlsafe(32)
     expires_at = min(now() + ACCESS_TTL, grant.expires_at)

@@ -107,9 +107,20 @@ app.include_router(weekly_summary.router)
 app.include_router(api_tokens.router)
 
 # MCP server (Streamable HTTP): AI assistants connect with OAuth or a personal token.
-from app.mcp_server import MCPEndpoint  # noqa: E402
+# Imported on the first /mcp request: the MCP SDK is slow to load, and every
+# serverless cold start would otherwise pay for it.
+class _LazyMCPEndpoint:
+    _endpoint = None
 
-app.router.routes.append(Route("/mcp", endpoint=MCPEndpoint(), methods=["GET", "POST", "DELETE"]))
+    async def __call__(self, scope, receive, send):
+        if _LazyMCPEndpoint._endpoint is None:
+            from app.mcp_server import MCPEndpoint
+
+            _LazyMCPEndpoint._endpoint = MCPEndpoint()
+        await _LazyMCPEndpoint._endpoint(scope, receive, send)
+
+
+app.router.routes.append(Route("/mcp", endpoint=_LazyMCPEndpoint(), methods=["GET", "POST", "DELETE"]))
 
 
 @app.get("/api/health")

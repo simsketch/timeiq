@@ -11,7 +11,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from svix.webhooks import Webhook, WebhookVerificationError
 
 from app.auth import get_current_user
 from app.config import settings
@@ -59,6 +58,8 @@ def _enabled() -> bool:
 
 @router.post("/api/webhooks/inbound-email")
 async def inbound_email(request: Request):
+    from svix.webhooks import Webhook, WebhookVerificationError  # slow to import
+
     body = await request.body()
     try:
         Webhook(settings.RESEND_INBOUND_WEBHOOK_SECRET).verify(body, dict(request.headers))

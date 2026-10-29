@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { ClockLoader } from "@/components/ui/clock-loader";
@@ -19,10 +19,18 @@ export function SubscriptionGate({
   children: React.ReactNode;
   exemptPaths?: string[];
 }) {
-  const { isLoaded, getToken } = useAuth();
+  const { isLoaded, getToken, userId } = useAuth();
   const pathname = usePathname() ?? "";
   const exempt = exemptPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const [status, setStatus] = useState<BillingStatus | null | "error">(null);
+  // Someone who was entitled last visit sees the page right away while the
+  // status is re-checked, so the page's own data loads in parallel with it.
+  // The API enforces the subscription on every request either way.
+  const knownEntitled = useSyncExternalStore(
+    noSubscribe,
+    () => !!userId && readEntitled() === userId,
+    () => false,
+  );
 
   useEffect(() => {
     if (!isLoaded || exempt) return;
@@ -31,7 +39,10 @@ export function SubscriptionGate({
       try {
         const token = await getToken();
         const s = await fetchBillingStatus(token);
-        if (!cancelled) setStatus(s);
+        if (!cancelled) {
+          setStatus(s);
+          writeEntitled(s.enabled && !s.entitled ? null : userId ?? null);
+        }
       } catch {
         // Fail open so a billing hiccup never locks people out of their data.
         if (!cancelled) setStatus("error");
@@ -40,9 +51,11 @@ export function SubscriptionGate({
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, getToken, exempt]);
+  }, [isLoaded, getToken, exempt, userId]);
 
   if (exempt) return <>{children}</>;
+
+  if (status === null && knownEntitled) return <>{children}</>;
 
   if (status === null) {
     return (
@@ -75,4 +88,25 @@ export function SubscriptionGate({
   }
 
   return <>{children}</>;
+}
+
+const ENTITLED_KEY = "timeiq.entitled";
+
+const noSubscribe = () => () => {};
+
+function readEntitled(): string | null {
+  try {
+    return window.localStorage.getItem(ENTITLED_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeEntitled(userId: string | null) {
+  try {
+    if (userId) window.localStorage.setItem(ENTITLED_KEY, userId);
+    else window.localStorage.removeItem(ENTITLED_KEY);
+  } catch {
+    // Storage can be unavailable (private windows); the gate then waits for the check.
+  }
 }

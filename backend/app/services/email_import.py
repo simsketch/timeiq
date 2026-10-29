@@ -18,7 +18,6 @@ from email.utils import parseaddr
 from typing import Any, Optional
 from zoneinfo import ZoneInfo
 
-import anthropic
 import httpx
 from icalendar import Calendar
 from pydantic import BaseModel, Field
@@ -228,6 +227,8 @@ async def extract_events(subject: str, body: str, attachments: list[Attachment],
             f"Email subject: {subject or '(none)'}\n\nEmail body:\n{body or '(empty)'}"
         ),
     })
+    import anthropic  # slow to import; only email handling needs it
+
     client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
     response = await client.messages.parse(
         model=MODEL,
@@ -314,6 +315,8 @@ class _Skip(Exception):
 
 def _is_transient(exc: BaseException) -> bool:
     """A failure a redelivery of the webhook may not hit again."""
+    import anthropic
+
     if isinstance(exc, (httpx.TransportError, TimeoutError, anthropic.APIConnectionError)):
         return True  # includes connect errors and timeouts
     if isinstance(exc, httpx.HTTPStatusError):

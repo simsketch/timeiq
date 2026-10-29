@@ -6,7 +6,6 @@ import re
 
 from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select
-from svix.webhooks import Webhook, WebhookVerificationError
 
 from app.config import settings
 from app.database import async_session
@@ -52,6 +51,8 @@ async def clerk_webhook(request: Request):
     # Get headers for verification
     headers = dict(request.headers)
     body = await request.body()
+
+    from svix.webhooks import Webhook, WebhookVerificationError  # slow to import
 
     # Verify the webhook signature
     try:

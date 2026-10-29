@@ -8,7 +8,6 @@ from urllib.parse import parse_qsl
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.routing import APIRoute
-from mcp.shared.auth import OAuthMetadata, ProtectedResourceMetadata
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -97,6 +96,8 @@ async def _form(request: Request) -> dict[str, str]:
 @router.get("/.well-known/oauth-protected-resource")
 @router.get("/.well-known/oauth-protected-resource/mcp")
 async def protected_resource():
+    from mcp.shared.auth import ProtectedResourceMetadata  # slow to import
+
     return ProtectedResourceMetadata(resource=oauth.resource_url(), authorization_servers=[oauth.issuer()],
                                      scopes_supported=[oauth.SCOPE], bearer_methods_supported=["header"],
                                      resource_name="TimeIQ").model_dump(mode="json", exclude_none=True)
@@ -104,6 +105,8 @@ async def protected_resource():
 
 @router.get("/.well-known/oauth-authorization-server")
 async def authorization_server():
+    from mcp.shared.auth import OAuthMetadata  # slow to import
+
     base = oauth.issuer()
     return OAuthMetadata(
         issuer=base, authorization_endpoint=f"{base}/oauth/authorize", token_endpoint=f"{base}/oauth/token",

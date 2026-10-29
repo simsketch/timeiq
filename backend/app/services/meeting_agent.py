@@ -27,7 +27,6 @@ from zoneinfo import ZoneInfo
 from email.utils import getaddresses, parseaddr
 from typing import Literal, Optional
 
-import anthropic
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import array, insert as pg_insert
@@ -189,6 +188,8 @@ Times are in {zone}; if the writer names another time zone, convert."""
 
 
 async def _parse(system: str, text: str, schema):
+    import anthropic  # slow to import; only email handling needs it
+
     client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
     response = await client.messages.parse(
         model=MODEL,
