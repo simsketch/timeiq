@@ -47,7 +47,7 @@ export function CcTimeiqDemo() {
   const [typing, setTyping] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
   const timers = useRef<number[]>([]);
-  const bottom = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLDivElement>(null);
 
   function later(fn: () => void, ms: number) {
     timers.current.push(window.setTimeout(fn, ms));
@@ -78,8 +78,11 @@ export function CcTimeiqDemo() {
     return () => pending.forEach(clearTimeout);
   }, []);
 
+  // Scroll only the thread itself; scrollIntoView also moved the page and dragged
+  // visitors from the hero down to this demo on load.
   useEffect(() => {
-    bottom.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const el = list.current;
+    if (el && step > 0) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [step, typing]);
 
   const thread: Msg[] = [];
@@ -229,7 +232,7 @@ export function CcTimeiqDemo() {
         </button>
       </div>
 
-      <div className="max-h-[460px] min-h-[300px] space-y-3 overflow-y-auto pr-1" aria-live="polite">
+      <div ref={list} className="max-h-[460px] min-h-[300px] space-y-3 overflow-y-auto pr-1" aria-live="polite">
         {step === 0 && mode === "thread" && (
           <div className="rounded-2xl border border-dashed border-foreground/15 bg-white/70 px-4 py-3 text-sm">
             <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
@@ -283,7 +286,6 @@ export function CcTimeiqDemo() {
           <Bubble key={m.id} m={m} />
         ))}
         {typing && <Typing />}
-        <div ref={bottom} />
       </div>
 
       <div className="mt-4 flex min-h-[40px] flex-wrap items-center gap-2">
