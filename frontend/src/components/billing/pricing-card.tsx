@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { track } from "@/components/meta-pixel";
 import { PricingInfo, fetchPricing, fmtCents, startCheckout, startGuestCheckout } from "@/lib/billing";
+import { hasSessionCookie } from "@/lib/session-cookie";
 
 const INCLUDED = [
   "Google, Outlook, iCloud and any calendar link in one view",
@@ -17,8 +18,33 @@ const INCLUDED = [
   "Founder price locked in for life",
 ];
 
+/** For pages inside Clerk: checks out the signed-in account directly. */
 export function PricingCard({ compact = false }: { compact?: boolean }) {
   const { isLoaded, isSignedIn, getToken } = useAuth();
+  const checkoutUrl = async () => (isSignedIn ? startCheckout(await getToken()) : startGuestCheckout());
+  return <PricingCardView compact={compact} ready={isLoaded} checkoutUrl={checkoutUrl} />;
+}
+
+/**
+ * For public pages that skip Clerk. Signed-in visitors finish on
+ * /billing/checkout, which has Clerk; everyone else goes straight to Stripe.
+ */
+export function PublicPricingCard({ compact = false, headline }: { compact?: boolean; headline?: string }) {
+  const checkoutUrl = async () => (hasSessionCookie() ? "/billing/checkout" : startGuestCheckout());
+  return <PricingCardView compact={compact} ready checkoutUrl={checkoutUrl} headline={headline} />;
+}
+
+function PricingCardView({
+  compact,
+  ready,
+  checkoutUrl,
+  headline,
+}: {
+  compact: boolean;
+  ready: boolean;
+  checkoutUrl: () => Promise<string>;
+  headline?: string;
+}) {
   const { toast } = useToast();
   const [pricing, setPricing] = useState<PricingInfo | null>(null);
   const [pricingError, setPricingError] = useState(false);
@@ -56,12 +82,12 @@ export function PricingCard({ compact = false }: { compact?: boolean }) {
 
   async function subscribe() {
     if (price === null) return;
-    track("InitiateCheckout", { value: price / 100, currency });
-    if (!isLoaded) return;
+    track("InitiateCheckout", { value: price / 100, currency, ...(headline && { content_name: headline }) });
+    if (!ready) return;
     setBusy(true);
     try {
       // No account needed to pay; it's created right after checkout.
-      window.location.href = isSignedIn ? await startCheckout(await getToken()) : await startGuestCheckout();
+      window.location.href = await checkoutUrl();
     } catch (e: any) {
       toast({ title: "Checkout unavailable", description: e.message, variant: "destructive" });
       setBusy(false);

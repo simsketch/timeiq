@@ -1,8 +1,10 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
+import { variantForAd } from "@/components/landing/headlines";
 
 const isPublicRoute = createRouteMatcher([
   "/",
+  "/lp/(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/book(.*)",
@@ -45,6 +47,15 @@ const withClerk = clerkMiddleware(async (auth, request) => {
 });
 
 export default function middleware(request: NextRequest, event: NextFetchEvent) {
+  // The homepage doesn't use Clerk. Ad visitors get the headline matching
+  // their ad, served from a static page while the address bar keeps "/".
+  if (request.nextUrl.pathname === "/") {
+    const variant = variantForAd(request.nextUrl.searchParams.get("utm_content"));
+    if (!variant) return NextResponse.next();
+    const url = request.nextUrl.clone();
+    url.pathname = `/lp/${variant}`;
+    return NextResponse.rewrite(url);
+  }
   if (isEmbeddedBooking(request)) {
     const response = NextResponse.next();
     response.headers.set("Content-Security-Policy", "frame-ancestors *");
