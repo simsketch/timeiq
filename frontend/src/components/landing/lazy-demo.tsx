@@ -7,20 +7,20 @@ import { useEffect, useRef, useState, type ComponentType } from "react";
 const DEMOS = {
   email: {
     load: () => import("./email-schedule-demo").then((m) => m.EmailScheduleDemo),
-    minHeight: "min-h-[647px] md:min-h-[625px]",
+    minHeight: "min-h-[684px] md:min-h-[662px] lg:min-h-[696px] xl:min-h-[662px]",
     afterPaint: true,
   },
   cc: {
     load: () => import("./cc-timeiq-demo").then((m) => m.CcTimeiqDemo),
-    minHeight: "min-h-[466px] md:min-h-[454px]",
+    minHeight: "min-h-[626px] md:min-h-[614px]",
   },
   merge: {
     load: () => import("./calendar-merge-demo").then((m) => m.CalendarMergeDemo),
-    minHeight: "min-h-[1024px] md:min-h-[884px] lg:min-h-[474px]",
+    minHeight: "min-h-[1024px] sm:min-h-[918px] md:min-h-[884px] lg:min-h-[508px] xl:min-h-[474px]",
   },
   share: {
     load: () => import("./availability-share-demo").then((m) => m.AvailabilityShareDemo),
-    minHeight: "min-h-[536px] md:min-h-[462px]",
+    minHeight: "min-h-[536px] sm:min-h-[518px] md:min-h-[462px] lg:min-h-[518px] xl:min-h-[462px]",
   },
 } satisfies Record<string, { load: () => Promise<ComponentType>; minHeight: string; afterPaint?: boolean }>;
 

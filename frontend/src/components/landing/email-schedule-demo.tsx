@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, FileText, Image as ImageIcon, Loader2, Mail, RotateCcw, Send, Undo2 } from "lucide-react";
 import { MiniWeek } from "./mini-week";
 import { DEMO_CALENDARS, MERGE_EVENTS, clock, dayDate, type DemoEvent } from "./demo-week";
+import { useDemoAutoplay } from "./use-demo-autoplay";
 
 const KIDS = DEMO_CALENDARS.find((c) => c.key === "school")!.color;
 
@@ -64,13 +65,23 @@ const BASE: DemoEvent[] = MERGE_EVENTS.work.map((e) => ({ ...e, color: "hsl(232 
 
 type Phase = "ready" | "sending" | "reading" | "added" | "undone";
 
+// Autoplay: send each sample in turn, undo the last one, then start over.
+const AUTOPLAY: ({ send: number } | { pick: number } | "undo" | "reset")[] = [
+  { send: 0 },
+  { pick: 1 },
+  { send: 1 },
+  { pick: 2 },
+  { send: 2 },
+  "undo",
+  "reset",
+];
+
 /** Hero demo: send a schedule to TimeIQ and watch it land on the calendar. */
 export function EmailScheduleDemo() {
   const [sampleKey, setSampleKey] = useState(SAMPLES[0].key);
   const [phase, setPhase] = useState<Phase>("ready");
   const [added, setAdded] = useState<Record<string, DemoEvent[]>>({});
   const [last, setLast] = useState<string | null>(null);
-  const touched = useRef(false);
   const timers = useRef<number[]>([]);
 
   const sample = SAMPLES.find((s) => s.key === sampleKey)!;
@@ -102,7 +113,6 @@ export function EmailScheduleDemo() {
   }
 
   function reset() {
-    touched.current = true;
     timers.current.forEach(clearTimeout);
     timers.current = [];
     setAdded({});
@@ -112,25 +122,29 @@ export function EmailScheduleDemo() {
   }
 
   function pick(key: string) {
-    touched.current = true;
     if (busy) return;
     setSampleKey(key);
     setPhase("ready");
   }
 
-  // Play the first sample once on load, so the hero shows the result even
-  // before anyone clicks. Any click cancels it.
   useEffect(() => {
-    const t = window.setTimeout(() => {
-      if (!touched.current) send(SAMPLES[0]);
-    }, 1400);
     const pending = timers.current;
-    return () => {
-      clearTimeout(t);
-      pending.forEach(clearTimeout);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount
+    return () => pending.forEach(clearTimeout);
   }, []);
+
+  // The hero plays itself, starting soon after load, until the visitor takes over.
+  const autoStep = useRef(0);
+  const { ref, active: autoplaying } = useDemoAutoplay(
+    () => {
+      if (busy) return 600;
+      const action = AUTOPLAY[autoStep.current++ % AUTOPLAY.length];
+      if (action === "undo") undo();
+      else if (action === "reset") reset();
+      else if ("pick" in action) pick(SAMPLES[action.pick].key);
+      else send(SAMPLES[action.send]);
+    },
+    { firstDelay: 1400 },
+  );
 
   const events = [...BASE, ...Object.values(added).flat()];
   const fresh = new Set(last && phase === "added" ? (added[last] ?? []).map((e) => e.id) : []);
@@ -139,7 +153,7 @@ export function EmailScheduleDemo() {
   const Icon = sample.kind === "pdf" ? FileText : sample.kind === "image" ? ImageIcon : Mail;
 
   return (
-    <div className="glass glass-chroma rounded-[1.75rem] p-5 sm:p-6">
+    <div ref={ref} className="glass glass-chroma rounded-[1.75rem] p-5 sm:p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="text-[11px] font-mono uppercase tracking-[0.18em] text-[hsl(var(--aurora-1))]">
           Try it · no signup
@@ -194,10 +208,7 @@ export function EmailScheduleDemo() {
             <button
               type="button"
               disabled={busy || alreadySent}
-              onClick={() => {
-                touched.current = true;
-                send(sample);
-              }}
+              onClick={() => send(sample)}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[linear-gradient(135deg,hsl(var(--aurora-1)),hsl(var(--aurora-5)))] px-3 py-1.5 text-xs font-semibold text-white shadow-md shadow-[hsl(var(--aurora-1))]/25 transition-transform hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:hover:translate-y-0"
             >
               {alreadySent ? "Added" : <><Send className="h-3 w-3" /> Send to TimeIQ</>}
@@ -221,11 +232,11 @@ export function EmailScheduleDemo() {
             <span className="h-2 w-2 rounded-sm" style={{ background: KIDS }} /> From email
           </span>
         </div>
-        <MiniWeek days={7} from={8} to={21} events={events} fresh={fresh} hourHeight={17} />
+        <MiniWeek days={7} from={8} to={21} events={events} fresh={fresh} hourHeight={17} reserveAllDay />
       </div>
 
       {/* The reply TimeIQ sends back */}
-      <div aria-live="polite" className="min-h-[84px] mt-3">
+      <div aria-live={autoplaying ? "off" : "polite"} className="min-h-[101px] mt-3">
         {phase === "added" && lastSample && (
           <div className="demo-pop rounded-xl border border-emerald-500/20 bg-emerald-50/80 px-3.5 py-2.5 text-sm">
             <div className="flex items-center justify-between gap-2">
@@ -235,10 +246,7 @@ export function EmailScheduleDemo() {
               </span>
               <button
                 type="button"
-                onClick={() => {
-                  touched.current = true;
-                  undo();
-                }}
+                onClick={undo}
                 className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-emerald-900 hover:bg-emerald-600/10"
               >
                 <Undo2 className="h-3 w-3" /> Undo

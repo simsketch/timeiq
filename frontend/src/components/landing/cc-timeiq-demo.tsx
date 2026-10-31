@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CalendarCheck, CheckCircle2, Paperclip, Plus, RotateCcw, Send, Sparkles, X } from "lucide-react";
+import { useDemoAutoplay } from "./use-demo-autoplay";
 
 type Mode = "thread" | "assistant";
 
@@ -77,6 +78,23 @@ export function CcTimeiqDemo() {
     const pending = timers.current;
     return () => pending.forEach(clearTimeout);
   }, []);
+
+  // Autoplay walks the visitor's next move each step: cc TimeIQ, send, pick a
+  // time, "book it", then the other tab, and around again.
+  const rounds = useRef(0);
+  const { ref, active: autoplaying } = useDemoAutoplay(() => {
+    if (typing) return 600;
+    if (mode === "thread") {
+      if (step === 0 && !cc) setCc(true);
+      else if (step === 0) advance(1);
+      else if (step === 2) {
+        setPicked(TIMES[rounds.current++ % TIMES.length]);
+        advance(3);
+      } else if (step === 4) advance(5);
+      else if (step >= 6) reset("assistant");
+    } else if (step === 0) advance(1);
+    else if (step >= 2) reset("thread");
+  });
 
   // Scroll only the thread itself; scrollIntoView also moved the page and dragged
   // visitors from the hero down to this demo on load.
@@ -204,7 +222,7 @@ export function CcTimeiqDemo() {
   const done = mode === "thread" ? step >= 6 : step >= 2;
 
   return (
-    <div className="glass rounded-[1.75rem] p-4 sm:p-6">
+    <div ref={ref} className="glass rounded-[1.75rem] p-4 sm:p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex rounded-lg bg-foreground/[0.05] p-0.5" role="tablist" aria-label="Demo">
           {(
@@ -232,7 +250,7 @@ export function CcTimeiqDemo() {
         </button>
       </div>
 
-      <div ref={list} className="max-h-[460px] min-h-[300px] space-y-3 overflow-y-auto pr-1" aria-live="polite">
+      <div ref={list} className="h-[460px] space-y-3 overflow-y-auto pr-1" aria-live={autoplaying ? "off" : "polite"}>
         {step === 0 && mode === "thread" && (
           <div className="rounded-2xl border border-dashed border-foreground/15 bg-white/70 px-4 py-3 text-sm">
             <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">

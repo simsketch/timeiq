@@ -12,10 +12,12 @@ interface Props {
   /** Open stretches to tint green, per day. */
   free?: { day: number; start: number; end: number }[];
   hourHeight?: number;
+  /** Keep the all-day row even when it's empty, so adding an all-day event doesn't shift the page. */
+  reserveAllDay?: boolean;
 }
 
 /** A compact, read-only week grid for the homepage demos. */
-export function MiniWeek({ days, from, to, events, fresh, free = [], hourHeight = 22 }: Props) {
+export function MiniWeek({ days, from, to, events, fresh, free = [], hourHeight = 22, reserveAllDay = false }: Props) {
   const hours = Array.from({ length: to - from }, (_, i) => from + i);
   const height = (to - from) * hourHeight;
   const pos = (start: number, end: number) => ({
@@ -37,7 +39,7 @@ export function MiniWeek({ days, from, to, events, fresh, free = [], hourHeight 
             <span className="sm:hidden">{DAY_LABELS[d].slice(0, 2)}</span>
           </div>
         ))}
-        {allDay.length > 0 && (
+        {(reserveAllDay || allDay.length > 0) && (
           <>
             <div className="pr-1 text-right font-mono text-muted-foreground/70 leading-5">all</div>
             {Array.from({ length: days }, (_, d) => (
@@ -81,10 +83,11 @@ export function MiniWeek({ days, from, to, events, fresh, free = [], hourHeight 
             ))}
             {free
               .filter((f) => f.day === d)
-              .map((f, i) => (
+              .map((f) => (
+                // A window that changes shape remounts and fades in; sliding top/height would shift layout.
                 <div
-                  key={i}
-                  className="absolute inset-x-0.5 rounded bg-emerald-400/20 ring-1 ring-inset ring-emerald-500/30 transition-all duration-500"
+                  key={`${f.start}-${f.end}`}
+                  className="demo-fade absolute inset-x-0.5 rounded bg-emerald-400/20 ring-1 ring-inset ring-emerald-500/30"
                   style={pos(f.start, f.end)}
                 />
               ))}

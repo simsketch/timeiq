@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Copy, ImageIcon, Type } from "lucide-react";
 import { buildText, drawImage, type AvailabilitySummary } from "@/lib/availability-share";
 import { DEMO_MONDAY, DEMO_ZONE, MERGE_EVENTS, WORK_END, WORK_START, demoIso, freeWindows } from "./demo-week";
+import { useDemoAutoplay } from "./use-demo-autoplay";
 
 const EXTRA_ZONES = [
   { zone: "America/Los_Angeles", label: "Pacific" },
@@ -13,6 +14,17 @@ const EXTRA_ZONES = [
 ];
 const BOOKING_URL = "https://timeiq.app/book/you";
 const MAX_EXTRA = 2;
+
+// Autoplay: one change per step, ending where it started (Picture, Pacific).
+const AUTOPLAY: ({ zone: string } | { view: "text" | "image" })[] = [
+  { zone: "Europe/London" },
+  { view: "text" },
+  { zone: "Asia/Tokyo" },
+  { view: "image" },
+  { zone: "Europe/London" },
+  { zone: "America/Los_Angeles" },
+  { zone: "Asia/Tokyo" },
+];
 
 /** The demo week as the dashboard's availability API would return it. */
 function demoSummary(): AvailabilitySummary {
@@ -40,9 +52,18 @@ const SUMMARY = demoSummary();
 export function AvailabilityShareDemo() {
   const summary = SUMMARY;
   const [extra, setExtra] = useState<string[]>(["America/Los_Angeles"]);
-  const [view, setView] = useState<"text" | "image">("text");
+  const [view, setView] = useState<"text" | "image">("image");
   const [copied, setCopied] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const autoStep = useRef(0);
+  const { ref } = useDemoAutoplay(() => {
+    const action = AUTOPLAY[autoStep.current++ % AUTOPLAY.length];
+    if ("zone" in action) toggleZone(action.zone);
+    else {
+      setView(action.view);
+      setCopied(false);
+    }
+  });
 
   const zones = [DEMO_ZONE, ...extra];
   const text = buildText(summary, zones, BOOKING_URL, false);
@@ -79,7 +100,7 @@ export function AvailabilityShareDemo() {
   }
 
   return (
-    <div className="glass rounded-[1.75rem] p-4 sm:p-6">
+    <div ref={ref} className="glass rounded-[1.75rem] p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="rounded-full bg-foreground text-background px-3 py-1.5 text-xs font-medium">
@@ -132,9 +153,10 @@ export function AvailabilityShareDemo() {
         </div>
       </div>
 
-      <div className="relative rounded-xl bg-white/75 ring-1 ring-foreground/[0.06] overflow-hidden">
+      {/* Both views share one height so switching (or autoplay) never moves the page. */}
+      <div className="relative flex min-h-[340px] items-center rounded-xl bg-white/75 ring-1 ring-foreground/[0.06] overflow-hidden">
         {view === "text" ? (
-          <pre className="max-h-[340px] overflow-auto whitespace-pre-wrap px-4 py-3.5 font-mono text-[12px] leading-relaxed text-foreground/85">
+          <pre className="max-h-[340px] w-full self-stretch overflow-auto whitespace-pre-wrap px-4 py-3.5 font-mono text-[12px] leading-relaxed text-foreground/85">
             {text}
           </pre>
         ) : (

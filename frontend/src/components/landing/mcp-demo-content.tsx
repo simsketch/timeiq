@@ -1,3 +1,5 @@
+import type { Ref } from "react";
+
 const EXAMPLES = [
   {
     label: "Check availability",
@@ -33,11 +35,24 @@ const EXAMPLES = [
   },
 ];
 
-export function McpDemoContent({ selected = 0, onSelect }: { selected?: number; onSelect?: (index: number) => void }) {
+export const MCP_EXAMPLE_COUNT = EXAMPLES.length;
+
+export function McpDemoContent({
+  selected = 0,
+  onSelect,
+  ref,
+  announce = true,
+}: {
+  selected?: number;
+  onSelect?: (index: number) => void;
+  ref?: Ref<HTMLDivElement>;
+  /** Announce answer changes to screen readers; off while the demo plays itself. */
+  announce?: boolean;
+}) {
   const example = EXAMPLES[selected];
 
   return (
-    <div className="glass glass-chroma min-w-0 rounded-[1.5rem] p-4 sm:p-6">
+    <div ref={ref} className="glass glass-chroma min-w-0 rounded-[1.5rem] p-4 sm:p-6">
       <div className="flex items-center justify-between gap-3 border-b border-foreground/10 pb-4">
         <span className="text-sm font-semibold">Your assistant + TimeIQ</span>
         <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">Example chat</span>
@@ -57,7 +72,7 @@ export function McpDemoContent({ selected = 0, onSelect }: { selected?: number; 
           </button>
         ))}
       </div>
-      <div id="mcp-demo-answer" aria-live="polite" aria-atomic="true" className="min-h-[28rem] space-y-4 sm:min-h-[25rem]">
+      <div id="mcp-demo-answer" aria-live={announce ? "polite" : "off"} aria-atomic="true" className="min-h-[29rem] space-y-4 sm:min-h-[25rem]">
         <div className="ml-5 rounded-2xl rounded-tr-sm bg-foreground px-4 py-3 text-sm leading-relaxed text-background sm:ml-10">
           <p className="mb-1 text-xs text-background/70">You</p>
           {example.prompt}

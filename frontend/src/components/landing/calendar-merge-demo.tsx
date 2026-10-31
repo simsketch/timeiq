@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { MiniWeek } from "./mini-week";
 import {
@@ -13,16 +13,37 @@ import {
   slotsFor,
   type CalendarKey,
 } from "./demo-week";
+import { useDemoAutoplay } from "./use-demo-autoplay";
 
 const WEEKDAYS = [0, 1, 2, 3, 4];
 const ALL_EVENTS = Object.values(MERGE_EVENTS).flat();
 const SAFE_SLOTS = WEEKDAYS.reduce((n, d) => n + slotsFor(d, ALL_EVENTS).length, 0);
+
+// Autoplay: connect calendars one by one (clashes fall to zero), flip days, then
+// disconnect back to Work only on Tuesday, where it started.
+const AUTOPLAY: ({ calendar: CalendarKey } | { day: number })[] = [
+  { calendar: "personal" },
+  { calendar: "family" },
+  { day: 3 },
+  { calendar: "school" },
+  { day: 4 },
+  { calendar: "school" },
+  { calendar: "family" },
+  { calendar: "personal" },
+  { day: 1 },
+];
 
 /** Toggle calendars and watch the booking page's open slots follow. */
 export function CalendarMergeDemo() {
   const [on, setOn] = useState<Set<CalendarKey>>(new Set(["work"]));
   const [justAdded, setJustAdded] = useState<CalendarKey | null>(null);
   const [day, setDay] = useState(1);
+  const autoStep = useRef(0);
+  const { ref, active: autoplaying } = useDemoAutoplay(() => {
+    const action = AUTOPLAY[autoStep.current++ % AUTOPLAY.length];
+    if ("calendar" in action) toggle(action.calendar);
+    else setDay(action.day);
+  });
 
   const busy = DEMO_CALENDARS.filter((c) => on.has(c.key)).flatMap((c) => MERGE_EVENTS[c.key]);
   const offered = WEEKDAYS.reduce((n, d) => n + slotsFor(d, busy).length, 0);
@@ -41,7 +62,7 @@ export function CalendarMergeDemo() {
   }
 
   return (
-    <div className="grid lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+    <div ref={ref} className="grid lg:grid-cols-12 gap-6 lg:gap-8 items-start">
       <div className="lg:col-span-4 space-y-3">
         <div className="text-[11px] font-mono uppercase tracking-[0.18em] text-muted-foreground mb-1">
           Your calendars · tap to connect
@@ -72,8 +93,8 @@ export function CalendarMergeDemo() {
                 }`}
               >
                 <span
-                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
-                    active ? "left-[18px]" : "left-0.5"
+                  className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                    active ? "translate-x-4" : ""
                   }`}
                 />
               </span>
@@ -81,28 +102,36 @@ export function CalendarMergeDemo() {
           );
         })}
 
-        <div aria-live="polite" className="pt-2">
-          {clashes > 0 ? (
-            <div className="rounded-2xl bg-amber-50/90 ring-1 ring-amber-500/25 px-4 py-3 text-sm text-amber-900">
-              <div className="flex items-center gap-1.5 font-semibold">
-                <AlertTriangle className="h-4 w-4" />
-                {clashes} bookable {clashes === 1 ? "slot clashes" : "slots clash"} with a calendar you left out
-              </div>
-              <p className="mt-1 text-amber-900/80 text-xs leading-relaxed">
-                A booking page that only sees some of your calendars will happily book over the dentist.
-              </p>
+        {/* Both notices share one grid cell, so the box keeps the taller one's height. */}
+        <div aria-live={autoplaying ? "off" : "polite"} className="grid pt-2">
+          <div
+            aria-hidden={clashes <= 0}
+            className={`col-start-1 row-start-1 rounded-2xl bg-amber-50/90 ring-1 ring-amber-500/25 px-4 py-3 text-sm text-amber-900 ${
+              clashes > 0 ? "" : "invisible"
+            }`}
+          >
+            <div className="flex items-center gap-1.5 font-semibold">
+              <AlertTriangle className="h-4 w-4" />
+              {Math.max(clashes, 1)} bookable {clashes === 1 ? "slot clashes" : "slots clash"} with a calendar you left out
             </div>
-          ) : (
-            <div className="rounded-2xl bg-emerald-50/90 ring-1 ring-emerald-500/25 px-4 py-3 text-sm text-emerald-900">
-              <div className="flex items-center gap-1.5 font-semibold">
-                <CheckCircle2 className="h-4 w-4" />
-                Zero clashes. Guests only see times you&apos;re really free.
-              </div>
-              <p className="mt-1 text-emerald-900/80 text-xs leading-relaxed">
-                Connect as many calendars as you use. There&apos;s no limit and no upgrade.
-              </p>
+            <p className="mt-1 text-amber-900/80 text-xs leading-relaxed">
+              A booking page that only sees some of your calendars will happily book over the dentist.
+            </p>
+          </div>
+          <div
+            aria-hidden={clashes > 0}
+            className={`col-start-1 row-start-1 rounded-2xl bg-emerald-50/90 ring-1 ring-emerald-500/25 px-4 py-3 text-sm text-emerald-900 ${
+              clashes > 0 ? "invisible" : ""
+            }`}
+          >
+            <div className="flex items-center gap-1.5 font-semibold">
+              <CheckCircle2 className="h-4 w-4" />
+              Zero clashes. Guests only see times you&apos;re really free.
             </div>
-          )}
+            <p className="mt-1 text-emerald-900/80 text-xs leading-relaxed">
+              Connect as many calendars as you use. There&apos;s no limit and no upgrade.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -136,10 +165,12 @@ export function CalendarMergeDemo() {
               ))}
             </div>
           </div>
-          <div className="flex flex-wrap gap-1.5 min-h-[64px] content-start">
-            {daySlots.map((t) => (
+          {/* Reserves the most rows any day needs at each width, and keys chips by position,
+              so toggling calendars restyles chips in place instead of reflowing the page. */}
+          <div className="flex flex-wrap gap-1.5 min-h-[138px] sm:min-h-[100px] md:min-h-[66px] lg:min-h-[100px] xl:min-h-[66px] content-start">
+            {daySlots.map((t, i) => (
               <span
-                key={t}
+                key={i}
                 className={`rounded-lg px-2.5 py-1.5 font-mono text-xs tabular-nums transition-colors ${
                   clashing.has(t)
                     ? "bg-amber-100 text-amber-900 ring-1 ring-amber-500/40 line-through decoration-amber-700/60"

@@ -9,13 +9,21 @@ import { unstable_getResponseFromNextConfig } from "next/experimental/testing/se
 
 const require = createRequire(import.meta.url);
 
-function load(path, mockRequire = require) {
+function loadModule(path, mockRequire = require) {
   const source = ts.transpileModule(readFileSync(new URL(path, import.meta.url), "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS },
   }).outputText;
   const compiled = { exports: {} };
   vm.runInNewContext(source, { module: compiled, exports: compiled.exports, require: mockRequire });
-  return compiled.exports.default;
+  return compiled.exports;
+}
+
+const load = (path, mockRequire) => loadModule(path, mockRequire).default;
+
+// Resolve the app's "@/..." alias to its TypeScript source under src/.
+function requireApp(name) {
+  if (name.startsWith("@/")) return loadModule(`../src/${name.slice(2)}.ts`, requireApp);
+  return require(name);
 }
 
 const nextConfig = load("../next.config.ts");
@@ -30,7 +38,7 @@ function middleware() {
       },
       createRouteMatcher: (patterns) => (request) => patterns.some((pattern) => new RegExp(`^${pattern}$`).test(request.nextUrl.pathname)),
     };
-    return require(name);
+    return requireApp(name);
   });
   return { run, calls };
 }
