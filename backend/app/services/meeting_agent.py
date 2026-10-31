@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import re
+import uuid
 from datetime import date, datetime, time as dtime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from email.utils import getaddresses, parseaddr
@@ -37,6 +38,7 @@ from app.database import async_session
 from app.models.group_meeting import AgentMessageClaim, GroupMeeting, GroupMeetingParticipant
 from app.models.user import User
 from app.services import group_meetings as gm
+from app.services.email_aliases import owner_addresses, sender_user
 from app.services.availability import host_zone
 
 logger = logging.getLogger(__name__)
@@ -85,6 +87,12 @@ def thread_refs(detail: dict) -> list[str]:
     if own:
         ids.append(own.strip())
     seen: list[str] = []
+    # Outgoing messages carry a random suffix; their durable anchor is on the
+    # meeting, so even a reply containing only In-Reply-To finds it.
+    for i in list(ids):
+        match = re.fullmatch(r"<timeiq-([0-9a-f]{32})\.[0-9a-f]{32}@" + re.escape(settings.INBOUND_DOMAIN) + r">", i, re.I)
+        if match:
+            ids.append(f"<timeiq-{match.group(1)}@{settings.INBOUND_DOMAIN}>")
     for i in ids:
         if i not in seen:
             seen.append(i)
@@ -101,6 +109,10 @@ def is_auto_reply(detail: dict) -> bool:
         return True
     subject = (detail.get("subject") or "").lower()
     return subject.startswith(("out of office", "automatic reply", "auto-reply", "autoreply"))
+
+
+def sender_address(detail: dict) -> str:
+    return parseaddr(_header(detail, "from") or detail.get("from") or "")[1].strip().lower()
 
 
 def sender_verified(detail: dict) -> bool:
@@ -258,7 +270,7 @@ async def _find_meeting(db: AsyncSession, user_id, refs: list[str]) -> GroupMeet
     return (
         await db.execute(
             select(GroupMeeting)
-            .where(GroupMeeting.organizer_id == user_id, GroupMeeting.thread_ids.has_any(array(refs)))
+            .where((GroupMeeting.organizer_id == user_id) if user_id is not None else True, GroupMeeting.thread_ids.has_any(array(refs)))
             .order_by(GroupMeeting.created_at.desc())
         )
     ).scalars().first()
@@ -296,30 +308,69 @@ def _inbound_tokens(detail: dict, people: list[tuple[str, str]]) -> set[str]:
     return {t for t in (token_from_recipients([r]) for r in raw) if t}
 
 
+async def shared_owner(db: AsyncSession, detail: dict) -> User | None:
+    refs = thread_refs(detail)
+    meeting = await _find_meeting(db, None, refs)
+    if meeting is not None:
+        return meeting.organizer
+    # Booking replies keep their booking inbox alongside agent@.
+    if refs:
+        from app.models.booking import Booking
+
+        booking_owner = (await db.execute(select(User).join(Booking, Booking.host_user_id == User.id).where(
+            Booking.email_thread_ids.has_any(array(refs))
+        ).order_by(Booking.created_at.desc()))).scalars().first()
+        if booking_owner is not None:
+            return booking_owner
+        # Clarifications without a selected booking retain their reply context.
+        owner_id = await db.scalar(select(AgentMessageClaim.user_id).where(
+            AgentMessageClaim.message_id.in_(refs), AgentMessageClaim.reply_context.is_not(None),
+            AgentMessageClaim.reply_context["sender"].astext == sender_address(detail),
+        ).limit(1))
+        if owner_id is not None:
+            return await db.get(User, owner_id)
+    return await sender_user(db, sender_address(detail)) if sender_verified(detail) else None
+
+
+def _shared_address(detail: dict) -> str | None:
+    from app.services.email_import import agent_address, has_agent_recipient
+
+    return agent_address() if has_agent_recipient(detail.get("received_for") or []) else None
+
+
 async def _preferred_owner(db: AsyncSession, detail: dict, people: list[tuple[str, str]], sender: str,
                            refs: list[str]):
-    """When one email reaches several TimeIQ inboxes on the thread, the owner
-    who should act on it: the organizer of a meeting already on the thread,
-    else the sender if they're one of those owners. None means no preference
-    (the first copy to claim the Message-ID wins)."""
+    """The existing thread's organizer wins, then a sender owning an inbox."""
+    from app.services.email_import import has_agent_recipient
+
     tokens = _inbound_tokens(detail, people)
+    raw = [e for _, e in people] + list(detail.get("received_for") or [])
+    shared = has_agent_recipient(raw)
+    if shared:
+        owner = await shared_owner(db, detail)
+        if owner is not None:
+            return owner.id
     if len(tokens) < 2:
         return None
-    owners = (await db.execute(select(User.id, User.email).where(User.inbound_token.in_(tokens)))).all()
-    ids = [o.id for o in owners]
-    if refs and ids:
+    owners = (await db.execute(select(User.id).where(User.inbound_token.in_(tokens)))).scalars().all()
+    if refs and owners:
         organizer = await db.scalar(
             select(GroupMeeting.organizer_id)
-            .where(GroupMeeting.organizer_id.in_(ids), GroupMeeting.thread_ids.has_any(array(refs)))
-            .order_by(GroupMeeting.created_at.desc())
-            .limit(1)
+            .where(GroupMeeting.organizer_id.in_(owners), GroupMeeting.thread_ids.has_any(array(refs)))
+            .order_by(GroupMeeting.created_at.desc()).limit(1)
         )
         if organizer is not None:
             return organizer
-    return next((o.id for o in owners if (o.email or "").lower() == sender), None)
+    sender_owner = await sender_user(db, sender)
+    return sender_owner.id if sender_owner is not None and sender_owner.id in owners else None
 
 
-async def claim_message(user_id, message_id: str | None, now: datetime) -> bool:
+def prepare_thread(meeting: GroupMeeting) -> None:
+    if not any(re.fullmatch(r"<timeiq-[0-9a-f]{32}@" + re.escape(settings.INBOUND_DOMAIN) + r">", ref) for ref in meeting.thread_ids or []):
+        meeting.thread_ids = [*(meeting.thread_ids or []), f"<timeiq-{uuid.uuid4().hex}@{settings.INBOUND_DOMAIN}>"]
+
+
+async def claim_message(user_id, message_id: str | None, now: datetime, *, schedule_email_id: str | None = None) -> bool:
     """Take on an inbound Message-ID for this owner. False if any owner (this
     one included, for a second copy) already has it. Safe under concurrency:
     the primary key lets exactly one insert through."""
@@ -328,10 +379,15 @@ async def claim_message(user_id, message_id: str | None, now: datetime) -> bool:
     async with async_session() as db:
         won = await db.scalar(
             pg_insert(AgentMessageClaim)
-            .values(message_id=message_id.strip()[:500], user_id=user_id, created_at=now)
+            .values(message_id=message_id.strip()[:500], user_id=user_id, created_at=now,
+                    reply_context={"schedule_email_id": schedule_email_id} if schedule_email_id else None)
             .on_conflict_do_nothing(index_elements=["message_id"])
             .returning(AgentMessageClaim.message_id)
         )
+        if won is None and schedule_email_id:
+            claim = await db.get(AgentMessageClaim, message_id.strip()[:500])
+            if claim and claim.user_id == user_id and (claim.reply_context or {}).get("schedule_email_id") == schedule_email_id:
+                return True  # this import's own retry, rather than a second copy
         await db.commit()
     return won is not None
 
@@ -344,7 +400,7 @@ async def handle(user_id, detail: dict, now: datetime | None = None) -> str | No
         return "ignored"
     # Resend's top-level to/cc list only the address that received this copy;
     # the real recipients (and display names) are in the headers.
-    sender = parseaddr(_header(detail, "from") or detail.get("from") or "")[1].strip().lower()
+    sender = sender_address(detail)
     refs = thread_refs(detail)
     people = _addresses(
         _header(detail, "from") or detail.get("from"),
@@ -357,6 +413,10 @@ async def handle(user_id, detail: dict, now: datetime | None = None) -> str | No
         if owner is None or _ours(sender):
             return "ignored"
         owner_email = (owner.email or "").lower()
+        emails = await owner_addresses(db, owner)
+        preferred = await _preferred_owner(db, detail, people, sender, refs)
+        if preferred is not None and preferred != owner.id:
+            return "ignored"
         own_id = detail.get("message_id") or _header(detail, "message-id") or None
         from app.services import booking_agent
 
@@ -369,10 +429,10 @@ async def handle(user_id, detail: dict, now: datetime | None = None) -> str | No
                 return "ignored"  # another copy of this email was handled already
             return await _handle_reply(db, owner, meeting, detail, sender, people, now)
 
-        others = [(n, e) for n, e in people if e != owner_email and not _ours(e)]
+        others = [(n, e) for n, e in people if e not in emails and not _ours(e)]
         if not others and not re.search(r"\b(cancel|reschedule|move)\b", newest_text(detail.get("text") or ""), re.I):
             return None  # just the owner and TimeIQ: a forwarded schedule
-        if owner_email not in {e for _, e in people}:
+        if not emails.intersection(e for _, e in people):
             logger.info("Meeting request without the account owner on the thread; ignored")
             return "ignored"
 
@@ -392,10 +452,7 @@ async def handle(user_id, detail: dict, now: datetime | None = None) -> str | No
         if (recent or 0) >= MAX_MEETINGS_PER_DAY:
             return "ignored"
 
-        # The same email in several TimeIQ inboxes starts one meeting, not one each.
-        preferred = await _preferred_owner(db, detail, people, sender, refs)
-        if preferred is not None and preferred != owner.id:
-            return "ignored"
+        # The same email in several TimeIQ inboxes starts one meeting.
         if not await claim_message(owner.id, own_id, now):
             return "ignored"
 
@@ -418,6 +475,7 @@ async def handle(user_id, detail: dict, now: datetime | None = None) -> str | No
             latest_minute=span[1] if span else None,
             weekdays=allowed if len(allowed) < 7 else None,
             thread_ids=refs,
+            inbound_address=_shared_address(detail),
             thread_subject=(detail.get("subject") or "")[:500] or None,
         )
         meeting.participants = [
@@ -429,6 +487,7 @@ async def handle(user_id, detail: dict, now: datetime | None = None) -> str | No
         slots = await gm.candidate_slots(db, meeting, now)
         options = gm.suggest(slots, {}, tz)
         record_offer(meeting, options)
+        prepare_thread(meeting)
         await db.commit()
 
     from app.services import email as mail
@@ -447,6 +506,7 @@ async def _handle_reply(db: AsyncSession, owner: User, meeting: GroupMeeting, de
         return "ignored"
     if own_id and own_id not in (meeting.thread_ids or []):
         meeting.thread_ids = [*(meeting.thread_ids or []), own_id]
+    prepare_thread(meeting)
     if meeting.status != "open":
         await db.commit()
         return "meeting_reply"
@@ -463,7 +523,7 @@ async def _handle_reply(db: AsyncSession, owner: User, meeting: GroupMeeting, de
         offered = _starts(offered_iso)
         return offered, [s for s in candidates if s not in offered][:MAX_OPTIONS_IN_PROMPT]
 
-    if sender == owner_email:
+    if sender in await owner_addresses(db, owner):
         offered, others = lists(meeting.offered_starts)
         parsed = await read_reply(text, offered, others, tz)
         await db.commit()
@@ -502,7 +562,7 @@ async def _handle_reply(db: AsyncSession, owner: User, meeting: GroupMeeting, de
     participant = next((p for p in meeting.participants if p.email == sender), None)
     if participant is None:
         # Someone new joined the thread: add them, if the owner is still on it.
-        if owner_email not in {e for _, e in people} or _ours(sender) or len(meeting.participants) >= gm.MAX_PARTICIPANTS:
+        if not (await owner_addresses(db, owner)).intersection(e for _, e in people) or _ours(sender) or len(meeting.participants) >= gm.MAX_PARTICIPANTS:
             await db.commit()
             return "ignored"
         name = next((n for n, e in people if e == sender), "") or None
@@ -579,6 +639,7 @@ async def _answer_proposal(db: AsyncSession, owner: User, detail: dict, req: Mee
     common = dict(
         organizer_id=owner.id, title=title, location=(req.location or "").strip()[:500] or None,
         duration_minutes=minutes, source="accepted", thread_ids=refs,
+        inbound_address=_shared_address(detail),
         thread_subject=(detail.get("subject") or "")[:500] or None,
     )
     def people() -> list[GroupMeetingParticipant]:
@@ -611,6 +672,7 @@ async def _answer_proposal(db: AsyncSession, owner: User, detail: dict, req: Mee
             await db.refresh(owner)  # rollback expired it; no lazy loads in async
         else:
             await db.refresh(meeting, attribute_names=["organizer", "participants"])
+            prepare_thread(meeting)
             await db.commit()
             mail.send_agent_accept(meeting, detail)
             return "meeting_accepted"
@@ -629,6 +691,7 @@ async def _answer_proposal(db: AsyncSession, owner: User, detail: dict, req: Mee
     slots = await gm.candidate_slots(db, meeting, now)
     options = gm.suggest(slots, {}, tz)
     record_offer(meeting, options)
+    prepare_thread(meeting)
     await db.commit()
     org = mail._first_name(owner)
     mail.send_agent_proposal(

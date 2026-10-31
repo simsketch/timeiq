@@ -59,6 +59,7 @@ def env(monkeypatch):
     monkeypatch.setattr(agent, "reply_context", AsyncMock(return_value=None))
     monkeypatch.setattr(agent, "find_booking", AsyncMock(return_value=booking))
     monkeypatch.setattr(meeting_agent, "claim_message", AsyncMock(return_value=True))
+    monkeypatch.setattr(meeting_agent, "owner_addresses", AsyncMock(return_value={owner.email}))
     messages = []
     monkeypatch.setattr(mail.resend.Emails, "send", lambda payload: messages.append(payload))
     monkeypatch.setattr(routes, "freshen_host_calendars", AsyncMock())
@@ -82,6 +83,15 @@ async def test_only_verified_booking_parties_can_act(env, sender, auth):
     env.action.assert_not_awaited()
     env.db.commit.assert_not_awaited()
     assert env.booking.status == "confirmed" and not env.mail
+
+
+async def test_verified_alias_uses_host_cancel_path(env, monkeypatch):
+    alias = "host-work@example.com"
+    monkeypatch.setattr(meeting_agent, "owner_addresses", AsyncMock(return_value={env.owner.email, alias}))
+    cancel = AsyncMock()
+    monkeypatch.setattr(routes, "cancel_booking_as_host", cancel)
+    assert await run(env, alias) == "meeting_cancelled"
+    cancel.assert_awaited_once_with(env.booking.id, user=env.owner, db=env.db)
 
 
 @pytest.mark.parametrize("sender,as_host", [("guest@example.com", False), ("host@example.com", True)])

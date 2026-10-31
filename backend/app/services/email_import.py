@@ -36,6 +36,7 @@ from app.services.calendar_sync import _expand_ics, host_zone
 logger = logging.getLogger(__name__)
 
 ADDRESS_PREFIX = "schedule-"
+AGENT_LOCAL_PART = "agent"
 SOURCE_TYPE = "email"
 SOURCE_NAME = "From email"
 MODEL = "claude-haiku-5-5"
@@ -73,6 +74,14 @@ def ensure_inbound_token(user: User) -> str:
 
 def address_for(user: User) -> str:
     return f"{ADDRESS_PREFIX}{ensure_inbound_token(user)}@{settings.INBOUND_DOMAIN}"
+
+
+def agent_address() -> str:
+    return f"{AGENT_LOCAL_PART}@{settings.INBOUND_DOMAIN}"
+
+
+def has_agent_recipient(recipients: list[str]) -> bool:
+    return any(parseaddr(raw)[1].strip().lower() == agent_address().lower() for raw in recipients or [])
 
 
 def token_from_recipients(recipients: list[str]) -> str | None:
@@ -421,33 +430,34 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
     # exact address Resend accepted the mail for.
     # When one email reaches several Resend-hosted addresses, each copy names
     # its own in received_for; only the copy for a TimeIQ address counts.
-    token = token_from_recipients(
-        data.get("received_for") or [*(data.get("to") or []), *(data.get("cc") or []), *(data.get("bcc") or [])]
-    )
+    recipients = data.get("received_for") or [*(data.get("to") or []), *(data.get("cc") or []), *(data.get("bcc") or [])]
+    token = token_from_recipients(recipients)
+    shared = has_agent_recipient(recipients)
     from app.models.booking import Booking
     from app.services.booking_agent import booking_id_from_recipients
+    from app.services import email_aliases, meeting_agent
 
-    booking_id = booking_id_from_recipients(
-        data.get("received_for") or [*(data.get("to") or []), *(data.get("cc") or []), *(data.get("bcc") or [])]
-    )
+    booking_id = booking_id_from_recipients(recipients)
     sender = parseaddr(data.get("from") or "")[1].strip().lower()
-    if not email_id or not (token or booking_id):
+    if not email_id or not (token or booking_id or shared):
         return None
     if sender.endswith("@" + settings.INBOUND_DOMAIN.lower()):
         return None  # never answer our own mail (no reply loops)
 
     async with async_session() as db:
+        user = None
         if booking_id:
             user = (await db.execute(select(User).join(Booking, Booking.host_user_id == User.id).where(Booking.id == booking_id))).scalar_one_or_none()
-        else:
+        elif token and not shared:
             user = (await db.execute(select(User).where(User.inbound_token == token))).scalar_one_or_none()
-        if user is None:
+        if user is None and not shared:
             logger.info("Inbound email for an unknown address token")
             return None
-        user_id = user.id
+        user_id = user.id if user else None
         record = EmailImport(
             user_id=user_id,
             resend_email_id=email_id,
+            inbound_address=agent_address() if shared else (f"booking-{booking_id}@{settings.INBOUND_DOMAIN}" if booking_id else address_for(user)),
             sender=sender or None,
             subject=(data.get("subject") or "")[:500] or None,
             undo_token=secrets.token_urlsafe(32),
@@ -459,15 +469,15 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
         try:
             await db.commit()
         except IntegrityError:
-            # A redelivered webhook: retry a transient failure or an abandoned
-            # claim; otherwise it's already handled, or still in flight.
             await db.rollback()
             record, claimed = await _claim(db, email_id, now)
             if not claimed:
                 return record
-            user = await db.get(User, user_id)
+            user_id = record.user_id
+            user = await db.get(User, user_id) if user_id else None
+            shared = record.inbound_address == agent_address()
 
-        if not _entitled(user):
+        if user is not None and not _entitled(user):
             # A lapsed subscription: don't read the email or answer anyone on
             # the thread. Tell the owner, at most once a day.
             noticed = (
@@ -494,14 +504,45 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
     transient = False
     try:
         detail, attachments = await fetch_email(email_id)
-        if booking_id:
-            # Preserve the delivery context even for Bcc/forwarded mail whose
-            # To/Cc headers omit the booking address. It is not an import inbox.
-            detail["received_for"] = [f"booking-{booking_id}@{settings.INBOUND_DOMAIN}"]
-        # A thread about meeting up (cc TimeIQ), or a reply on one, goes to the
-        # meeting agent; everything else is a schedule to import.
-        from app.services import meeting_agent
+        if shared:
+            sender = meeting_agent.sender_address(detail)
+            async with async_session() as db:
+                # A thread's organizer wins even when a different account replies.
+                user = await meeting_agent.shared_owner(db, detail)
+                record = (await db.execute(select(EmailImport).where(EmailImport.resend_email_id == email_id))).scalar_one()
+                record.sender = sender or None
+                if user is None or meeting_agent._ours(sender) or meeting_agent.is_auto_reply(detail):
+                    notify = bool(sender and meeting_agent.sender_verified(detail)
+                                  and not meeting_agent._ours(sender) and not meeting_agent.is_auto_reply(detail))
+                    if notify:
+                        notify = await email_aliases.reserve_notice(db, f"unknown:{sender}", now, timedelta(days=1))
+                    record.status, record.user_id = "ignored", None
+                    await db.commit()
+                    logger.info("Shared agent email %s ignored: no matching account or thread", email_id)
+                    if notify:
+                        from app.services.email import send_unknown_agent_sender
 
+                        send_unknown_agent_sender(sender)
+                    return record
+                user_id = user.id
+                record.user_id = user_id
+                if not _entitled(user):
+                    noticed = await db.scalar(select(func.count()).select_from(EmailImport).where(
+                        EmailImport.user_id == user_id, EmailImport.status == "skipped",
+                        EmailImport.created_at > now - timedelta(days=1),
+                    ))
+                    record.status, record.error = "skipped", SKIPPED_INACTIVE
+                    await db.commit()
+                    if not noticed:
+                        _send_inactive_notice(user)
+                    return record
+                await db.commit()
+            detail["received_for"] = [agent_address()]
+        elif booking_id:
+            detail["received_for"] = [f"booking-{booking_id}@{settings.INBOUND_DOMAIN}"]
+        else:
+            detail["received_for"] = [record.inbound_address] if record.inbound_address else recipients
+        # Classification stays in the existing meeting agent.
         try:
             routed = await meeting_agent.handle(user_id, detail, now)
         except Exception:
@@ -523,9 +564,24 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
         status, error = "failed", f"{type(exc).__name__}"
         transient = _is_transient(exc)
 
+    if user_id is None:
+        async with async_session() as db:
+            record = (await db.execute(select(EmailImport).where(EmailImport.resend_email_id == email_id))).scalar_one()
+            record.status, record.error = status, error
+            record.retryable = transient and record.attempts < MAX_ATTEMPTS
+            await db.commit()
+            return record
+
     try:
         if detail is None:
             raise _Skip()
+        own_id = detail.get("message_id") or meeting_agent._header(detail, "message-id")
+        if not await meeting_agent.claim_message(user_id, own_id, now, schedule_email_id=email_id):
+            async with async_session() as db:
+                record = (await db.execute(select(EmailImport).where(EmailImport.resend_email_id == email_id))).scalar_one()
+                record.status = "ignored"
+                await db.commit()
+                return record
         async with async_session() as db:
             recent = (
                 await db.execute(

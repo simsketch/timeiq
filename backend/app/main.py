@@ -34,6 +34,7 @@ from app.routers import (
     connect,
     cron,
     email_imports,
+    email_aliases,
     group_meetings,
     event_types,
     google_auth,
@@ -86,6 +87,7 @@ app.add_middleware(oauth.OAuthPublicCors)
 app.include_router(oauth.router)
 app.include_router(webhooks.router)
 app.include_router(email_imports.router)
+app.include_router(email_aliases.router)
 app.include_router(group_meetings.router)
 app.include_router(billing.router)
 app.include_router(connect.router)

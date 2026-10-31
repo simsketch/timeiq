@@ -212,7 +212,7 @@ async def import_schedule_text(text: str, name: Optional[str] = None) -> str:
 
 @mcp.tool(annotations=READ)
 async def get_schedule_email_address() -> str:
-    """The user's private address for emailing schedules into TimeIQ, plus recent imports."""
+    """The shared agent address, private forwarding address and recent schedule imports."""
     return _out(await _api("GET", "/api/email-imports"))
 
 

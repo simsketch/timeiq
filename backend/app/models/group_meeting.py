@@ -42,6 +42,7 @@ class GroupMeeting(Base):
     weekdays: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     # Message-IDs of the email thread, so replies find their meeting.
     thread_ids: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+    inbound_address: Mapped[str | None] = mapped_column(String(320), nullable=True)
     thread_subject: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # The starts (ISO, UTC) TimeIQ last offered on the thread, in the order
     # offered, so "the second one" or "any of those" means those times.

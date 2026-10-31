@@ -1,4 +1,5 @@
 from app.models.user import User
+from app.models.user_email_alias import EmailAddressNotice, UserEmailAlias
 from app.models.calendar_source import CalendarSource
 from app.models.cached_event import CachedEvent
 from app.models.event_type import EventType
@@ -16,6 +17,8 @@ from app.models.oauth import OAuthClient, OAuthGrant, OAuthAuthorizationCode, OA
 
 __all__ = [
     "User",
+    "UserEmailAlias",
+    "EmailAddressNotice",
     "CalendarSource",
     "CachedEvent",
     "EventType",

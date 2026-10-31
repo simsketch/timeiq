@@ -209,7 +209,8 @@ async def handle(db, owner, detail, sender, refs, now, *, request=None) -> str |
         return None
     if agent.is_auto_reply(detail) or not agent.sender_verified(detail):
         return "ignored"
-    if booking is not None and sender not in {(owner.email or "").lower(), booking.visitor_email.lower()}:
+    owner_emails = await agent.owner_addresses(db, owner)
+    if booking is not None and sender not in owner_emails | {booking.visitor_email.lower()}:
         return "ignored"
     if booking is not None and (booking.status != "confirmed" or booking.starts_at <= now):
         return "ignored"
@@ -222,7 +223,7 @@ async def handle(db, owner, detail, sender, refs, now, *, request=None) -> str |
     if booking is None:
         candidates = list((await db.execute(select(Booking).where(
             Booking.host_user_id == owner.id, Booking.status == "confirmed", Booking.starts_at > now,
-            True if sender == (owner.email or "").lower() else func.lower(Booking.visitor_email) == sender,
+            True if sender in owner_emails else func.lower(Booking.visitor_email) == sender,
         ).order_by(Booking.starts_at).limit(MAX_CANDIDATES + 1))).scalars().all())
         if not candidates:
             return "ignored"
@@ -250,7 +251,7 @@ async def handle(db, owner, detail, sender, refs, now, *, request=None) -> str |
         # lock. Both routes recheck the booking under their own row lock.
         await db.commit()
         try:
-            if sender == (owner.email or "").lower():
+            if sender in owner_emails:
                 await routes.cancel_booking_as_host(booking.id, user=owner, db=db)
             else:
                 await routes.cancel_booking_by_visitor(booking.id, token=booking.cancel_token, db=db)

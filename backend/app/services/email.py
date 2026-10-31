@@ -7,6 +7,7 @@ import asyncio
 import base64
 import logging
 import re
+import uuid
 from datetime import date, datetime, timezone
 from html import escape as html_escape
 from html.parser import HTMLParser
@@ -376,8 +377,17 @@ async def send_cancellation_notice(booking: Booking, event_type: EventType, host
 # ---------------------------------------------------------------------------
 
 
+def _uses_shared_agent(detail: dict) -> bool:
+    from app.services.email_import import has_agent_recipient
+    from app.services.meeting_agent import _addresses, _header
+
+    people = _addresses(_header(detail, "to"), _header(detail, "cc"))
+    return has_agent_recipient([*(detail.get("received_for") or []), *(e for _, e in people)])
+
+
 def send_booking_agent_note(booking, owner, sender: str, detail: dict, text: str, *, message_id=None, options=None) -> None:
     from app.services.booking_agent import reply_address
+    from app.services.email_import import agent_address
     from app.services.meeting_agent import thread_refs
 
     _init_resend()
@@ -394,7 +404,8 @@ def send_booking_agent_note(booking, owner, sender: str, detail: dict, text: str
         paragraphs += [f"<ol>{items}</ol>", "Reply with the number of the time you want to book."]
     _send({
         "from": FROM_EMAIL, "to": list(dict.fromkeys([owner.email, booking.visitor_email])) if options else [sender],
-        "reply_to": reply_address(booking), "subject": _re(detail.get("subject") or "Your booking"),
+        "reply_to": [reply_address(booking), agent_address()] if _uses_shared_agent(detail) else reply_address(booking),
+        "subject": _re(detail.get("subject") or "Your booking"),
         "headers": headers, "html": _agent_html(paragraphs, "TimeIQ scheduling assistant"),
     }, "booking agent reply")
 
@@ -406,11 +417,11 @@ def send_booking_agent_offer(booking, owner, detail, options, message_id) -> Non
 
 
 def send_booking_clarification(owner, sender, detail, intent, *, message_id) -> None:
-    from app.services.email_import import address_for
+    from app.services.email_import import address_for, agent_address
 
     _init_resend()
     _send({
-        "from": FROM_EMAIL, "to": [sender], "reply_to": [address_for(owner), owner.email],
+        "from": FROM_EMAIL, "to": [sender], "reply_to": [agent_address() if _uses_shared_agent(detail) else address_for(owner), owner.email],
         "subject": _re(f"{intent.capitalize()} a booking"),
         "headers": {"Message-ID": message_id, **({"In-Reply-To": detail["message_id"]} if detail.get("message_id") else {})},
         "html": _agent_html(["Which booking would you like to change? Please include the guest and current date."],
@@ -694,7 +705,12 @@ def send_schedule_import_reply(user: User, record, rows: list[dict], schedule_na
         return
     _init_resend()
     subject, html = render_schedule_import(user, record, rows, schedule_name)
-    _send({"from": FROM_EMAIL, "to": to, "subject": subject, "html": html}, "schedule import reply")
+    payload = {"from": FROM_EMAIL, "to": to, "subject": subject, "html": html}
+    from app.services.email_import import agent_address
+
+    if getattr(record, "inbound_address", None) == agent_address():
+        payload["reply_to"] = agent_address()
+    _send(payload, "schedule import reply")
 
 
 # ---------------------------------------------------------------------------
@@ -1002,7 +1018,8 @@ def _first_name(user: User) -> str:
 def _agent_from(meeting) -> str:
     from app.services.email_import import address_for
 
-    return f"{_first_name(meeting.organizer)} via TimeIQ <{address_for(meeting.organizer)}>"
+    address = getattr(meeting, "inbound_address", None) or address_for(meeting.organizer)
+    return f"{_first_name(meeting.organizer)} via TimeIQ <{address}>"
 
 
 def _re(subject: str | None) -> str:
@@ -1013,6 +1030,11 @@ def _re(subject: str | None) -> str:
 def _thread_headers(meeting, in_reply_to: str | None) -> dict:
     refs = list(meeting.thread_ids or [])[-12:]
     headers = {"References": " ".join(refs)} if refs else {}
+    anchor = next((ref for ref in meeting.thread_ids or []
+                   if re.fullmatch(r"<timeiq-[0-9a-f]{32}@" + re.escape(settings.INBOUND_DOMAIN) + r">", ref)), None)
+    if anchor:
+        local, domain = anchor[1:-1].split("@", 1)
+        headers["Message-ID"] = f"<{local}.{uuid.uuid4().hex}@{domain}>"
     target = in_reply_to or (refs[-1] if refs else None)
     if target:
         headers["In-Reply-To"] = target
@@ -1048,6 +1070,7 @@ def _send_agent(meeting, to: list[str], subject: str, html: str, in_reply_to: st
         "subject": _re(subject),
         "html": html,
         "headers": _thread_headers(meeting, in_reply_to),
+        "reply_to": getattr(meeting, "inbound_address", None) or _agent_from(meeting),
     }
     if attachments:
         payload["attachments"] = attachments
@@ -1192,3 +1215,29 @@ def send_agent_accept(meeting, detail: dict) -> None:
     to = [meeting.organizer.email] + [p.email for p in meeting.participants]
     _send_agent(meeting, to, meeting.thread_subject or meeting.title, _agent_html(paras, _footer(meeting)),
                 detail.get("message_id"), "agent accept")
+
+
+def send_alias_confirmation(email: str, token: str, owner: User) -> None:
+    url = f"{_site()}/email-addresses/confirm?token={token}"
+    subject = "Confirm your email address for TimeIQ"
+    body = (
+        t.h1(subject)
+        + t.p(f"Confirm this address for the TimeIQ account {owner.email} to cc or forward email to its scheduling assistant. This link expires in 7 days.")
+        + t.buttons(t.button("Confirm email address", url))
+        + t.p("If you did not request this, you can leave this email unanswered.", muted=True)
+    )
+    _init_resend()
+    _send({"from": FROM_EMAIL, "to": [email], "subject": subject,
+           "html": t.layout("reminder", subject, body)}, "address confirmation")
+
+
+def send_unknown_agent_sender(sender: str) -> None:
+    subject = "Link your email address to TimeIQ"
+    body = (
+        t.p("We couldn't match this email to a TimeIQ account. Sign in and add this address under Calendars → Email a schedule, or sign up at timeiq.app.")
+        + t.buttons(t.button("Open TimeIQ", f"{_site()}/calendars"))
+    )
+    _init_resend()
+    _send({"from": FROM_EMAIL, "to": [sender], "subject": subject,
+           "headers": {"Auto-Submitted": "auto-replied"},
+           "html": t.layout("reminder", subject, body)}, "unknown agent sender")

@@ -69,6 +69,8 @@ uvicorn app.main:app --reload --port 8000
 
 Tests: `python -m pytest -q` from `backend/`. Tests that need a database only run against a local `timeiq_qa*` database.
 
+The shared scheduling inbox is `agent@INBOUND_DOMAIN` (`agent@timeiq.app` on the hosted app). It routes authenticated mail from account emails and verified linked addresses; private `schedule-<token>` addresses still support auto-forwards and people sending on your behalf. Enable inbound delivery for `agent` on the existing signed Resend webhook and apply migration `028_agent_address` after `027_agent_summary` before deploying this feature. Linked-address confirmation uses the existing Resend key and `FRONTEND_URL`; no new environment variables are required.
+
 Booking email replies need Resend inbound delivery for `booking-<uuid>@INBOUND_DOMAIN`, in addition to the existing `schedule-<token>` addresses. Use the existing signed inbound-email webhook and inbound Resend/Anthropic keys. Weekly summaries use cached calendars and send Monday around 7 am in each user's timezone; the Sunday UTC companion cron covers eastern timezones. Users can opt out in Settings or through the signed unsubscribe link.
 
 ### Frontend

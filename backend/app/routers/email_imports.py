@@ -38,6 +38,8 @@ class ImportOut(BaseModel):
 
 class InboxOut(BaseModel):
     address: str
+    agent_address: str
+    account_email: str
     enabled: bool
     imports: list[ImportOut]
 
@@ -89,7 +91,8 @@ async def _inbox(db: AsyncSession, user: User) -> dict:
             .limit(20)
         )
     ).scalars().all()
-    return {"address": address, "enabled": _enabled(), "imports": imports}
+    return {"address": address, "agent_address": email_import.agent_address(), "account_email": user.email,
+            "enabled": _enabled(), "imports": imports}
 
 
 @router.get("/api/email-imports", response_model=InboxOut)
