@@ -35,6 +35,8 @@ from app.services.invoicing_ops import (
     attach_entries,
     create_invoice_from_entries,
     recompute_subtotal,
+    claim_unbilled_entries,
+    lock_billing,
     unbilled_entries,
 )
 
@@ -60,6 +62,7 @@ async def get_owned_invoice(
         .where(Invoice.id == invoice_id, Invoice.user_id == user.id)
     )
     if lock:
+        await lock_billing(db, user.id)
         query = query.with_for_update(of=Invoice).execution_options(populate_existing=True)
     result = await db.execute(query)
     invoice = result.scalar_one_or_none()
@@ -132,7 +135,7 @@ async def create_invoice(
     db: AsyncSession = Depends(get_db),
 ):
     client = await get_owned_client(db, user, data.client_id)
-    entries = await unbilled_entries(
+    entries = await claim_unbilled_entries(
         db, user, client.id, data.period_start, data.period_end
     )
     if not entries:
@@ -174,7 +177,7 @@ async def update_invoice(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    invoice = await get_owned_invoice(db, user, invoice_id)
+    invoice = await get_owned_invoice(db, user, invoice_id, lock=True)
     changes = data.model_dump(exclude_unset=True)
     # The weekly summary is presentation only, so it can be toggled any time.
     if set(changes) - {"show_weekly_breakdown"}:
@@ -198,10 +201,10 @@ async def refresh_invoice(
 ):
     """Pull any unbilled hours in the draft's period onto it, such as a day
     logged after the draft was created."""
-    invoice = await get_owned_invoice(db, user, invoice_id)
+    invoice = await get_owned_invoice(db, user, invoice_id, lock=True)
     require_status(invoice, "draft")
     entries = await unbilled_entries(
-        db, user, invoice.client_id, invoice.period_start, invoice.period_end
+        db, user, invoice.client_id, invoice.period_start, invoice.period_end, lock=True
     )
     if entries:
         await attach_entries(db, invoice, entries)
@@ -285,7 +288,7 @@ async def remind_invoice(
     db: AsyncSession = Depends(get_db),
 ):
     """Re-send a sent invoice to the client as a past-due reminder."""
-    invoice = await get_owned_invoice(db, user, invoice_id)
+    invoice = await get_owned_invoice(db, user, invoice_id, lock=True)
     require_status(invoice, "sent")
     recipients = pick_recipients(invoice, data)
     days = max((datetime.now(timezone.utc).date() - invoice.due_date).days, 0)
@@ -325,7 +328,7 @@ async def mark_paid(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    invoice = await get_owned_invoice(db, user, invoice_id)
+    invoice = await get_owned_invoice(db, user, invoice_id, lock=True)
     require_status(invoice, "sent")
     invoice.status = "paid"
     invoice.paid_at = datetime.now(timezone.utc)
@@ -339,7 +342,7 @@ async def void_invoice(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    invoice = await get_owned_invoice(db, user, invoice_id)
+    invoice = await get_owned_invoice(db, user, invoice_id, lock=True)
     require_status(invoice, "draft", "sent")
     await release_entries(db, invoice)
     invoice.status = "void"
@@ -353,7 +356,7 @@ async def delete_invoice(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    invoice = await get_owned_invoice(db, user, invoice_id)
+    invoice = await get_owned_invoice(db, user, invoice_id, lock=True)
     require_status(invoice, "draft")
     await release_entries(db, invoice)
     await db.delete(invoice)
@@ -423,7 +426,7 @@ async def public_invoice_pdf(token: str, db: AsyncSession = Depends(get_db)):
 async def _draft_with_line(
     db: AsyncSession, user: User, invoice_id: uuid.UUID, line_id: uuid.UUID
 ) -> tuple[Invoice, InvoiceLine]:
-    invoice = await get_owned_invoice(db, user, invoice_id)
+    invoice = await get_owned_invoice(db, user, invoice_id, lock=True)
     require_status(invoice, "draft")
     line = next((l for l in invoice.lines if l.id == line_id), None)
     if line is None:
@@ -448,7 +451,7 @@ async def add_expense_line(
     db: AsyncSession = Depends(get_db),
 ):
     """Add a flat-amount expense (software, travel, hardware) to a draft."""
-    invoice = await get_owned_invoice(db, user, invoice_id)
+    invoice = await get_owned_invoice(db, user, invoice_id, lock=True)
     require_status(invoice, "draft")
     db.add(
         InvoiceLine(

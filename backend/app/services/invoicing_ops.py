@@ -5,7 +5,7 @@ import secrets
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,8 +16,30 @@ from app.models.user import User
 from app.services.invoicing import format_invoice_number, line_amount
 
 
-async def unbilled_entries(db: AsyncSession, user: User, client_id, start: date, end: date) -> list[TimeEntry]:
-    result = await db.execute(
+async def lock_billing(db: AsyncSession, user_id) -> None:
+    """Serialize a user's invoice and billed-hours writes until the transaction ends.
+
+    Take it before any invoice or time entry row lock, then re-read what you
+    check: a draft can be sent and an unbilled hour invoiced while you wait.
+    One lock order (billing, then entries, then invoices) keeps them deadlock-free.
+    """
+    if db.bind.dialect.name == "postgresql":
+        await db.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+            {"key": f"timeiq-billing:{user_id}"},
+        )
+
+
+async def claim_unbilled_entries(db: AsyncSession, user: User, client_id, start: date, end: date) -> list[TimeEntry]:
+    """Unbilled entries for an invoice to take, locked so no other invoice takes them too."""
+    await lock_billing(db, user.id)
+    return await unbilled_entries(db, user, client_id, start, end, lock=True)
+
+
+async def unbilled_entries(
+    db: AsyncSession, user: User, client_id, start: date, end: date, *, lock: bool = False
+) -> list[TimeEntry]:
+    query = (
         select(TimeEntry)
         .where(
             TimeEntry.user_id == user.id,
@@ -28,7 +50,9 @@ async def unbilled_entries(db: AsyncSession, user: User, client_id, start: date,
         )
         .order_by(TimeEntry.entry_date.asc(), TimeEntry.created_at.asc())
     )
-    return list(result.scalars().all())
+    if lock:
+        query = query.with_for_update().execution_options(populate_existing=True)
+    return list((await db.execute(query)).scalars().all())
 
 
 async def create_invoice_from_entries(
@@ -103,30 +127,31 @@ async def attach_entries(db: AsyncSession, invoice: Invoice, entries: list[TimeE
     await recompute_subtotal(db, invoice)
 
 
-async def draft_covering(db: AsyncSession, entry: TimeEntry) -> Invoice | None:
+async def draft_covering(db: AsyncSession, entry: TimeEntry, *, lock: bool = False) -> Invoice | None:
     """The newest draft for this entry's client whose period contains its date."""
-    return (
-        await db.execute(
-            select(Invoice)
-            .where(
-                Invoice.user_id == entry.user_id,
-                Invoice.client_id == entry.client_id,
-                Invoice.status == "draft",
-                Invoice.period_start <= entry.entry_date,
-                Invoice.period_end >= entry.entry_date,
-            )
-            .order_by(Invoice.created_at.desc())
-            .limit(1)
+    query = (
+        select(Invoice)
+        .where(
+            Invoice.user_id == entry.user_id,
+            Invoice.client_id == entry.client_id,
+            Invoice.status == "draft",
+            Invoice.period_start <= entry.entry_date,
+            Invoice.period_end >= entry.entry_date,
         )
-    ).scalar_one_or_none()
+        .order_by(Invoice.created_at.desc())
+        .limit(1)
+    )
+    if lock:
+        query = query.with_for_update().execution_options(populate_existing=True)
+    return (await db.execute(query)).scalar_one_or_none()
 
 
 async def attach_to_open_draft(db: AsyncSession, entry: TimeEntry) -> Invoice | None:
     """Hours logged into a period that already has a draft belong on that draft.
-    Sent and paid invoices are never touched."""
+    Sent and paid invoices are never touched. Caller holds lock_billing."""
     if entry.invoice_id is not None:
         return None
-    invoice = await draft_covering(db, entry)
+    invoice = await draft_covering(db, entry, lock=True)
     if invoice is not None:
         await attach_entries(db, invoice, [entry])
     return invoice

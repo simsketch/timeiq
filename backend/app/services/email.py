@@ -8,7 +8,8 @@ import base64
 import logging
 import re
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from html import escape as html_escape
 from html.parser import HTMLParser
 from zoneinfo import ZoneInfo
@@ -126,6 +127,79 @@ def _send(payload: dict, what: str) -> None:
         resend.Emails.send(with_text(payload))
     except Exception as exc:
         logger.error("Failed to send %s: %s", what, exc)
+
+
+# Retry delays after a failed send; past the last the message is dropped.
+# They add up to under a day, inside Resend's 24-hour idempotency window.
+OUTBOX_DELAYS = [timedelta(minutes=m) for m in (5, 15, 30, 60, 120, 240, 480)]
+
+
+async def _send_durable(payload: dict, what: str, key: str) -> None:
+    """Send mail the guest can't do without (their invite, their cancel and
+    reschedule links). It never breaks the request either, but a failure is
+    queued in the outbox, and retry_outbound_emails delivers it later under
+    the same idempotency key."""
+    payload = with_text(payload)
+    try:
+        await asyncio.to_thread(resend.Emails.send, payload, options={"idempotency_key": key})
+        return
+    except Exception as exc:
+        logger.error("Failed to send %s, queueing a retry: %s", what, exc)
+        error = f"{type(exc).__name__}: {exc}"[:500]
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+    from app.database import async_session
+    from app.models.outbound_email import OutboundEmail
+
+    now = datetime.now(timezone.utc)
+    try:
+        async with async_session() as db:
+            await db.execute(
+                pg_insert(OutboundEmail)
+                .values(key=key, what=what, payload=payload, attempts=1, last_error=error,
+                        created_at=now, next_attempt_at=now + OUTBOX_DELAYS[0])
+                .on_conflict_do_nothing(index_elements=["key"])
+            )
+            await db.commit()
+    except Exception:
+        logger.exception("Could not queue %s for retry", what)
+
+
+async def retry_outbound_emails(limit: int = 50) -> dict[str, int]:
+    """Retry due outbox messages (cron). Delivered ones leave the outbox."""
+    from sqlalchemy import delete, select
+
+    from app.database import async_session
+    from app.models.outbound_email import OutboundEmail
+
+    _init_resend()
+    now = datetime.now(timezone.utc)
+    sent = failed = 0
+    async with async_session() as db:
+        due = (await db.execute(
+            select(OutboundEmail)
+            .where(OutboundEmail.next_attempt_at <= now)
+            .order_by(OutboundEmail.next_attempt_at)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+        )).scalars().all()
+        for message in due:
+            try:
+                await asyncio.to_thread(resend.Emails.send, message.payload, options={"idempotency_key": message.key})
+            except Exception as exc:
+                failed += 1
+                message.last_error = f"{type(exc).__name__}: {exc}"[:500]
+                if message.attempts >= len(OUTBOX_DELAYS):
+                    logger.error("Giving up on %s (%s) after %d attempts", message.what, message.key, message.attempts)
+                    await db.delete(message)
+                else:
+                    message.next_attempt_at = now + OUTBOX_DELAYS[message.attempts]
+                    message.attempts += 1
+                continue
+            sent += 1
+            await db.execute(delete(OutboundEmail).where(OutboundEmail.key == message.key))
+        await db.commit()
+    return {"sent": sent, "failed": failed}
 
 
 def _location_row(event_type: EventType) -> tuple[str, str]:
@@ -279,7 +353,8 @@ async def send_booking_confirmation(booking: Booking, event_type: EventType, hos
     _init_resend()
     host_name = host.name or host.email
     from app.services.booking_agent import confirmation_id, reply_address
-    _send(
+    version = f"{booking.id}/{booking.ical_sequence or 0}"
+    await _send_durable(
         {
             "from": FROM_EMAIL,
             "to": [booking.visitor_email],
@@ -290,8 +365,9 @@ async def send_booking_confirmation(booking: Booking, event_type: EventType, hos
             "attachments": [_invite(booking, event_type, host, f"{host_name} 1:1")],
         },
         "visitor confirmation",
+        f"booking-confirm/{version}/guest",
     )
-    _send(
+    await _send_durable(
         {
             "from": FROM_EMAIL,
             "to": [host.email],
@@ -302,6 +378,7 @@ async def send_booking_confirmation(booking: Booking, event_type: EventType, hos
             "attachments": [_invite(booking, event_type, host, f"{booking.visitor_name} 1:1")],
         },
         "host confirmation",
+        f"booking-confirm/{version}/host",
     )
 
 
@@ -348,7 +425,8 @@ async def send_cancellation_notice(booking: Booking, event_type: EventType, host
     their calendars. The caller bumps booking.ical_sequence first."""
     _init_resend()
     host_name = host.name or host.email
-    _send(
+    version = f"{booking.id}/{booking.ical_sequence or 0}"
+    await _send_durable(
         {
             "from": FROM_EMAIL,
             "to": [booking.visitor_email],
@@ -358,8 +436,9 @@ async def send_cancellation_notice(booking: Booking, event_type: EventType, host
             "attachments": [_invite(booking, event_type, host, f"{host_name} 1:1", "CANCEL")],
         },
         "visitor cancellation",
+        f"booking-cancel/{version}/guest",
     )
-    _send(
+    await _send_durable(
         {
             "from": FROM_EMAIL,
             "to": [host.email],
@@ -369,6 +448,7 @@ async def send_cancellation_notice(booking: Booking, event_type: EventType, host
             "attachments": [_invite(booking, event_type, host, f"{booking.visitor_name} 1:1", "CANCEL")],
         },
         "host cancellation",
+        f"booking-cancel/{version}/host",
     )
 
 
@@ -761,17 +841,22 @@ def render_monthly_drafts_digest(user: User, invoices: list, start: date, end: d
         (inv.number, f'{html_escape(inv.client_name)} · {html_escape(fmt_money(inv.subtotal, inv.currency))} · <a href="{_site()}/invoices/{inv.id}" style="color:{t.INDIGO};">Review and send</a>')
         for inv in invoices
     ]
-    total = sum((inv.subtotal for inv in invoices), 0)
-    currency = invoices[0].currency if invoices else "USD"
+    # Currencies can't be added together: one total per currency.
+    totals: dict[str, Decimal] = {}
+    for inv in invoices:
+        totals[inv.currency] = totals.get(inv.currency, Decimal("0")) + Decimal(inv.subtotal or 0)
+    total = " + ".join(
+        fmt_money(amount, currency) for currency, amount in totals.items()
+    ) or fmt_money(Decimal("0"), "USD")
     n = len(invoices)
     body = (
         t.h1(f"{n} draft invoice{'s' if n != 1 else ''} ready for {start.strftime('%B')}")
         + t.p(f"Unbilled hours from {_fmt_date(start)} to {_fmt_date(end)} were rolled into drafts. Nothing has been sent; open each one, check the lines, and hit Send.", muted=True)
-        + t.big_number(fmt_money(total, currency), "ready to bill")
+        + t.big_number(total, "ready to bill")
         + t.details(rows, rows_html=True)
         + t.buttons(t.button("Review drafts", f"{_site()}/invoices"))
     )
-    return t.layout("invoice", f"{n} draft invoice(s) for {start.strftime('%B')}: {fmt_money(total, currency)}", body)
+    return t.layout("invoice", f"{n} draft invoice(s) for {start.strftime('%B')}: {total}", body)
 
 
 def send_monthly_drafts_digest(user: User, invoices: list, start: date, end: date) -> None:

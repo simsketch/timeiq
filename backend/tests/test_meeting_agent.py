@@ -31,7 +31,7 @@ DOMAIN = settings.INBOUND_DOMAIN
 @pytest.fixture
 async def env(monkeypatch):
     mail: list[dict] = []
-    monkeypatch.setattr(email_service.resend.Emails, "send", lambda p: mail.append(p))
+    monkeypatch.setattr(email_service.resend.Emails, "send", lambda p, **kw: mail.append(p))
     inbox: dict[str, dict] = {}
 
     async def fake_fetch(email_id):

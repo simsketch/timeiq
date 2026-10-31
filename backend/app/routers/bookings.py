@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
+import ipaddress
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 import stripe
 from sqlalchemy import and_, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_user
+from app.config import settings
 from app.database import get_db
 from app.models.booking import Booking
 from app.models.event_type import EventType
@@ -38,6 +42,54 @@ def require_visitor_fields(event_type: EventType, payload) -> None:
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"A {label} is required for this booking",
             )
+
+
+# Per hour. The visitor's email is caller-supplied, so a fresh address per
+# request gets past its limit; these hold regardless of the address given.
+MAX_BOOKINGS_PER_SOURCE = 10
+MAX_BOOKINGS_PER_HOST = 30
+
+
+def source_ip_hash(request: Request | None) -> str | None:
+    """A keyed hash of the ASGI peer address (never a caller-supplied
+    forwarding header), so the limit doesn't store raw addresses. Loopback
+    (local dev, tests) has no source limit rather than one shared by all."""
+    host = request.client.host if request is not None and request.client else None
+    try:
+        if not host or ipaddress.ip_address(host).is_loopback:
+            return None
+    except ValueError:
+        pass
+    key = (settings.CRON_SECRET or settings.CLERK_SECRET_KEY or "timeiq").encode()
+    return hmac.new(key, host.encode(), hashlib.sha256).hexdigest()
+
+
+async def limit_booking_sources(db: AsyncSession, host: User, ip_hash: str | None) -> None:
+    """Cap public bookings per network source (across hosts) and per host.
+    Run under the host lock; the source lock covers other hosts' requests."""
+    since = datetime.now(timezone.utc) - timedelta(hours=1)
+    for_host = await db.scalar(select(func.count(Booking.id)).where(
+        Booking.host_user_id == host.id, Booking.created_at > since,
+    ))
+    if (for_host or 0) >= MAX_BOOKINGS_PER_HOST:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="This calendar is taking a lot of bookings right now. Try again in an hour.",
+        )
+    if ip_hash is None:
+        return
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": f"timeiq-booking-source:{ip_hash}"},
+    )
+    from_source = await db.scalar(select(func.count(Booking.id)).where(
+        Booking.source_ip_hash == ip_hash, Booking.created_at > since,
+    ))
+    if (from_source or 0) >= MAX_BOOKINGS_PER_SOURCE:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many bookings from your network in the past hour. Try again in an hour.",
+        )
 
 
 async def limit_booking_emails(db: AsyncSession, host: User, payload: BookingCreate) -> None:
@@ -93,11 +145,7 @@ def _booking_from_payload(payload: BookingCreate, event_type: EventType, host: U
     )
 
 
-def _cancel(booking: Booking) -> None:
-    """Mark cancelled and bump the invite sequence so the CANCEL supersedes it."""
-    booking.status = "cancelled"
-    booking.cancelled_at = datetime.now(timezone.utc)
-    booking.ical_sequence = (booking.ical_sequence or 0) + 1
+_cancel = payments.mark_cancelled
 
 
 router = APIRouter(tags=["bookings"])
@@ -180,6 +228,7 @@ async def create_public_booking(
     event_slug: str,
     payload: BookingCreate,
     db: AsyncSession = Depends(get_db),
+    request: Request = None,  # FastAPI injects it; None when called in-process
 ):
     """
     Public endpoint: Create a booking for a host's event type.
@@ -229,6 +278,8 @@ async def create_public_booking(
     await lock_host_bookings(db, host.id)
     starts_at, ends_at = _requested_window(payload, event_type)
     await limit_booking_emails(db, host, payload)
+    ip_hash = source_ip_hash(request)
+    await limit_booking_sources(db, host, ip_hash)
     if not await is_bookable(db, host, event_type, starts_at, freshen=False):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -241,6 +292,7 @@ async def create_public_booking(
         id=booking_id,
         ical_uid=f"{booking_id}@timeiq.app",
         ical_sequence=0,
+        source_ip_hash=ip_hash,
     )
     db.add(booking)
     if event_type.price_cents is not None:
@@ -324,6 +376,7 @@ async def reschedule_booking(
     payload: BookingCreate,
     token: str = Query(..., description="Cancellation token"),
     db: AsyncSession = Depends(get_db),
+    request: Request = None,  # FastAPI injects it; None for the email agent
 ):
     """
     Public endpoint: Reschedule a booking — cancels the old one and creates a new one.
@@ -379,6 +432,8 @@ async def reschedule_booking(
     await lock_host_bookings(db, host.id)
     starts_at, ends_at = _requested_window(payload, event_type)
     await limit_booking_emails(db, host, payload)
+    ip_hash = source_ip_hash(request)
+    await limit_booking_sources(db, host, ip_hash)
 
     # Re-read the original under a row lock: a concurrent reschedule or cancel
     # that committed while we waited has already used it up.
@@ -393,6 +448,13 @@ async def reschedule_booking(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only confirmed bookings can be rescheduled",
+        )
+    # A meeting that has started is used: moving it forward would also move
+    # its payment back inside the guest refund window.
+    if old_booking.starts_at <= datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This booking has already started and can't be rescheduled",
         )
 
     if not await is_bookable(
@@ -413,6 +475,7 @@ async def reschedule_booking(
     new_booking = _booking_from_payload(
         payload, event_type, host, starts_at, ends_at,
         rescheduled_from_id=old_booking.id,
+        source_ip_hash=ip_hash,
         ical_uid=ical_uid_for(old_booking),
         ical_sequence=(old_booking.ical_sequence or 0) + 1,
         price_cents=old_booking.price_cents,

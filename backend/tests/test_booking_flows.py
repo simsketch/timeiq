@@ -52,7 +52,7 @@ async def env(monkeypatch):
 
     monkeypatch.setattr("app.tasks.freshen_user_calendars", no_sync)
     mail: list[dict] = []
-    monkeypatch.setattr(email_service.resend.Emails, "send", lambda p: mail.append(p))
+    monkeypatch.setattr(email_service.resend.Emails, "send", lambda p, **kw: mail.append(p))
 
     key = uuid.uuid4().hex[:10]
     async with async_session() as db:

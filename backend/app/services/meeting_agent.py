@@ -29,7 +29,7 @@ from email.utils import getaddresses, parseaddr
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import array, insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -390,6 +390,18 @@ async def claim_message(user_id, message_id: str | None, now: datetime, *, sched
                 return True  # this import's own retry, rather than a second copy
         await db.commit()
     return won is not None
+
+
+async def release_message(user_id, message_id: str | None) -> None:
+    """Undo claim_message after a failure a redelivery should retry."""
+    if not message_id:
+        return
+    async with async_session() as db:
+        await db.execute(delete(AgentMessageClaim).where(
+            AgentMessageClaim.message_id == message_id.strip()[:500],
+            AgentMessageClaim.user_id == user_id,
+        ))
+        await db.commit()
 
 
 async def handle(user_id, detail: dict, now: datetime | None = None) -> str | None:

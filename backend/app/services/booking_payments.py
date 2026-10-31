@@ -16,7 +16,7 @@ from app.models.booking import Booking
 from app.models.event_type import EventType
 from app.models.user import User
 from app.services.booking_lock import lock_host_bookings
-from app.services.email import send_booking_confirmation
+from app.services.email import send_booking_confirmation, send_cancellation_notice
 
 CHECKOUT_TTL = timedelta(minutes=31)
 REFUND_POLICY = "Guest cancellations more than 24 hours before the start receive a full refund. Guest cancellations within 24 hours receive no refund. Host cancellations receive a full refund."
@@ -199,6 +199,49 @@ async def cancel_payment(booking: Booking, *, as_host: bool) -> None:
             booking.refund_status = "not_eligible"
     except stripe.StripeError:
         raise HTTPException(status_code=502, detail="Stripe could not process the cancellation. Try again shortly.")
+
+
+def mark_cancelled(booking: Booking) -> None:
+    """Mark cancelled and bump the invite sequence so the CANCEL supersedes it."""
+    booking.status = "cancelled"
+    booking.cancelled_at = datetime.now(timezone.utc)
+    booking.ical_sequence = (booking.ical_sequence or 0) + 1
+
+
+async def cancel_upcoming_bookings(db: AsyncSession, host: User) -> int:
+    """Cancel a host's upcoming bookings as the host: close checkouts, refund
+    payments, then tell guests. Run before deleting the account, because the
+    cascade would drop the bookings and their payment records with them.
+
+    A Stripe failure raises (502) before anything is committed, so the caller
+    stops the deletion and a retry starts over. Returns how many were cancelled.
+    """
+    await lock_host_bookings(db, host.id)
+    bookings = (await db.execute(
+        select(Booking)
+        .where(
+            Booking.host_user_id == host.id,
+            Booking.status.in_(("confirmed", "pending_payment")),
+            Booking.ends_at > datetime.now(timezone.utc),
+        )
+        .with_for_update()
+    )).scalars().all()
+    confirmed = []
+    for booking in bookings:
+        if booking.status == "confirmed":
+            confirmed.append(booking)
+        await cancel_payment(booking, as_host=True)
+        mark_cancelled(booking)
+    event_types = {
+        et.id: et for et in (await db.execute(
+            select(EventType).where(EventType.id.in_({b.event_type_id for b in confirmed}))
+        )).scalars()
+    } if confirmed else {}
+    await db.commit()
+    for booking in confirmed:
+        if event_type := event_types.get(booking.event_type_id):
+            await send_cancellation_notice(booking, event_type, host)
+    return len(bookings)
 
 
 async def send_confirmed(db: AsyncSession, booking: Booking) -> None:

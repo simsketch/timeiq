@@ -119,6 +119,35 @@ async def test_book_freshens_calendars_before_deciding(env, synced):
     assert set(synced["calls"]) >= {org.id, friend.id}
 
 
+async def test_book_rechecks_calendar_sharing_participants(env, synced):
+    c, org, friend = env["client"], env["org"], env["friend"]
+    m = await create(env, send_invites=False)
+    fran = next(p for p in m["participants"] if p["email"] == friend.email)
+    env["who"]["clerk"] = friend.clerk_id
+    assert (await c.post(f"/api/meet/{token(fran['link'])}/use-calendar")).status_code == 200
+    env["who"]["clerk"] = org.clerk_id
+    # Fran's calendar fills after she shared it (another meeting took the time).
+    await busy(friend, MON_9, "2026-11-02T15:00:00Z")
+    r = await c.post(f"/api/group-meetings/{m['id']}/book", json={"starts_at": MON_9})
+    assert r.status_code == 409 and "no longer free for" in r.text
+    assert await group_events(m["id"]) == 0
+
+
+async def test_cancel_waits_for_a_booking_in_flight(env, synced):
+    m = await create(env, send_invites=False)
+    meeting_id = uuid.UUID(m["id"])
+    async with async_session() as booking_db:
+        await gm.book(booking_db, await booking_db.get(GroupMeeting, meeting_id), utc(MON_9), NOW)
+        async with async_session() as cancel_db:
+            cancelling = asyncio.create_task(gm.cancel(cancel_db, await cancel_db.get(GroupMeeting, meeting_id)))
+            await asyncio.sleep(0.5)
+            assert not cancelling.done()  # queued behind the booking's row lock
+            await booking_db.commit()
+            assert await cancelling is True  # it saw the booking
+            await cancel_db.commit()
+    assert await group_events(m["id"]) == 0
+
+
 async def test_all_switched_off_hours_offer_nothing(env, synced):
     c, org = env["client"], env["org"]
     async with async_session() as db:

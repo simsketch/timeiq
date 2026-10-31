@@ -117,7 +117,7 @@ def _mail_objects():
 
 async def test_cancellation_mail_cancels_the_invite_for_both_sides(monkeypatch):
     sent = []
-    monkeypatch.setattr(E.resend.Emails, "send", lambda p: sent.append(p))
+    monkeypatch.setattr(E.resend.Emails, "send", lambda p, **kw: sent.append(p))
     booking, et, host = _mail_objects()
     await E.send_cancellation_notice(booking, et, host)  # host zone is invalid: must not raise
     assert len(sent) == 2
@@ -132,7 +132,7 @@ async def test_cancellation_mail_cancels_the_invite_for_both_sides(monkeypatch):
 
 async def test_confirmation_invite_uses_chain_uid(monkeypatch):
     sent = []
-    monkeypatch.setattr(E.resend.Emails, "send", lambda p: sent.append(p))
+    monkeypatch.setattr(E.resend.Emails, "send", lambda p, **kw: sent.append(p))
     booking, et, host = _mail_objects()
     await E.send_booking_confirmation(booking, et, host)
     ev = Calendar.from_ical(sent[0]["attachments"][0]["content"]).walk("VEVENT")[0]

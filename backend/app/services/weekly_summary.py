@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 from html import escape
+from time import monotonic
 
 from sqlalchemy import func, or_, select
 
@@ -26,6 +27,10 @@ from app.services import email_templates as t
 from app.services.availability import host_zone
 from app.services.email_import import _entitled
 from app.services.free_time import free_windows
+
+# Stop starting new sends after this many seconds of a cron run (Vercel stops
+# the function at 60).
+CRON_BUDGET_SECONDS = 45
 
 logger = logging.getLogger(__name__)
 TOKEN_LIFETIME = timedelta(days=180)
@@ -46,7 +51,9 @@ def should_send(user, now) -> bool:
     start, _ = week_bounds(user, now)
     sent = user.weekly_summary_sent_at
     return bool(
-        user.weekly_summary_enabled and _entitled(user) and local.weekday() == 0 and local.hour == 7
+        # From 7 AM on the owner's Monday: a run that missed 7 (a timeout,
+        # a skipped cron) still sends it later that day.
+        user.weekly_summary_enabled and _entitled(user) and local.weekday() == 0 and local.hour >= 7
         and (sent is None or sent < start)
     )
 
@@ -187,7 +194,12 @@ async def send_weekly_summaries(now=None) -> dict:
     async with async_session() as db:
         users = (await db.execute(select(User).where(User.weekly_summary_enabled.is_(True)))).scalars().all()
         ids = [user.id for user in users if should_send(user, now)]
+    deadline = monotonic() + CRON_BUDGET_SECONDS
     for uid in ids:
+        if monotonic() > deadline:
+            # Under the 60 s function limit; the next hourly run picks up the rest.
+            result["deferred"] = len(ids) - result["sent"] - result["failed"]
+            break
         try:
             async with async_session() as db:
                 user = (await db.execute(select(User).where(User.id == uid).with_for_update(skip_locked=True))).scalar_one_or_none()

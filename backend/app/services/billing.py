@@ -211,11 +211,47 @@ def _ensure_customer(user: User) -> str:
     return customer["id"]
 
 
+class AlreadySubscribed(Exception):
+    """The customer paid for a subscription that the account hasn't seen yet."""
+
+
+def _settle_open_checkouts(user: User, customer_id: str) -> None:
+    """Leave at most one payable subscription checkout per customer.
+
+    Expire every open one before creating its replacement, and pick up a
+    subscription that's already live (a checkout paid in another tab whose
+    webhook hasn't landed) instead of selling a second one.
+    """
+    listed = _d(stripe.Subscription.list(customer=customer_id, status="all", limit=100))
+    live = [_d(s) for s in listed.get("data", []) if _d(s).get("status") in ENTITLED_STATUSES]
+    if live:
+        apply_subscription(user, max(live, key=_created))
+        raise AlreadySubscribed
+    sessions = _d(stripe.checkout.Session.list(customer=customer_id, status="open", limit=100))
+    for session in sessions.get("data", []):
+        session = _d(session)
+        if session.get("mode") != "subscription":
+            continue
+        try:
+            stripe.checkout.Session.expire(session["id"])
+        except stripe.InvalidRequestError:
+            # It may have completed between the list and the expire.
+            current = _d(stripe.checkout.Session.retrieve(session["id"]))
+            if current.get("status") == "complete":
+                raise AlreadySubscribed
+            if current.get("status") != "expired":
+                raise
+
+
 async def create_checkout_session(user: User, db: AsyncSession) -> str:
     _init()
+    # One checkout at a time per account: a second tab waits here, then finds
+    # and expires the first tab's session.
+    await db.execute(select(User.id).where(User.id == user.id).with_for_update())
     price_id, plan = await choose_price(db, user)
     customer_id = _ensure_customer(user)
     await db.flush()
+    _settle_open_checkouts(user, customer_id)
     extra: dict[str, Any] = {}
     if plan == PLAN_FOUNDER:
         # The seat is only held for FOUNDER_RESERVATION_TTL, so the session

@@ -314,6 +314,15 @@ async def book(db: AsyncSession, meeting: GroupMeeting, start: datetime, now: da
     await _lock_calendars(db, calendar_user_ids(meeting))
     if start not in await _open_slots(db, meeting, now):
         raise GroupMeetingError("That time is no longer free on your calendar. Pick another.")
+    # Everyone sharing a calendar is about to get this event too, so check
+    # them under the same locks: another meeting may have taken their time.
+    for p in meeting.participants:
+        if p.uses_calendar and p.user_id and p.user_id != meeting.organizer_id:
+            user = await db.get(User, p.user_id)
+            if user and not _fits(start, meeting.duration_minutes, await _windows(db, user, meeting, now, default_hours=True)):
+                raise GroupMeetingError(
+                    f"That time is no longer free for {p.name or p.email}. Pick another."
+                )
     meeting.status = "booked"
     meeting.starts_at = start
     meeting.ends_at = start + timedelta(minutes=meeting.duration_minutes)
@@ -371,7 +380,11 @@ async def hold(db: AsyncSession, meeting: GroupMeeting, now: datetime | None = N
 
 
 async def cancel(db: AsyncSession, meeting: GroupMeeting) -> bool:
-    """Cancel the meeting. Returns True if it had been booked (invites must be withdrawn)."""
+    """Cancel the meeting. Returns True if it had been booked (invites must be withdrawn).
+
+    Takes the row lock book() takes first, so a booking in flight finishes
+    and its calendar events are seen (and removed) here."""
+    await _lock_meeting(db, meeting)
     if meeting.status == "cancelled":
         raise GroupMeetingError("This meeting is already cancelled.")
     was_booked = meeting.status == "booked"

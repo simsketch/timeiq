@@ -22,9 +22,16 @@ router = APIRouter(tags=["cron"])
 async def cron_booking_reminders(
     authorization: str = Header(default="", description="Bearer <CRON_SECRET>"),
 ):
-    """Send due booking reminders every 15 minutes."""
+    """Send due booking reminders every 15 minutes, and retry confirmations
+    and cancellations that failed to send."""
+    from app.services.email import retry_outbound_emails
+
     _require_cron_secret(authorization)
-    return {"status": "ok", "results": await send_due_booking_reminders()}
+    return {
+        "status": "ok",
+        "results": await send_due_booking_reminders(),
+        "outbox": await retry_outbound_emails(),
+    }
 
 
 @router.get("/api/cron/expire-booking-payments")

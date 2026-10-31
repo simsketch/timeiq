@@ -51,6 +51,8 @@ def user(monkeypatch):
     ("Pacific/Kiritimati", datetime(2026, 11, 1, 17, 0, tzinfo=timezone.utc), True),
     ("America/New_York", NOW + timedelta(days=1), False),
     ("America/New_York", datetime(2026, 10, 26, 11, 0, tzinfo=timezone.utc), True),
+    # A run that missed 7 AM catches up later that Monday, never on Tuesday.
+    ("America/New_York", NOW + timedelta(hours=5), True),
 ])
 def test_local_monday_at_seven_including_dst_and_fractional_zones(user, zone, now, expected):
     user.timezone = zone

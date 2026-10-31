@@ -60,7 +60,7 @@ async def env(monkeypatch):
     for module in (gm_service, gm_router):
         monkeypatch.setattr(module, "datetime", FrozenDatetime)
     mail: list[dict] = []
-    monkeypatch.setattr(email_service.resend.Emails, "send", lambda p: mail.append(p))
+    monkeypatch.setattr(email_service.resend.Emails, "send", lambda p, **kw: mail.append(p))
 
     key = uuid.uuid4().hex[:8]
     async with async_session() as db:

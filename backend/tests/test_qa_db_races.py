@@ -46,7 +46,7 @@ async def env(monkeypatch):
         await db.commit()
 
     mail: list = []
-    monkeypatch.setattr(resend.Emails, "send", lambda payload: mail.append(payload) or {"id": "m"})
+    monkeypatch.setattr(resend.Emails, "send", lambda payload, **kw: mail.append(payload) or {"id": "m"})
     for name, value in {
         "RESEND_API_KEY": "re_fake", "STRIPE_SECRET_KEY": "sk_test_fake",
         "STRIPE_PRICE_FOUNDER": "price_founder", "STRIPE_PRICE_STANDARD": "price_standard",
@@ -107,6 +107,34 @@ async def test_parallel_invoice_creation_gets_distinct_numbers(env):
     assert sorted(r.json()["number"] for r in rs) == ["INV-0001", "INV-0002", "INV-0003"]
 
 
+async def test_parallel_invoices_never_bill_the_same_hours(env):
+    client = await _client(env.client)
+    rs = await asyncio.gather(*[
+        env.client.post("/api/invoices", json={"client_id": client["id"], "period_start": "2026-10-01",
+                                               "period_end": "2026-10-31"})
+        for _ in range(3)
+    ])
+    assert sorted(r.status_code for r in rs) == [201, 400, 400], [r.text for r in rs]
+
+
+async def test_edit_waits_for_a_send_and_then_sees_it(env):
+    from app.services.invoicing_ops import lock_billing
+    from app.models.invoice import Invoice
+    inv = await _draft(env.client, await _client(env.client))
+    entry_id = inv["lines"][0]["time_entry_id"]
+    async with async_session() as db:  # a send in flight: billing lock held, status flipped
+        await lock_billing(db, env.users[0].id)
+        (await db.get(Invoice, uuid.UUID(inv["id"]))).status = "sent"
+        await db.flush()
+        edit = asyncio.create_task(env.client.patch(f"/api/time-entries/{entry_id}", json={"hours": "2.00"}))
+        await asyncio.sleep(0.5)
+        assert not edit.done()  # queued behind the send
+        await db.commit()
+    r = await edit
+    assert r.status_code == 409, r.text
+    assert (await env.client.get(f"/api/invoices/{inv['id']}")).json()["subtotal"] in ("100.00", 100, "100")
+
+
 async def test_overlapping_sends_deliver_once_but_later_resend_works(env, monkeypatch):
     inv = await _draft(env.client, await _client(env.client))
     rs = await asyncio.gather(*[env.client.post(f"/api/invoices/{inv['id']}/send") for _ in range(4)])
@@ -132,8 +160,17 @@ async def test_founder_seat_is_held_during_checkout(env, monkeypatch):
     billing._price_cache.clear()
     monkeypatch.setattr(stripe.Price, "retrieve", lambda p: {"unit_amount": 1900, "currency": "usd", "recurring": {"interval": "month"}})
     monkeypatch.setattr(stripe.Customer, "create", lambda **kw: {"id": "cus_" + kw["metadata"]["timeiq_user_id"]})
-    calls = []
-    monkeypatch.setattr(stripe.checkout.Session, "create", lambda **kw: calls.append(kw) or {"url": "https://x"})
+    calls, expired = [], []
+    monkeypatch.setattr(stripe.Subscription, "list", lambda **kw: {"data": []})
+
+    def create(**kw):
+        calls.append(kw)
+        return {"id": f"cs_{len(calls)}", "url": "https://x"}
+    monkeypatch.setattr(stripe.checkout.Session, "create", create)
+    monkeypatch.setattr(stripe.checkout.Session, "list", lambda **kw: {"data": [
+        {"id": f"cs_{i}", "mode": "subscription"} for i, c in enumerate(calls, 1)
+        if c["customer"] == kw["customer"] and f"cs_{i}" not in expired]})
+    monkeypatch.setattr(stripe.checkout.Session, "expire", lambda sid: expired.append(sid))
     async with async_session() as db:  # leave exactly one seat, whatever the DB already holds
         before = await billing.founder_seats_taken(db)
     monkeypatch.setattr(settings, "FOUNDER_SEATS", before + 1)
@@ -150,6 +187,22 @@ async def test_founder_seat_is_held_during_checkout(env, monkeypatch):
     prices = [c["line_items"][0]["price"] for c in calls]
     assert prices == ["price_founder", "price_standard", "price_founder"]
     assert "expires_at" in calls[0] and "expires_at" not in calls[1]
+    assert expired == ["cs_1"]  # the reopened checkout replaced the first one
+
+
+async def test_checkout_picks_up_a_subscription_paid_in_another_tab(env, monkeypatch):
+    user = env.users[1]
+    monkeypatch.setattr(stripe.Customer, "create", lambda **kw: {"id": "cus_tab"})
+    monkeypatch.setattr(stripe.Subscription, "list", lambda **kw: {"data": [
+        {"id": "sub_tab", "status": "active", "customer": "cus_tab", "created": 1,
+         "items": {"data": [{"price": {"id": "price_standard"}, "current_period_end": 2000000000}]}}]})
+    monkeypatch.setattr(stripe.checkout.Session, "create", lambda **kw: pytest.fail("second checkout created"))
+    monkeypatch.setattr(settings, "STRIPE_PRICE_FOUNDER", "")
+    env.as_user(user)
+    assert (await env.client.post("/api/billing/checkout")).status_code == 409
+    async with async_session() as db:
+        stored = await db.get(User, user.id)
+        assert (stored.stripe_subscription_id, stored.subscription_status) == ("sub_tab", "active")
 
 
 async def test_account_survives_failed_stripe_cancel(env, monkeypatch):

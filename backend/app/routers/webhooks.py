@@ -193,7 +193,7 @@ async def _handle_user_deleted(data: dict) -> None:
     user is kept and the webhook answers 502, so Clerk redelivers it and the
     cancellation is retried instead of the subscription charging on unseen.
     """
-    from app.services import billing
+    from app.services import billing, booking_payments
 
     clerk_id = data.get("id")
     if not clerk_id:
@@ -205,6 +205,8 @@ async def _handle_user_deleted(data: dict) -> None:
         )
         user = result.scalar_one_or_none()
         if user:
+            # A Stripe failure raises 502, so Clerk redelivers and we retry.
+            await booking_payments.cancel_upcoming_bookings(db, user)
             try:
                 billing.cancel_before_account_deletion(user)
             except Exception as exc:

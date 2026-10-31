@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import or_, select, text
@@ -90,25 +91,49 @@ async def sync_source(source_id, *, force: bool = False, stale_before: datetime 
     return "failed"
 
 
-async def _sync_source_ids(source_ids: list, *, force: bool = False) -> dict[str, int]:
-    results = {"synced": 0, "failed": 0, "skipped": 0}
-    for source_id in source_ids:
-        results[await sync_source(source_id, force=force)] += 1
+# Vercel stops a function at 60 s; cron work stops starting new items here.
+CRON_BUDGET_SECONDS = 45
+# Calendar fetches are network-bound, so a few run at once.
+SYNC_CONCURRENCY = 8
+
+
+async def _sync_source_ids(
+    source_ids: list, *, force: bool = False, budget_seconds: float | None = None
+) -> dict[str, int]:
+    """Sync these sources, SYNC_CONCURRENCY at a time. With a budget, sources
+    not started by then are left for the next run ("deferred")."""
+    results = {"synced": 0, "failed": 0, "skipped": 0, "deferred": 0}
+    deadline = None if budget_seconds is None else time.monotonic() + budget_seconds
+    queue = list(source_ids)
+
+    async def worker() -> None:
+        while queue:
+            if deadline is not None and time.monotonic() > deadline:
+                results["deferred"] += len(queue)
+                queue.clear()
+                return
+            source_id = queue.pop(0)
+            results[await sync_source(source_id, force=force)] += 1
+
+    await asyncio.gather(*(worker() for _ in range(min(SYNC_CONCURRENCY, len(queue)))))
     return results
 
 
 async def sync_all_active_calendars() -> dict[str, int]:
     """
-    Sync all active calendar sources.
+    Sync all active calendar sources, least recently tried first, so sources
+    a run had no time for go first in the next one.
     Returns a dict with counts of successes and failures.
     """
     async with async_session() as db:
         result = await db.execute(
-            select(CalendarSource.id).where(CalendarSource.is_active.is_(True), CalendarSource.type.notin_(LOCAL_SOURCE_TYPES))
+            select(CalendarSource.id)
+            .where(CalendarSource.is_active.is_(True), CalendarSource.type.notin_(LOCAL_SOURCE_TYPES))
+            .order_by(CalendarSource.last_sync_attempt_at.asc().nulls_first())
         )
         source_ids = list(result.scalars().all())
 
-    return await _sync_source_ids(source_ids)
+    return await _sync_source_ids(source_ids, budget_seconds=CRON_BUDGET_SECONDS)
 
 
 async def sync_user_calendars(user_id) -> dict[str, int]:
@@ -208,7 +233,7 @@ async def create_monthly_invoice_drafts() -> dict:
     from app.database import async_session
     from app.models.client import Client
     from app.services.email import send_monthly_drafts_digest
-    from app.services.invoicing_ops import create_invoice_from_entries, previous_month, unbilled_entries
+    from app.services.invoicing_ops import claim_unbilled_entries, create_invoice_from_entries, previous_month
 
     today = datetime.now(timezone.utc).date()
     start, end = previous_month(today)
@@ -218,15 +243,22 @@ async def create_monthly_invoice_drafts() -> dict:
         clients = (
             await db.execute(select(Client).options(selectinload(Client.user)).where(Client.auto_invoice_monthly.is_(True)))
         ).scalars().all()
+        deadline = time.monotonic() + CRON_BUDGET_SECONDS
         for client in clients:
+            if time.monotonic() > deadline:
+                # The cron reruns hourly on the 1st; claimed hours aren't drafted twice.
+                break
             user = client.user
-            entries = await unbilled_entries(db, user, client.id, start, end)
+            # One transaction per client, so the billing lock is held briefly
+            # and a manual invoice created meanwhile can't take the same hours.
+            entries = await claim_unbilled_entries(db, user, client.id, start, end)
             if not entries:
+                await db.commit()
                 continue
             invoice = await create_invoice_from_entries(db, user, client, entries, start, end)
+            await db.commit()
             created[user.id].append(invoice)
             users[user.id] = user
-        await db.commit()
         for uid, invoices in created.items():
             send_monthly_drafts_digest(users[uid], invoices, start, end)
     return {"clients_checked": len(clients), "drafts_created": sum(len(v) for v in created.values()), "users_emailed": len(created)}

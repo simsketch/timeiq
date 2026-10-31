@@ -74,6 +74,9 @@ async def checkout(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already subscribed")
     try:
         url = await billing.create_checkout_session(user, db)
+    except billing.AlreadySubscribed:
+        await db.commit()  # keep the subscription we just picked up
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already subscribed")
     except stripe.StripeError as exc:
         logger.error("Stripe checkout failed: %s", exc)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Could not start checkout")

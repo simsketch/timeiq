@@ -55,8 +55,12 @@ export default function AvailabilityPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [usingDefaults, setUsingDefaults] = useState(false);
+  // Saving replaces every rule, so it stays off until the saved ones loaded.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   async function fetchAvailability() {
+    setLoading(true);
+    setLoadError(null);
     try {
       const token = await getToken();
       const data = await apiFetch<AvailabilityRule[]>("/api/availability-rules", {
@@ -78,14 +82,7 @@ export default function AvailabilityPage() {
       }
     } catch (error) {
       console.error("Failed to fetch availability:", error);
-      // Set defaults on error
-      const defaultAvailability: AvailabilityRule[] = DAYS.map((_, index) => ({
-        day_of_week: index,
-        start_time: "09:00:00",
-        end_time: "17:00:00",
-        is_active: index < 5,
-      }));
-      setAvailability(defaultAvailability);
+      setLoadError("We couldn't load your weekly hours, so they can't be edited right now.");
     } finally {
       setLoading(false);
     }
@@ -150,6 +147,12 @@ export default function AvailabilityPage() {
             <CardTitle>Weekly hours</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {loadError && (
+              <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/40 p-4 text-sm">
+                <span>{loadError}</span>
+                <Button size="sm" variant="outline" onClick={() => fetchAvailability()}>Try again</Button>
+              </div>
+            )}
             {usingDefaults && <p className="text-sm text-muted-foreground">No weekly hours saved yet. These default hours are a starting point. Adjust them and save your availability.</p>}
             {DAYS.map((day, index) => {
               const rule = availability.find((r) => r.day_of_week === index);
@@ -214,7 +217,7 @@ export default function AvailabilityPage() {
               );
             })}
             <div className="pt-4">
-              <Button onClick={handleSave} disabled={saving}>
+              <Button onClick={handleSave} disabled={saving || loadError !== null}>
                 {saving ? "Saving..." : "Save availability"}
               </Button>
             </div>

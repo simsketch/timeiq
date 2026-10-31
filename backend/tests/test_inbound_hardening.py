@@ -216,6 +216,48 @@ async def test_transient_fetch_failure_is_redelivered_then_idempotent(env, monke
 
 
 @db_only
+async def test_transient_agent_failure_is_retried_not_dropped(env, monkeypatch):
+    token, calls = await _setup(env, monkeypatch)
+    real_handle = meeting_agent.handle
+    failures = [httpx.ReadTimeout("Claude slow")]
+
+    async def flaky(user_id, detail, now):
+        await meeting_agent.claim_message(user_id, "<msg-1@example.com>", now)  # claimed, then the model times out
+        if failures:
+            raise failures.pop(0)
+        return await real_handle(user_id, detail, now)
+    monkeypatch.setattr(meeting_agent, "handle", flaky)
+
+    async def fetch(email_id):
+        return {"subject": "Fall soccer", "text": "Practice Tuesday 5-6pm", "message_id": "<msg-1@example.com>"}, []
+    monkeypatch.setattr(email_import, "fetch_email", fetch)
+    payload = _payload(token, uuid.uuid4().hex)
+    r = await _post(env, payload)
+    assert r.status_code == 503 and env.mail == []
+    # The redelivery runs afresh: the claim was released, so the schedule imports.
+    monkeypatch.setattr(meeting_agent, "handle", real_handle)
+    r = await _post(env, payload)
+    assert r.status_code == 200 and r.json()["status"] == "imported", r.text
+
+
+@db_only
+async def test_html_only_email_is_read(env, monkeypatch):
+    token, calls = await _setup(env, monkeypatch)
+    seen = []
+
+    async def fetch(email_id):
+        return {"subject": "Fall soccer", "text": None, "html": "<p>Practice <b>Tuesday</b> 5-6pm</p>"}, []
+
+    async def extract(subject, body, *args):
+        seen.append(body)
+        return ONE_EVENT
+    monkeypatch.setattr(email_import, "fetch_email", fetch)
+    monkeypatch.setattr(email_import, "extract_events", extract)
+    record = await email_import.process_inbound(_payload(token, uuid.uuid4().hex), now=NOW)
+    assert record.status == "imported" and seen == ["Practice Tuesday 5-6pm"]
+
+
+@db_only
 async def test_retries_are_bounded_and_permanent_errors_are_final(env, monkeypatch):
     token, calls = await _setup(env, monkeypatch)
     payload = _payload(token, uuid.uuid4().hex)

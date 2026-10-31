@@ -17,6 +17,7 @@ class Booking(Base):
             "ix_bookings_confirmed_starts_at", "starts_at",
             postgresql_where=text("status = 'confirmed'"),
         ),
+        Index("ix_bookings_source_ip_hash_created_at", "source_ip_hash", "created_at"),
         {"schema": "timeiq"},
     )
 
@@ -83,6 +84,8 @@ class Booking(Base):
     email_thread_ids: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
     # Each outgoing offer's Message-ID maps to the exact ordered starts shown.
     reschedule_offers: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
+    # Keyed hash of the public request's network address, for rate limits.
+    source_ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

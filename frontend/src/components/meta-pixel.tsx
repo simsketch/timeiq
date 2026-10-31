@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Script from "next/script";
+import { carriesCredentials } from "@/lib/analytics-url";
 
 const PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
 
@@ -23,7 +24,8 @@ export function MetaPixel() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (PIXEL_ID) track("PageView");
+    // The pixel reports the page URL; never from a private link.
+    if (PIXEL_ID && !carriesCredentials(new URL(window.location.href))) track("PageView");
   }, [pathname]);
 
   if (!PIXEL_ID) return null;

@@ -533,11 +533,16 @@ async def delete_my_account(
 ):
     """Cancel billing, remove the Clerk user, and delete every row we hold.
 
-    Order matters: Stripe first (so no renewal fires), then Clerk (so the
+    Order matters: upcoming bookings first (refunded and cancelled while we
+    still have their payment records), then Stripe (so no renewal fires), then Clerk (so the
     session dies), then our rows (cascade). If Clerk deletion fails we stop
     before touching our data so the account stays consistent.
     """
-    from app.services import billing
+    from app.services import billing, booking_payments
+
+    # Guests of upcoming bookings get refunds and cancellations first; a Stripe
+    # failure here raises 502 and keeps the account for a retry.
+    await booking_payments.cancel_upcoming_bookings(db, user)
 
     # A failed cancellation stops the deletion (see cancel_before_account_deletion).
     try:

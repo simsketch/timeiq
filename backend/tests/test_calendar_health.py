@@ -522,3 +522,22 @@ async def test_google_rejected_token_is_refreshed_once(google):
     source = _google_source(google_refresh_token="refresh")
     assert await calendar_sync.sync_google_source(_FakeDB(), source) == 1
     assert source.google_access_token == "new" and len(calls) == 3
+
+
+async def test_cron_sync_runs_in_parallel_and_defers_past_its_budget(monkeypatch):
+    import asyncio
+
+    from app import tasks
+
+    started = []
+
+    async def slow(source_id, force=False):
+        started.append(source_id)
+        await asyncio.sleep(0.2)
+        return "synced"
+
+    monkeypatch.setattr(tasks, "sync_source", slow)
+    results = await tasks._sync_source_ids(list(range(40)), budget_seconds=0.3)
+    # Eight at a time: two rounds start inside the budget, the rest wait for the next run.
+    assert results["synced"] == len(started) == 16
+    assert results["deferred"] == 24

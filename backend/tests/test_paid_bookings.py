@@ -163,7 +163,7 @@ async def env(monkeypatch):
         monkeypatch.setattr(settings, key, value)
     fake = FakeStripe(monkeypatch)
     mail = []
-    monkeypatch.setattr(resend.Emails, "send", lambda payload: mail.append(payload))
+    monkeypatch.setattr(resend.Emails, "send", lambda payload, **kw: mail.append(payload))
 
     async def no_sync(*a, **kw):
         return 0
@@ -424,6 +424,86 @@ async def test_reschedule_keeps_payment_and_does_not_refund_old_webhook(env):
     assert env.fake.refunds == [] and len(env.fake.created) == 1
     assert (await env.client.patch(f"/api/bookings/{response.json()['id']}")).status_code == 200
     assert env.fake.refunds[0]["payment_intent"] == f"pi_{booking.stripe_checkout_session_id}"
+
+
+async def test_started_paid_booking_cannot_be_rescheduled(env):
+    booking = await book(env)
+    await pay(env, booking)
+    async with async_session() as db:
+        stored = await db.get(Booking, booking.id)
+        stored.starts_at = datetime.now(timezone.utc) - timedelta(days=1)
+        stored.ends_at = stored.starts_at + timedelta(minutes=30)
+        await db.commit()
+    response = await env.client.post(f"/api/public/bookings/{booking.id}/reschedule?token={booking.cancel_token}", json=payload())
+    assert response.status_code == 400 and "already started" in response.text
+    async with async_session() as db:
+        assert (await db.get(Booking, booking.id)).status == "confirmed"
+
+
+async def test_account_deletion_refunds_and_cancels_upcoming_bookings(env):
+    paid = await book(env)
+    await pay(env, paid)
+    past = await book(env, starts_at=(datetime.now(timezone.utc) + timedelta(days=4)).replace(hour=11, minute=0, second=0, microsecond=0).isoformat())
+    await pay(env, past)
+    async with async_session() as db:
+        stored = await db.get(Booking, past.id)
+        stored.starts_at = datetime.now(timezone.utc) - timedelta(days=2)
+        stored.ends_at = stored.starts_at + timedelta(minutes=30)
+        await db.commit()
+    sent = len(env.mail)
+    async with async_session() as db:
+        host = await db.get(User, env.host.id)
+        assert await P.cancel_upcoming_bookings(db, host) == 1
+    async with async_session() as db:
+        assert (await db.get(Booking, paid.id)).status == "cancelled"
+        assert (await db.get(Booking, past.id)).status == "confirmed"
+    assert [r["payment_intent"] for r in env.fake.refunds] == [f"pi_{paid.stripe_checkout_session_id}"]
+    assert any(m["to"] == ["guest@example.com"] and "Cancelled" in m["subject"] for m in env.mail[sent:])
+
+
+async def test_failed_confirmation_is_queued_and_retried(env, monkeypatch):
+    from app.models.outbound_email import OutboundEmail
+    from app.services import email as E
+
+    def down(payload, **kw):
+        raise RuntimeError("Resend outage")
+    monkeypatch.setattr(resend.Emails, "send", down)
+    booking = await book(env)
+    await pay(env, booking)
+    async with async_session() as db:
+        queued = (await db.execute(select(OutboundEmail).where(OutboundEmail.key.like(f"booking-confirm/{booking.id}/%")))).scalars().all()
+        assert sorted(q.key.rsplit("/", 1)[1] for q in queued) == ["guest", "host"]
+        for q in queued:
+            q.next_attempt_at = datetime.now(timezone.utc)
+        await db.commit()
+    sent = []
+    monkeypatch.setattr(resend.Emails, "send", lambda payload, options: sent.append((payload, options)))
+    assert (await E.retry_outbound_emails())["sent"] >= 2
+    mine = [(p, o) for p, o in sent if o["idempotency_key"].startswith(f"booking-confirm/{booking.id}/")]
+    assert len(mine) == 2 and any(p["to"] == ["guest@example.com"] and p["attachments"] for p, _ in mine)
+    async with async_session() as db:
+        assert not (await db.execute(select(OutboundEmail).where(OutboundEmail.key.like(f"booking-confirm/{booking.id}/%")))).scalars().all()
+
+
+async def test_source_and_host_limits_ignore_the_email_given(env, monkeypatch):
+    from app.routers import bookings as B
+    async with async_session() as db:
+        (await db.get(EventType, env.event.id)).price_cents = None
+        await db.commit()
+    monkeypatch.setattr(B, "MAX_BOOKINGS_PER_SOURCE", 2)
+    transport = httpx.ASGITransport(app=app, client=("203.0.113.7", 4000))
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as remote:
+        codes = []
+        for i in range(3):
+            start = (datetime.now(timezone.utc) + timedelta(days=3)).replace(hour=10 + i, minute=0, second=0, microsecond=0)
+            r = await remote.post(f"/api/public/{env.host.username}/call/book",
+                                  json=payload(visitor_email=f"guest{i}@example.com", starts_at=start.isoformat()))
+            codes.append(r.status_code)
+    assert codes == [201, 201, 429]
+    monkeypatch.setattr(B, "MAX_BOOKINGS_PER_HOST", 2)
+    start = (datetime.now(timezone.utc) + timedelta(days=3)).replace(hour=14, minute=0, second=0, microsecond=0)
+    r = await env.client.post(f"/api/public/{env.host.username}/call/book", json=payload(visitor_email="other@example.com", starts_at=start.isoformat()))
+    assert r.status_code == 429 and "lot of bookings" in r.text
 
 
 async def test_public_email_rate_limit(env):

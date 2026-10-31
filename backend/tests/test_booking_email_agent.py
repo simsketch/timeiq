@@ -46,7 +46,7 @@ def env(monkeypatch):
     event = EventType(id=uuid.uuid4(), user_id=owner.id, name="Consultation", slug="consultation", duration_minutes=30,
                       require_phone=False, require_company=False, require_url=False)
     booking = Booking(id=uuid.uuid4(), host_user_id=owner.id, event_type_id=event.id,
-                      visitor_name="Guest", visitor_email="guest@example.com", starts_at=NOW + timedelta(days=2),
+                      visitor_name="Guest", visitor_email="guest@example.com", starts_at=datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=2),
                       ends_at=NOW + timedelta(days=2, minutes=30), timezone=owner.timezone,
                       status="confirmed", cancel_token="secret-token", ical_sequence=0,
                       email_thread_ids=[], reschedule_offers={})
@@ -61,7 +61,7 @@ def env(monkeypatch):
     monkeypatch.setattr(meeting_agent, "claim_message", AsyncMock(return_value=True))
     monkeypatch.setattr(meeting_agent, "owner_addresses", AsyncMock(return_value={owner.email}))
     messages = []
-    monkeypatch.setattr(mail.resend.Emails, "send", lambda payload: messages.append(payload))
+    monkeypatch.setattr(mail.resend.Emails, "send", lambda payload, **kw: messages.append(payload))
     monkeypatch.setattr(routes, "freshen_host_calendars", AsyncMock())
     monkeypatch.setattr(routes, "lock_host_bookings", AsyncMock())
     monkeypatch.setattr(routes, "is_bookable", AsyncMock(return_value=True))

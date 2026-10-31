@@ -13,12 +13,14 @@ from app.auth import get_current_user
 from app.database import get_db
 from app.models.cached_event import CachedEvent
 from app.models.client import Client
+from app.models.invoice import Invoice
 from app.models.time_entry import TimeEntry
 from app.models.timesheet_row import TimesheetRow
 from app.models.user import User
 from app.routers.clients import get_owned_client, unbilled_hours_by_client
 from app.services.invoicing_ops import (
     attach_to_open_draft,
+    lock_billing,
     drop_line_for_entry,
     sync_line_from_entry,
 )
@@ -59,17 +61,30 @@ def to_response(entry: TimeEntry) -> TimeEntryResponse:
 
 
 async def get_owned_entry(
-    db: AsyncSession, user: User, entry_id: uuid.UUID
+    db: AsyncSession, user: User, entry_id: uuid.UUID, *, lock: bool = False
 ) -> TimeEntry:
-    result = await db.execute(
+    """Load one of the user's entries. ``lock=True`` takes the billing lock and
+    row-locks the entry and its invoice, so its billed state can't change
+    between the check and the write (an invoice sent mid-edit)."""
+    query = (
         select(TimeEntry)
         .options(*ENTRY_LOAD)
         .where(TimeEntry.id == entry_id, TimeEntry.user_id == user.id)
     )
-    entry = result.scalar_one_or_none()
+    if lock:
+        await lock_billing(db, user.id)
+        query = query.with_for_update(of=TimeEntry).execution_options(populate_existing=True)
+    entry = (await db.execute(query)).scalar_one_or_none()
     if entry is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Time entry not found"
+        )
+    if lock and entry.invoice_id is not None:
+        await db.execute(
+            select(Invoice)
+            .where(Invoice.id == entry.invoice_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
         )
     return entry
 
@@ -256,6 +271,7 @@ async def create_entry(
     db: AsyncSession = Depends(get_db),
 ):
     await get_owned_client(db, user, data.client_id)
+    await lock_billing(db, user.id)
     entry = TimeEntry(user_id=user.id, **data.model_dump())
     db.add(entry)
     await db.flush()
@@ -278,6 +294,7 @@ async def create_entries_bulk(
 ):
     for client_id in {e.client_id for e in data.entries}:
         await get_owned_client(db, user, client_id)
+    await lock_billing(db, user.id)
     entries = [TimeEntry(user_id=user.id, **e.model_dump()) for e in data.entries]
     db.add_all(entries)
     await db.flush()
@@ -304,7 +321,7 @@ async def update_entry(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    entry = await get_owned_entry(db, user, entry_id)
+    entry = await get_owned_entry(db, user, entry_id, lock=True)
     if not force:
         reject_if_billed(entry)
     changes = data.model_dump(exclude_unset=True)
@@ -359,7 +376,7 @@ async def delete_entry(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    entry = await get_owned_entry(db, user, entry_id)
+    entry = await get_owned_entry(db, user, entry_id, lock=True)
     if not force:
         reject_if_billed(entry)
     if entry.invoice_id is not None:

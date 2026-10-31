@@ -640,6 +640,7 @@ export default function TimePage() {
                       {days.map((d) => (
                         <td key={iso(d)} className="px-1 py-1.5 text-center">
                           <HourCell
+                            label={`Hours for ${row.client_name}${row.description ? `, ${row.description}` : ""} on ${format(d, "EEEE d MMMM")}`}
                             value={cellHours(row, d)}
                             billed={cellBilled(row, d)}
                             unlocked={unlocked.has(`${row.key}|${iso(d)}`)}
@@ -887,6 +888,7 @@ export default function TimePage() {
 }
 
 function HourCell({
+  label,
   value,
   billed,
   unlocked,
@@ -895,6 +897,7 @@ function HourCell({
   onCommit,
   onUnlock,
 }: {
+  label: string;
   value: number;
   billed: TimeEntry | null;
   unlocked: boolean;
@@ -912,6 +915,7 @@ function HourCell({
       <button
         type="button"
         onClick={onUnlock}
+        aria-label={`${label}: ${fmtHm(value)}, billed on ${billed.invoice_number}. Edit anyway`}
         title={`Billed on ${billed.invoice_number} - click to edit anyway`}
         className="h-9 w-full rounded-md border border-dashed bg-muted/50 text-muted-foreground flex items-center justify-center tabular-nums hover:border-foreground/40 hover:text-foreground transition-colors"
       >
@@ -923,6 +927,7 @@ function HourCell({
   return (
     <input
       ref={ref}
+      aria-label={label}
       value={display}
       inputMode="decimal"
       onFocus={(e) => {

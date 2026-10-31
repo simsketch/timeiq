@@ -504,6 +504,12 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
     transient = False
     try:
         detail, attachments = await fetch_email(email_id)
+        if not (detail.get("text") or "").strip() and detail.get("html"):
+            # Resend's text part can be null; read HTML-only mail as text once
+            # here, so the agent and the schedule import both see the body.
+            from app.services.email import html_to_text
+
+            detail["text"] = html_to_text(detail["html"])
         if shared:
             sender = meeting_agent.sender_address(detail)
             async with async_session() as db:
@@ -545,8 +551,15 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
         # Classification stays in the existing meeting agent.
         try:
             routed = await meeting_agent.handle(user_id, detail, now)
-        except Exception:
+        except Exception as exc:
             logger.exception("Meeting agent failed on %s", email_id)
+            if _is_transient(exc):
+                # A Claude timeout or provider 5xx: free the Message-ID so the
+                # redelivery this sets up (retryable, 503) handles it afresh.
+                await meeting_agent.release_message(
+                    user_id, detail.get("message_id") or meeting_agent._header(detail, "message-id")
+                )
+                raise
             routed = "meeting_error"
         if routed is not None:
             async with async_session() as db:

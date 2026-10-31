@@ -1,5 +1,6 @@
 from app.models.user import User
 from app.models.user_email_alias import EmailAddressNotice, UserEmailAlias
+from app.models.outbound_email import OutboundEmail
 from app.models.calendar_source import CalendarSource
 from app.models.cached_event import CachedEvent
 from app.models.event_type import EventType
@@ -19,6 +20,7 @@ __all__ = [
     "User",
     "UserEmailAlias",
     "EmailAddressNotice",
+    "OutboundEmail",
     "CalendarSource",
     "CachedEvent",
     "EventType",
