@@ -27,6 +27,8 @@ import type { Headline } from "@/components/landing/headlines";
 import { FounderPill } from "@/components/billing/founder-pill";
 import { GitHubIcon, GITHUB_URL } from "@/components/github-icon";
 import { LazyDemo } from "@/components/landing/lazy-demo";
+import { McpDemo } from "@/components/landing/mcp-demo";
+import { McpDemoContent } from "@/components/landing/mcp-demo-content";
 
 export function LandingPage({ headline }: { headline: Headline }) {
   return (
@@ -184,6 +186,49 @@ export function LandingPage({ headline }: { headline: Headline }) {
         </section>
 
         {/* ================================================================
+             LIVE DEMO — TimeIQ inside AI assistants
+             ================================================================ */}
+        <section id="assistants" className="relative py-24 lg:py-32 scroll-mt-16">
+          <div className="container mx-auto px-6 lg:px-10">
+            <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+              <div className="lg:col-span-5">
+                <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
+                  Try it · Claude, ChatGPT and Cursor
+                </div>
+                <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
+                  <span className="font-display">Ask your AI.</span>{" "}
+                  <span className="font-display-italic text-aurora">It knows your calendar.</span>
+                </h2>
+                <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
+                  Connect TimeIQ to Claude, ChatGPT or Cursor and ask in plain words. It checks every calendar you
+                  use before it answers, finds a time with other people, logs your hours and drafts invoices. Anything
+                  that emails someone waits for your OK.
+                </p>
+                <ul className="mt-6 space-y-2 text-sm text-foreground/80">
+                  {[
+                    "Paste one link and click Allow, no setup",
+                    "Sees your availability across every calendar",
+                    "Disconnect anytime from Settings",
+                  ].map((t) => (
+                    <li key={t} className="flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--aurora-1))]" />
+                      {t}
+                    </li>
+                  ))}
+                </ul>
+                <Link href="/mcp" className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium underline underline-offset-4 hover:text-[hsl(var(--aurora-1))]">
+                  How to connect your assistant
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                </Link>
+              </div>
+              <div className="lg:col-span-7">
+                <McpDemo fallback={<McpDemoContent />} />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ================================================================
              LIVE DEMO — cc TimeIQ
              ================================================================ */}
         <section id="cc" className="relative py-24 lg:py-32 scroll-mt-16">
@@ -214,10 +259,6 @@ export function LandingPage({ headline }: { headline: Headline }) {
                     </li>
                   ))}
                 </ul>
-                <Link href="/mcp" className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium underline underline-offset-4 hover:text-[hsl(var(--aurora-1))]">
-                  Use TimeIQ inside Claude, ChatGPT and Cursor
-                  <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                </Link>
               </div>
               <div className="lg:col-span-7">
                 <LazyDemo name="cc" />
