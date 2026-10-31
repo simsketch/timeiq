@@ -65,7 +65,7 @@ const TOOL_GROUPS = [
       ["sync_calendars", "Refresh all connected calendars now."],
       ["list_calendar_events", "Read calendar events in a date range; defaults to the next 7 days."],
       ["import_schedule_text", "Turn dates and times in pasted text into events that block bookings. Undo the import from Calendars."],
-      ["get_schedule_email_address", "Get your private schedule-import email address and recent imports."],
+      ["get_schedule_email_address", "Get agent@timeiq.app, your private forwarding address and recent imports."],
     ],
   },
   {

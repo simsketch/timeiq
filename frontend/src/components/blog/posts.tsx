@@ -91,7 +91,7 @@ export const POSTS: Post[] = [
         </p>
         <h2>Option 2: forward the schedule and let it be read for you</h2>
         <p>
-          TimeIQ gives you a private email address. Forward the PDF, the screenshot or the coach&apos;s email to it, and
+          Forward the PDF, the screenshot or the coach&apos;s email from your own email to agent@timeiq.app, and
           TimeIQ reads every event out of it: practices on a repeating schedule become one event per date, games keep
           their locations, and things mentioned only in the email body (like team photos before the first game) are
           picked up too. A minute later you get a reply listing what was added, with a one-click undo.
@@ -111,7 +111,7 @@ export const POSTS: Post[] = [
         <ul>
           <li>Forward the original email, so the year and any notes come along.</li>
           <li>If a schedule changes mid-season, undo the old import and forward the new one.</li>
-          <li>Share the address with your partner so either of you can forward schedules. Both of you get the reply.</li>
+          <li>For auto-forwards or a partner sending on your behalf, use your private address under Calendars → Email a schedule.</li>
         </ul>
       </>
     ),

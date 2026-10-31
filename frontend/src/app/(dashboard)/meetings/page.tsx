@@ -98,10 +98,10 @@ export default function MeetingsPage() {
     (async () => {
       const token = await getToken();
       try {
-        const inbox = await apiFetch<{ address: string; enabled: boolean }>("/api/email-imports", {
+        const inbox = await apiFetch<{ agent_address: string; enabled: boolean }>("/api/email-imports", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (inbox.enabled) setAddress(inbox.address);
+        if (inbox.enabled) setAddress(inbox.agent_address);
       } catch {
         // The cc tip is optional.
       }
@@ -179,7 +179,7 @@ export default function MeetingsPage() {
           <Mail className="h-4 w-4 shrink-0 text-indigo-700" />
           <span className="min-w-0 flex-1">
             <span className="font-medium">Or just cc TimeIQ.</span> Add{" "}
-            <code className="rounded bg-white/80 px-1.5 py-0.5 text-xs break-all">{address}</code> to any email thread
+            <code className="rounded bg-white/80 px-1.5 py-0.5 text-xs break-all">{address}</code> from your account email or a verified linked address to any thread
             about meeting up. It replies to everyone with times, reads their answers, and books when you say so.
           </span>
           <Button size="sm" variant="outline" onClick={copyAddress}>

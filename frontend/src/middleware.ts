@@ -14,6 +14,7 @@ const isPublicRoute = createRouteMatcher([
   "/billing/checkout",
   "/billing/welcome",
   "/imports/undo",
+  "/email-addresses/confirm",
   "/meet/(.*)",
   "/tools(.*)",
   "/blog(.*)",

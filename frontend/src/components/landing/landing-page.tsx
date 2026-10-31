@@ -243,7 +243,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                   <span className="font-display-italic text-aurora">It finds the time.</span>
                 </h2>
                 <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
-                  Add your TimeIQ address to any email about meeting up. It replies to everyone with three times you&apos;re
+                  Cc agent@timeiq.app from your own email on any thread about meeting up. It replies to everyone with three times you&apos;re
                   free, reads their answers in plain English, and books it when you say so. When a recruiter&apos;s or
                   client&apos;s assistant offers times, it picks one you&apos;re free for and holds it.
                 </p>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { format } from "date-fns";
 import { Check, Copy, Mail, RotateCcw, Undo2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,8 +36,16 @@ interface EmailImport {
 
 interface Inbox {
   address: string;
+  agent_address: string;
+  account_email: string;
   enabled: boolean;
   imports: EmailImport[];
+}
+
+interface EmailAlias {
+  id: string;
+  email: string;
+  verified_at: string | null;
 }
 
 const STATUS: Record<EmailImport["status"], string> = {
@@ -60,28 +69,50 @@ export function EmailSchedules({ onChange }: { onChange?: () => void }) {
   const { getToken } = useAuth();
   const { toast } = useToast();
   const [inbox, setInbox] = useState<Inbox | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [aliases, setAliases] = useState<EmailAlias[]>([]);
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
   const [confirmNew, setConfirmNew] = useState(false);
 
   const call = useCallback(
-    async <T,>(path: string, method = "GET"): Promise<T> => {
+    async <T,>(path: string, method = "GET", body?: unknown): Promise<T> => {
       const token = await getToken();
-      return apiFetch<T>(path, { method, headers: { Authorization: `Bearer ${token}` } });
+      return apiFetch<T>(path, { method, body: body ? JSON.stringify(body) : undefined, headers: { Authorization: `Bearer ${token}` } });
     },
     [getToken]
   );
 
   useEffect(() => {
-    call<Inbox>("/api/email-imports")
-      .then(setInbox)
+    Promise.all([call<Inbox>("/api/email-imports"), call<EmailAlias[]>("/api/email-aliases")])
+      .then(([inbox, aliases]) => { setInbox(inbox); setAliases(aliases); })
       .catch(() => setInbox(null));
   }, [call]);
 
-  async function copy() {
-    if (!inbox) return;
-    await navigator.clipboard.writeText(inbox.address);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function copy(address: string) {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(address);
+      setTimeout(() => setCopied(null), 2000);
+    } catch {
+      toast({ title: "Couldn't copy the address", description: "Select the address and copy it manually.", variant: "destructive" });
+    }
+  }
+
+  async function changeAlias(path: string, method: string, body?: unknown) {
+    setBusy(true);
+    try {
+      await call(path, method, body);
+      setAliases(await call<EmailAlias[]>("/api/email-aliases"));
+      if (method === "POST") {
+        setEmail("");
+        toast({ title: "Check your email", description: "Open the confirmation link to verify this address." });
+      }
+    } catch (e) {
+      toast({ title: "Couldn't update the address", description: errorMessage(e), variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function newAddress() {
@@ -115,31 +146,65 @@ export function EmailSchedules({ onChange }: { onChange?: () => void }) {
           Email a schedule
         </CardTitle>
         <CardDescription>
-          Forward a soccer, band or school schedule to your private address. A PDF, screenshot, .ics file or pasted text
+          Forward a soccer, band or school schedule from your own email to TimeIQ. A PDF, screenshot, .ics file or pasted text
           all work. TimeIQ adds the events to a &ldquo;From email&rdquo; calendar so nobody books over them, and replies
-          with what it added. Cc the same address on any email thread about meeting up, and TimeIQ finds a time with
+          with what it added. Cc the agent on any email thread about meeting up, and TimeIQ finds a time with
           everyone on it.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <code className="rounded-md border bg-muted/40 px-3 py-2 text-sm break-all">{inbox.address}</code>
-          <Button size="sm" variant="outline" onClick={copy}>
-            {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
-            {copied ? "Copied" : "Copy"}
-          </Button>
-          {confirmNew ? (
-            <span className="flex items-center gap-2 text-sm">
-              The old address will stop working.
-              <Button size="sm" variant="destructive" onClick={newAddress}>Replace it</Button>
-              <Button size="sm" variant="ghost" onClick={() => setConfirmNew(false)}>Cancel</Button>
-            </span>
-          ) : (
-            <Button size="sm" variant="ghost" onClick={() => setConfirmNew(true)}>
-              <RotateCcw className="mr-2 h-4 w-4" />
-              New address
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Cc or forward from your own email</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="rounded-md border bg-muted/40 px-3 py-2 text-sm break-all">{inbox.agent_address}</code>
+            <Button size="sm" variant="outline" onClick={() => copy(inbox.agent_address)}>
+              {copied === inbox.agent_address ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+              {copied === inbox.agent_address ? "Copied" : "Copy"}
             </Button>
-          )}
+          </div>
+          <p className="text-sm text-muted-foreground">Send from your account email or a verified linked address below.</p>
+        </div>
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Linked addresses</p>
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="break-all">{inbox.account_email}</span><Badge variant="secondary">Account email</Badge>
+          </div>
+          {aliases.map((alias) => (
+            <div key={alias.id} className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="min-w-0 flex-1 break-all">{alias.email}</span>
+              <Badge variant={alias.verified_at ? "secondary" : "outline"}>{alias.verified_at ? "Verified" : "Pending confirmation"}</Badge>
+              {!alias.verified_at && <Button size="sm" variant="ghost" disabled={busy} onClick={() => changeAlias(`/api/email-aliases/${alias.id}/resend`, "POST")}>Resend</Button>}
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => changeAlias(`/api/email-aliases/${alias.id}`, "DELETE")}>Remove</Button>
+            </div>
+          ))}
+          <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); changeAlias("/api/email-aliases", "POST", { email }); }}>
+            <Input type="email" aria-label="Email address to link" placeholder="you@work.com" required value={email} onChange={(e) => setEmail(e.target.value)} className="min-w-48 flex-1" disabled={busy || aliases.length >= 10} />
+            <Button type="submit" size="sm" variant="outline" disabled={busy || !email.trim() || aliases.length >= 10}>Add address</Button>
+          </form>
+          <p className="text-xs text-muted-foreground">You can link up to 10 addresses. Each needs confirmation before the agent can use it.</p>
+        </div>
+        <div className="space-y-2 border-t pt-4">
+          <p className="text-sm font-medium">For auto-forwards and other people</p>
+          <p className="text-sm text-muted-foreground">Keep this private address for automatic forwarding or someone sending schedules on your behalf.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="rounded-md border bg-muted/40 px-3 py-2 text-sm break-all">{inbox.address}</code>
+            <Button size="sm" variant="outline" onClick={() => copy(inbox.address)}>
+              {copied === inbox.address ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+              {copied === inbox.address ? "Copied" : "Copy"}
+            </Button>
+            {confirmNew ? (
+              <span className="flex items-center gap-2 text-sm">
+                The old address will stop working.
+                <Button size="sm" variant="destructive" onClick={newAddress}>Replace it</Button>
+                <Button size="sm" variant="ghost" onClick={() => setConfirmNew(false)}>Cancel</Button>
+              </span>
+            ) : (
+              <Button size="sm" variant="ghost" onClick={() => setConfirmNew(true)}>
+                <RotateCcw className="mr-2 h-4 w-4" />
+                New address
+              </Button>
+            )}
+          </div>
         </div>
         {!inbox.enabled && (
           <p className="text-sm text-amber-700">Email imports aren&apos;t switched on for this server yet.</p>

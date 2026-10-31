@@ -239,7 +239,7 @@ export function CcTimeiqDemo() {
               <span>To: Elon</span>
               {cc ? (
                 <span className="demo-pop inline-flex items-center gap-1 rounded-full bg-[hsl(var(--aurora-1))]/10 px-2 py-0.5 font-medium text-[hsl(var(--aurora-1))]">
-                  Cc: TimeIQ
+                  Cc: agent@timeiq.app
                   <button type="button" aria-label="Remove TimeIQ" onClick={() => setCc(false)}>
                     <X className="h-3 w-3" />
                   </button>

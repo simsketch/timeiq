@@ -182,7 +182,7 @@ export function EmailScheduleDemo() {
           } ${phase === "reading" ? "invisible" : ""}`}
         >
           <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-muted-foreground">
-            <span className="truncate">To: schedule-you@timeiq.app</span>
+            <span className="truncate">To: agent@timeiq.app</span>
             <span className="shrink-0">From: {sample.from}</span>
           </div>
           <div className="mt-1 font-medium truncate">{sample.subject}</div>
