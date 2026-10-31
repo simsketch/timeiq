@@ -26,10 +26,7 @@ import { HeaderAuthLinks } from "@/components/landing/header-auth-links";
 import type { Headline } from "@/components/landing/headlines";
 import { FounderPill } from "@/components/billing/founder-pill";
 import { GitHubIcon, GITHUB_URL } from "@/components/github-icon";
-import { EmailScheduleDemo } from "@/components/landing/email-schedule-demo";
-import { CalendarMergeDemo } from "@/components/landing/calendar-merge-demo";
-import { AvailabilityShareDemo } from "@/components/landing/availability-share-demo";
-import { CcTimeiqDemo } from "@/components/landing/cc-timeiq-demo";
+import { LazyDemo } from "@/components/landing/lazy-demo";
 
 export function LandingPage({ headline }: { headline: Headline }) {
   return (
@@ -179,7 +176,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
               <div id="try" className="lg:col-span-5 relative reveal reveal-3 mt-4 lg:mt-0 mx-auto w-full max-w-md lg:max-w-none scroll-mt-24">
                 <div className="hero-halo" aria-hidden />
                 <div className="relative">
-                  <EmailScheduleDemo />
+                  <LazyDemo name="email" />
                 </div>
               </div>
             </div>
@@ -223,7 +220,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                 </Link>
               </div>
               <div className="lg:col-span-7">
-                <CcTimeiqDemo />
+                <LazyDemo name="cc" />
               </div>
             </div>
           </div>
@@ -248,7 +245,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                 watch the clashes disappear.
               </p>
             </div>
-            <CalendarMergeDemo />
+            <LazyDemo name="merge" />
           </div>
         </section>
 
@@ -285,7 +282,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                 </ul>
               </div>
               <div className="lg:col-span-7">
-                <AvailabilityShareDemo />
+                <LazyDemo name="share" />
               </div>
             </div>
           </div>
