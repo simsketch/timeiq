@@ -300,7 +300,11 @@ export default function SettingsPage() {
                 {billing.current_period_end && (
                   <p>
                     <span className="text-muted-foreground">
-                      {billing.status === "canceled" ? "Access until:" : "Renews:"}
+                      {billing.status === "canceled"
+                        ? "Access until:"
+                        : billing.status === "trialing"
+                        ? "Trial ends (first charge):"
+                        : "Renews:"}
                     </span>{" "}
                     <span className="font-medium">
                       {new Date(billing.current_period_end).toLocaleDateString(undefined, {

@@ -190,6 +190,43 @@ async def test_founder_seat_is_held_during_checkout(env, monkeypatch):
     assert expired == ["cs_1"]  # the reopened checkout replaced the first one
 
 
+async def test_first_checkout_gets_the_trial_and_a_returning_one_does_not(env, monkeypatch):
+    monkeypatch.setattr(settings, "STRIPE_PRICE_FOUNDER", "")
+    monkeypatch.setattr(stripe.Customer, "create", lambda **kw: {"id": f"cus_{kw['metadata']['timeiq_user_id']}"})
+    monkeypatch.setattr(stripe.checkout.Session, "list", lambda **kw: {"data": []})
+    history: dict = {"data": []}
+    monkeypatch.setattr(stripe.Subscription, "list", lambda **kw: history)
+    calls = []
+    monkeypatch.setattr(stripe.checkout.Session, "create", lambda **kw: calls.append(kw) or {"id": "cs", "url": "https://x"})
+    env.as_user(env.users[1])
+    assert (await env.client.post("/api/billing/checkout")).status_code == 200
+    assert calls[-1]["subscription_data"]["trial_period_days"] == billing.TRIAL_DAYS
+    assert calls[-1]["payment_method_collection"] == "always"
+    history["data"] = [{"id": "sub_old", "status": "canceled", "created": 1}]  # subscribed before
+    assert (await env.client.post("/api/billing/checkout")).status_code == 200
+    assert "trial_period_days" not in calls[-1]["subscription_data"]
+
+
+async def test_trial_ending_reminder_is_sent_once_per_trial(env, monkeypatch):
+    from datetime import datetime, timezone
+    async with async_session() as db:
+        u = await db.get(User, env.users[1].id)
+        u.stripe_subscription_id, u.subscription_status = "sub_trial", "trialing"
+        await db.commit()
+    sent = []
+    monkeypatch.setattr(resend.Emails, "send", lambda payload, **kw: sent.append((payload, kw)))
+    end = int(datetime(2026, 11, 7, 15, tzinfo=timezone.utc).timestamp())
+    sub = {"id": "sub_trial", "status": "trialing", "trial_end": end, "customer": "cus_x",
+           "items": {"data": [{"price": {"unit_amount": 1900, "currency": "usd", "recurring": {"interval": "year"}}}]}}
+    await billing._remind_trial_ending(sub, "cus_x")
+    payload, kw = sent[0]
+    assert payload["to"] == [env.users[1].email] and payload["subject"] == "Your TimeIQ trial ends November 7"
+    assert "$19.00 for a year" in payload["html"]
+    assert kw["options"]["idempotency_key"] == f"trial-ending/sub_trial/{end}"
+    await billing._remind_trial_ending({**sub, "cancel_at_period_end": True}, "cus_x")
+    assert len(sent) == 1  # cancelled before the charge: no reminder
+
+
 async def test_checkout_picks_up_a_subscription_paid_in_another_tab(env, monkeypatch):
     user = env.users[1]
     monkeypatch.setattr(stripe.Customer, "create", lambda **kw: {"id": "cus_tab"})

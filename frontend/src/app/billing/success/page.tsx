@@ -33,7 +33,11 @@ function SuccessInner() {
           body: JSON.stringify({ session_id: sessionId }),
         });
         setStatus(s);
-        if (!fromGuest) track("Purchase", { value: s.plan === "founder" ? 19 : 29, currency: "USD" });
+        if (!fromGuest) {
+          const value = s.plan === "founder" ? 19 : 29;
+          // A trial charges nothing today; it's a trial start until it converts.
+          track(s.status === "trialing" ? "StartTrial" : "Purchase", { value, currency: "USD", predicted_ltv: value });
+        }
       } catch (e: any) {
         setError(e.message || "Could not confirm your subscription");
       }
@@ -59,8 +63,9 @@ function SuccessInner() {
             </div>
             <h1 className="font-display text-3xl tracking-[-0.02em]">You&apos;re in.</h1>
             <p className="text-muted-foreground text-pretty">
-              {status.plan ? `${PLAN_LABEL[status.plan]} plan active.` : "Subscription active."}{" "}
-              Thanks for backing TimeIQ this early.
+              {status.status === "trialing" && status.current_period_end
+                ? `Your free trial runs until ${new Date(status.current_period_end).toLocaleDateString(undefined, { month: "long", day: "numeric" })}. We'll email you 3 days before the first charge.`
+                : `${status.plan ? `${PLAN_LABEL[status.plan]} plan active.` : "Subscription active."} Thanks for backing TimeIQ this early.`}
             </p>
             <Button asChild variant="aurora" size="lg">
               <Link href="/dashboard">

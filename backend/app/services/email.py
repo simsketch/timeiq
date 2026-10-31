@@ -834,6 +834,55 @@ def send_welcome(user: User) -> None:
     )
 
 
+def render_trial_ending(trial_end: datetime, price: str, interval: str, has_account: bool) -> str:
+    when = trial_end.strftime("%B %-d")
+    manage = (
+        t.button("Manage your subscription", f"{_site()}/settings")
+        if has_account
+        else t.button("Finish setting up TimeIQ", f"{_site()}/sign-up")
+    )
+    body = (
+        t.h1(f"Your free trial ends {when}")
+        + t.p(
+            f"On {when} your card will be charged {price} for a {interval} of TimeIQ. "
+            "There's nothing to do if you'd like to keep it."
+        )
+        + t.p(
+            "Not for you? Cancel before then in Settings, under Billing, and you won't be charged."
+            if has_account
+            else "Not for you? Reply to this email before then and we'll cancel it, and you won't be charged.",
+            muted=True,
+        )
+        + t.buttons(manage)
+    )
+    return t.layout("reminder", f"Your TimeIQ trial ends {when}: {price} per {interval} after that.", body)
+
+
+async def send_trial_ending(
+    email: str, *, trial_end: datetime, amount_cents: int | None, currency: str, interval: str, key: str, has_account: bool
+) -> None:
+    """Three days' notice before a trial's first charge. Durable: a missed
+    reminder before an annual charge means a surprised customer."""
+    if amount_cents is None:
+        price = "the subscription price"
+    elif currency.lower() == "usd":
+        price = f"${amount_cents / 100:,.2f}"
+    else:
+        price = f"{currency.upper()} {amount_cents / 100:,.2f}"
+    _init_resend()
+    await _send_durable(
+        {
+            "from": f"{MAKER_NAME} at TimeIQ <bookings@timeiq.app>",
+            "to": [email],
+            "reply_to": MAKER_EMAIL,
+            "subject": f"Your TimeIQ trial ends {trial_end.strftime('%B %-d')}",
+            "html": render_trial_ending(trial_end, price, interval, has_account),
+        },
+        "trial ending reminder",
+        key,
+    )
+
+
 def render_monthly_drafts_digest(user: User, invoices: list, start: date, end: date) -> str:
     from app.services.invoice_pdf import fmt_money
 

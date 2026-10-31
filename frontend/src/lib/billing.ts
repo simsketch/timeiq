@@ -7,6 +7,7 @@ export interface PricingInfo {
   currency: string;
   founder_seats: number;
   founder_seats_left: number;
+  trial_days: number;
 }
 
 export interface BillingStatus {
@@ -49,6 +50,7 @@ export interface GuestSession {
   amount_cents: number | null;
   currency: string;
   claimed: boolean;
+  trialing: boolean;
 }
 
 export function fetchGuestSession(sessionId: string): Promise<GuestSession> {

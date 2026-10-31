@@ -94,7 +94,8 @@ function PricingCardView({
     }
   }
 
-  let buttonLabel = founderOpen ? "Claim founder price" : "Subscribe";
+  const trialDays = pricing?.trial_days ?? 0;
+  let buttonLabel = trialDays ? `Start your ${trialDays}-day free trial` : founderOpen ? "Claim founder price" : "Subscribe";
   if (price === null) buttonLabel = pricingError ? "Checkout unavailable" : "Loading price…";
   if (busy) buttonLabel = "Opening checkout…";
 
@@ -119,6 +120,11 @@ function PricingCardView({
             <span className="text-muted-foreground">/ year + tax</span>
           </div>
           <p className="text-sm text-muted-foreground mb-7 text-pretty">
+            {trialDays > 0 && (
+              <span className="block font-medium text-foreground mb-1">
+                Free for {trialDays} days, then {fmtCents(price, currency)} a year.
+              </span>
+            )}
             {founderOpen
               ? `The first ${pricing.founder_seats} subscribers pay ${fmtCents(price, currency)} a year, forever. After that it's ${fmtCents(pricing.standard_price_cents, currency)}.`
               : "Everything in TimeIQ for less than a coffee a month. Cancel anytime."}
@@ -165,7 +171,9 @@ function PricingCardView({
         <ArrowRight className="h-4 w-4" />
       </Button>
       <p className="mt-3 text-center text-[11px] text-muted-foreground">
-        Secure checkout by Stripe · Cancel anytime
+        {trialDays
+          ? `Card required · Cancel within ${trialDays} days and pay nothing`
+          : "Secure checkout by Stripe · Cancel anytime"}
       </p>
     </div>
   );

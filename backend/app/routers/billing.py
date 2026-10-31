@@ -26,6 +26,7 @@ class PricingInfo(BaseModel):
     currency: str
     founder_seats: int
     founder_seats_left: int
+    trial_days: int = 0
 
 
 class BillingStatus(BaseModel):
@@ -109,6 +110,7 @@ class GuestSessionInfo(BaseModel):
     amount_cents: Optional[int]
     currency: str
     claimed: bool
+    trialing: bool = False
 
 
 @router.post("/api/billing/guest-checkout", response_model=UrlResponse)

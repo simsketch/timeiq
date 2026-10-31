@@ -55,7 +55,7 @@ export function TimeIQCta({ heading, body }: { heading?: string; body?: string }
         </p>
         <Link href="/billing/checkout" className="mt-7 inline-block">
           <Button variant="aurora" size="lg">
-            Try TimeIQ for $19/year + tax
+            Try TimeIQ free for 7 days
             <ArrowRight className="h-4 w-4" />
           </Button>
         </Link>

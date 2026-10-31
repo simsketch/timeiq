@@ -61,7 +61,7 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ token:
             <Link href="/?utm_source=invoice&utm_medium=powered_by" className="font-medium text-foreground/80 hover:text-foreground">
               TimeIQ
             </Link>
-            . Book meetings, log hours, send invoices, $19/year.
+            . Book meetings, log hours, send invoices. Free for 7 days.
           </span>
         </div>
       </div>

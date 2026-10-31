@@ -19,10 +19,9 @@ function trackPurchaseOnce(sessionId: string, s: GuestSession) {
   } catch {
     // Storage blocked: report anyway.
   }
-  track("Purchase", {
-    value: s.amount_cents !== null ? s.amount_cents / 100 : s.plan === "founder" ? 19 : 29,
-    currency: s.currency,
-  });
+  // A trial's checkout total is 0; report the price it converts at.
+  const value = s.amount_cents ? s.amount_cents / 100 : s.plan === "founder" ? 19 : 29;
+  track(s.trialing ? "StartTrial" : "Purchase", { value, currency: s.currency, predicted_ltv: value });
 }
 
 /** After paying without an account: confirm the purchase, then create the account. */
@@ -87,7 +86,7 @@ function WelcomeInner() {
               </div>
               <h1 className="font-display text-3xl tracking-[-0.02em]">You&apos;re in.</h1>
               <p className="text-muted-foreground text-pretty">
-                {PLAN_LABEL[session.plan]} spot secured. One last step: create your account
+                {PLAN_LABEL[session.plan]} spot secured{session.trialing ? ", and your 7-day free trial has started" : ""}. One last step: create your account
                 {session.email ? <> with <span className="text-foreground">{session.email}</span></> : null} to open your workspace.
               </p>
             </div>

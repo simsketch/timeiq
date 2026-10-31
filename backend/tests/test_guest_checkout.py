@@ -69,6 +69,8 @@ async def test_guest_pays_then_claims_with_session(env, monkeypatch):
     assert "customer" not in created and created["client_reference_id"].startswith("guest:")
     assert created["success_url"].endswith("/billing/welcome?session_id={CHECKOUT_SESSION_ID}")
     assert created["line_items"][0]["price"] == "price_founder" and "expires_at" in created
+    assert created["subscription_data"]["trial_period_days"] == billing.TRIAL_DAYS
+    assert created["payment_method_collection"] == "always"
 
     info = (await env.client.get(f"/api/billing/guest-session/{sid}")).json()
     assert info["paid"] is False
@@ -76,7 +78,7 @@ async def test_guest_pays_then_claims_with_session(env, monkeypatch):
     sub_id = fake.pay(sid, "New.Buyer@Example.com")
     info = (await env.client.get(f"/api/billing/guest-session/{sid}")).json()
     assert info == {"paid": True, "email": "New.Buyer@Example.com", "plan": "founder",
-                    "amount_cents": 1900, "currency": "USD", "claimed": False}
+                    "amount_cents": 1900, "currency": "USD", "claimed": False, "trialing": False}
 
     buyer = env.users[1]  # signed up with a different email: the session id still claims it
     env.as_user(buyer)

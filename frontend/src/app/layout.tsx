@@ -7,7 +7,7 @@ import "./globals.css";
 
 const SITE = "https://timeiq.app";
 const DESCRIPTION =
-  "Forward TimeIQ a soccer PDF, band email or team-app screenshot and every event lands on your calendar. One booking link for all your calendars, and your open times in any time zone. $19/year founder price for the first 100 subscribers.";
+  "Forward TimeIQ a soccer PDF, band email or team-app screenshot and every event lands on your calendar. One booking link for all your calendars, and your open times in any time zone. Free for 7 days, then $19/year founder price for the first 100 subscribers.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),

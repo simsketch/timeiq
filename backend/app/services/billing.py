@@ -40,6 +40,10 @@ _FOUNDER_LOCK_KEY = 0x71730001
 # session could be paid after the last seat went, overselling the cap).
 MAX_GUEST_HOLDS = 10
 GUEST_REF_PREFIX = "guest:"
+# New subscriptions start with a free trial; the card is taken at checkout and
+# charged when it ends. Stripe sends customer.subscription.trial_will_end three
+# days before, and we email a reminder then.
+TRIAL_DAYS = 7
 
 
 def _d(obj: Any) -> Any:
@@ -172,6 +176,7 @@ async def pricing_info(db: AsyncSession) -> dict[str, Any]:
             "standard_price_cents": 2900,
             "currency": "USD",
             "founder_seats": settings.FOUNDER_SEATS,
+        "trial_days": TRIAL_DAYS,
             "founder_seats_left": settings.FOUNDER_SEATS,
         }
     taken = await founder_seats_taken(db)  # includes open checkout holds
@@ -183,6 +188,7 @@ async def pricing_info(db: AsyncSession) -> dict[str, Any]:
         "standard_price_cents": standard["cents"],
         "currency": standard["currency"],
         "founder_seats": settings.FOUNDER_SEATS,
+        "trial_days": TRIAL_DAYS,
         "founder_seats_left": max(settings.FOUNDER_SEATS - taken, 0) if founder else 0,
     }
 
@@ -215,15 +221,17 @@ class AlreadySubscribed(Exception):
     """The customer paid for a subscription that the account hasn't seen yet."""
 
 
-def _settle_open_checkouts(user: User, customer_id: str) -> None:
+def _settle_open_checkouts(user: User, customer_id: str) -> bool:
     """Leave at most one payable subscription checkout per customer.
 
     Expire every open one before creating its replacement, and pick up a
     subscription that's already live (a checkout paid in another tab whose
-    webhook hasn't landed) instead of selling a second one.
+    webhook hasn't landed) instead of selling a second one. Returns whether
+    the customer has ever had a subscription (so has used their trial).
     """
     listed = _d(stripe.Subscription.list(customer=customer_id, status="all", limit=100))
-    live = [_d(s) for s in listed.get("data", []) if _d(s).get("status") in ENTITLED_STATUSES]
+    known = [_d(s) for s in listed.get("data", [])]
+    live = [s for s in known if s.get("status") in ENTITLED_STATUSES]
     if live:
         apply_subscription(user, max(live, key=_created))
         raise AlreadySubscribed
@@ -241,6 +249,7 @@ def _settle_open_checkouts(user: User, customer_id: str) -> None:
                 raise AlreadySubscribed
             if current.get("status") != "expired":
                 raise
+    return bool(known)
 
 
 async def create_checkout_session(user: User, db: AsyncSession) -> str:
@@ -251,7 +260,7 @@ async def create_checkout_session(user: User, db: AsyncSession) -> str:
     price_id, plan = await choose_price(db, user)
     customer_id = _ensure_customer(user)
     await db.flush()
-    _settle_open_checkouts(user, customer_id)
+    had_subscription = _settle_open_checkouts(user, customer_id)
     extra: dict[str, Any] = {}
     if plan == PLAN_FOUNDER:
         # The seat is only held for FOUNDER_RESERVATION_TTL, so the session
@@ -265,10 +274,22 @@ async def create_checkout_session(user: User, db: AsyncSession) -> str:
         allow_promotion_codes=True,
         success_url=f"{settings.FRONTEND_URL}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{settings.FRONTEND_URL}/pricing",
-        subscription_data={"metadata": {"timeiq_user_id": str(user.id), "plan": plan}},
+        subscription_data=_subscription_data(
+            {"timeiq_user_id": str(user.id), "plan": plan},
+            trial=not (had_subscription or user.stripe_subscription_id),
+        ),
+        payment_method_collection="always",
         **extra,
     )
     return session["url"]
+
+
+def _subscription_data(metadata: dict[str, str], *, trial: bool) -> dict[str, Any]:
+    """One free trial per account; someone who subscribed before pays from day one."""
+    data: dict[str, Any] = {"metadata": metadata}
+    if trial:
+        data["trial_period_days"] = TRIAL_DAYS
+    return data
 
 
 async def create_guest_checkout_session(db: AsyncSession) -> str:
@@ -301,7 +322,10 @@ async def create_guest_checkout_session(db: AsyncSession) -> str:
         allow_promotion_codes=True,
         success_url=f"{settings.FRONTEND_URL}/billing/welcome?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{settings.FRONTEND_URL}/pricing",
-        subscription_data={"metadata": {"timeiq_guest_checkout_id": str(guest.id), "plan": guest.plan}},
+        subscription_data=_subscription_data(
+            {"timeiq_guest_checkout_id": str(guest.id), "plan": guest.plan}, trial=True
+        ),
+        payment_method_collection="always",
         **extra,
     )
     guest.stripe_session_id = session["id"]
@@ -385,6 +409,7 @@ async def guest_session_info(db: AsyncSession, session_id: str) -> dict[str, Any
         "amount_cents": session.get("amount_total"),
         "currency": (session.get("currency") or "usd").upper(),
         "claimed": guest.claimed_by_user_id is not None,
+        "trialing": guest.subscription_status == "trialing",
     }
 
 
@@ -596,6 +621,9 @@ async def handle_webhook(payload: bytes, sig_header: str | None) -> None:
         return
 
     sub = _d(stripe.Subscription.retrieve(subscription_id))
+    if etype == "customer.subscription.trial_will_end":
+        await _remind_trial_ending(sub, customer_id)
+        return
     guest_id = _guest_id_from_ref(user_id)
     async with async_session() as db:
         if guest_id is not None:
@@ -641,6 +669,39 @@ async def handle_webhook(payload: bytes, sig_header: str | None) -> None:
             "Applied %s to %s: status=%s plan=%s",
             etype, user.email, user.subscription_status, user.subscription_plan,
         )
+
+
+async def _remind_trial_ending(sub: dict, customer_id: str | None) -> None:
+    """Email the subscriber before the trial's first charge. Stripe sends the
+    event three days ahead; a redelivery reuses the idempotency key."""
+    from app.services.email import send_trial_ending
+
+    if sub.get("status") != "trialing" or not sub.get("trial_end") or sub.get("cancel_at_period_end"):
+        return  # cancelled already, or the trial was ended early
+    items = sub.get("items", {}).get("data", [])
+    price = items[0]["price"] if items else {}
+    async with async_session() as db:
+        user = (await db.execute(select(User).where(User.stripe_subscription_id == sub["id"]))).scalar_one_or_none()
+        if user is None and customer_id:
+            user = (await db.execute(select(User).where(User.stripe_customer_id == customer_id))).scalar_one_or_none()
+        email = user.email if user else None
+        if email is None:
+            guest = (await db.execute(
+                select(GuestCheckout).where(GuestCheckout.stripe_subscription_id == sub["id"])
+            )).scalar_one_or_none()
+            email = guest.email if guest else None
+    if not email:
+        logger.warning("Trial ending for %s but no email to remind", sub["id"])
+        return
+    await send_trial_ending(
+        email,
+        trial_end=datetime.fromtimestamp(sub["trial_end"], tz=timezone.utc),
+        amount_cents=price.get("unit_amount"),
+        currency=price.get("currency") or "usd",
+        interval=(price.get("recurring") or {}).get("interval") or "year",
+        key=f"trial-ending/{sub['id']}/{sub['trial_end']}",
+        has_account=user is not None,
+    )
 
 
 async def _guest_checkout_completed(db: AsyncSession, guest_id: uuid.UUID, sub: dict, session: dict) -> None:

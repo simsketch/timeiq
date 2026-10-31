@@ -112,7 +112,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                 <div className="reveal reveal-4 flex flex-col sm:flex-row gap-3">
                   <Link href="/billing/checkout">
                     <Button variant="aurora" size="xl">
-                      Get started for $19/year + tax
+                      Start your 7-day free trial
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
@@ -126,7 +126,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                 <div className="reveal reveal-5 flex items-center gap-5 pt-2 text-xs text-muted-foreground/80">
                   <span className="inline-flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
-                    $19/year + tax founder price
+                    7 days free, then $19/year + tax
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
