@@ -29,6 +29,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { StatusBadge } from "@/components/invoices/status-badge";
 import { apiFetch } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import {
   Client,
   Invoice,
@@ -42,6 +43,16 @@ import {
 
 const iso = (d: Date) => format(d, "yyyy-MM-dd");
 
+const monthRange = (monthsAgo: number) => {
+  const month = subMonths(new Date(), monthsAgo);
+  return { period_start: iso(startOfMonth(month)), period_end: iso(endOfMonth(month)) };
+};
+
+const PERIOD_PRESETS = [
+  { label: "This month", monthsAgo: 0 },
+  { label: "Last month", monthsAgo: 1 },
+];
+
 export default function InvoicesPage() {
   const { getToken } = useAuth();
   const { toast } = useToast();
@@ -50,14 +61,7 @@ export default function InvoicesPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(() => {
-    const lastMonth = subMonths(new Date(), 1);
-    return {
-      client_id: "",
-      period_start: iso(startOfMonth(lastMonth)),
-      period_end: iso(endOfMonth(lastMonth)),
-    };
-  });
+  const [form, setForm] = useState(() => ({ client_id: "", ...monthRange(1) }));
   const [fetchedPreview, setPreview] = useState<{ key: string; data: InvoicePreview | null } | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -176,6 +180,27 @@ export default function InvoicesPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="inline-flex rounded-lg border p-0.5" role="group" aria-label="Period">
+                  {PERIOD_PRESETS.map(({ label, monthsAgo }) => {
+                    const range = monthRange(monthsAgo);
+                    const active =
+                      form.period_start === range.period_start && form.period_end === range.period_end;
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => setForm({ ...form, ...range })}
+                        aria-pressed={active}
+                        className={cn(
+                          "rounded-md px-3 py-1.5 text-sm transition-colors",
+                          active ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
