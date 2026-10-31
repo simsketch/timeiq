@@ -36,7 +36,7 @@ class User(Base):
         Boolean, nullable=False, default=False
     )
     next_invoice_number: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=1, server_default="1"
+        Integer, nullable=False, default=101, server_default="101"
     )
     weekly_hours_target: Mapped[int] = mapped_column(
         Integer, nullable=False, default=40, server_default="40"

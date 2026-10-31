@@ -104,7 +104,7 @@ async def test_parallel_invoice_creation_gets_distinct_numbers(env):
         for c in clients
     ])
     assert [r.status_code for r in rs] == [201, 201, 201], [r.text for r in rs]
-    assert sorted(r.json()["number"] for r in rs) == ["INV-0001", "INV-0002", "INV-0003"]
+    assert sorted(r.json()["number"] for r in rs) == ["INV-0101", "INV-0102", "INV-0103"]
 
 
 async def test_parallel_invoices_never_bill_the_same_hours(env):
