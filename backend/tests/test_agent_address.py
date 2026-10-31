@@ -293,3 +293,15 @@ async def test_alias_limits_duplicates_and_validation(agent):
     responses = await asyncio.gather(*(agent.client.post("/api/email-aliases", json={"email": f"limit-{key}-{i}@example.com"}) for i in range(12)))
     assert sum(r.status_code == 201 for r in responses) == 9
     assert len((await agent.client.get("/api/email-aliases")).json()) == 10
+
+
+async def test_thread_match_never_imports_a_strangers_schedule(agent, monkeypatch):
+    meeting, _ = await _meeting(agent)
+    # The meeting agent declines it (as a forwarded schedule would be declined);
+    # a non-owner on the thread must not get events onto the organizer's calendar.
+    monkeypatch.setattr(meeting_agent, "handle", AsyncMock(return_value=None))
+    outgoing = agent.mail[-1]
+    record, _ = await agent.deliver("guest@example.com",
+                                    headers={"in-reply-to": outgoing["headers"]["Message-ID"]})
+    assert record.user_id == agent.owner.id and record.status == "ignored"
+    assert agent.extract.await_count == 0

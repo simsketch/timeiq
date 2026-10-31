@@ -555,6 +555,17 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
                 await db.commit()
                 await db.refresh(record)
             return record
+        if shared:
+            # A thread match routes replies from anyone; importing a schedule
+            # needs the verified owner (account email or linked address).
+            async with async_session() as db:
+                allowed = meeting_agent.sender_verified(detail) and sender in await email_aliases.owner_addresses(db, user)
+                if not allowed:
+                    record = (await db.execute(select(EmailImport).where(EmailImport.resend_email_id == email_id))).scalar_one()
+                    record.status = "ignored"
+                    await db.commit()
+                    await db.refresh(record)
+                    return record
     except ImportRejected as exc:
         detail = None
         status, error = "rejected", str(exc)
