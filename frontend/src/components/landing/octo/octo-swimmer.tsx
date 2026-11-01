@@ -1,29 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
-// Tiq, a claymation octopus who drifts around the homepage as if underwater,
-// swims over to point at sections, and says something when pressed.
-// Motion runs on transforms in one rAF loop (no React renders per frame);
-// rAF stops in hidden tabs, and reduced motion parks him in the corner.
+// Tiq, a claymation octopus who swims back and forth in the footer's lane.
+// Drag him anywhere; drop him outside the lane and he floats there until his
+// × sends him home. In the lane he lives inside #tiq-lane (absolute, so he
+// scrolls with the page); out of it he's fixed to the viewport. Motion runs
+// on transforms in one rAF loop that sleeps while the lane is offscreen.
 
 type Pose = "juggle" | "swim" | "point" | "wave" | "cheer";
-type Mode = "wander" | "rest" | "point" | "cheer";
+type Where = "lane" | "out";
 
 const POSES: Pose[] = ["juggle", "swim", "point", "wave", "cheer"];
 const src = (p: Pose) => `/octo/${p}.webp`;
-const HIDDEN_KEY = "tiq.hidden.v1";
-
-// Sections he swims over to, with what he says there.
-const SPOTS: { sel: string; say: string }[] = [
-  { sel: "#try", say: "Forward any schedule here and I'll put it on your calendar." },
-  { sel: "#assistants h2", say: "Your AI assistant can book through me too." },
-  { sel: "#cc h2", say: "Cc TimeIQ on a thread and I'll find a time." },
-  { sel: "#calendars h2", say: "All your calendars, one link. I juggle them so you don't." },
-  { sel: "#share h2", say: "Send your free times as a picture or a list." },
-  { sel: "#invoicing h2", say: "Hours in, invoice out. I even count the coins." },
-  { sel: "#pricing h2", say: "Free for 7 days, then $19 a year." },
-];
+const EDGE = 8; // keep him and his speech bubble this far inside the edges
 
 const LINES = [
   "Eight arms and I still use one calendar.",
@@ -38,237 +29,207 @@ const LINES = [
   "I sync your calendars before every booking. Old events, begone.",
   "Group meetings: everyone picks times, I find the overlap.",
   "Fun fact: I'm boneless, and so is a good schedule.",
+  "Drag me anywhere. I'm a great swimmer.",
 ];
 
-const SIZE_DESKTOP = 132;
-const SIZE_MOBILE = 84;
+const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi));
 
 export function OctoSwimmer() {
-  const [hidden, setHidden] = useState(() => {
-    try {
-      return localStorage.getItem(HIDDEN_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
+  const [where, setWhere] = useState<Where>("lane");
+  // Only ever mounted in the browser (the loader imports it after load), so document is safe here.
+  const [lane] = useState<HTMLElement | null>(() => document.getElementById("tiq-lane"));
   const [pose, setPose] = useState<Pose>("juggle");
-  const [say, setSay] = useState<string | null>(null);
   const [face, setFace] = useState(1);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const bubblesRef = useRef<HTMLDivElement>(null);
+  const [say, setSay] = useState<string | null>(null);
+
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const sayRef = useRef<HTMLDivElement | null>(null);
+  const whereRef = useRef<Where>("lane");
+  const pos = useRef({ x: 24, y: 24 });
+  const drag = useRef<{ id: number; dx: number; dy: number; sx: number; sy: number; moved: boolean } | null>(null);
   const cheerUntil = useRef(0);
   const hovering = useRef(false);
+  const wake = useRef<() => void>(() => {});
   const lineBag = useRef<string[]>([]);
 
   const nextLine = useCallback(() => {
-    if (lineBag.current.length === 0) {
-      lineBag.current = [...LINES].sort(() => Math.random() - 0.5);
-    }
+    if (lineBag.current.length === 0) lineBag.current = [...LINES].sort(() => Math.random() - 0.5);
     return lineBag.current.pop()!;
   }, []);
 
-  // Warm the pose images so swapping never flashes.
-  useEffect(() => {
-    if (hidden) return;
-    for (const p of POSES) {
-      const img = new Image();
-      img.src = src(p);
+  const size = () => (window.innerWidth < 768 ? 84 : 120);
+
+  // The box he lives in, in its own coordinates: the lane, or the viewport.
+  const box = useCallback(() => {
+    if (whereRef.current === "lane") {
+      const el = document.getElementById("tiq-lane");
+      return { w: el?.clientWidth ?? window.innerWidth, h: el?.clientHeight ?? 160 };
     }
-  }, [hidden]);
+    return { w: document.documentElement.clientWidth, h: window.innerHeight };
+  }, []);
+
+  const go = useCallback((w: Where) => {
+    whereRef.current = w;
+    setWhere(w);
+  }, []);
 
   useEffect(() => {
-    if (hidden) return;
-    const root = rootRef.current;
-    const body = bodyRef.current;
-    if (!root || !body) return;
+    for (const p of POSES) new Image().src = src(p);
+  }, []);
 
+  useEffect(() => {
+    if (!lane) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const vw = () => window.innerWidth;
-    const vh = () => window.innerHeight;
-    const size = () => (vw() < 768 ? SIZE_MOBILE : SIZE_DESKTOP);
-    const roams = () => vw() >= 1024;
-    const home = () => ({ x: vw() - size() - 16, y: vh() - size() - 24 });
-
-    const pos = home();
     const vel = { x: 0, y: 0 };
-    let target = { ...home() };
-    let mode: Mode = "rest";
-    let modeUntil = performance.now() + 2500;
-    let nextPointAt = performance.now() + 9000;
+    let target = { x: 0, y: 0 };
+    let resting = true;
+    let restUntil = performance.now() + 1500;
+    let heading = Math.random() < 0.5 ? -1 : 1;
     let nextBubbleAt = 0;
-    let spot: { el: Element; say: string } | null = null;
-    const recent: string[] = [];
     let curPose: Pose = "juggle";
     let curFace = 1;
     let raf = 0;
     let last = performance.now();
+    let laneVisible = false;
+
+    {
+      const s = size(), b = box();
+      pos.current = { x: b.w * (0.2 + Math.random() * 0.6) - s / 2, y: Math.max(4, (b.h - s) / 2) };
+      target = { ...pos.current };
+    }
 
     const show = (p: Pose, f: number) => {
       if (p !== curPose) setPose((curPose = p));
       if (f !== curFace) setFace((curFace = f));
     };
 
-    const place = (x: number, y: number, rot = 0, sx = 1, sy = 1) => {
-      root.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
-      body.style.transform = `rotate(${rot.toFixed(2)}deg) scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`;
-    };
-
-    if (reduced) {
-      const h = home();
-      place(h.x, h.y);
-      return;
-    }
-
-    // Wander points stay in the side margins beside the content column. When a
-    // margin is narrower than he is, he peeks in from the edge of the screen.
-    const wanderPoint = () => {
-      const s = size();
-      if (!roams()) {
-        const h = home();
-        return { x: h.x - Math.random() * 40, y: h.y - Math.random() * 60 };
-      }
-      const column = document.querySelector("main .container");
-      const gutter = column
-        ? Math.max(0, column.getBoundingClientRect().left + parseFloat(getComputedStyle(column).paddingLeft))
-        : 0;
-      const peek = s * 0.3;
-      const x = Math.random() < 0.5
-        ? -peek + Math.random() * Math.max(0, gutter - s - 8 + peek)
-        : vw() - s + peek - Math.random() * Math.max(0, gutter - s - 8 + peek);
-      const y = vh() * 0.16 + Math.random() * (vh() * 0.68 - s);
+    // Swim to the far end of the lane, alternating sides, so he goes back and forth.
+    const laneTarget = () => {
+      const s = size(), b = box();
+      heading = -heading;
+      const span = Math.max(0, b.w - s - EDGE * 2);
+      const x = heading > 0 ? EDGE + span * (0.7 + Math.random() * 0.3) : EDGE + span * Math.random() * 0.3;
+      const y = 4 + Math.random() * Math.max(0, b.h - s * 0.9 - 4);
       return { x, y };
     };
 
-    // A heading on screen he hasn't pointed at lately, and where to float beside it.
-    const pickSpot = () => {
-      const s = size();
-      const options = SPOTS.flatMap(({ sel, say }) => {
-        if (recent.includes(sel)) return [];
-        const el = document.querySelector(sel);
-        if (!el) return [];
-        const r = el.getBoundingClientRect();
-        if (r.top < vh() * 0.12 || r.bottom > vh() * 0.8 || r.height === 0) return [];
-        return [{ el, say, sel }];
-      });
-      if (options.length === 0) return null;
-      const pick = options[Math.floor(Math.random() * options.length)];
-      recent.push(pick.sel);
-      if (recent.length > 3) recent.shift();
-      return { el: pick.el, say: pick.say, size: s };
-    };
-
-    const spotTarget = (el: Element) => {
-      const s = size();
-      const r = el.getBoundingClientRect();
-      const y = Math.min(Math.max(r.top + Math.min(r.height, 80) / 2 - s / 2, 8), vh() - s - 8);
-      if (r.left - s - 20 >= 8) return { x: r.left - s - 20, y, face: 1 };
-      if (r.right + s + 20 <= vw() - 8) return { x: r.right + 20, y, face: -1 };
-      return null;
-    };
-
-    const bubble = () => {
-      const box = bubblesRef.current;
-      if (!box) return;
-      const b = document.createElement("span");
+    const bubble = (s: number) => {
+      const root = rootRef.current;
+      if (!root?.parentElement || reduced) return;
+      const el = document.createElement("span");
       const d = 6 + Math.random() * 8;
-      b.className = "tiq-bubble";
-      b.style.cssText = `left:${(pos.x + size() * (0.35 + Math.random() * 0.3)).toFixed(0)}px;top:${(pos.y + size() * 0.15).toFixed(0)}px;width:${d}px;height:${d}px;animation-duration:${(2.6 + Math.random() * 1.6).toFixed(2)}s`;
-      box.appendChild(b);
-      b.addEventListener("animationend", () => b.remove(), { once: true });
+      el.className = "tiq-bubble";
+      el.style.cssText = `position:${whereRef.current === "lane" ? "absolute" : "fixed"};left:${(pos.current.x + s * (0.35 + Math.random() * 0.3)).toFixed(0)}px;top:${(pos.current.y + s * 0.15).toFixed(0)}px;width:${d}px;height:${d}px;animation-duration:${(2.6 + Math.random() * 1.6).toFixed(2)}s`;
+      root.parentElement.appendChild(el);
+      el.addEventListener("animationend", () => el.remove(), { once: true });
     };
 
     const tick = (now: number) => {
+      raf = 0;
+      const root = rootRef.current, body = bodyRef.current;
+      const dragging = drag.current?.moved;
+      if (!root || !body || (whereRef.current === "lane" && !laneVisible && !dragging)) return;
+
       const dt = Math.min((now - last) / 16.67, 3);
       last = now;
       const t = now / 1000;
+      const s = size(), b = box();
+      const p = pos.current;
 
-      if (now < cheerUntil.current) mode = "cheer";
-      else if (mode === "cheer") {
-        mode = "rest";
-        modeUntil = now + 1500;
-      }
-
-      if (mode === "rest" && now > modeUntil) {
-        if (roams() && now > nextPointAt && (spot = pickSpot())) {
-          mode = "point";
-          modeUntil = now + 9000; // give up if he can't get there
-          setSay(null);
-        } else {
-          mode = "wander";
-          target = wanderPoint();
-        }
-      }
-
-      let pointing = false;
-      if (mode === "point" && spot) {
-        const st = spotTarget(spot.el);
-        if (!st || now > modeUntil) {
-          mode = "rest";
-          modeUntil = now + 2000;
-          nextPointAt = now + 14000 + Math.random() * 8000;
-          spot = null;
-          setSay(null);
-        } else {
-          target = st;
-          const close = Math.hypot(st.x - pos.x, st.y - pos.y) < 24;
-          if (close) {
-            pointing = true;
-            if (modeUntil - now > 5000) {
-              modeUntil = now + 5000; // hold the point for 5s
-              setSay(spot.say);
-            }
+      if (!dragging && !reduced) {
+        if (whereRef.current === "lane") {
+          if (resting && now > restUntil) {
+            resting = false;
+            target = laneTarget();
           }
-          if (pointing) curFace !== st.face && show(curPose, st.face);
+          const dx = target.x - p.x, dy = target.y - p.y;
+          const dist = Math.hypot(dx, dy);
+          const speed = Math.min(1.8, dist / 40);
+          const want = dist > 0.5 ? { x: (dx / dist) * speed, y: (dy / dist) * speed } : { x: 0, y: 0 };
+          vel.x += (want.x - vel.x) * 0.035 * dt;
+          vel.y += (want.y - vel.y) * 0.035 * dt;
+          if (!resting && dist < 12) {
+            resting = true;
+            restUntil = now + 2000 + Math.random() * 4000;
+          }
+        } else {
+          vel.x *= 0.9;
+          vel.y *= 0.9;
         }
+        p.x += vel.x * dt;
+        p.y += vel.y * dt;
       }
-
-      // Steer toward the target, slowing as he arrives; water drag keeps it floaty.
-      const dx = target.x - pos.x, dy = target.y - pos.y;
-      const dist = Math.hypot(dx, dy);
-      const max = mode === "point" ? 3.2 : 1.6;
-      const speed = Math.min(max, dist / 40);
-      const want = dist > 0.5 ? { x: (dx / dist) * speed, y: (dy / dist) * speed } : { x: 0, y: 0 };
-      vel.x += (want.x - vel.x) * 0.035 * dt;
-      vel.y += (want.y - vel.y) * 0.035 * dt;
-      pos.x += vel.x * dt + Math.sin(t * 0.7) * 0.15 * dt;
-      pos.y += vel.y * dt;
-
-      if (mode === "wander" && dist < 12) {
-        mode = "rest";
-        modeUntil = now + 2500 + Math.random() * 3500;
-      }
+      // Never let him (or the bubble below) leave the box.
+      p.x = clamp(p.x, EDGE, b.w - s - EDGE);
+      p.y = clamp(p.y, whereRef.current === "lane" ? 0 : EDGE, b.h - s - (whereRef.current === "lane" ? 0 : EDGE));
 
       const moving = Math.hypot(vel.x, vel.y);
-      const f = Math.abs(vel.x) > 0.25 && !pointing ? Math.sign(vel.x) : curFace;
-      const p: Pose = mode === "cheer" ? "cheer" : pointing ? "point" : hovering.current ? "wave" : moving > 1.1 ? "swim" : "juggle";
-      show(p, f);
+      const f = !dragging && Math.abs(vel.x) > 0.25 ? Math.sign(vel.x) : curFace;
+      const pz: Pose =
+        now < cheerUntil.current ? "cheer" : dragging || hovering.current ? "wave" : moving > 1.1 ? "swim" : "juggle";
+      show(pz, f);
 
-      // Bob, sway and a soft jet-pulse squash while swimming.
-      const bob = Math.sin(t * 1.6) * 6;
-      const sway = Math.sin(t * 1.1) * 3 + Math.max(-10, Math.min(10, vel.x * 4));
-      const pulse = moving > 1.1 ? Math.sin(t * 6) * 0.035 : Math.sin(t * 2.2) * 0.015;
-      place(pos.x, pos.y + bob, sway, 1 - pulse, 1 + pulse);
+      const calm = reduced || dragging;
+      const bob = calm ? 0 : Math.sin(t * 1.6) * 5;
+      const sway = calm ? 0 : Math.sin(t * 1.1) * 3 + clamp(vel.x * 4, -10, 10);
+      const pulse = calm ? 0 : moving > 1.1 ? Math.sin(t * 6) * 0.035 : Math.sin(t * 2.2) * 0.015;
+      root.style.transform = `translate3d(${p.x.toFixed(1)}px, ${(p.y + bob).toFixed(1)}px, 0)`;
+      body.style.transform = `rotate(${sway.toFixed(2)}deg) scale(${(1 - pulse).toFixed(3)}, ${(1 + pulse).toFixed(3)})`;
 
-      if (now > nextBubbleAt) {
-        bubble();
+      // Speech bubble: centred over him but clamped inside the box; below him if there's no room above.
+      const bub = sayRef.current;
+      if (bub) {
+        const bw = bub.offsetWidth, bh = bub.offsetHeight;
+        const left = clamp(p.x + s / 2 - bw / 2, EDGE, b.w - bw - EDGE);
+        const above = p.y + bob - bh - 6;
+        const top = whereRef.current === "out" && above < EDGE ? p.y + bob + s + 6 : above;
+        bub.style.transform = `translate3d(${left.toFixed(1)}px, ${top.toFixed(1)}px, 0)`;
+      }
+
+      if (now > nextBubbleAt && !dragging) {
+        bubble(s);
         nextBubbleAt = now + 900 + Math.random() * 2200;
       }
-      raf = requestAnimationFrame(tick);
+      if (!reduced || dragging) raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
 
-    const onResize = () => {
-      pos.x = Math.min(pos.x, vw() - size() - 8);
-      pos.y = Math.min(pos.y, vh() - size() - 8);
-      if (!roams()) target = home();
+    const start = () => {
+      if (!raf) {
+        last = performance.now();
+        raf = requestAnimationFrame(tick);
+      }
     };
+    // Place him right away (before paint) when his element is new, then keep animating.
+    wake.current = () => {
+      const root = rootRef.current;
+      if (root) root.style.transform = `translate3d(${pos.current.x.toFixed(1)}px, ${pos.current.y.toFixed(1)}px, 0)`;
+      start();
+    };
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        laneVisible = entries.some((e) => e.isIntersecting);
+        if (laneVisible || whereRef.current === "out") start();
+      },
+      { rootMargin: "200px 0px" },
+    );
+    io.observe(lane);
+    const onResize = () => start();
+    wake.current();
     window.addEventListener("resize", onResize);
+    start();
     return () => {
       cancelAnimationFrame(raf);
+      io.disconnect();
       window.removeEventListener("resize", onResize);
     };
-  }, [hidden]);
+  }, [lane, box]);
+
+  // A new container means a new element: place it before the browser paints.
+  useLayoutEffect(() => {
+    wake.current();
+  }, [where, say]);
 
   useEffect(() => {
     if (!say) return;
@@ -276,80 +237,136 @@ export function OctoSwimmer() {
     return () => window.clearTimeout(id);
   }, [say]);
 
-  if (hidden) return null;
-
-  const press = () => {
-    cheerUntil.current = performance.now() + 1600;
-    setSay(nextLine());
+  // Drag: window listeners so he can move between containers mid-drag.
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    const r = rootRef.current!.getBoundingClientRect();
+    drag.current = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top, sx: e.clientX, sy: e.clientY, moved: false };
+    const move = (ev: PointerEvent) => {
+      const d = drag.current;
+      if (!d || ev.pointerId !== d.id) return;
+      if (!d.moved && Math.hypot(ev.clientX - d.sx, ev.clientY - d.sy) < 5) return;
+      if (!d.moved) {
+        d.moved = true;
+        if (whereRef.current === "lane") go("out");
+        setSay(null);
+      }
+      const s = size();
+      pos.current = {
+        x: clamp(ev.clientX - d.dx, EDGE, document.documentElement.clientWidth - s - EDGE),
+        y: clamp(ev.clientY - d.dy, EDGE, window.innerHeight - s - EDGE),
+      };
+      wake.current();
+    };
+    const up = (ev: PointerEvent) => {
+      const d = drag.current;
+      if (!d || ev.pointerId !== d.id) return;
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      drag.current = null;
+      if (!d.moved) {
+        cheerUntil.current = performance.now() + 1600;
+        setSay(nextLine());
+        wake.current();
+        return;
+      }
+      // Dropped over the lane: he moves back in, at the same spot.
+      const laneEl = document.getElementById("tiq-lane");
+      const lr = laneEl?.getBoundingClientRect();
+      if (lr && ev.clientY >= lr.top - 20 && ev.clientY <= lr.bottom + 20) {
+        pos.current = { x: pos.current.x - lr.left, y: pos.current.y - lr.top };
+        go("lane");
+      }
+      wake.current();
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
   };
-  const tuckAway = () => {
-    try {
-      localStorage.setItem(HIDDEN_KEY, "1");
-    } catch {
-      // Private mode: he still leaves for this visit.
-    }
-    setHidden(true);
+
+  const sendHome = () => {
+    const s = size();
+    const laneEl = document.getElementById("tiq-lane");
+    const w = laneEl?.clientWidth ?? window.innerWidth;
+    pos.current = { x: clamp(w / 2 - s / 2, EDGE, w - s - EDGE), y: 4 };
+    go("lane");
+    setSay(null);
   };
 
-  return (
+  if (!lane) return null;
+
+  const fixed = where === "out";
+  const octo = (
     <>
-      <style>{`
-        .tiq-bubble{position:fixed;border-radius:9999px;pointer-events:none;
-          background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.95),rgba(180,220,255,.35) 45%,rgba(120,170,255,.15) 70%);
-          box-shadow:inset 0 0 0 1px rgba(110,92,240,.25);animation:tiq-rise 3s ease-in forwards}
-        @keyframes tiq-rise{0%{transform:translate(0,0) scale(.6);opacity:0}
-          15%{opacity:.9}50%{transform:translate(6px,-60px) scale(1)}
-          100%{transform:translate(-4px,-130px) scale(1.1);opacity:0}}
-        .tiq-x{opacity:0;transition:opacity .15s}
-        .tiq:hover .tiq-x,.tiq:focus-within .tiq-x{opacity:1}
-        @media (prefers-reduced-motion:reduce){.tiq-bubble{display:none}}
-      `}</style>
-      <div ref={bubblesRef} aria-hidden className="pointer-events-none fixed inset-0 z-30 overflow-hidden" />
       <div
         ref={rootRef}
-        className="tiq fixed left-0 top-0 z-30 w-[84px] md:w-[132px] will-change-transform"
-        style={{ transform: "translate3d(-200px,-200px,0)" }}
+        className={`tiq ${fixed ? "fixed" : "absolute"} left-0 top-0 z-30 w-[84px] md:w-[120px] will-change-transform`}
+        style={{ transform: "translate3d(-9999px, 0, 0)" }}
       >
-        {say && (
-          <div
-            role="status"
-            className={`absolute bottom-[92%] w-56 rounded-2xl border border-foreground/10 bg-background/95 px-3.5 py-2.5 text-sm leading-snug shadow-lg backdrop-blur ${
-              face > 0 ? "left-1/2" : "right-1/2"
-            }`}
-          >
-            {say}
-          </div>
-        )}
         <div ref={bodyRef} className="origin-center">
           <button
             type="button"
-            onClick={press}
+            onPointerDown={onPointerDown}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                cheerUntil.current = performance.now() + 1600;
+                setSay(nextLine());
+              }
+            }}
             onPointerEnter={() => (hovering.current = true)}
             onPointerLeave={() => (hovering.current = false)}
-            aria-label="Tiq the octopus. Press for a tip."
-            className="block w-full cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Tiq the octopus. Press for a tip, or drag him anywhere."
+            className="block w-full cursor-grab touch-none select-none rounded-full active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- decorative sprite swapped every few seconds */}
             <img
               src={src(pose)}
               alt=""
-              width={264}
-              height={264}
+              width={240}
+              height={240}
               draggable={false}
-              className="w-full select-none drop-shadow-[0_10px_18px_rgba(40,30,120,0.25)]"
+              className="pointer-events-none w-full drop-shadow-[0_10px_18px_rgba(40,30,120,0.25)]"
               style={{ transform: `scaleX(${face})` }}
             />
           </button>
         </div>
-        <button
-          type="button"
-          onClick={tuckAway}
-          aria-label="Hide the octopus"
-          className="tiq-x absolute -right-1 top-0 grid h-7 w-7 place-items-center rounded-full border border-foreground/10 bg-background text-sm text-muted-foreground shadow hover:text-foreground"
-        >
-          ×
-        </button>
+        {fixed && (
+          <button
+            type="button"
+            onClick={sendHome}
+            aria-label="Send the octopus back to the footer"
+            className="absolute -right-1 top-0 grid h-7 w-7 place-items-center rounded-full border border-foreground/10 bg-background text-sm text-muted-foreground shadow hover:text-foreground"
+          >
+            ×
+          </button>
+        )}
       </div>
+      {say && (
+        <div
+          ref={sayRef}
+          role="status"
+          className={`${fixed ? "fixed" : "absolute"} left-0 top-0 z-30 w-56 max-w-[calc(100vw-16px)] rounded-2xl border border-foreground/10 bg-background/95 px-3.5 py-2.5 text-sm leading-snug shadow-lg backdrop-blur`}
+          style={{ transform: "translate3d(-9999px, 0, 0)" }}
+        >
+          {say}
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <>
+      <style>{`
+        .tiq-bubble{border-radius:9999px;pointer-events:none;z-index:29;
+          background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.95),rgba(180,220,255,.35) 45%,rgba(120,170,255,.15) 70%);
+          box-shadow:inset 0 0 0 1px rgba(110,92,240,.25);animation:tiq-rise 3s ease-in forwards}
+        @keyframes tiq-rise{0%{transform:translate(0,0) scale(.6);opacity:0}
+          15%{opacity:.9}50%{transform:translate(6px,-50px) scale(1)}
+          100%{transform:translate(-4px,-110px) scale(1.1);opacity:0}}
+      `}</style>
+      {createPortal(octo, fixed ? document.body : lane)}
     </>
   );
 }

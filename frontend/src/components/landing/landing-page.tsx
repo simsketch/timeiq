@@ -824,9 +824,14 @@ export function LandingPage({ headline }: { headline: Headline }) {
         </section>
       </main>
 
-      <OctoLoader />
-
       <footer className="relative border-t border-foreground/5">
+        {/* Tiq's swim lane: reserved space so his late arrival shifts nothing. */}
+        <div
+          id="tiq-lane"
+          aria-hidden
+          className="relative h-28 md:h-40 bg-gradient-to-b from-transparent via-[hsl(220_85%_60%/0.07)] to-transparent"
+        />
+        <OctoLoader />
         <div className="container mx-auto px-6 lg:px-10 py-12">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center sm:justify-start sm:text-left">
