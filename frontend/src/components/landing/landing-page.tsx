@@ -29,6 +29,7 @@ import { GitHubIcon, GITHUB_URL } from "@/components/github-icon";
 import { LazyDemo } from "@/components/landing/lazy-demo";
 import { McpDemo } from "@/components/landing/mcp-demo";
 import { McpDemoContent } from "@/components/landing/mcp-demo-content";
+import { OctoLoader } from "@/components/landing/octo/octo-loader";
 
 export function LandingPage({ headline }: { headline: Headline }) {
   return (
@@ -822,6 +823,8 @@ export function LandingPage({ headline }: { headline: Headline }) {
           </div>
         </section>
       </main>
+
+      <OctoLoader />
 
       <footer className="relative border-t border-foreground/5">
         <div className="container mx-auto px-6 lg:px-10 py-12">
