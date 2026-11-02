@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { addDays, addWeeks, format, isSameDay, startOfWeek } from "date-fns";
 import { CalendarDays, ChevronLeft, ChevronRight, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -179,17 +179,21 @@ export function WeekCalendar({
       return end > start ? [{ id: `open-${day.getTime()}-${index}`, title: "Available", start, end, color: "#10b981" }] : [];
     }));
 
-  // Show 7 AM to 9 PM, stretched to fit anything earlier or later this week.
+  // The whole day, like a desktop calendar app; the grid scrolls to the
+  // current time (or the first event or 7 AM) when a week opens.
   const weekEnd = addDays(weekStart, 7);
   const inWeek = events.filter((e) => e.end > weekStart && e.start < weekEnd);
-  let startHour = 7;
-  let endHour = 21;
-  for (const e of [...inWeek, ...openBlocks]) {
-    if (e.allDay) continue;
-    startHour = Math.min(startHour, e.start.getHours());
-    endHour = Math.max(endHour, e.end.getHours() + (e.end.getMinutes() ? 1 : 0) || 24);
-  }
-  endHour = Math.min(endHour, 24);
+  const startHour = 0;
+  const endHour = 24;
+  const scroller = useRef<HTMLDivElement>(null);
+  const nowInWeek = !!displayNow && displayNow >= weekStart && displayNow < weekEnd;
+  const firstHour = Math.min(7, ...inWeek.filter((e) => !e.allDay).map((e) => e.start.getHours()));
+  const scrollHour = nowInWeek ? Math.max(0, displayNow!.getHours() + displayNow!.getMinutes() / 60 - 2) : firstHour;
+  useEffect(() => {
+    if (scroller.current) scroller.current.scrollTop = scrollHour * HOUR_PX;
+    // Only when the week changes or the clock first loads, not every minute.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekStart, nowInWeek]);
   const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
   const allDayFor = (day: Date) =>
     inWeek.filter((e) => e.allDay && e.start < addDays(day, 1) && e.end > day);
@@ -214,8 +218,9 @@ export function WeekCalendar({
         {!inWeek.length && emptyHint && <span className="text-sm text-muted-foreground">· {emptyHint}</span>}
       </div>
 
-      <div className="w-full max-w-full overflow-x-auto rounded-xl border">
+      <div ref={scroller} className="max-h-[min(70vh,680px)] w-full max-w-full overflow-auto overscroll-contain rounded-xl border">
         <div className="min-w-[720px]">
+          <div className="sticky top-0 z-20 bg-background">
           {/* Day headers */}
           <div className="grid grid-cols-[52px_repeat(7,1fr)] border-b bg-muted/30">
             <div />
@@ -259,9 +264,11 @@ export function WeekCalendar({
             </div>
           )}
 
+          </div>
+
           {/* Time grid */}
           <div className="relative grid grid-cols-[52px_repeat(7,1fr)]">
-            <div>
+            <div className="relative">
               {hours.map((h) => (
                 <div key={h} className="relative text-right" style={{ height: HOUR_PX }}>
                   <span className="absolute -top-2 right-1.5 text-[11px] text-muted-foreground">
@@ -269,10 +276,18 @@ export function WeekCalendar({
                   </span>
                 </div>
               ))}
+              {nowInWeek && (
+                <span
+                  className="pointer-events-none absolute right-1 z-10 -translate-y-1/2 rounded bg-red-500 px-1 text-[10px] font-semibold leading-4 text-white"
+                  style={{ top: (displayNow!.getHours() + displayNow!.getMinutes() / 60) * HOUR_PX }}
+                >
+                  {format(displayNow!, "h:mm")}
+                </span>
+              )}
             </div>
             {days.map((d) => {
               const placed = placeDay(inWeek, d, startHour, endHour);
-              const showNow = displayNow && isSameDay(d, displayNow) && displayNow.getHours() >= startHour && displayNow.getHours() < endHour;
+              const showNow = displayNow && isSameDay(d, displayNow);
               return (
                 <div
                   key={d.toISOString()}
@@ -324,11 +339,14 @@ export function WeekCalendar({
                       )}
                     </button>
                   ))}
-                  {showNow && (
+                  {nowInWeek && (
+                    // Apple Calendar style: a faint line across the week, a solid one with a dot on today.
                     <div
-                      className="pointer-events-none absolute left-0 right-0 z-10 border-t-2 border-red-500"
-                      style={{ top: ((displayNow!.getHours() - startHour) + displayNow!.getMinutes() / 60) * HOUR_PX }}
-                    />
+                      className={cn("pointer-events-none absolute left-0 right-0 z-10", showNow ? "border-t-2 border-red-500" : "border-t border-red-500/30")}
+                      style={{ top: (displayNow!.getHours() + displayNow!.getMinutes() / 60) * HOUR_PX }}
+                    >
+                      {showNow && <span className="absolute -left-[5px] -top-[6px] h-2.5 w-2.5 rounded-full bg-red-500" />}
+                    </div>
                   )}
                 </div>
               );
