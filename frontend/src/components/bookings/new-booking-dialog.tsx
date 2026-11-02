@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { apiFetch } from "@/lib/api";
+import { calendarDate, calendarInstant } from "@/lib/calendar-time";
 
 interface EventTypeOption {
   id: string;
@@ -32,11 +33,14 @@ export function NewBookingDialog({
   open,
   onOpenChange,
   start,
+  zone,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   start: Date;
+  /** The zone the date and time fields are in; the browser's when omitted. */
+  zone?: string;
   onCreated: () => void;
 }) {
   const { getToken } = useAuth();
@@ -50,19 +54,21 @@ export function NewBookingDialog({
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [conflict, setConflict] = useState<string | null>(null);
+  const fieldZone = zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   // Each opening starts from the slot that was clicked.
   useEffect(() => {
     if (!open) return;
     /* eslint-disable react-hooks/set-state-in-effect */
-    setDate(format(start, "yyyy-MM-dd"));
-    setTime(format(start, "HH:mm"));
+    const wall = calendarDate(start, fieldZone);
+    setDate(format(wall, "yyyy-MM-dd"));
+    setTime(format(wall, "HH:mm"));
     setName("");
     setEmail("");
     setNotes("");
     setConflict(null);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [open, start]);
+  }, [open, start, fieldZone]);
 
   useEffect(() => {
     if (!open || eventTypes) return;
@@ -80,8 +86,8 @@ export function NewBookingDialog({
   }, [open, eventTypes, getToken]);
 
   const eventType = eventTypes?.find((t) => String(t.id) === eventTypeId);
-  const startsAt = date && time ? new Date(`${date}T${time}`) : null;
-  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const wallStart = date && time ? new Date(`${date}T${time}`) : null;
+  const startsAt = wallStart && calendarInstant(wallStart, fieldZone);
 
   async function submit(allowConflict: boolean) {
     if (!startsAt || !eventType) return;
@@ -97,7 +103,7 @@ export function NewBookingDialog({
           visitor_email: email.trim(),
           visitor_notes: notes.trim() || null,
           starts_at: startsAt.toISOString(),
-          timezone: zone,
+          timezone: fieldZone,
           allow_conflict: allowConflict,
         }),
       });
@@ -163,9 +169,9 @@ export function NewBookingDialog({
                 <Input id="nb-time" type="time" step={300} value={time} onChange={(e) => { setTime(e.target.value); setConflict(null); }} required />
               </div>
             </div>
-            {startsAt && eventType && (
+            {wallStart && eventType && (
               <p className="-mt-2 text-xs text-muted-foreground">
-                {format(startsAt, "EEE, MMM d · h:mm a")} – {format(addMinutes(startsAt, eventType.duration), "h:mm a")}
+                {format(wallStart, "EEE, MMM d · h:mm a")} – {format(addMinutes(wallStart, eventType.duration), "h:mm a")} · {fieldZone.replace(/_/g, " ")}
               </p>
             )}
             <div className="space-y-2">

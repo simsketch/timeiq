@@ -57,5 +57,7 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run lint
+      - name: Unit tests
+        run: node --test tests/*.test.mjs
       - name: Audit npm dependencies
         run: npm audit --audit-level=high

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.calendar_source import CalendarSource
 from app.services.calendar_health import CalendarSyncError, error_for_status
-from app.services.calendar_sync import SYNC_DAYS_AHEAD, _replace_cached_events
+from app.services.calendar_sync import SYNC_DAYS_AHEAD, SYNC_DAYS_BEHIND, _replace_cached_events
 
 GRAPH_URL = "https://graph.microsoft.com/v1.0"
 SCOPES = "offline_access Calendars.Read User.Read"
@@ -150,7 +150,7 @@ async def sync_microsoft_source(db: AsyncSession, source: CalendarSource) -> int
 
     now = datetime.now(timezone.utc)
     params = {
-        "startDateTime": now.isoformat(),
+        "startDateTime": (now - timedelta(days=SYNC_DAYS_BEHIND)).isoformat(),
         "endDateTime": (now + timedelta(days=SYNC_DAYS_AHEAD)).isoformat(),
         "$top": "1000",
         "$select": "id,subject,start,end,isAllDay,isCancelled,showAs",

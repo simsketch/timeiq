@@ -392,7 +392,7 @@ async def test_graph_pagination_covers_google_window(microsoft):
     db, s = FakeDB(), source()
     assert await microsoft_calendar.sync_microsoft_source(db, s) == 2
     assert len(calls) == 2 and str(calls[1].url) == next_link
-    assert datetime.fromisoformat(calls[0].url.params["endDateTime"]) - datetime.fromisoformat(calls[0].url.params["startDateTime"]) == timedelta(days=90)
+    assert datetime.fromisoformat(calls[0].url.params["endDateTime"]) - datetime.fromisoformat(calls[0].url.params["startDateTime"]) == timedelta(days=90 + 14)
     assert all(e.calendar_source_id == s.id and e.user_id == s.user_id for e in db.added)
 
 

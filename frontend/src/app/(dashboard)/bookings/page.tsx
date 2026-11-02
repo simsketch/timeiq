@@ -99,9 +99,11 @@ export default function BookingsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [newStart, setNewStart] = useState<Date>(() => nextHalfHour());
+  const [newZone, setNewZone] = useState<string | undefined>(undefined);
 
-  function openNewBooking(start: Date) {
+  function openNewBooking(start: Date, zone?: string) {
     setNewStart(start);
+    setNewZone(zone);
     setNewOpen(true);
   }
 
@@ -185,7 +187,7 @@ export default function BookingsPage() {
         </div>
       </div>
 
-      <NewBookingDialog open={newOpen} onOpenChange={setNewOpen} start={newStart} onCreated={fetchBookings} />
+      <NewBookingDialog open={newOpen} onOpenChange={setNewOpen} start={newStart} zone={newZone} onCreated={fetchBookings} />
 
       {view === "calendar" ? (
         <div className="space-y-4">
@@ -202,7 +204,7 @@ export default function BookingsPage() {
               faded: b.status === "cancelled",
             }))}
             onSelect={(ev: CalEvent) => setSelectedId(ev.id)}
-            onSlotClick={(start) => openNewBooking(start < new Date() ? nextHalfHour() : start)}
+            onSlotClick={(start, zone) => openNewBooking(start < new Date() ? nextHalfHour() : start, zone)}
             emptyHint="no bookings this week · click a time to book one"
           />
           {selectedBooking && (

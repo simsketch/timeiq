@@ -39,6 +39,7 @@ function harness(path, name, props = {}, options = {}) {
     },
     useMemo: (compute) => compute(),
     useCallback: (callback) => callback,
+    useRef: (initial) => ({ current: initial ?? null }),
     useEffect: (effect) => { if (options.effects) effects.push(effect); },
   };
   const component = load(path, { react, ...options.modules }, options.globals)[name];
@@ -198,13 +199,14 @@ test("live hours are background blocks and never shrink overlapping busy events"
   const props = { events: [busy], weekStart: new Date(2026, 10, 2), onWeekChange() {}, availableHours: hours, timezone: "America/New_York" };
   const calendar = harness("components/week-calendar.tsx", "WeekCalendar", props);
   const background = () => find(calendar.render(), (node) => node.type === "div" && node.props?.title?.startsWith("Available ·"));
-  assert.equal(background().props.style.top, 88);
+  // The grid starts at 8 AM, 44px per hour.
+  assert.equal(background().props.style.top, 44);
   assert.equal(background().props.style.height, 352);
   const block = find(calendar.render(), (node) => node.type === "button" && node.props?.title?.startsWith("Call ·"));
   assert.equal(block.props.style.width, "calc(100% - 4px)");
-  assert.equal(block.props.style.top, 132);
+  assert.equal(block.props.style.top, 88);
   hours[0] = { ...hours[0], start_time: "11:00:00" };
-  assert.equal(background().props.style.top, 176);
+  assert.equal(background().props.style.top, 132);
   hours[0] = { ...hours[0], is_active: false };
   assert.equal(background(), undefined);
   hours[0] = { ...hours[0], is_active: true, start_time: "18:00:00" };

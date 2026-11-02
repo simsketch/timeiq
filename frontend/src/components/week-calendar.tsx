@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { addDays, addWeeks, format, isSameDay, startOfWeek } from "date-fns";
 import { CalendarDays, ChevronLeft, ChevronRight, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { calendarDate } from "@/lib/calendar-time";
+import { calendarDate, calendarInstant } from "@/lib/calendar-time";
 import { cn } from "@/lib/utils";
 
 export interface CalEvent {
@@ -73,6 +73,43 @@ export function ViewToggle({ view, onChange }: { view: CalendarView; onChange: (
       ))}
     </div>
   );
+}
+
+/** A small preference kept in localStorage, applied after hydration. */
+function useStoredPref(key: string, fallback: string): [string, (v: string) => void] {
+  const [value, setValue] = useState(fallback);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(key);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (saved) setValue(saved);
+    } catch {
+      // No storage: keep the default.
+    }
+  }, [key]);
+  function choose(v: string) {
+    setValue(v);
+    try {
+      localStorage.setItem(key, v);
+    } catch {
+      // Remembering is only a convenience.
+    }
+  }
+  return [value, choose];
+}
+
+function browserZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+function zoneLabel(zone: string): string {
+  try {
+    const offset = new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "shortOffset" })
+      .formatToParts(new Date()).find((p) => p.type === "timeZoneName")?.value ?? "";
+    return `${zone.replace(/_/g, " ")} (${offset})`;
+  } catch {
+    return zone;
+  }
 }
 
 /** A stable color per key (e.g. calendar id), from a small palette that reads in light and dark. */
@@ -147,15 +184,36 @@ export function WeekCalendar({
   weekStart: Date;
   onWeekChange: (start: Date) => void;
   onSelect?: (ev: CalEvent) => void;
-  /** Called with the half hour clicked in an empty part of the grid (browser-local time). */
-  onSlotClick?: (start: Date) => void;
+  /** Called with the instant of the half hour clicked in an empty part of the grid, and the zone the grid is shown in. */
+  onSlotClick?: (start: Date, zone: string) => void;
   emptyHint?: string;
 }) {
-  const events = useMemo(() => timezone ? sourceEvents.map((event) => ({
+  // Availability rules are wall-clock times in the account zone (or the browser's).
+  // The browser zone and the zone list differ between server and browser, so
+  // both are read after hydration.
+  const [clientZone, setClientZone] = useState<string | null>(null);
+  const [allZones, setAllZones] = useState<string[]>([]);
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setClientZone(browserZone());
+    try {
+      setAllZones((Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.("timeZone") ?? []);
+    } catch {
+      setAllZones([]);
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+  const baseZone = timezone ?? clientZone ?? "UTC";
+  const [storedZone, setStoredZone] = useStoredPref("timeiq-cal-zone", "");
+  const viewZone = storedZone || baseZone;
+  const [fullDayPref, setFullDayPref] = useStoredPref("timeiq-cal-24h", "0");
+  const fullDay = fullDayPref === "1";
+  const zones = useMemo(() => Array.from(new Set([baseZone, viewZone, ...allZones])), [baseZone, viewZone, allZones]);
+  const events = useMemo(() => sourceEvents.map((event) => ({
     ...event,
-    start: calendarDate(event.start, timezone),
-    end: calendarDate(event.end, timezone),
-  })) : sourceEvents, [sourceEvents, timezone]);
+    start: calendarDate(event.start, viewZone),
+    end: calendarDate(event.end, viewZone),
+  })), [sourceEvents, viewZone]);
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
@@ -166,7 +224,8 @@ export function WeekCalendar({
     return () => clearInterval(t);
   }, []);
 
-  const displayNow = now && (timezone ? calendarDate(now, timezone) : now);
+  const displayNow = now && calendarDate(now, viewZone);
+  const toView = (d: Date) => (viewZone === baseZone ? d : calendarDate(calendarInstant(d, baseZone), viewZone));
   const openBlocks: CalEvent[] = days.flatMap((day) => availableHours
     .filter((rule) => rule.is_active && rule.day_of_week === (day.getDay() + 6) % 7)
     .flatMap((rule, index) => {
@@ -176,24 +235,41 @@ export function WeekCalendar({
       const [endHour, endMinute] = rule.end_time.split(":").map(Number);
       start.setHours(startHour, startMinute, 0, 0);
       end.setHours(endHour, endMinute, 0, 0);
-      return end > start ? [{ id: `open-${day.getTime()}-${index}`, title: "Available", start, end, color: "#10b981" }] : [];
+      return end > start ? [{ id: `open-${day.getTime()}-${index}`, title: "Available", start: toView(start), end: toView(end), color: "#10b981" }] : [];
     }));
 
-  // The whole day, like a desktop calendar app; the grid scrolls to the
-  // current time (or the first event or 7 AM) when a week opens.
+  // 8 AM to 8 PM, stretched to fit this week's events and open hours; or the
+  // whole day, scrolled to the current time (or the first event or 7 AM).
   const weekEnd = addDays(weekStart, 7);
   const inWeek = events.filter((e) => e.end > weekStart && e.start < weekEnd);
-  const startHour = 0;
-  const endHour = 24;
-  const scroller = useRef<HTMLDivElement>(null);
   const nowInWeek = !!displayNow && displayNow >= weekStart && displayNow < weekEnd;
+  const nowHours = displayNow ? displayNow.getHours() + displayNow.getMinutes() / 60 : 0;
+  let startHour = 0;
+  let endHour = 24;
+  if (!fullDay) {
+    startHour = 8;
+    endHour = 20;
+    for (const e of [...inWeek, ...openBlocks]) {
+      if (e.allDay) continue;
+      startHour = Math.min(startHour, e.start.getHours());
+      endHour = Math.max(endHour, isSameDay(e.start, e.end) ? e.end.getHours() + (e.end.getMinutes() ? 1 : 0) : 24);
+    }
+    // Keep the now line on screen too.
+    if (nowInWeek) {
+      startHour = Math.min(startHour, Math.floor(nowHours));
+      endHour = Math.max(endHour, Math.floor(nowHours) + 1);
+    }
+    endHour = Math.min(endHour, 24);
+  }
+  const scroller = useRef<HTMLDivElement>(null);
+  const nowVisible = nowInWeek && nowHours >= startHour && nowHours < endHour;
   const firstHour = Math.min(7, ...inWeek.filter((e) => !e.allDay).map((e) => e.start.getHours()));
-  const scrollHour = nowInWeek ? Math.max(0, displayNow!.getHours() + displayNow!.getMinutes() / 60 - 2) : firstHour;
+  const scrollHour = !fullDay ? 0 : nowInWeek ? Math.max(0, nowHours - 2) : firstHour;
   useEffect(() => {
     if (scroller.current) scroller.current.scrollTop = scrollHour * HOUR_PX;
-    // Only when the week changes or the clock first loads, not every minute.
+    // Only when the week, zone or range changes, not every minute.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart, nowInWeek]);
+  }, [weekStart, nowInWeek, fullDay, viewZone]);
   const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
   const allDayFor = (day: Date) =>
     inWeek.filter((e) => e.allDay && e.start < addDays(day, 1) && e.end > day);
@@ -205,7 +281,7 @@ export function WeekCalendar({
   return (
     <div className="w-full min-w-0 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="outline" onClick={() => onWeekChange(startOfWeek(timezone ? calendarDate(new Date(), timezone) : new Date(), { weekStartsOn: 1 }))}>
+        <Button size="sm" variant="outline" onClick={() => onWeekChange(startOfWeek(calendarDate(new Date(), viewZone), { weekStartsOn: 1 }))}>
           Today
         </Button>
         <Button size="icon" variant="ghost" aria-label="Previous week" onClick={() => onWeekChange(addWeeks(weekStart, -1))}>
@@ -216,9 +292,27 @@ export function WeekCalendar({
         </Button>
         <span className="font-medium">{label}</span>
         {!inWeek.length && emptyHint && <span className="text-sm text-muted-foreground">· {emptyHint}</span>}
+        <div className="ml-auto flex flex-wrap items-center gap-3">
+          <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+            <input type="checkbox" className="h-4 w-4 accent-[hsl(var(--primary))]" checked={fullDay} onChange={(e) => setFullDayPref(e.target.checked ? "1" : "0")} />
+            Show all 24h
+          </label>
+          <select
+            aria-label="Time zone"
+            value={viewZone}
+            onChange={(e) => setStoredZone(e.target.value === baseZone ? "" : e.target.value)}
+            className="h-8 max-w-[18rem] rounded-md border bg-background px-2 text-sm"
+          >
+            {zones.map((z) => (
+              <option key={z} value={z}>
+                {zoneLabel(z)}{z === baseZone ? " · yours" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      <div ref={scroller} className="max-h-[min(70vh,680px)] w-full max-w-full overflow-auto overscroll-contain rounded-xl border">
+      <div ref={scroller} className={cn("w-full max-w-full overflow-auto overscroll-contain rounded-xl border", fullDay && "max-h-[min(70vh,680px)]")}>
         <div className="min-w-[720px]">
           <div className="sticky top-0 z-20 bg-background">
           {/* Day headers */}
@@ -276,10 +370,10 @@ export function WeekCalendar({
                   </span>
                 </div>
               ))}
-              {nowInWeek && (
+              {nowVisible && (
                 <span
                   className="pointer-events-none absolute right-1 z-10 -translate-y-1/2 rounded bg-red-500 px-1 text-[10px] font-semibold leading-4 text-white"
-                  style={{ top: (displayNow!.getHours() + displayNow!.getMinutes() / 60) * HOUR_PX }}
+                  style={{ top: (nowHours - startHour) * HOUR_PX }}
                 >
                   {format(displayNow!, "h:mm")}
                 </span>
@@ -296,7 +390,7 @@ export function WeekCalendar({
                     const offset = e.clientY - e.currentTarget.getBoundingClientRect().top;
                     const start = new Date(d);
                     start.setHours(0, startHour * 60 + Math.floor((offset / HOUR_PX) * 2) * 30, 0, 0);
-                    onSlotClick(start);
+                    onSlotClick(calendarInstant(start, viewZone), viewZone);
                   } : undefined}
                 >
                   {hours.map((h) => (
@@ -339,11 +433,11 @@ export function WeekCalendar({
                       )}
                     </button>
                   ))}
-                  {nowInWeek && (
+                  {nowVisible && (
                     // Apple Calendar style: a faint line across the week, a solid one with a dot on today.
                     <div
                       className={cn("pointer-events-none absolute left-0 right-0 z-10", showNow ? "border-t-2 border-red-500" : "border-t border-red-500/30")}
-                      style={{ top: (displayNow!.getHours() + displayNow!.getMinutes() / 60) * HOUR_PX }}
+                      style={{ top: (nowHours - startHour) * HOUR_PX }}
                     >
                       {showNow && <span className="absolute -left-[5px] -top-[6px] h-2.5 w-2.5 rounded-full bg-red-500" />}
                     </div>

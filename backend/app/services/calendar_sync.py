@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 # How far ahead calendars are cached. Bookings are capped at the same horizon,
 # so every bookable time is checked against a synced calendar.
 SYNC_DAYS_AHEAD = 90
+# Kept so the week calendars still show this week's and last week's past events.
+SYNC_DAYS_BEHIND = 14
 MAX_FEED_BYTES = 5 * 1024 * 1024
 MAX_OCCURRENCES = 5000
 MAX_REDIRECTS = 5
@@ -347,7 +349,7 @@ async def sync_ics_source(db: AsyncSession, source: CalendarSource, cal: Calenda
     if cal is None:
         cal = await fetch_ics(source.ics_url)
     now = datetime.now(timezone.utc)
-    rows = _expand_ics(cal, await _owner_zone(db, source), now - timedelta(days=1), now + timedelta(days=SYNC_DAYS_AHEAD))
+    rows = _expand_ics(cal, await _owner_zone(db, source), now - timedelta(days=SYNC_DAYS_BEHIND), now + timedelta(days=SYNC_DAYS_AHEAD))
     return await _replace_cached_events(db, source, rows)
 
 
@@ -407,7 +409,7 @@ async def sync_google_source(db: AsyncSession, source: CalendarSource) -> int:
     calendar_id = source.google_calendar_id or "primary"
     now = datetime.now(timezone.utc)
     base_params = {
-        "timeMin": now.isoformat(),
+        "timeMin": (now - timedelta(days=SYNC_DAYS_BEHIND)).isoformat(),
         "timeMax": (now + timedelta(days=SYNC_DAYS_AHEAD)).isoformat(),
         "singleEvents": "true",
         "orderBy": "startTime",

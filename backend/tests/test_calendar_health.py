@@ -449,7 +449,7 @@ async def test_google_follows_every_page_and_covers_ninety_days(google):
     assert [c.url.params.get("pageToken") for c in calls] == [None, "p2", "p3"]
     t0 = datetime.fromisoformat(calls[0].url.params["timeMin"])
     t1 = datetime.fromisoformat(calls[0].url.params["timeMax"])
-    assert t1 - t0 == timedelta(days=90)
+    assert t1 - t0 == timedelta(days=90 + 14)
     assert db.deleted == 1 and len(db.added) == 3
 
 
