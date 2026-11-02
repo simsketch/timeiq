@@ -11,6 +11,8 @@ import { format, startOfWeek } from "date-fns";
 import { CalEvent, ViewToggle, WeekCalendar, colorFor, useCalendarView } from "@/components/week-calendar";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { bookingPrice } from "@/lib/booking-payments";
+import { Plus } from "lucide-react";
+import { NewBookingDialog, nextHalfHour } from "@/components/bookings/new-booking-dialog";
 
 interface Booking {
   price_cents: number | null;
@@ -95,6 +97,13 @@ export default function BookingsPage() {
   const [view, setView] = useCalendarView("bookings");
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [newOpen, setNewOpen] = useState(false);
+  const [newStart, setNewStart] = useState<Date>(() => nextHalfHour());
+
+  function openNewBooking(start: Date) {
+    setNewStart(start);
+    setNewOpen(true);
+  }
 
   useEffect(() => {
     fetchBookings();
@@ -167,8 +176,16 @@ export default function BookingsPage() {
             View and manage your scheduled meetings
           </p>
         </div>
-        <ViewToggle view={view} onChange={setView} />
+        <div className="flex items-center gap-2">
+          <ViewToggle view={view} onChange={setView} />
+          <Button onClick={() => openNewBooking(nextHalfHour())}>
+            <Plus className="mr-2 h-4 w-4" />
+            New booking
+          </Button>
+        </div>
       </div>
+
+      <NewBookingDialog open={newOpen} onOpenChange={setNewOpen} start={newStart} onCreated={fetchBookings} />
 
       {view === "calendar" ? (
         <div className="space-y-4">
@@ -185,7 +202,8 @@ export default function BookingsPage() {
               faded: b.status === "cancelled",
             }))}
             onSelect={(ev: CalEvent) => setSelectedId(ev.id)}
-            emptyHint="no bookings this week"
+            onSlotClick={(start) => openNewBooking(start < new Date() ? nextHalfHour() : start)}
+            emptyHint="no bookings this week · click a time to book one"
           />
           {selectedBooking && (
             <BookingCard

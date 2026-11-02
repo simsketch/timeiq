@@ -34,6 +34,23 @@ class BookingCreate(BaseModel):
         return validate_iana_timezone(value)
 
 
+class HostBookingCreate(BaseModel):
+    """A booking the host makes by hand from the dashboard."""
+    event_type_id: uuid.UUID
+    visitor_name: str = Field(..., min_length=1, max_length=255)
+    visitor_email: EmailStr
+    visitor_notes: Optional[str] = None
+    starts_at: datetime
+    timezone: str = Field(..., min_length=1, max_length=100)
+    # Book even when the time overlaps a calendar event or another booking.
+    allow_conflict: bool = False
+
+    @field_validator("timezone")
+    @classmethod
+    def check_timezone(cls, value: str) -> str:
+        return validate_iana_timezone(value)
+
+
 class BookingResponse(BaseModel):
     price_cents: Optional[int] = None
     currency: str = "usd"

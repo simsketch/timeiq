@@ -138,6 +138,7 @@ export function WeekCalendar({
   weekStart,
   onWeekChange,
   onSelect,
+  onSlotClick,
   emptyHint,
 }: {
   events: CalEvent[];
@@ -146,6 +147,8 @@ export function WeekCalendar({
   weekStart: Date;
   onWeekChange: (start: Date) => void;
   onSelect?: (ev: CalEvent) => void;
+  /** Called with the half hour clicked in an empty part of the grid (browser-local time). */
+  onSlotClick?: (start: Date) => void;
   emptyHint?: string;
 }) {
   const events = useMemo(() => timezone ? sourceEvents.map((event) => ({
@@ -271,7 +274,16 @@ export function WeekCalendar({
               const placed = placeDay(inWeek, d, startHour, endHour);
               const showNow = displayNow && isSameDay(d, displayNow) && displayNow.getHours() >= startHour && displayNow.getHours() < endHour;
               return (
-                <div key={d.toISOString()} className="relative border-l">
+                <div
+                  key={d.toISOString()}
+                  className={cn("relative border-l", onSlotClick && "cursor-pointer")}
+                  onClick={onSlotClick ? (e) => {
+                    const offset = e.clientY - e.currentTarget.getBoundingClientRect().top;
+                    const start = new Date(d);
+                    start.setHours(0, startHour * 60 + Math.floor((offset / HOUR_PX) * 2) * 30, 0, 0);
+                    onSlotClick(start);
+                  } : undefined}
+                >
                   {hours.map((h) => (
                     <div key={h} className="border-t border-dashed border-border/60" style={{ height: HOUR_PX }} />
                   ))}
@@ -285,7 +297,10 @@ export function WeekCalendar({
                     <button
                       key={ev.id}
                       type="button"
-                      onClick={() => onSelect?.(sourceEvents.find((event) => event.id === ev.id) ?? ev)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelect?.(sourceEvents.find((event) => event.id === ev.id) ?? ev);
+                      }}
                       className={cn(
                         "absolute overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left text-xs leading-tight shadow-sm transition-opacity hover:opacity-90",
                         ev.faded && "opacity-50"

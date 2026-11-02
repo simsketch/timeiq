@@ -307,3 +307,29 @@ async def is_bookable(
         exclude_booking_id=exclude_booking_id,
     )
     return any(datetime.fromisoformat(slot) == starts_at for slot in slots)
+
+
+async def find_conflicts(
+    db: AsyncSession, host: User, starts_at: datetime, ends_at: datetime
+) -> list[str]:
+    """Synced events and live bookings overlapping [starts_at, ends_at), as
+    short labels. Buffers are ignored: a host booking by hand only needs to
+    hear about real overlaps."""
+    events = (await db.execute(
+        select(CachedEvent).where(
+            CachedEvent.user_id == host.id,
+            CachedEvent.starts_at < ends_at,
+            CachedEvent.ends_at > starts_at,
+        ).order_by(CachedEvent.starts_at)
+    )).scalars().all()
+    bookings = (await db.execute(
+        select(Booking).where(
+            Booking.host_user_id == host.id,
+            Booking.status.in_(("confirmed", "pending_payment")),
+            Booking.starts_at < ends_at,
+            Booking.ends_at > starts_at,
+        ).order_by(Booking.starts_at)
+    )).scalars().all()
+    return [ev.title or "Busy" for ev in events] + [
+        f"Booking with {bk.visitor_name}" for bk in bookings
+    ]

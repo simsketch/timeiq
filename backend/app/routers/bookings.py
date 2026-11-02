@@ -17,9 +17,10 @@ from app.database import get_db
 from app.models.booking import Booking
 from app.models.event_type import EventType
 from app.models.user import User
-from app.schemas.booking import BookingCreate, BookingPublicResponse, BookingResponse
+from app.schemas.booking import BookingCreate, BookingPublicResponse, BookingResponse, HostBookingCreate
 from app.services.availability import (
     booking_window_error,
+    find_conflicts,
     freshen_host_calendars,
     is_bookable,
 )
@@ -170,6 +171,64 @@ async def list_bookings(
 
     result = await db.execute(query)
     return result.scalars().all()
+
+
+@router.post("/api/bookings", response_model=BookingResponse, status_code=status.HTTP_201_CREATED)
+async def create_booking_as_host(
+    payload: HostBookingCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Book a meeting by hand. The host can pick any future time, outside their
+    availability or booking window; overlaps are refused unless allow_conflict.
+    No payment is taken. The guest gets the usual confirmation and invite."""
+    event_type = (await db.execute(
+        select(EventType).where(EventType.id == payload.event_type_id, EventType.user_id == user.id)
+    )).scalar_one_or_none()
+    if event_type is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event type not found")
+
+    starts_at = payload.starts_at
+    if starts_at.tzinfo is None:
+        starts_at = starts_at.replace(tzinfo=timezone.utc)
+    starts_at = starts_at.astimezone(timezone.utc)
+    if starts_at < datetime.now(timezone.utc) - timedelta(minutes=5):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pick a time that hasn't passed yet")
+    ends_at = starts_at + timedelta(minutes=event_type.duration_minutes)
+
+    # Sync calendars first: it can take seconds and must not hold the lock.
+    await freshen_host_calendars(user)
+    await lock_host_bookings(db, user.id)
+    if not payload.allow_conflict:
+        conflicts = await find_conflicts(db, user, starts_at, ends_at)
+        if conflicts:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This time overlaps: " + ", ".join(conflicts[:3]) + (f" and {len(conflicts) - 3} more" if len(conflicts) > 3 else ""),
+            )
+
+    booking_id = uuid.uuid4()
+    booking = Booking(
+        id=booking_id,
+        event_type_id=event_type.id,
+        host_user_id=user.id,
+        visitor_name=payload.visitor_name,
+        visitor_email=payload.visitor_email,
+        visitor_notes=payload.visitor_notes,
+        starts_at=starts_at,
+        ends_at=ends_at,
+        timezone=payload.timezone,
+        status="confirmed",
+        cancel_token=secrets.token_urlsafe(32),
+        ical_uid=f"{booking_id}@timeiq.app",
+        ical_sequence=0,
+    )
+    db.add(booking)
+    await db.flush()
+    await db.refresh(booking)
+    await db.commit()
+    await send_booking_confirmation(booking, event_type, user)
+    return booking
 
 
 @router.patch("/api/bookings/{booking_id}", response_model=BookingResponse)

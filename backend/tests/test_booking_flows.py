@@ -298,3 +298,43 @@ async def test_reschedule_updates_and_cancel_removes_the_same_invite(env):
         new = await db.get(Booking, uuid.UUID(r.json()["id"]))
     assert (await env["client"].post(f"/api/public/bookings/{new.id}/cancel?token={new.cancel_token}")).status_code == 200
     assert [invite(m) for m in env["mail"][4:]] == [("CANCEL", f"{b.id}@timeiq.app", 2)] * 2
+
+
+# Host-made bookings from the dashboard
+
+def host_payload(event, start=MONDAY_9AM, **kw):
+    return {"event_type_id": event["id"], "visitor_name": "Aghil", "visitor_email": "aghil@example.com",
+            "starts_at": start, "timezone": "America/New_York", **kw}
+
+
+async def test_host_books_outside_availability_and_guest_gets_invite(env):
+    event = await make_event(env, location="https://zoom.us/j/1")
+    await set_hours(env, "09:00", "17:00")
+    # 10pm is outside the host's hours; the host can still book it by hand.
+    r = await env["client"].post("/api/bookings", json=host_payload(event, "2026-11-02T22:00:00-05:00"))
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["status"] == "confirmed" and body["price_cents"] is None
+    assert body["ends_at"].startswith("2026-11-03T03:30")
+    guest = [m for m in env["mail"] if m["to"] == ["aghil@example.com"]]
+    assert len(guest) == 1 and guest[0]["attachments"]
+    assert "zoom.us/j/1" in guest[0]["html"]
+
+
+async def test_host_booking_warns_on_overlap_unless_allowed(env):
+    event = await make_event(env)
+    first = await env["client"].post("/api/bookings", json=host_payload(event))
+    assert first.status_code == 201, first.text
+    clash = await env["client"].post("/api/bookings", json=host_payload(event, "2026-11-02T09:15:00-05:00", visitor_name="Bea"))
+    assert clash.status_code == 409
+    assert "Booking with Aghil" in clash.json()["detail"]
+    forced = await env["client"].post("/api/bookings", json=host_payload(event, "2026-11-02T09:15:00-05:00", allow_conflict=True))
+    assert forced.status_code == 201, forced.text
+
+
+async def test_host_booking_rejects_past_and_foreign_event_types(env):
+    event = await make_event(env)
+    past = await env["client"].post("/api/bookings", json=host_payload(event, "2026-10-20T09:00:00-04:00"))
+    assert past.status_code == 400
+    missing = await env["client"].post("/api/bookings", json=host_payload({"id": str(uuid.uuid4())}))
+    assert missing.status_code == 404
