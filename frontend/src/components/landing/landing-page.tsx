@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   ArrowRight,
   Server,
-  Code2,
   Link2,
   Calendar,
   Globe,
@@ -16,7 +15,7 @@ import {
   Phone,
   Timer,
   Receipt,
-  Sparkles,
+  CalendarCheck,
   BadgeCheck,
   FileText,
 } from "lucide-react";
@@ -24,7 +23,6 @@ import { LogoIcon } from "@/components/logo";
 import { PublicPricingCard } from "@/components/billing/pricing-card";
 import { HeaderAuthLinks } from "@/components/landing/header-auth-links";
 import type { Headline } from "@/components/landing/headlines";
-import { FounderPill } from "@/components/billing/founder-pill";
 import { GitHubIcon, GITHUB_URL } from "@/components/github-icon";
 import { LazyDemo } from "@/components/landing/lazy-demo";
 import { McpDemo } from "@/components/landing/mcp-demo";
@@ -34,9 +32,6 @@ import { OctoLoader } from "@/components/landing/octo/octo-loader";
 export function LandingPage({ headline }: { headline: Headline }) {
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* Global aurora mesh — drifts behind everything */}
-      <div className="aurora-bg" aria-hidden />
-      <div className="grain" aria-hidden />
 
       {/* Glass nav */}
       <header className="sticky top-0 z-50">
@@ -91,27 +86,23 @@ export function LandingPage({ headline }: { headline: Headline }) {
           <div className="container mx-auto px-6 lg:px-10 pt-10 lg:pt-14 pb-24 lg:pb-36">
             <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
               <div className="lg:col-span-7 space-y-8">
-                <div className="reveal reveal-1">
-                  <FounderPill href="#pricing" />
-                </div>
-
                 <h1 className="text-[3rem] sm:text-6xl lg:text-[4rem] xl:text-[4.5rem] leading-[0.98] tracking-[-0.035em] text-balance">
                   <span className="font-display">{headline.lead}</span>
                   <br />
-                  <span className="font-display-italic text-aurora">{headline.accent}</span>
+                  <span className="font-display text-muted-foreground">{headline.accent}</span>
                 </h1>
 
                 <p className="reveal reveal-3 text-lg lg:text-xl text-muted-foreground max-w-2xl leading-relaxed text-pretty">
-                  Email TimeIQ the soccer PDF, the band newsletter or a screenshot
-                  from the team app. Every practice and game lands on your calendar,
-                  blocks your booking link and syncs to your phone. Need to meet
-                  with someone? Cc TimeIQ and it finds the time.
+                  Forward TimeIQ the soccer PDF or a screenshot from the team app,
+                  cc it on an email thread, or ask Claude or ChatGPT. Practices
+                  land on your calendar, meetings get booked when you&apos;re free,
+                  and your booking link keeps up with all of it.
                 </p>
 
                 <div className="reveal reveal-4 flex flex-col sm:flex-row gap-3">
-                  <Link href="/billing/checkout">
-                    <Button variant="aurora" size="xl">
-                      Start your 7-day free trial
+                  <Link href="/sign-up">
+                    <Button variant="default" size="xl">
+                      Start free
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
@@ -122,25 +113,14 @@ export function LandingPage({ headline }: { headline: Headline }) {
                   </Link>
                 </div>
 
-                <div className="reveal reveal-5 flex items-center gap-5 pt-2 text-xs text-muted-foreground/80">
-                  <span className="inline-flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
-                    7 days free, then $19/year + tax
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
-                    Google, Outlook &amp; iCloud
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--aurora-1))]" />
-                    Cancel anytime
-                  </span>
-                </div>
+                <p className="reveal reveal-5 text-sm text-muted-foreground">
+                  Your first 7 meetings are free, no card needed. Then $19 a year.
+                </p>
 
                 {/* Social proof */}
                 <div className="reveal reveal-5 flex flex-wrap items-center gap-x-6 gap-y-3 pt-4 border-t border-foreground/[0.06]">
                   <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-full bg-[linear-gradient(135deg,hsl(var(--aurora-5)),hsl(var(--aurora-1)))] flex items-center justify-center text-white font-semibold text-xs shadow-lg shadow-[hsl(var(--aurora-1))]/25">
+                    <div className="h-9 w-9 rounded-full bg-foreground flex items-center justify-center text-background font-semibold text-xs">
                       EZ
                     </div>
                     <p className="text-sm text-muted-foreground max-w-xs leading-snug">
@@ -151,7 +131,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                       and used every week to book, track, and bill real client work.
                     </p>
                   </div>
-                  <div className="flex items-center gap-4 text-[11px] font-mono uppercase tracking-[0.15em] text-muted-foreground/80">
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span className="inline-flex items-center gap-1.5">
                       <Shield className="h-3.5 w-3.5" />
                       Stripe checkout
@@ -175,8 +155,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
 
               {/* Live demo: email a schedule */}
               <div id="try" className="lg:col-span-5 relative reveal reveal-3 mt-4 lg:mt-0 mx-auto w-full max-w-md lg:max-w-none scroll-mt-24">
-                <div className="hero-halo" aria-hidden />
-                <div className="relative">
+                                <div className="relative">
                   <LazyDemo name="email" />
                 </div>
               </div>
@@ -191,12 +170,12 @@ export function LandingPage({ headline }: { headline: Headline }) {
           <div className="container mx-auto px-6 lg:px-10">
             <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
               <div className="lg:col-span-5">
-                <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
-                  Try it · Claude, ChatGPT and Cursor
+                <div className="text-sm font-medium text-muted-foreground mb-5">
+                  Claude, ChatGPT and Cursor
                 </div>
                 <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
                   <span className="font-display">Ask your AI.</span>{" "}
-                  <span className="font-display-italic text-aurora">It knows your calendar.</span>
+                  <span className="font-display text-muted-foreground">It knows your calendar.</span>
                 </h2>
                 <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
                   Connect TimeIQ to Claude, ChatGPT or Cursor and ask in plain words. It checks every calendar you
@@ -210,7 +189,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                     "Disconnect anytime from Settings",
                   ].map((t) => (
                     <li key={t} className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--aurora-1))]" />
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                       {t}
                     </li>
                   ))}
@@ -234,12 +213,12 @@ export function LandingPage({ headline }: { headline: Headline }) {
           <div className="container mx-auto px-6 lg:px-10">
             <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
               <div className="lg:col-span-5">
-                <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
-                  Try it · cc TimeIQ
+                <div className="text-sm font-medium text-muted-foreground mb-5">
+                  Cc TimeIQ
                 </div>
                 <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
                   <span className="font-display">Cc TimeIQ.</span>{" "}
-                  <span className="font-display-italic text-aurora">It finds the time.</span>
+                  <span className="font-display text-muted-foreground">It finds the time.</span>
                 </h2>
                 <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
                   Cc agent@timeiq.app from your own email on any thread about meeting up. It replies to everyone with three times you&apos;re
@@ -253,7 +232,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                     "Checks every calendar first, so it never double-books you",
                   ].map((t) => (
                     <li key={t} className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--aurora-1))]" />
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                       {t}
                     </li>
                   ))}
@@ -272,12 +251,12 @@ export function LandingPage({ headline }: { headline: Headline }) {
         <section id="calendars" className="relative py-24 lg:py-32 scroll-mt-16">
           <div className="container mx-auto px-6 lg:px-10">
             <div className="max-w-2xl mb-12">
-              <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
-                Try it · every calendar you use
+              <div className="text-sm font-medium text-muted-foreground mb-5">
+                Every calendar you use
               </div>
               <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
                 <span className="font-display">All your calendars.</span>{" "}
-                <span className="font-display-italic text-aurora">One booking link.</span>
+                <span className="font-display text-muted-foreground">One booking link.</span>
               </h2>
               <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
                 A booking page only protects the calendars it can see. TimeIQ checks work, personal, family and
@@ -296,12 +275,12 @@ export function LandingPage({ headline }: { headline: Headline }) {
           <div className="container mx-auto px-6 lg:px-10">
             <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
               <div className="lg:col-span-5">
-                <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
-                  Try it · share availability
+                <div className="text-sm font-medium text-muted-foreground mb-5">
+                  Share availability
                 </div>
                 <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
                   <span className="font-display">&ldquo;When are you free?&rdquo;</span>{" "}
-                  <span className="font-display-italic text-aurora">One click.</span>
+                  <span className="font-display text-muted-foreground">One click.</span>
                 </h2>
                 <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
                   TimeIQ turns every connected calendar into your open times for the week ahead. Add the other
@@ -315,7 +294,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                     "Text or picture, ready to paste",
                   ].map((t) => (
                     <li key={t} className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--aurora-1))]" />
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                       {t}
                     </li>
                   ))}
@@ -334,15 +313,12 @@ export function LandingPage({ headline }: { headline: Headline }) {
         <section id="how" className="relative py-24 lg:py-36">
           <div className="container mx-auto px-6 lg:px-10">
             <div className="max-w-2xl mb-20">
-              <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
+              <div className="text-sm font-medium text-muted-foreground mb-5">
                 How it works
               </div>
               <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
-                <span className="font-display">Three steps to</span>{" "}
-                <span className="font-display-italic text-aurora">
-                  effortless
-                </span>{" "}
-                <span className="font-display">scheduling.</span>
+                <span className="font-display">Share one link.</span>{" "}
+                <span className="font-display text-muted-foreground">TimeIQ does the rest.</span>
               </h2>
             </div>
 
@@ -353,51 +329,29 @@ export function LandingPage({ headline }: { headline: Headline }) {
                   title: "Share your link",
                   icon: Link2,
                   color: "var(--aurora-1)",
-                  desc: "Create your personalized booking page and share it with anyone. Set your availability once and you're done.",
+                  desc: "Set your hours once and send your page to anyone, or paste your open times into a chat.",
                 },
                 {
                   step: "02",
                   title: "They pick a time",
                   icon: Clock,
                   color: "var(--aurora-2)",
-                  desc: "Your guests see real-time availability and choose a slot that works for everyone. No more email ping-pong.",
+                  desc: "Guests see only the times every one of your calendars says you're free, in their own time zone.",
                 },
                 {
                   step: "03",
                   title: "You're booked",
                   icon: CheckCircle2,
                   color: "var(--aurora-4)",
-                  desc: "Instant confirmation for both parties, auto-added to calendars, ICS attachments included. Simple as that.",
+                  desc: "Both of you get the invite and a calendar event, and a push lands on your phone.",
                 },
               ].map((item, i) => (
                 <div
                   key={i}
                   className="glass glass-hover rounded-[1.5rem] p-8 relative"
                 >
-                  <div
-                    className="font-display text-[4.5rem] leading-none text-transparent bg-clip-text mb-8"
-                    style={{
-                      backgroundImage: `linear-gradient(135deg, hsl(${item.color}), hsl(${item.color} / 0.3))`,
-                    }}
-                  >
-                    {item.step}
-                  </div>
-                  <div className="flex items-center gap-2.5 mb-3">
-                    <div
-                      className="h-8 w-8 rounded-lg flex items-center justify-center"
-                      style={{
-                        backgroundColor: `hsl(${item.color} / 0.12)`,
-                      }}
-                    >
-                      <item.icon
-                        className="h-4 w-4"
-                        style={{ color: `hsl(${item.color})` }}
-                      />
-                    </div>
-                    <h3 className="text-lg font-semibold tracking-tight">
-                      {item.title}
-                    </h3>
-                  </div>
+                  <div className="text-sm font-medium text-muted-foreground tabular-nums mb-10">{i + 1}</div>
+                  <h3 className="text-lg font-semibold tracking-tight mb-2">{item.title}</h3>
                   <p className="text-muted-foreground leading-relaxed text-[15px] text-pretty">
                     {item.desc}
                   </p>
@@ -414,13 +368,13 @@ export function LandingPage({ headline }: { headline: Headline }) {
           <div className="container mx-auto px-6 lg:px-10">
             <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between mb-16 gap-6">
               <div className="max-w-2xl">
-                <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
+                <div className="text-sm font-medium text-muted-foreground mb-5">
                   Features
                 </div>
                 <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
-                  <span className="font-display">Everything you need to</span>{" "}
-                  <span className="font-display-italic text-aurora">
-                    own your time.
+                  <span className="font-display">Built for a full calendar.</span>{" "}
+                  <span className="font-display text-muted-foreground">
+                    Work, kids, clients.
                   </span>
                 </h2>
               </div>
@@ -433,7 +387,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                 icon={Calendar}
                 color="var(--aurora-1)"
                 label="Calendar sync"
-                title="Seamlessly connected."
+                title="Every calendar, one view."
                 description="Google, Outlook, iCloud and any calendar link, merged into one view. Synced hourly and re-checked before every booking, so nobody books over your other life."
                 large
               />
@@ -442,40 +396,40 @@ export function LandingPage({ headline }: { headline: Headline }) {
                 icon={Globe}
                 color="var(--aurora-2)"
                 label="Timezone smart"
-                title="Always local."
-                description="Automatically detect and display times in your guests' local timezones."
+                title="Their time zone, automatically."
+                description="Guests see every open time in their own zone, and so do you."
               />
               <FeatureCard
                 className="col-span-6 md:col-span-3 lg:col-span-2"
                 icon={Zap}
                 color="var(--aurora-3)"
                 label="Instant"
-                title="Zero delay."
-                description="Get notified the moment someone books with you."
+                title="A ping when someone books."
+                description="An email and a push to your phone the moment a time is taken."
               />
               <FeatureCard
                 className="col-span-6 md:col-span-3 lg:col-span-2"
                 icon={Shield}
                 color="var(--aurora-5)"
                 label="Buffer times"
-                title="Breathing room."
-                description="Add padding between meetings so you never feel back-to-back."
+                title="Buffers between meetings."
+                description="Padding before and after, so the day never runs back-to-back."
               />
               <FeatureCard
                 className="col-span-6 lg:col-span-2"
                 icon={Mail}
                 color="var(--aurora-4)"
                 label="Email"
-                title="In the loop."
-                description="Automated confirmations, reminders, and calendar invites for everyone."
+                title="Invites that keep up."
+                description="Confirmations, reminders and calendar invites for everyone, updated when a meeting moves."
               />
               <FeatureCard
-                className="col-span-6 lg:col-span-4"
+                className="col-span-6"
                 icon={Users}
                 color="var(--aurora-1)"
                 label="Event types"
-                title="Your meetings, your way."
-                description="Create different meeting types with unique durations, buffers, intake fields, and settings — all from one dashboard."
+                title="A page for each kind of meeting."
+                description="Intro calls, office hours, paid sessions: each gets its own length, buffers, questions and price."
                 large
               />
             </div>
@@ -488,12 +442,12 @@ export function LandingPage({ headline }: { headline: Headline }) {
         <section id="open-source" className="relative py-24 lg:py-36">
           <div className="container mx-auto px-6 lg:px-10">
             <div className="text-center max-w-2xl mx-auto mb-14">
-              <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
+              <div className="text-sm font-medium text-muted-foreground mb-5">
                 Open source
               </div>
               <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
                 <span className="font-display">Every line is public.</span>{" "}
-                <span className="font-display-italic text-aurora">
+                <span className="font-display text-muted-foreground">
                   We run it for you.
                 </span>
               </h2>
@@ -506,10 +460,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
 
             <div className="grid md:grid-cols-2 gap-5 max-w-5xl mx-auto">
               <div className="glass rounded-[1.5rem] p-8 flex flex-col">
-                <div className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.15em] text-muted-foreground mb-5">
-                  <Code2 className="h-3.5 w-3.5" />
-                  Self-hosted
-                </div>
+                <div className="text-sm font-medium text-muted-foreground mb-5">Self-hosted</div>
                 <h3 className="font-display text-3xl tracking-[-0.02em] leading-[1.05] mb-2">
                   Free, on your servers.
                 </h3>
@@ -538,11 +489,8 @@ export function LandingPage({ headline }: { headline: Headline }) {
                 </a>
               </div>
 
-              <div className="glass rounded-[1.5rem] p-8 flex flex-col ring-1 ring-[hsl(var(--aurora-1))]/30">
-                <div className="inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.15em] text-[hsl(var(--aurora-1))] mb-5">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Hosted at timeiq.app
-                </div>
+              <div className="glass rounded-[1.5rem] p-8 flex flex-col">
+                <div className="text-sm font-medium text-muted-foreground mb-5">Hosted at timeiq.app</div>
                 <h3 className="font-display text-3xl tracking-[-0.02em] leading-[1.05] mb-2">
                   $19 a year plus tax. Nothing to run.
                 </h3>
@@ -559,14 +507,14 @@ export function LandingPage({ headline }: { headline: Headline }) {
                     "Supports the open source project you are using",
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-2.5">
-                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--aurora-1))]" />
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                       {item}
                     </li>
                   ))}
                 </ul>
-                <Link href="/billing/checkout" className="mt-auto">
-                  <Button variant="aurora" size="lg" className="w-full">
-                    Claim a founder spot
+                <Link href="/sign-up" className="mt-auto">
+                  <Button variant="default" size="lg" className="w-full">
+                    Start free
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
@@ -582,13 +530,13 @@ export function LandingPage({ headline }: { headline: Headline }) {
           <div className="container mx-auto px-6 lg:px-10">
             <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center mb-16 lg:mb-20">
               <div className="lg:col-span-5 space-y-6">
-                <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+                <div className="text-sm font-medium text-muted-foreground">
                   Also included: time &amp; invoicing
                 </div>
                 <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
                   <span className="font-display">Log the hours.</span>
                   <br />
-                  <span className="font-display-italic text-aurora">
+                  <span className="font-display text-muted-foreground">
                     Send the invoice.
                   </span>
                   <br />
@@ -607,7 +555,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                     "Hours lock once billed, so invoices stay true",
                   ].map((line) => (
                     <li key={line} className="flex items-start gap-2.5">
-                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--aurora-1))]" />
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
                       <span>{line}</span>
                     </li>
                   ))}
@@ -616,8 +564,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
 
               {/* Timesheet mock */}
               <div className="lg:col-span-7 relative mx-auto w-full">
-                <div className="hero-halo" aria-hidden />
-                <div className="relative">
+                                <div className="relative">
                   <div className="glass glass-chroma rounded-[1.75rem] p-5 sm:p-7">
                     <div className="flex items-center justify-between mb-5">
                       <div>
@@ -721,7 +668,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
               />
               <FeatureCard
                 className="col-span-6 md:col-span-3 lg:col-span-2"
-                icon={Sparkles}
+                icon={CalendarCheck}
                 color="var(--aurora-3)"
                 label="Suggestions"
                 title="Pulled from your calendar."
@@ -762,18 +709,18 @@ export function LandingPage({ headline }: { headline: Headline }) {
         <section id="pricing" className="relative py-24 lg:py-36">
           <div className="container mx-auto px-6 lg:px-10">
             <div className="text-center max-w-2xl mx-auto mb-12">
-              <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-5">
+              <div className="text-sm font-medium text-muted-foreground mb-5">
                 Pricing
               </div>
               <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
                 <span className="font-display">One plan.</span>{" "}
-                <span className="font-display-italic text-aurora">
+                <span className="font-display text-muted-foreground">
                   Stupid cheap.
                 </span>
               </h2>
               <p className="text-lg text-muted-foreground mt-6 text-pretty">
-                The first 100 subscribers lock in $19 a year for life. Everyone
-                after that pays $29. Still less than most tools charge a month.
+                Your first 7 meetings are free. After that, the first 100
+                subscribers lock in $19 a year for life, and everyone after pays $29.
               </p>
               <p className="text-sm text-muted-foreground mt-3">
                 Prefer to run it yourself?{" "}
@@ -793,26 +740,23 @@ export function LandingPage({ headline }: { headline: Headline }) {
         </section>
 
         {/* ================================================================
-             CTA — dark glass panel over aurora
+             CTA
              ================================================================ */}
         <section className="py-24 lg:py-36">
           <div className="container mx-auto px-6 lg:px-10">
-            <div className="relative overflow-hidden rounded-[2rem] lg:rounded-[2.5rem] aurora-bg-dark p-12 lg:p-20 text-center">
-              <div className="grain opacity-20" aria-hidden />
-              <div className="relative max-w-3xl mx-auto">
-                <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-white text-balance">
-                  <span className="font-display">Ready to take control of</span>{" "}
-                  <span className="font-display-italic bg-gradient-to-r from-white via-[hsl(var(--aurora-4))] to-[hsl(var(--aurora-2))] bg-clip-text text-transparent">
-                    your time?
-                  </span>
+            <div className="rounded-[2rem] lg:rounded-[2.5rem] bg-foreground p-12 lg:p-20 text-center">
+              <div className="max-w-3xl mx-auto">
+                <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-background text-balance">
+                  <span className="font-display">Try vibe scheduling.</span>{" "}
+                  <span className="font-display text-background/55">The first 7 meetings are on us.</span>
                 </h2>
-                <p className="text-lg text-white/70 mt-7 mb-10 leading-relaxed text-pretty">
-                  Every calendar in one place, schedules that add themselves,
-                  and your free time ready to share. Founder spots are limited.
+                <p className="text-lg text-background/70 mt-7 mb-10 leading-relaxed text-pretty">
+                  Connect your calendars, share your link and forward the next
+                  schedule that lands in your inbox. No card needed to start.
                 </p>
-                <Link href="/billing/checkout">
-                  <Button variant="aurora" size="xl">
-                    Claim your founder spot
+                <Link href="/sign-up">
+                  <Button size="xl" className="bg-background text-foreground hover:bg-background/90">
+                    Start free
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
@@ -913,16 +857,7 @@ function FeatureCard({
       className={`glass glass-hover rounded-[1.5rem] p-7 flex flex-col justify-between gap-6 ${className || ""}`}
     >
       <div>
-        <div
-          className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-mono uppercase tracking-[0.15em] mb-5"
-          style={{
-            backgroundColor: `hsl(${color} / 0.1)`,
-            color: `hsl(${color})`,
-          }}
-        >
-          <Icon className="h-3 w-3" />
-          {label}
-        </div>
+        <Icon className="h-5 w-5 text-muted-foreground mb-6" aria-label={label} />
         <h3
           className={`font-display tracking-[-0.02em] leading-[1.05] mb-3 ${
             large ? "text-4xl lg:text-5xl" : "text-2xl lg:text-3xl"

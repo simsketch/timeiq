@@ -155,8 +155,8 @@ export function EmailScheduleDemo() {
   return (
     <div ref={ref} className="glass glass-chroma rounded-[1.75rem] p-5 sm:p-6">
       <div className="flex items-center justify-between mb-4">
-        <div className="text-[11px] font-mono uppercase tracking-[0.18em] text-[hsl(var(--aurora-1))]">
-          Try it · no signup
+        <div className="text-xs font-medium text-muted-foreground">
+          Try it, no sign-up
         </div>
         <button
           type="button"

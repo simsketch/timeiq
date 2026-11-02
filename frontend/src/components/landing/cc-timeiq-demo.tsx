@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CalendarCheck, CheckCircle2, Paperclip, Plus, RotateCcw, Send, Sparkles, X } from "lucide-react";
+import { CalendarCheck, CheckCircle2, Loader2, Paperclip, Plus, RotateCcw, Send, X } from "lucide-react";
 import { useDemoAutoplay } from "./use-demo-autoplay";
 
 type Mode = "thread" | "assistant";
@@ -22,7 +22,7 @@ function Bubble({ m }: { m: Msg }) {
     <div className={`demo-pop rounded-2xl border px-4 py-3 text-sm ${m.agent ? "border-[hsl(var(--aurora-1))]/25 bg-[hsl(var(--aurora-1))]/[0.05]" : "border-foreground/[0.08] bg-white/85"}`}>
       <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
         <span className={`font-semibold ${m.agent ? "text-[hsl(var(--aurora-1))]" : "text-foreground/80"}`}>
-          {m.agent && <Sparkles className="mr-1 inline h-3 w-3" />}
+          {m.agent && <CalendarCheck className="mr-1 inline h-3 w-3" />}
           {m.from}
         </span>
         <span className="truncate">to {m.to}</span>
@@ -35,7 +35,7 @@ function Bubble({ m }: { m: Msg }) {
 function Typing() {
   return (
     <div className="demo-fade inline-flex items-center gap-2 rounded-full border border-[hsl(var(--aurora-1))]/20 bg-white/70 px-3 py-1.5 text-xs text-[hsl(var(--aurora-1))]">
-      <Sparkles className="h-3 w-3 animate-pulse" /> TimeIQ is checking Elon&apos;s calendars…
+      <Loader2 className="h-3 w-3 animate-spin" /> TimeIQ is checking Elon&apos;s calendars…
     </div>
   );
 }

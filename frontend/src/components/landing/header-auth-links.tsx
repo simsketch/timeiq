@@ -30,7 +30,7 @@ export function HeaderAuthLinks() {
       </Link>
       <Link href="/sign-up">
         <Button variant="default">
-          Get started
+          Start free
           <ArrowRight className="h-4 w-4" />
         </Button>
       </Link>
