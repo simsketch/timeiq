@@ -134,7 +134,7 @@
   /* Landing brand pair: bright violet and the deep purple it sits on */
   --brand: 260 97% 61%;      /* #7b39fc */
   --brand-ink: 254 32% 20%;  /* #2b2344 */
-  --brand-deep: 254 41% 13%; /* hero water */
+  --brand-deep: 258 45% 5%;  /* near-black the hero beam shines on */
 }
 
 @layer base {
@@ -584,3 +584,57 @@
 .article a { color: hsl(var(--aurora-1)); text-decoration: underline; text-underline-offset: 3px; }
 .article strong { color: hsl(var(--foreground)); font-weight: 650; }
 .article blockquote { border-left: 3px solid hsl(var(--aurora-1) / 0.5); padding-left: 1em; color: hsl(var(--muted-foreground)); }
+
+/* Hero light beam: a grainy violet shaft from the top-left corner, drawn in
+   CSS so it paints with the page. Fixed geometry anchored to the corner, so it
+   sweeps toward the centre at any width. Only transforms and opacity animate,
+   on layers rasterized once, so the drift stays on the compositor. */
+.hero-beam { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.hero-beam__shaft {
+  --beam-w: clamp(300px, 46vw, 700px);
+  position: absolute; top: -280px; left: calc(-90px - var(--beam-w) / 2);
+  width: var(--beam-w); height: 1600px;
+  transform-origin: 50% 0; transform: rotate(-27deg);
+  will-change: transform, opacity;
+  animation: hero-beam-sway 16s ease-in-out infinite alternate;
+}
+.hero-beam__glow {
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg,
+    transparent 2%,
+    hsl(266 90% 38% / 0.4) 20%,
+    hsl(266 95% 58% / 0.9) 36%,
+    hsl(276 100% 92% / 1) 50%,
+    hsl(266 95% 62% / 0.85) 64%,
+    hsl(262 90% 40% / 0.35) 80%,
+    transparent 98%);
+  filter: blur(30px);
+  -webkit-mask-image: linear-gradient(180deg, #000 25%, transparent 80%);
+          mask-image: linear-gradient(180deg, #000 25%, transparent 80%);
+}
+/* The streaks ride inside the shaft, counter-rotated so they stay vertical
+   on screen, and fade at the beam's edges and along its length */
+.hero-beam__band {
+  position: absolute; inset: 0 8%; overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 30%, #000 70%, transparent), linear-gradient(180deg, #000 20%, transparent 75%);
+  -webkit-mask-composite: source-in;
+          mask-image: linear-gradient(90deg, transparent, #000 30%, #000 70%, transparent), linear-gradient(180deg, #000 20%, transparent 75%);
+          mask-composite: intersect;
+}
+.hero-beam__streaks {
+  position: absolute; inset: -40% -60%;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,0.14) 0 1px, transparent 1px 17px, rgba(255,255,255,0.07) 17px 19px, transparent 19px 41px);
+  transform: rotate(27deg);
+}
+.hero-beam__grain {
+  position: absolute; inset: 0; opacity: 0.16; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.hero-beam[data-paused] .hero-beam__shaft { animation-play-state: paused; }
+@keyframes hero-beam-sway {
+  from { transform: rotate(-30deg); opacity: 0.85; }
+  to   { transform: rotate(-24deg); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-beam__shaft { animation: none; }
+}

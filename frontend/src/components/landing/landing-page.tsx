@@ -23,7 +23,8 @@ import { LazyDemo } from "@/components/landing/lazy-demo";
 import { McpDemo } from "@/components/landing/mcp-demo";
 import { McpDemoContent } from "@/components/landing/mcp-demo-content";
 import { OctoLoader } from "@/components/landing/octo/octo-loader";
-import { HeroWater } from "@/components/landing/hero-water";
+import { HeroBeam } from "@/components/landing/hero-beam";
+import { HeroWindow } from "@/components/landing/hero-window";
 
 export function LandingPage({ headline }: { headline: Headline }) {
   return (
@@ -79,88 +80,86 @@ export function LandingPage({ headline }: { headline: Headline }) {
              HERO
              ================================================================ */}
         <section className="relative isolate -mt-[73px] overflow-hidden bg-[hsl(var(--brand-deep))] text-white">
-          {/* Paints first: a gradient in the video's colours. The loop fades in over it later. */}
-          <div
-            aria-hidden
-            className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_70%_60%_at_85%_0%,hsl(250_70%_55%/0.55),transparent_70%),linear-gradient(180deg,hsl(250_45%_22%),hsl(var(--brand-deep))_60%)]"
-          >
-            <HeroWater />
-            {/* Keeps the copy readable over the brightest part of the water */}
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,hsl(var(--brand-deep)/0.8),hsl(var(--brand-deep)/0.35)_55%,transparent),linear-gradient(0deg,hsl(var(--brand-deep)/0.6),transparent_35%)]" />
+          <HeroBeam />
+          <div className="relative container mx-auto px-6 lg:px-10 pt-[calc(73px+3.5rem)] lg:pt-[calc(73px+5rem)] flex flex-col items-center text-center">
+            <h1 className="font-serif font-normal text-[3.4rem] sm:text-7xl xl:text-[6rem] leading-[1.02] tracking-[-0.01em] text-balance">
+              {headline.lead}
+              <br />
+              <em className="text-[hsl(260_100%_84%)]">{headline.accent}</em>
+            </h1>
+
+            <p className="reveal reveal-3 mt-6 text-lg text-white/70 max-w-[662px] leading-relaxed text-pretty">
+              Forward a schedule, cc an email thread, or ask Claude or ChatGPT.
+              TimeIQ puts it on your calendar and books meetings when you&apos;re free.
+            </p>
+
+            <div className="reveal reveal-4 mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <Link href="/sign-up">
+                <Button variant="brand" size="xl" className="w-full sm:w-auto">
+                  Start free
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <a href="#try">
+                <Button variant="brandInk" size="xl" className="w-full sm:w-auto ring-1 ring-white/10">
+                  Try the demo
+                </Button>
+              </a>
+            </div>
+
+            <p className="reveal reveal-5 mt-5 text-sm text-white/55">
+              Your first 7 meetings are free, no card needed. Then $19 a year.
+            </p>
+
+            {/* The product, rising out of the bottom of the hero */}
+            <div className="reveal reveal-5 mt-14 lg:mt-16 w-full h-[300px] sm:h-[360px] lg:h-[400px] overflow-hidden">
+              <HeroWindow />
+            </div>
           </div>
-          <div className="container mx-auto px-6 lg:px-10 pt-[calc(73px+3rem)] lg:pt-[calc(73px+5rem)] pb-24 lg:pb-36">
-            <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-              <div className="lg:col-span-7 space-y-8">
-                <h1 className="font-serif font-normal text-[3.4rem] sm:text-7xl xl:text-[6rem] leading-[1.02] tracking-[-0.01em] text-balance">
-                  {headline.lead}
-                  <br />
-                  <em className="text-[hsl(260_100%_82%)]">{headline.accent}</em>
-                </h1>
+        </section>
 
-                <p className="reveal reveal-3 text-lg lg:text-xl text-white/70 max-w-[662px] leading-relaxed text-pretty">
-                  Forward TimeIQ the soccer PDF or a screenshot from the team app,
-                  cc it on an email thread, or ask Claude or ChatGPT. Practices
-                  land on your calendar, meetings get booked when you&apos;re free,
-                  and your booking link keeps up with all of it.
+        {/* ================================================================
+             LIVE DEMO — email a schedule
+             ================================================================ */}
+        <section id="try" className="relative py-24 lg:py-32 scroll-mt-16">
+          <div className="container mx-auto px-6 lg:px-10">
+            <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+              <div className="lg:col-span-6">
+                <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">
+                  Forward it
+                </div>
+                <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
+                  <span>Send the schedule.</span>{" "}
+                  <em className="text-[hsl(var(--brand))]">It&apos;s on your calendar.</em>
+                </h2>
+                <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
+                  Pick a sample and hit Send. TimeIQ reads PDFs, screenshots and
+                  plain email, puts every practice and game on your week, and
+                  tells you what clashes.
                 </p>
-
-                <div className="reveal reveal-4 flex flex-col sm:flex-row gap-3">
-                  <Link href="/sign-up">
-                    <Button variant="brand" size="xl" className="w-full sm:w-auto">
-                      Start free
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <a href="#how">
-                    <Button variant="brandInk" size="xl" className="w-full sm:w-auto ring-1 ring-white/10">
-                      How it works
-                    </Button>
+                <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-muted-foreground">
+                  <span>
+                    Built by{" "}
+                    <a href="https://yoyocode.com" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground hover:text-foreground/80">
+                      Yoyo Code
+                    </a>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Shield className="h-3.5 w-3.5" />
+                    Stripe checkout
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5" />
+                    Google Calendar
+                  </span>
+                  <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors">
+                    <GitHubIcon className="h-3.5 w-3.5" />
+                    Open source
                   </a>
                 </div>
-
-                <p className="reveal reveal-5 text-sm text-white/60">
-                  Your first 7 meetings are free, no card needed. Then $19 a year.
-                </p>
-
-                {/* Social proof */}
-                <div className="reveal reveal-5 flex flex-wrap items-center gap-x-6 gap-y-3 pt-4 border-t border-white/10">
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-full bg-white flex items-center justify-center text-[hsl(var(--brand-ink))] font-semibold text-xs">
-                      EZ
-                    </div>
-                    <p className="text-sm text-white/60 max-w-xs leading-snug">
-                      Built by{" "}
-                      <a href="https://yoyocode.com" target="_blank" rel="noopener noreferrer" className="font-medium text-white hover:text-white/80">
-                        Yoyo Code
-                      </a>{" "}
-                      and used every week to run a calendar full of clients, kids and practices.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-white/60">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Shield className="h-3.5 w-3.5" />
-                      Stripe checkout
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <Calendar className="h-3.5 w-3.5" />
-                      Google Calendar
-                    </span>
-                    <a
-                      href={GITHUB_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 hover:text-white transition-colors"
-                    >
-                      <GitHubIcon className="h-3.5 w-3.5" />
-                      Open source
-                    </a>
-                  </div>
-                </div>
               </div>
-
-              {/* Live demo: email a schedule */}
-              <div id="try" className="lg:col-span-5 relative reveal reveal-3 mt-4 lg:mt-0 mx-auto w-full max-w-md lg:max-w-none scroll-mt-24">
-                <div className="relative rounded-[1.75rem] bg-white text-foreground shadow-[0_40px_120px_-30px_hsl(260_97%_40%/0.6)]">
+              <div className="lg:col-span-6 mx-auto w-full max-w-md lg:max-w-none">
+                <div className="relative rounded-[1.75rem] bg-white shadow-[0_30px_80px_-30px_hsl(260_60%_40%/0.35)] ring-1 ring-black/5">
                   <LazyDemo name="email" />
                 </div>
               </div>
