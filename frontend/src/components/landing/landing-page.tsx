@@ -58,8 +58,8 @@ export function LandingPage({ headline }: { headline: Headline }) {
             >
               Features
             </a>
-            <a href="#try" className="hover:text-foreground transition-colors">
-              Live demo
+            <a href="#pricing" className="hover:text-foreground transition-colors">
+              Pricing
             </a>
             <Link href="/tools" className="hover:text-foreground transition-colors">
               Free tools
@@ -67,7 +67,6 @@ export function LandingPage({ headline }: { headline: Headline }) {
             <Link href="/blog" className="hover:text-foreground transition-colors">
               Blog
             </Link>
-            <FounderPill href="/pricing" compact />
           </nav>
           <div className="flex items-center gap-2">
             <a
@@ -78,7 +77,6 @@ export function LandingPage({ headline }: { headline: Headline }) {
               className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <GitHubIcon className="h-4 w-4" />
-              <span className="hidden lg:inline">Open source</span>
             </a>
             <HeaderAuthLinks />
           </div>
