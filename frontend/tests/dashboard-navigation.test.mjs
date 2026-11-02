@@ -64,20 +64,35 @@ const find = (tree, predicate) => nodes(tree, predicate)[0];
 const auth = { useAuth: () => ({ getToken: async () => "test-token" }) };
 const toastModule = { useToast: () => ({ toast() {} }) };
 
-test("navigation preserves routes, highlights nested pages and closes the mobile drawer on every link", () => {
+test("navigation preserves routes, highlights nested pages and closes the mobile drawer on every link", async () => {
   let closed = 0;
-  const sidebar = harness("components/dashboard/sidebar.tsx", "Sidebar", { onNavigate: () => closed++ }, {
-    modules: { "next/navigation": { usePathname: () => "/meetings/123" } },
+  const modules = (invoicing) => ({
+    "next/navigation": { usePathname: () => "/meetings/123" },
+    "@clerk/nextjs": { useAuth: () => ({ isLoaded: true, getToken: async () => "t" }) },
+    "@/lib/api": { apiFetch: async (path) => (assert.equal(path, "/api/me"), { invoicing_enabled: invoicing }) },
   });
+  const sidebar = harness("components/dashboard/sidebar.tsx", "Sidebar", { onNavigate: () => closed++ }, {
+    modules: modules(false), effects: true,
+  });
+  await sidebar.mount();
   const tree = sidebar.render();
   const links = nodes(tree, (node) => node.type === "Link");
+  // Time tracking and invoicing stay hidden unless the account has them.
   assert.deepEqual(links.slice(1).map((node) => node.props.href), [
-    "/dashboard", "/event-types", "/availability", "/calendars", "/bookings", "/meetings", "/time", "/clients", "/invoices", "/settings",
+    "/dashboard", "/event-types", "/availability", "/calendars", "/bookings", "/meetings", "/settings",
   ]);
   assert.equal(find(tree, (node) => node.props?.["aria-current"] === "page").props.href, "/meetings");
   for (const link of links) link.props.onClick();
   assert.equal(closed, links.length);
-  assert.deepEqual(nodes(tree, (node) => node.type === "p").map((node) => node.props.children), ["Scheduling", "Time & invoicing"]);
+  assert.deepEqual(nodes(tree, (node) => node.type === "p").map((node) => node.props.children), ["Scheduling"]);
+
+  const owner = harness("components/dashboard/sidebar.tsx", "Sidebar", {}, { modules: modules(true), effects: true });
+  await owner.mount();
+  const ownerTree = owner.render();
+  assert.deepEqual(nodes(ownerTree, (node) => node.type === "Link").slice(1).map((node) => node.props.href), [
+    "/dashboard", "/event-types", "/availability", "/calendars", "/bookings", "/meetings", "/time", "/clients", "/invoices", "/settings",
+  ]);
+  assert.deepEqual(nodes(ownerTree, (node) => node.type === "p").map((node) => node.props.children), ["Scheduling", "Time & invoicing"]);
 
   const mobile = harness("components/dashboard/mobile-nav.tsx", "MobileNav", {}, {
     modules: { "next/navigation": { usePathname: () => "/availability" }, "@clerk/nextjs": {} },
