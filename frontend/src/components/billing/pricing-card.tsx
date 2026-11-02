@@ -82,12 +82,12 @@ function FreeCard({ signedIn, headline }: { signedIn: boolean; headline?: string
       <ul className="space-y-2.5 mb-8 text-sm">
         {FREE_INCLUDED.map((line) => (
           <li key={line} className="flex items-start gap-2.5">
-            <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+            <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--brand))]" />
             <span>{line}</span>
           </li>
         ))}
       </ul>
-      <Button asChild variant="default" size="xl" className="w-full mt-auto">
+      <Button asChild variant="brand" size="xl" className="w-full mt-auto">
         {signedIn ? (
           <Link href="/dashboard" className="gap-2">
             Go to your dashboard

@@ -23,6 +23,7 @@ import { LazyDemo } from "@/components/landing/lazy-demo";
 import { McpDemo } from "@/components/landing/mcp-demo";
 import { McpDemoContent } from "@/components/landing/mcp-demo-content";
 import { OctoLoader } from "@/components/landing/octo/octo-loader";
+import { HeroWater } from "@/components/landing/hero-water";
 
 export function LandingPage({ headline }: { headline: Headline }) {
   return (
@@ -30,31 +31,31 @@ export function LandingPage({ headline }: { headline: Headline }) {
 
       {/* Glass nav */}
       <header className="sticky top-0 z-50">
-        <div className="absolute inset-x-0 top-0 h-full bg-gradient-to-b from-white/70 via-white/40 to-transparent backdrop-blur-xl border-b border-white/40" />
+        <div className="absolute inset-x-0 top-0 h-full bg-[hsl(var(--brand-deep)/0.72)] backdrop-blur-xl border-b border-white/10" />
         <div className="relative container mx-auto px-6 lg:px-10 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
             <LogoIcon />
-            <span className="text-xl font-semibold tracking-tight">
+            <span className="text-xl font-semibold tracking-tight text-white">
               TimeIQ
             </span>
           </Link>
-          <nav className="hidden lg:flex items-center gap-6 text-sm text-muted-foreground">
-            <a href="#how" className="hover:text-foreground transition-colors">
+          <nav className="hidden lg:flex items-center gap-6 text-sm font-medium text-white/75">
+            <a href="#how" className="hover:text-white transition-colors">
               How it works
             </a>
             <a
               href="#features"
-              className="hover:text-foreground transition-colors"
+              className="hover:text-white transition-colors"
             >
               Features
             </a>
-            <a href="#pricing" className="hover:text-foreground transition-colors">
+            <a href="#pricing" className="hover:text-white transition-colors">
               Pricing
             </a>
-            <Link href="/tools" className="hover:text-foreground transition-colors">
+            <Link href="/tools" className="hover:text-white transition-colors">
               Free tools
             </Link>
-            <Link href="/blog" className="hover:text-foreground transition-colors">
+            <Link href="/blog" className="hover:text-white transition-colors">
               Blog
             </Link>
           </nav>
@@ -64,11 +65,11 @@ export function LandingPage({ headline }: { headline: Headline }) {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="TimeIQ on GitHub"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-white/75 hover:text-white transition-colors"
             >
               <GitHubIcon className="h-4 w-4" />
             </a>
-            <HeaderAuthLinks />
+            <HeaderAuthLinks onDark />
           </div>
         </div>
       </header>
@@ -77,17 +78,26 @@ export function LandingPage({ headline }: { headline: Headline }) {
         {/* ================================================================
              HERO
              ================================================================ */}
-        <section className="relative">
-          <div className="container mx-auto px-6 lg:px-10 pt-10 lg:pt-14 pb-24 lg:pb-36">
+        <section className="relative isolate -mt-[73px] overflow-hidden bg-[hsl(var(--brand-deep))] text-white">
+          {/* Paints first: a gradient in the video's colours. The loop fades in over it later. */}
+          <div
+            aria-hidden
+            className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_70%_60%_at_85%_0%,hsl(250_70%_55%/0.55),transparent_70%),linear-gradient(180deg,hsl(250_45%_22%),hsl(var(--brand-deep))_60%)]"
+          >
+            <HeroWater />
+            {/* Keeps the copy readable over the brightest part of the water */}
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,hsl(var(--brand-deep)/0.8),hsl(var(--brand-deep)/0.35)_55%,transparent),linear-gradient(0deg,hsl(var(--brand-deep)/0.6),transparent_35%)]" />
+          </div>
+          <div className="container mx-auto px-6 lg:px-10 pt-[calc(73px+3rem)] lg:pt-[calc(73px+5rem)] pb-24 lg:pb-36">
             <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
               <div className="lg:col-span-7 space-y-8">
-                <h1 className="text-[3rem] sm:text-6xl lg:text-[4rem] xl:text-[4.5rem] leading-[0.98] tracking-[-0.035em] text-balance">
-                  <span className="font-display">{headline.lead}</span>
+                <h1 className="font-serif font-normal text-[3.4rem] sm:text-7xl xl:text-[6rem] leading-[1.02] tracking-[-0.01em] text-balance">
+                  {headline.lead}
                   <br />
-                  <span className="font-display text-muted-foreground">{headline.accent}</span>
+                  <em className="text-[hsl(260_100%_82%)]">{headline.accent}</em>
                 </h1>
 
-                <p className="reveal reveal-3 text-lg lg:text-xl text-muted-foreground max-w-2xl leading-relaxed text-pretty">
+                <p className="reveal reveal-3 text-lg lg:text-xl text-white/70 max-w-[662px] leading-relaxed text-pretty">
                   Forward TimeIQ the soccer PDF or a screenshot from the team app,
                   cc it on an email thread, or ask Claude or ChatGPT. Practices
                   land on your calendar, meetings get booked when you&apos;re free,
@@ -96,37 +106,37 @@ export function LandingPage({ headline }: { headline: Headline }) {
 
                 <div className="reveal reveal-4 flex flex-col sm:flex-row gap-3">
                   <Link href="/sign-up">
-                    <Button variant="default" size="xl">
+                    <Button variant="brand" size="xl" className="w-full sm:w-auto">
                       Start free
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
-                  <Link href="/sign-in">
-                    <Button variant="glass" size="xl">
-                      Sign in
+                  <a href="#how">
+                    <Button variant="brandInk" size="xl" className="w-full sm:w-auto ring-1 ring-white/10">
+                      How it works
                     </Button>
-                  </Link>
+                  </a>
                 </div>
 
-                <p className="reveal reveal-5 text-sm text-muted-foreground">
+                <p className="reveal reveal-5 text-sm text-white/60">
                   Your first 7 meetings are free, no card needed. Then $19 a year.
                 </p>
 
                 {/* Social proof */}
-                <div className="reveal reveal-5 flex flex-wrap items-center gap-x-6 gap-y-3 pt-4 border-t border-foreground/[0.06]">
+                <div className="reveal reveal-5 flex flex-wrap items-center gap-x-6 gap-y-3 pt-4 border-t border-white/10">
                   <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-full bg-foreground flex items-center justify-center text-background font-semibold text-xs">
+                    <div className="h-9 w-9 rounded-full bg-white flex items-center justify-center text-[hsl(var(--brand-ink))] font-semibold text-xs">
                       EZ
                     </div>
-                    <p className="text-sm text-muted-foreground max-w-xs leading-snug">
+                    <p className="text-sm text-white/60 max-w-xs leading-snug">
                       Built by{" "}
-                      <a href="https://yoyocode.com" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground/85 hover:text-foreground">
+                      <a href="https://yoyocode.com" target="_blank" rel="noopener noreferrer" className="font-medium text-white hover:text-white/80">
                         Yoyo Code
                       </a>{" "}
                       and used every week to run a calendar full of clients, kids and practices.
                     </p>
                   </div>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-4 text-xs text-white/60">
                     <span className="inline-flex items-center gap-1.5">
                       <Shield className="h-3.5 w-3.5" />
                       Stripe checkout
@@ -139,7 +149,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                       href={GITHUB_URL}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors"
+                      className="inline-flex items-center gap-1.5 hover:text-white transition-colors"
                     >
                       <GitHubIcon className="h-3.5 w-3.5" />
                       Open source
@@ -150,7 +160,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
 
               {/* Live demo: email a schedule */}
               <div id="try" className="lg:col-span-5 relative reveal reveal-3 mt-4 lg:mt-0 mx-auto w-full max-w-md lg:max-w-none scroll-mt-24">
-                                <div className="relative">
+                <div className="relative rounded-[1.75rem] bg-white text-foreground shadow-[0_40px_120px_-30px_hsl(260_97%_40%/0.6)]">
                   <LazyDemo name="email" />
                 </div>
               </div>
@@ -161,40 +171,40 @@ export function LandingPage({ headline }: { headline: Headline }) {
         {/* ================================================================
              LIVE DEMO — TimeIQ inside AI assistants
              ================================================================ */}
-        <section id="assistants" className="relative py-24 lg:py-32 scroll-mt-16">
+        <section id="assistants" className="relative py-24 lg:py-32 scroll-mt-16 bg-[hsl(var(--brand-ink))] text-white">
           <div className="container mx-auto px-6 lg:px-10">
             <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
               <div className="lg:col-span-5">
-                <div className="text-sm font-medium text-muted-foreground mb-5">
+                <div className="text-sm font-medium text-[hsl(260_100%_82%)] mb-5">
                   Claude, ChatGPT and Cursor
                 </div>
-                <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
-                  <span className="font-display">Ask your AI.</span>{" "}
-                  <span className="font-display text-muted-foreground">It knows your calendar.</span>
+                <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
+                  <span>Ask your AI.</span>{" "}
+                  <em className="text-[hsl(260_100%_82%)]">It knows your calendar.</em>
                 </h2>
-                <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
+                <p className="mt-5 text-lg text-white/70 leading-relaxed text-pretty">
                   Connect TimeIQ to Claude, ChatGPT or Cursor and ask in plain words. It checks every calendar you
                   use before it answers, finds a time with other people and adds schedules for you. Anything
                   that emails someone waits for your OK.
                 </p>
-                <ul className="mt-6 space-y-2 text-sm text-foreground/80">
+                <ul className="mt-6 space-y-2 text-sm text-white/85">
                   {[
                     "Paste one link and click Allow, no setup",
                     "Sees your availability across every calendar",
                     "Disconnect anytime from Settings",
                   ].map((t) => (
                     <li key={t} className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(260_100%_82%)]" />
                       {t}
                     </li>
                   ))}
                 </ul>
-                <Link href="/mcp" className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium underline underline-offset-4 hover:text-[hsl(var(--aurora-1))]">
+                <Link href="/mcp" className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium underline underline-offset-4 hover:text-[hsl(260_100%_82%)]">
                   How to connect your assistant
                   <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
                 </Link>
               </div>
-              <div className="lg:col-span-7">
+              <div className="lg:col-span-7 rounded-[1.75rem] bg-white text-foreground shadow-[0_40px_120px_-30px_hsl(260_97%_30%/0.7)]">
                 <McpDemo fallback={<McpDemoContent />} />
               </div>
             </div>
@@ -208,12 +218,12 @@ export function LandingPage({ headline }: { headline: Headline }) {
           <div className="container mx-auto px-6 lg:px-10">
             <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
               <div className="lg:col-span-5">
-                <div className="text-sm font-medium text-muted-foreground mb-5">
+                <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">
                   Cc TimeIQ
                 </div>
-                <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
-                  <span className="font-display">Cc TimeIQ.</span>{" "}
-                  <span className="font-display text-muted-foreground">It finds the time.</span>
+                <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
+                  <span>Cc TimeIQ.</span>{" "}
+                  <em className="text-[hsl(var(--brand))]">It finds the time.</em>
                 </h2>
                 <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
                   Cc agent@timeiq.app from your own email on any thread about meeting up. It replies to everyone with three times you&apos;re
@@ -227,7 +237,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                     "Checks every calendar first, so it never double-books you",
                   ].map((t) => (
                     <li key={t} className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--brand))]" />
                       {t}
                     </li>
                   ))}
@@ -246,12 +256,12 @@ export function LandingPage({ headline }: { headline: Headline }) {
         <section id="calendars" className="relative py-24 lg:py-32 scroll-mt-16">
           <div className="container mx-auto px-6 lg:px-10">
             <div className="max-w-2xl mb-12">
-              <div className="text-sm font-medium text-muted-foreground mb-5">
+              <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">
                 Every calendar you use
               </div>
-              <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
-                <span className="font-display">All your calendars.</span>{" "}
-                <span className="font-display text-muted-foreground">One booking link.</span>
+              <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
+                <span>All your calendars.</span>{" "}
+                <em className="text-[hsl(var(--brand))]">One booking link.</em>
               </h2>
               <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
                 A booking page only protects the calendars it can see. TimeIQ checks work, personal, family and
@@ -270,12 +280,12 @@ export function LandingPage({ headline }: { headline: Headline }) {
           <div className="container mx-auto px-6 lg:px-10">
             <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
               <div className="lg:col-span-5">
-                <div className="text-sm font-medium text-muted-foreground mb-5">
+                <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">
                   Share availability
                 </div>
-                <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
-                  <span className="font-display">&ldquo;When are you free?&rdquo;</span>{" "}
-                  <span className="font-display text-muted-foreground">One click.</span>
+                <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
+                  <span>&ldquo;When are you free?&rdquo;</span>{" "}
+                  <em className="text-[hsl(var(--brand))]">One click.</em>
                 </h2>
                 <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
                   TimeIQ turns every connected calendar into your open times for the week ahead. Add the other
@@ -289,7 +299,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                     "Text or picture, ready to paste",
                   ].map((t) => (
                     <li key={t} className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--brand))]" />
                       {t}
                     </li>
                   ))}
@@ -308,12 +318,12 @@ export function LandingPage({ headline }: { headline: Headline }) {
         <section id="how" className="relative py-24 lg:py-36">
           <div className="container mx-auto px-6 lg:px-10">
             <div className="max-w-2xl mb-20">
-              <div className="text-sm font-medium text-muted-foreground mb-5">
+              <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">
                 How it works
               </div>
-              <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
-                <span className="font-display">Share one link.</span>{" "}
-                <span className="font-display text-muted-foreground">TimeIQ does the rest.</span>
+              <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
+                <span>Share one link.</span>{" "}
+                <em className="text-[hsl(var(--brand))]">TimeIQ does the rest.</em>
               </h2>
             </div>
 
@@ -345,7 +355,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                   key={i}
                   className="glass glass-hover rounded-[1.5rem] p-8 relative"
                 >
-                  <div className="text-sm font-medium text-muted-foreground tabular-nums mb-10">{i + 1}</div>
+                  <div className="font-serif italic text-5xl text-[hsl(var(--brand))] mb-8">{i + 1}</div>
                   <h3 className="text-lg font-semibold tracking-tight mb-2">{item.title}</h3>
                   <p className="text-muted-foreground leading-relaxed text-[15px] text-pretty">
                     {item.desc}
@@ -363,14 +373,14 @@ export function LandingPage({ headline }: { headline: Headline }) {
           <div className="container mx-auto px-6 lg:px-10">
             <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between mb-16 gap-6">
               <div className="max-w-2xl">
-                <div className="text-sm font-medium text-muted-foreground mb-5">
+                <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">
                   Features
                 </div>
-                <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
-                  <span className="font-display">Built for a full calendar.</span>{" "}
-                  <span className="font-display text-muted-foreground">
+                <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
+                  <span>Built for a full calendar.</span>{" "}
+                  <em className="text-[hsl(var(--brand))]">
                     Work, kids, clients.
-                  </span>
+                  </em>
                 </h2>
               </div>
             </div>
@@ -437,14 +447,14 @@ export function LandingPage({ headline }: { headline: Headline }) {
         <section id="open-source" className="relative py-24 lg:py-36">
           <div className="container mx-auto px-6 lg:px-10">
             <div className="text-center max-w-2xl mx-auto mb-14">
-              <div className="text-sm font-medium text-muted-foreground mb-5">
+              <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">
                 Open source
               </div>
-              <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
-                <span className="font-display">Every line is public.</span>{" "}
-                <span className="font-display text-muted-foreground">
+              <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
+                <span>Every line is public.</span>{" "}
+                <em className="text-[hsl(var(--brand))]">
                   We run it for you.
-                </span>
+                </em>
               </h2>
               <p className="text-lg text-muted-foreground mt-6 text-pretty">
                 TimeIQ is open source under the AGPL&#8209;3.0. Read the code, check
@@ -455,8 +465,8 @@ export function LandingPage({ headline }: { headline: Headline }) {
 
             <div className="grid md:grid-cols-2 gap-5 max-w-5xl mx-auto">
               <div className="glass rounded-[1.5rem] p-8 flex flex-col">
-                <div className="text-sm font-medium text-muted-foreground mb-5">Self-hosted</div>
-                <h3 className="font-display text-3xl tracking-[-0.02em] leading-[1.05] mb-2">
+                <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">Self-hosted</div>
+                <h3 className="font-serif text-4xl tracking-[-0.01em] leading-[1.05] mb-2">
                   Free, on your servers.
                 </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed mb-6">
@@ -485,8 +495,8 @@ export function LandingPage({ headline }: { headline: Headline }) {
               </div>
 
               <div className="glass rounded-[1.5rem] p-8 flex flex-col">
-                <div className="text-sm font-medium text-muted-foreground mb-5">Hosted at timeiq.app</div>
-                <h3 className="font-display text-3xl tracking-[-0.02em] leading-[1.05] mb-2">
+                <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">Hosted at timeiq.app</div>
+                <h3 className="font-serif text-4xl tracking-[-0.01em] leading-[1.05] mb-2">
                   $19 a year plus tax. Nothing to run.
                 </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed mb-6">
@@ -502,13 +512,13 @@ export function LandingPage({ headline }: { headline: Headline }) {
                     "Supports the open source project you are using",
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-2.5">
-                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--brand))]" />
                       {item}
                     </li>
                   ))}
                 </ul>
                 <Link href="/sign-up" className="mt-auto">
-                  <Button variant="default" size="lg" className="w-full">
+                  <Button variant="brand" size="lg" className="w-full">
                     Start free
                     <ArrowRight className="h-4 w-4" />
                   </Button>
@@ -524,14 +534,14 @@ export function LandingPage({ headline }: { headline: Headline }) {
         <section id="pricing" className="relative py-24 lg:py-36">
           <div className="container mx-auto px-6 lg:px-10">
             <div className="text-center max-w-2xl mx-auto mb-12">
-              <div className="text-sm font-medium text-muted-foreground mb-5">
+              <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">
                 Pricing
               </div>
-              <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
-                <span className="font-display">Free to start.</span>{" "}
-                <span className="font-display text-muted-foreground">
+              <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
+                <span>Free to start.</span>{" "}
+                <em className="text-[hsl(var(--brand))]">
                   Stupid cheap after.
-                </span>
+                </em>
               </h2>
               <p className="text-lg text-muted-foreground mt-6 text-pretty">
                 Your first 7 meetings are free. After that, the first 100
@@ -559,18 +569,18 @@ export function LandingPage({ headline }: { headline: Headline }) {
              ================================================================ */}
         <section className="py-24 lg:py-36">
           <div className="container mx-auto px-6 lg:px-10">
-            <div className="rounded-[2rem] lg:rounded-[2.5rem] bg-foreground p-12 lg:p-20 text-center">
+            <div className="rounded-[2rem] lg:rounded-[2.5rem] bg-[hsl(var(--brand))] p-12 lg:p-20 text-center">
               <div className="max-w-3xl mx-auto">
-                <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-background text-balance">
-                  <span className="font-display">Try vibe scheduling.</span>{" "}
-                  <span className="font-display text-background/55">The first 7 meetings are on us.</span>
+                <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-white text-balance">
+                  Try vibe scheduling.{" "}
+                  <em className="text-white/75">The first 7 meetings are on us.</em>
                 </h2>
-                <p className="text-lg text-background/70 mt-7 mb-10 leading-relaxed text-pretty">
+                <p className="text-lg text-white/80 mt-7 mb-10 leading-relaxed text-pretty">
                   Connect your calendars, share your link and forward the next
                   schedule that lands in your inbox. No card needed to start.
                 </p>
                 <Link href="/sign-up">
-                  <Button size="xl" className="bg-background text-foreground hover:bg-background/90">
+                  <Button size="xl" className="bg-white text-[hsl(var(--brand-ink))] hover:bg-white/90">
                     Start free
                     <ArrowRight className="h-4 w-4" />
                   </Button>
@@ -672,10 +682,10 @@ function FeatureCard({
       className={`glass glass-hover rounded-[1.5rem] p-7 flex flex-col justify-between gap-6 ${className || ""}`}
     >
       <div>
-        <Icon className="h-5 w-5 text-muted-foreground mb-6" aria-label={label} />
+        <Icon className="h-5 w-5 text-[hsl(var(--brand))] mb-6" aria-label={label} />
         <h3
-          className={`font-display tracking-[-0.02em] leading-[1.05] mb-3 ${
-            large ? "text-4xl lg:text-5xl" : "text-2xl lg:text-3xl"
+          className={`font-serif tracking-[-0.01em] leading-[1.05] mb-3 ${
+            large ? "text-5xl lg:text-6xl" : "text-3xl lg:text-4xl"
           }`}
         >
           {title}
