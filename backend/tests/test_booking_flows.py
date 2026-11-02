@@ -382,3 +382,59 @@ async def test_host_booking_takes_a_custom_length(env):
     assert r.json()["ends_at"].startswith("2026-11-02T15:30")
     bad = await env["client"].post("/api/bookings", json=host_payload(event, "2026-11-02T13:00:00-05:00", duration_minutes=2))
     assert bad.status_code == 422
+
+
+# Push notifications to the host's phone
+
+class FakeExpo:
+    def __init__(self, sent, tickets):
+        self.sent, self.tickets = sent, tickets
+
+    def __call__(self, timeout=None):
+        return self
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def post(self, url, json=None, headers=None):
+        self.sent.append(json)
+        return httpx.Response(200, json={"data": self.tickets(json)})
+
+
+async def test_guest_booking_pushes_to_host_phone_and_drops_dead_tokens(env, monkeypatch):
+    from types import SimpleNamespace
+    from app.models.push_device import PushDevice
+    from app.services import push
+
+    sent: list = []
+    live, dead = "ExponentPushToken[live]", "ExponentPushToken[dead]"
+    tickets = lambda msgs: [
+        {"status": "error", "details": {"error": "DeviceNotRegistered"}} if m["to"] == dead else {"status": "ok"} for m in msgs
+    ]
+    monkeypatch.setattr(push, "httpx", SimpleNamespace(AsyncClient=FakeExpo(sent, tickets)))
+    for token in (live, dead):
+        r = await env["client"].post("/api/me/push-devices", json={"token": token, "platform": "ios"})
+        assert r.status_code == 204, r.text
+    assert (await env["client"].post("/api/me/push-devices", json={"token": "not-a-token-at-all", "platform": "ios"})).status_code == 400
+
+    event = await make_event(env)
+    await set_hours(env)
+    booking = await book(env, event)
+    assert len(sent) == 1
+    assert {m["to"] for m in sent[0]} == {live, dead}
+    assert sent[0][0]["title"] == "New booking"
+    assert sent[0][0]["body"] == "Guest · Call · Mon Nov 2, 9:00 AM"
+    assert sent[0][0]["data"]["booking_id"] == str(booking.id)
+    async with async_session() as db:
+        tokens = set((await db.execute(select(PushDevice.token).where(PushDevice.user_id == env["host"].id))).scalars())
+    assert tokens == {live}
+
+    assert (await env["client"].post(f"/api/public/bookings/{booking.id}/cancel?token={booking.cancel_token}")).status_code == 200
+    assert sent[-1][0]["title"] == "Booking cancelled"
+
+    assert (await env["client"].post("/api/me/push-devices/remove", json={"token": live})).status_code == 204
+    async with async_session() as db:
+        assert not (await db.execute(select(PushDevice).where(PushDevice.user_id == env["host"].id))).first()

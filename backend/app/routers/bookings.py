@@ -27,6 +27,7 @@ from app.services.availability import (
 from app.services.email import send_booking_confirmation, send_cancellation_notice
 from app.services.ics_generator import ical_uid_for
 from app.services import booking_payments as payments
+from app.services import push
 from app.services.booking_lock import lock_host_bookings
 
 
@@ -454,6 +455,7 @@ async def create_public_booking(
     # Send confirmation emails synchronously (serverless has no background tasks)
     if booking.status == "confirmed":
         await send_booking_confirmation(booking, event_type, host)
+        await push.booking_event("booked", booking, event_type, host)
 
     return booking
 
@@ -637,6 +639,7 @@ async def reschedule_booking(
 
     # Send confirmation for the new booking
     await send_booking_confirmation(new_booking, event_type, host)
+    await push.booking_event("rescheduled", new_booking, event_type, host)
 
     return new_booking
 
@@ -702,5 +705,6 @@ async def cancel_booking_by_visitor(
 
     if event_type and host and was_confirmed:
         await send_cancellation_notice(booking, event_type, host)
+        await push.booking_event("cancelled", booking, event_type, host)
 
     return booking

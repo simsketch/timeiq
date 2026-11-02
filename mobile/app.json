@@ -1,0 +1,96 @@
+{
+  "expo": {
+    "name": "TimeIQ",
+    "slug": "timeiq",
+    "scheme": "timeiq",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "app.timeiq",
+      "appleTeamId": "8836WUYZD5",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "app.timeiq",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#6e5cf0"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-web-browser",
+      "@react-native-community/datetimepicker",
+      "@clerk/expo",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#0b0b12"
+          }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#6e5cf0"
+        }
+      ],
+      [
+        "expo-share-intent",
+        {
+          "iosActivationRules": {
+            "NSExtensionActivationSupportsText": true,
+            "NSExtensionActivationSupportsWebURLWithMaxCount": 1
+          },
+          "androidIntentFilters": [
+            "text/*"
+          ]
+        }
+      ],
+      "expo-image"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "apiUrl": "https://api.timeiq.app",
+      "clerkPublishableKey": "pk_live_Y2xlcmsudGltZWlxLmFwcCQ",
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "ShareExtension",
+                  "bundleIdentifier": "app.timeiq.share-extension",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.app.timeiq"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "1127509c-8d29-44f8-bd97-d5052560cdeb"
+      }
+    },
+    "owner": "simsketch"
+  }
+}

@@ -26,6 +26,7 @@ from app.models import (  # noqa: F401
 )
 from app.routers import (
     api_tokens,
+    push_devices,
     availability,
     billing,
     bookings,
@@ -107,6 +108,7 @@ app.include_router(public.router)
 app.include_router(cron.router)
 app.include_router(weekly_summary.router)
 app.include_router(api_tokens.router)
+app.include_router(push_devices.router)
 
 # MCP server (Streamable HTTP): AI assistants connect with OAuth or a personal token.
 # Imported on the first /mcp request: the MCP SDK is slow to load, and every
