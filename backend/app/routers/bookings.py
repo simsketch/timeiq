@@ -17,7 +17,7 @@ from app.database import get_db
 from app.models.booking import Booking
 from app.models.event_type import EventType
 from app.models.user import User
-from app.schemas.booking import BookingCreate, BookingPublicResponse, BookingResponse, HostBookingCreate
+from app.schemas.booking import BookingCreate, BookingPublicResponse, BookingResponse, HostBookingCreate, HostReschedule
 from app.services.availability import (
     booking_window_error,
     find_conflicts,
@@ -194,7 +194,7 @@ async def create_booking_as_host(
     starts_at = starts_at.astimezone(timezone.utc)
     if starts_at < datetime.now(timezone.utc) - timedelta(minutes=5):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pick a time that hasn't passed yet")
-    ends_at = starts_at + timedelta(minutes=event_type.duration_minutes)
+    ends_at = starts_at + timedelta(minutes=payload.duration_minutes or event_type.duration_minutes)
 
     # Sync calendars first: it can take seconds and must not hold the lock.
     await freshen_host_calendars(user)
@@ -215,6 +215,9 @@ async def create_booking_as_host(
         visitor_name=payload.visitor_name,
         visitor_email=payload.visitor_email,
         visitor_notes=payload.visitor_notes,
+        guest_emails=list(dict.fromkeys(
+            str(e) for e in payload.guest_emails if str(e).lower() != str(payload.visitor_email).lower()
+        )),
         starts_at=starts_at,
         ends_at=ends_at,
         timezone=payload.timezone,
@@ -229,6 +232,89 @@ async def create_booking_as_host(
     await db.commit()
     await send_booking_confirmation(booking, event_type, user)
     return booking
+
+
+@router.post("/api/bookings/{booking_id}/reschedule", response_model=BookingResponse, status_code=status.HTTP_201_CREATED)
+async def reschedule_booking_as_host(
+    booking_id: uuid.UUID,
+    payload: HostReschedule,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Move a booking to a new start, e.g. by dragging it on the calendar. Like a
+    host booking, any future time is allowed and overlaps need allow_conflict.
+    The new booking keeps the invite's UID with a higher SEQUENCE, so guests'
+    calendars move the event."""
+    starts_at = payload.starts_at
+    if starts_at.tzinfo is None:
+        starts_at = starts_at.replace(tzinfo=timezone.utc)
+    starts_at = starts_at.astimezone(timezone.utc)
+    if starts_at < datetime.now(timezone.utc) - timedelta(minutes=5):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pick a time that hasn't passed yet")
+
+    await freshen_host_calendars(user)
+    await lock_host_bookings(db, user.id)
+    old = (await db.execute(
+        select(Booking)
+        .where(Booking.id == booking_id, Booking.host_user_id == user.id)
+        .with_for_update()
+    )).scalar_one_or_none()
+    if old is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
+    if old.status != "confirmed":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only confirmed bookings can be moved")
+    if old.starts_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This booking has already started and can't be moved")
+    event_type = (await db.execute(select(EventType).where(EventType.id == old.event_type_id))).scalar_one_or_none()
+    if event_type is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event type not found")
+
+    ends_at = starts_at + (old.ends_at - old.starts_at)
+    if not payload.allow_conflict:
+        conflicts = await find_conflicts(db, user, starts_at, ends_at, exclude_booking_id=old.id)
+        if conflicts:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This time overlaps: " + ", ".join(conflicts[:3]) + (f" and {len(conflicts) - 3} more" if len(conflicts) > 3 else ""),
+            )
+
+    old.status = "rescheduled" if old.price_cents is not None else "cancelled"
+    old.cancelled_at = datetime.now(timezone.utc)
+
+    from app.services.booking_agent import confirmation_id
+
+    new_id = uuid.uuid4()
+    new = Booking(
+        id=new_id,
+        event_type_id=old.event_type_id,
+        host_user_id=user.id,
+        visitor_name=old.visitor_name,
+        visitor_email=old.visitor_email,
+        visitor_notes=old.visitor_notes,
+        visitor_phone=old.visitor_phone,
+        visitor_company=old.visitor_company,
+        visitor_url=old.visitor_url,
+        guest_emails=list(old.guest_emails or []),
+        starts_at=starts_at,
+        ends_at=ends_at,
+        timezone=old.timezone,
+        status="confirmed",
+        cancel_token=secrets.token_urlsafe(32),
+        rescheduled_from_id=old.id,
+        ical_uid=ical_uid_for(old),
+        ical_sequence=(old.ical_sequence or 0) + 1,
+        price_cents=old.price_cents,
+        currency=old.currency,
+        stripe_connect_account_id=old.stripe_connect_account_id,
+        stripe_payment_intent_id=old.stripe_payment_intent_id,
+        email_thread_ids=[*(old.email_thread_ids or []), confirmation_id(old, "host"), confirmation_id(old, "guest")][-100:],
+    )
+    db.add(new)
+    await db.flush()
+    await db.refresh(new)
+    await db.commit()
+    await send_booking_confirmation(new, event_type, user)
+    return new
 
 
 @router.patch("/api/bookings/{booking_id}", response_model=BookingResponse)
@@ -541,6 +627,7 @@ async def reschedule_booking(
         currency=old_booking.currency,
         stripe_connect_account_id=old_booking.stripe_connect_account_id,
         stripe_payment_intent_id=old_booking.stripe_payment_intent_id,
+        guest_emails=list(old_booking.guest_emails or []),
         email_thread_ids=[*(old_booking.email_thread_ids or []), confirmation_id(old_booking, "host"), confirmation_id(old_booking, "guest")][-100:],
     )
     db.add(new_booking)

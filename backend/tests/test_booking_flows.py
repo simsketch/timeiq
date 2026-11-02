@@ -338,3 +338,47 @@ async def test_host_booking_rejects_past_and_foreign_event_types(env):
     assert past.status_code == 400
     missing = await env["client"].post("/api/bookings", json=host_payload({"id": str(uuid.uuid4())}))
     assert missing.status_code == 404
+
+
+async def test_host_booking_invites_extra_guests(env):
+    event = await make_event(env)
+    r = await env["client"].post("/api/bookings", json=host_payload(
+        event, guest_emails=["bea@example.com", "AGHIL@example.com", "bea@example.com"]))
+    assert r.status_code == 201, r.text
+    assert r.json()["guest_emails"] == ["bea@example.com"]
+    guest = next(m for m in env["mail"] if m["to"] == ["aghil@example.com"])
+    assert guest["cc"] == ["bea@example.com"]
+    ics = guest["attachments"][0]["content"]
+    assert "mailto:bea@example.com" in ics
+
+
+async def test_host_drags_booking_to_new_time(env):
+    event = await make_event(env)
+    first = (await env["client"].post("/api/bookings", json=host_payload(event, guest_emails=["bea@example.com"]))).json()
+    other = await env["client"].post("/api/bookings", json=host_payload(event, "2026-11-02T13:00:00-05:00", visitor_name="Cy", visitor_email="cy@example.com"))
+    assert other.status_code == 201
+    # Overlapping only itself is fine: moving 9:00 to 9:15 isn't a clash.
+    moved = await env["client"].post(f"/api/bookings/{first['id']}/reschedule", json={"starts_at": "2026-11-02T09:15:00-05:00"})
+    assert moved.status_code == 201, moved.text
+    new = moved.json()
+    assert new["starts_at"].startswith("2026-11-02T14:15") and new["guest_emails"] == ["bea@example.com"]
+    assert new["rescheduled_from_id"] == first["id"]
+    # Onto another booking needs allow_conflict.
+    clash = await env["client"].post(f"/api/bookings/{new['id']}/reschedule", json={"starts_at": "2026-11-02T13:00:00-05:00"})
+    assert clash.status_code == 409 and "Booking with Cy" in clash.json()["detail"]
+    forced = await env["client"].post(f"/api/bookings/{new['id']}/reschedule", json={"starts_at": "2026-11-02T13:00:00-05:00", "allow_conflict": True})
+    assert forced.status_code == 201
+    # The old booking is used up, and past times are refused.
+    again = await env["client"].post(f"/api/bookings/{first['id']}/reschedule", json={"starts_at": "2026-11-02T15:00:00-05:00"})
+    assert again.status_code == 400
+    past = await env["client"].post(f"/api/bookings/{forced.json()['id']}/reschedule", json={"starts_at": "2026-10-20T09:00:00-04:00"})
+    assert past.status_code == 400
+
+
+async def test_host_booking_takes_a_custom_length(env):
+    event = await make_event(env)
+    r = await env["client"].post("/api/bookings", json=host_payload(event, duration_minutes=90))
+    assert r.status_code == 201, r.text
+    assert r.json()["ends_at"].startswith("2026-11-02T15:30")
+    bad = await env["client"].post("/api/bookings", json=host_payload(event, "2026-11-02T13:00:00-05:00", duration_minutes=2))
+    assert bad.status_code == 422

@@ -35,6 +35,7 @@ def generate_booking_ics(
     uid: str | None = None,
     sequence: int = 0,
     method: str = "REQUEST",
+    guest_emails: list[str] | None = None,
 ) -> str:
     """
     Generate an .ics file content string for a booking.
@@ -81,6 +82,13 @@ def generate_booking_ics(
             "RSVP": "TRUE",
         },
     )
+
+    for email in guest_emails or []:
+        event.add(
+            "attendee",
+            vText(f"mailto:{email}"),
+            parameters={"ROLE": "REQ-PARTICIPANT", "RSVP": "TRUE"},
+        )
 
     # Attendee - host
     organizer_name = host_name or host_email

@@ -233,7 +233,13 @@ def _ics(booking: Booking, event_type: EventType, host: User, summary: str, meth
         uid=ical_uid_for(booking),
         sequence=booking.ical_sequence or 0,
         method=method,
+        guest_emails=list(getattr(booking, "guest_emails", None) or []),
     )
+
+
+def _cc_guests(booking: Booking) -> dict:
+    guests = [e for e in (getattr(booking, "guest_emails", None) or []) if e.lower() != booking.visitor_email.lower()]
+    return {"cc": guests} if guests else {}
 
 
 def _invite(booking: Booking, event_type: EventType, host: User, summary: str, method: str = "REQUEST") -> dict:
@@ -358,6 +364,7 @@ async def send_booking_confirmation(booking: Booking, event_type: EventType, hos
         {
             "from": FROM_EMAIL,
             "to": [booking.visitor_email],
+            **_cc_guests(booking),
             "reply_to": reply_address(booking),
             "headers": {"Message-ID": confirmation_id(booking, "guest")},
             "subject": f"Confirmed: {event_type.name} with {host_name}",
@@ -430,6 +437,7 @@ async def send_cancellation_notice(booking: Booking, event_type: EventType, host
         {
             "from": FROM_EMAIL,
             "to": [booking.visitor_email],
+            **_cc_guests(booking),
             "reply_to": host.email,
             "subject": f"Cancelled: {event_type.name} with {host_name}",
             "html": render_cancellation_visitor(booking, event_type, host),

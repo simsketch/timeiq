@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,8 +27,22 @@ interface Booking {
   visitor_phone: string | null;
   visitor_company: string | null;
   visitor_url: string | null;
+  guest_emails?: string[];
+  rescheduled_from_id?: string | null;
   event_type_id: number;
 }
+
+interface CachedEvent {
+  id: string;
+  calendar_source_id: string;
+  title: string | null;
+  starts_at: string;
+  ends_at: string;
+  is_all_day: boolean;
+  source_name: string | null;
+}
+
+const SYNCED = "synced-";
 
 function BookingCard({ booking, onCancel }: { booking: Booking; onCancel?: (id: number) => void }) {
   return (
@@ -41,6 +55,7 @@ function BookingCard({ booking, onCancel }: { booking: Booking; onCancel?: (id: 
             </div>
             <p className="text-sm text-muted-foreground mb-1">
               {booking.visitor_email}
+              {booking.guest_emails?.length ? `, ${booking.guest_emails.join(", ")}` : ""}
             </p>
             {booking.status === "pending_payment" && <p className="text-sm text-muted-foreground">Waiting for payment</p>}
             {booking.price_cents != null && <p className="text-sm">{bookingPrice(booking.price_cents, booking.currency)}</p>}
@@ -100,11 +115,56 @@ export default function BookingsPage() {
   const [newOpen, setNewOpen] = useState(false);
   const [newStart, setNewStart] = useState<Date>(() => nextHalfHour());
   const [newZone, setNewZone] = useState<string | undefined>(undefined);
+  const [newMinutes, setNewMinutes] = useState<number | undefined>(undefined);
+  const [range, setRange] = useState<{ start: Date; end: Date } | null>(null);
+  const [synced, setSynced] = useState<CachedEvent[]>([]);
 
-  function openNewBooking(start: Date, zone?: string) {
+  function openNewBooking(start: Date, zone?: string, minutes?: number) {
     setNewStart(start);
     setNewZone(zone);
+    setNewMinutes(minutes);
     setNewOpen(true);
+  }
+
+  const onRangeChange = useCallback((start: Date, end: Date) => setRange({ start, end }), []);
+
+  // Your calendars, faded behind the bookings, so clashes show before you click.
+  useEffect(() => {
+    if (!range) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getToken();
+        const q = `start=${encodeURIComponent(range.start.toISOString())}&end=${encodeURIComponent(range.end.toISOString())}`;
+        const evs = await apiFetch<CachedEvent[]>(`/api/calendars/cached-events?${q}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!cancelled) setSynced(evs);
+      } catch {
+        if (!cancelled) setSynced([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [range, getToken]);
+
+  async function moveBooking(id: string, start: Date, allowConflict = false): Promise<void> {
+    try {
+      const token = await getToken();
+      const moved = await apiFetch<Booking>(`/api/bookings/${id}/reschedule`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ starts_at: start.toISOString(), allow_conflict: allowConflict }),
+      });
+      toast({ title: "Moved", description: `${moved.visitor_name} got the updated invite.` });
+      setSelectedId(String(moved.id));
+      fetchBookings();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The booking didn't move. Try again.";
+      if (!allowConflict && message.startsWith("This time overlaps") && confirm(`${message}. Move it anyway?`)) {
+        return moveBooking(id, start, true);
+      }
+      toast({ title: "Not moved", description: message, variant: "destructive" });
+    }
   }
 
   useEffect(() => {
@@ -160,6 +220,9 @@ export default function BookingsPage() {
 
   const allBookings = [...upcomingBookings, ...pastBookings, ...cancelledBookings];
   const selectedBooking = allBookings.find((b) => String(b.id) === selectedId) ?? null;
+  const selectedSynced = selectedId?.startsWith(SYNCED) ? synced.find((e) => SYNCED + e.id === selectedId) ?? null : null;
+  const now = new Date();
+  const replaced = new Set(allBookings.map((b) => b.rescheduled_from_id).filter(Boolean).map(String));
 
   if (loading) {
     return (
@@ -187,26 +250,63 @@ export default function BookingsPage() {
         </div>
       </div>
 
-      <NewBookingDialog open={newOpen} onOpenChange={setNewOpen} start={newStart} zone={newZone} onCreated={fetchBookings} />
+      <NewBookingDialog open={newOpen} onOpenChange={setNewOpen} start={newStart} zone={newZone} duration={newMinutes} onCreated={fetchBookings} />
 
       {view === "calendar" ? (
         <div className="space-y-4">
           <WeekCalendar
             weekStart={weekStart}
             onWeekChange={setWeekStart}
-            events={allBookings.map((b) => ({
-              id: String(b.id),
-              title: b.visitor_name,
-              start: new Date(b.starts_at),
-              end: new Date(b.ends_at),
-              color: colorFor(String(b.event_type_id)),
-              label: b.status === "cancelled" ? "Cancelled" : b.status === "pending_payment" ? "Waiting for payment" : undefined,
-              faded: b.status === "cancelled",
-            }))}
+            events={[
+              ...synced.map((e) => ({
+                id: SYNCED + e.id,
+                title: e.title || "Busy",
+                start: new Date(e.starts_at),
+                end: new Date(e.ends_at),
+                allDay: e.is_all_day,
+                color: "#94a3b8",
+                label: e.source_name ?? undefined,
+                faded: true,
+              })),
+              ...allBookings
+                // A moved booking's earlier slot only clutters the grid.
+                .filter((b) => !replaced.has(String(b.id)))
+                .map((b) => ({
+                  id: String(b.id),
+                  title: b.visitor_name,
+                  start: new Date(b.starts_at),
+                  end: new Date(b.ends_at),
+                  color: colorFor(String(b.event_type_id)),
+                  label: b.status === "cancelled" ? "Cancelled" : b.status === "pending_payment" ? "Waiting for payment" : undefined,
+                  faded: b.status === "cancelled",
+                  movable: b.status === "confirmed" && new Date(b.starts_at) > now,
+                })),
+            ]}
             onSelect={(ev: CalEvent) => setSelectedId(ev.id)}
-            onSlotClick={(start, zone) => openNewBooking(start < new Date() ? nextHalfHour() : start, zone)}
-            emptyHint="no bookings this week · click a time to book one"
+            onSlotClick={(start, zone, minutes) => openNewBooking(start < new Date() ? nextHalfHour() : start, zone, minutes)}
+            onEventMove={(ev, start) => moveBooking(ev.id, start)}
+            onRangeChange={onRangeChange}
+            onNew={() => openNewBooking(nextHalfHour())}
+            emptyHint="no bookings this week · click or drag to book one"
           />
+          {selectedSynced && (
+            <Card>
+              <CardContent className="flex items-start justify-between gap-4 py-4">
+                <div>
+                  <p className="font-semibold">{selectedSynced.title || "Busy"}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedSynced.is_all_day
+                      ? `${format(new Date(selectedSynced.starts_at), "EEEE, MMMM d")} · all day`
+                      : `${format(new Date(selectedSynced.starts_at), "EEEE, MMMM d · h:mm a")} – ${format(new Date(selectedSynced.ends_at), "h:mm a")}`}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    From your calendar{selectedSynced.source_name ? ` · ${selectedSynced.source_name}` : ""}. It blocks this time on your booking page.
+                  </p>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => setSelectedId(null)}>Close</Button>
+              </CardContent>
+            </Card>
+          )}
           {selectedBooking && (
             <BookingCard
               booking={selectedBooking}

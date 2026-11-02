@@ -42,6 +42,9 @@ class Booking(Base):
     visitor_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     visitor_company: Mapped[str | None] = mapped_column(String(255), nullable=True)
     visitor_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # More people invited alongside the visitor (host bookings only). They get
+    # the visitor's confirmation and cancellation on Cc, and are on the invite.
+    guest_emails: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
     starts_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )

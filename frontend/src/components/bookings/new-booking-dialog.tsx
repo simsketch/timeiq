@@ -34,6 +34,7 @@ export function NewBookingDialog({
   onOpenChange,
   start,
   zone,
+  duration: draggedDuration,
   onCreated,
 }: {
   open: boolean;
@@ -41,6 +42,8 @@ export function NewBookingDialog({
   start: Date;
   /** The zone the date and time fields are in; the browser's when omitted. */
   zone?: string;
+  /** Length in minutes, e.g. from dragging on the calendar; the event type's when omitted. */
+  duration?: number;
   onCreated: () => void;
 }) {
   const { getToken } = useAuth();
@@ -52,6 +55,8 @@ export function NewBookingDialog({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
+  const [guests, setGuests] = useState("");
+  const [length, setLength] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [conflict, setConflict] = useState<string | null>(null);
   const fieldZone = zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -66,9 +71,11 @@ export function NewBookingDialog({
     setName("");
     setEmail("");
     setNotes("");
+    setGuests("");
+    setLength(draggedDuration ? String(draggedDuration) : "");
     setConflict(null);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [open, start, fieldZone]);
+  }, [open, start, fieldZone, draggedDuration]);
 
   useEffect(() => {
     if (!open || eventTypes) return;
@@ -88,9 +95,17 @@ export function NewBookingDialog({
   const eventType = eventTypes?.find((t) => String(t.id) === eventTypeId);
   const wallStart = date && time ? new Date(`${date}T${time}`) : null;
   const startsAt = wallStart && calendarInstant(wallStart, fieldZone);
+  // Blank means the event type's length.
+  const minutes = Number(length) || eventType?.duration || 30;
+  const guestList = guests.split(/[\s,;]+/).map((g) => g.trim()).filter(Boolean);
 
   async function submit(allowConflict: boolean) {
     if (!startsAt || !eventType) return;
+    const badGuest = guestList.find((g) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(g));
+    if (badGuest) {
+      toast({ title: "Check the guest list", description: `${badGuest} isn't an email address.`, variant: "destructive" });
+      return;
+    }
     setSaving(true);
     try {
       const token = await getToken();
@@ -102,12 +117,14 @@ export function NewBookingDialog({
           visitor_name: name.trim(),
           visitor_email: email.trim(),
           visitor_notes: notes.trim() || null,
+          guest_emails: guestList,
+          duration_minutes: length ? minutes : null,
           starts_at: startsAt.toISOString(),
           timezone: fieldZone,
           allow_conflict: allowConflict,
         }),
       });
-      toast({ title: "Booked", description: `Invite sent to ${email.trim()}` });
+      toast({ title: "Booked", description: `Invite sent to ${[email.trim(), ...guestList].join(", ")}` });
       onOpenChange(false);
       onCreated();
     } catch (error) {
@@ -159,7 +176,7 @@ export function NewBookingDialog({
                 )}
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-[1fr_1fr_5.5rem] gap-3">
               <div className="space-y-2">
                 <Label htmlFor="nb-date">Date</Label>
                 <Input id="nb-date" type="date" value={date} onChange={(e) => { setDate(e.target.value); setConflict(null); }} required />
@@ -168,10 +185,24 @@ export function NewBookingDialog({
                 <Label htmlFor="nb-time">Time</Label>
                 <Input id="nb-time" type="time" step={300} value={time} onChange={(e) => { setTime(e.target.value); setConflict(null); }} required />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="nb-length">Minutes</Label>
+                <Input
+                  id="nb-length"
+                  type="number"
+                  inputMode="numeric"
+                  min={5}
+                  max={1440}
+                  step={5}
+                  placeholder={eventType ? String(eventType.duration) : "30"}
+                  value={length}
+                  onChange={(e) => { setLength(e.target.value); setConflict(null); }}
+                />
+              </div>
             </div>
             {wallStart && eventType && (
               <p className="-mt-2 text-xs text-muted-foreground">
-                {format(wallStart, "EEE, MMM d · h:mm a")} – {format(addMinutes(wallStart, eventType.duration), "h:mm a")} · {fieldZone.replace(/_/g, " ")}
+                {format(wallStart, "EEE, MMM d · h:mm a")} – {format(addMinutes(wallStart, minutes), "h:mm a")} · {fieldZone.replace(/_/g, " ")}
               </p>
             )}
             <div className="space-y-2">
@@ -181,6 +212,17 @@ export function NewBookingDialog({
             <div className="space-y-2">
               <Label htmlFor="nb-email">Guest email</Label>
               <Input id="nb-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nb-guests">Other guests (optional)</Label>
+              <Input
+                id="nb-guests"
+                value={guests}
+                onChange={(e) => setGuests(e.target.value)}
+                placeholder="bea@example.com, cy@example.com"
+                aria-describedby="nb-guests-hint"
+              />
+              <p id="nb-guests-hint" className="text-xs text-muted-foreground">They&apos;re on the invite and copied on the confirmation.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="nb-notes">Note (optional)</Label>

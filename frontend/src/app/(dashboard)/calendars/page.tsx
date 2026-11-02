@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,14 +47,18 @@ export default function CalendarsPage() {
   const [weekEvents, setWeekEvents] = useState<CachedEvent[]>([]);
   const [selected, setSelected] = useState<CalEvent | null>(null);
   const [weekVersion, setWeekVersion] = useState(0);
+  // What the calendar shows: its week, or six weeks in the month view.
+  const [range, setRange] = useState<{ start: Date; end: Date } | null>(null);
+  const onRangeChange = useCallback((start: Date, end: Date) => setRange({ start, end }), []);
 
   useEffect(() => {
+    if (!range) return;
     let cancelled = false;
     (async () => {
       try {
         const token = await getToken();
-        const range = `start=${encodeURIComponent(weekStart.toISOString())}&end=${encodeURIComponent(addDays(weekStart, 7).toISOString())}`;
-        const evs = await apiFetch<CachedEvent[]>(`/api/calendars/cached-events?${range}`, {
+        const query = `start=${encodeURIComponent(range.start.toISOString())}&end=${encodeURIComponent(range.end.toISOString())}`;
+        const evs = await apiFetch<CachedEvent[]>(`/api/calendars/cached-events?${query}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!cancelled) setWeekEvents(evs);
@@ -65,7 +69,7 @@ export default function CalendarsPage() {
     return () => {
       cancelled = true;
     };
-  }, [weekStart, weekVersion, getToken]);
+  }, [range, weekVersion, getToken]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", ics_url: "" });
@@ -560,6 +564,7 @@ export default function CalendarsPage() {
                 label: e.source_name ?? undefined,
               }))}
               onSelect={setSelected}
+              onRangeChange={onRangeChange}
               emptyHint="no synced events this week"
             />
             {selected && (

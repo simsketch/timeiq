@@ -40,7 +40,11 @@ class HostBookingCreate(BaseModel):
     visitor_name: str = Field(..., min_length=1, max_length=255)
     visitor_email: EmailStr
     visitor_notes: Optional[str] = None
+    # Anyone else to invite. They're on the invite and Cc'd on its emails.
+    guest_emails: list[EmailStr] = Field(default_factory=list, max_length=10)
     starts_at: datetime
+    # Length in minutes, e.g. from dragging on the calendar; the event type's by default.
+    duration_minutes: Optional[int] = Field(default=None, ge=5, le=24 * 60)
     timezone: str = Field(..., min_length=1, max_length=100)
     # Book even when the time overlaps a calendar event or another booking.
     allow_conflict: bool = False
@@ -49,6 +53,12 @@ class HostBookingCreate(BaseModel):
     @classmethod
     def check_timezone(cls, value: str) -> str:
         return validate_iana_timezone(value)
+
+
+class HostReschedule(BaseModel):
+    """The host moving a booking, e.g. by dragging it on the calendar."""
+    starts_at: datetime
+    allow_conflict: bool = False
 
 
 class BookingResponse(BaseModel):
@@ -64,6 +74,7 @@ class BookingResponse(BaseModel):
     visitor_phone: Optional[str] = None
     visitor_company: Optional[str] = None
     visitor_url: Optional[str] = None
+    guest_emails: list[str] = []
     starts_at: datetime
     ends_at: datetime
     timezone: str
