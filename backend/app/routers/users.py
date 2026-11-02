@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
-from app.auth import get_current_user_clerk_id, require_session_auth
+from app.auth import get_current_user_clerk_id, require_invoicing, require_session_auth
 from app.auth import get_current_user_unrestricted as get_current_user
 from app.config import settings
 from app.database import get_db
@@ -46,6 +46,7 @@ class UserResponse(BaseModel):
     weekly_hours_target: int = 40
     weekly_summary_enabled: bool = True
     booking_scene: Optional[str] = None
+    invoicing_enabled: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -281,7 +282,7 @@ async def update_me(
 
 @router.get("/api/dashboard/money", response_model=MoneyStats)
 async def get_money_stats(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_invoicing),
     db: AsyncSession = Depends(get_db),
 ):
     """Hours this week, unbilled value, outstanding invoices, paid this month."""

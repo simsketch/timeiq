@@ -9,7 +9,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.auth import get_current_user
+from app.auth import get_current_user, require_invoicing
 from app.config import settings
 from app.database import get_db
 from app.models.invoice import Invoice, InvoiceLine
@@ -40,7 +40,7 @@ from app.services.invoicing_ops import (
     unbilled_entries,
 )
 
-router = APIRouter(tags=["invoices"])
+router = APIRouter(tags=["invoices"], dependencies=[Depends(require_invoicing)])
 
 # A send of an invoice that went out less than this long ago is treated as a
 # repeat of that send (double submission) rather than a deliberate resend.

@@ -5,7 +5,7 @@ import { PricingCards } from "@/components/billing/pricing-card";
 
 export const metadata = {
   title: "Pricing - TimeIQ",
-  description: "Free for your first 7 meetings, then scheduling, time tracking and invoicing for $19 a year for the first 100 founding members.",
+  description: "Free for your first 7 meetings, then scheduling for $19 a year for the first 100 founding members.",
 };
 
 const FAQ = [
@@ -15,7 +15,7 @@ const FAQ = [
   },
   {
     q: "What do I get?",
-    a: "Everything. Booking pages, calendar sync, the weekly timesheet, clients with rates, and PDF invoices emailed with a hosted link.",
+    a: "Everything. Booking pages, calendar sync across Google, Outlook and iCloud, schedules you forward by email, group meetings, and your open times to share in any time zone.",
   },
   {
     q: "Why so cheap?",
@@ -52,7 +52,7 @@ export default function PricingPage() {
             <span className="font-display text-muted-foreground">Stupid cheap after.</span>
           </h1>
           <p className="text-lg text-muted-foreground mt-6 text-pretty">
-            Your first 7 meetings are free, with no card. After that, scheduling, time tracking and invoicing cost less than a coffee a year while founder spots last.
+            Your first 7 meetings are free, with no card. After that, it costs less than a coffee a year while founder spots last.
           </p>
         </div>
         <PricingCards />

@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
+import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -24,14 +27,41 @@ const routes = [
   { label: "Calendars", icon: CalendarDays, href: "/calendars" },
   { label: "Bookings", icon: BookOpen, href: "/bookings" },
   { label: "Group meetings", icon: UsersRound, href: "/meetings" },
-  { label: "Time", icon: Timer, href: "/time" },
-  { label: "Clients", icon: Users, href: "/clients" },
-  { label: "Invoices", icon: Receipt, href: "/invoices" },
+  { label: "Time", icon: Timer, href: "/time", invoicing: true },
+  { label: "Clients", icon: Users, href: "/clients", invoicing: true },
+  { label: "Invoices", icon: Receipt, href: "/invoices", invoicing: true },
   { label: "Settings", icon: Settings, href: "/settings" },
 ];
 
+/** Time tracking and invoicing show only for accounts they're switched on for. */
+function useInvoicingEnabled(): boolean {
+  const { getToken, isLoaded } = useAuth();
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    if (!isLoaded) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getToken();
+        const me = await apiFetch<{ invoicing_enabled?: boolean }>("/api/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!cancelled) setEnabled(!!me.invoicing_enabled);
+      } catch {
+        // Hidden stays hidden.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [getToken, isLoaded]);
+  return enabled;
+}
+
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const invoicing = useInvoicingEnabled();
+  const visible = routes.filter((r) => !r.invoicing || invoicing);
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col rounded-[1.5rem] overflow-hidden aurora-bg-dark">
@@ -51,7 +81,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </div>
 
         <nav aria-label="Main navigation" className="flex-1 min-h-0 overflow-y-auto px-3 space-y-0.5">
-          {routes.map((route) => {
+          {visible.map((route) => {
             const isActive = pathname === route.href || pathname.startsWith(`${route.href}/`);
             return (
               <div key={route.href} className={route.href === "/settings" ? "mt-5! border-t border-white/10 pt-3" : undefined}>

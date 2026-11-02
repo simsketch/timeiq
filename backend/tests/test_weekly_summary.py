@@ -39,7 +39,7 @@ class Result:
 def user(monkeypatch):
     monkeypatch.setattr(settings, "STRIPE_SECRET_KEY", "sk_test_fake")
     monkeypatch.setattr(settings, "WEEKLY_SUMMARY_SECRET", "weekly-summary-test-secret")
-    return User(id=uuid.uuid4(), email="host@example.com", name="Host", timezone="America/New_York",
+    return User(id=uuid.uuid4(), email="host@example.com", name="Host", timezone="America/New_York", invoicing_enabled=True,
                 subscription_status="active", weekly_summary_enabled=True, weekly_summary_sent_at=None)
 
 

@@ -15,7 +15,7 @@ const INCLUDED = [
   "Unlimited booking pages and event types",
   "Email a schedule and it lands on your calendar",
   "Share your availability as text or a picture, in any time zone",
-  "Timesheets and PDF invoices included",
+  "Group meetings that find a time for everyone",
   "Founder price locked in for life",
 ];
 
@@ -59,7 +59,7 @@ const FREE_INCLUDED = [
   "Every feature, nothing held back",
   "Your booking link and all your calendars",
   "Forward schedules and cc TimeIQ on threads",
-  "Timesheets and invoices",
+  "Group meetings and shared availability",
 ];
 
 /** Free to start: the first meetings are on us, no card. */

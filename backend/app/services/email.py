@@ -811,19 +811,19 @@ def render_welcome(user: User) -> str:
     site = _site()
     body = (
         t.h1(f"Welcome, {first}.")
-        + t.p("TimeIQ gives you one calm place to book meetings, log your hours, and send invoices. Three quick steps and you're set.")
+        + t.p("TimeIQ puts every calendar behind one booking link and adds the schedules you forward it. Three quick steps and you're set.")
         + t.checklist(
             [
                 ("Share your booking link", f"Your page is live at {site}/book/{user.username}. Add an event type and send it to anyone.", f"{site}/event-types"),
                 ("Connect your calendar", "Google or any ICS feed, so you're never double booked.", f"{site}/calendars"),
-                ("Add your first client", "Set a rate, log this week's hours, and your first invoice is one click away.", f"{site}/clients"),
+                ("Forward a schedule", "Send TimeIQ the next practice schedule or team email and the events land on your calendar.", f"{site}/dashboard"),
             ]
         )
         + t.buttons(t.button("Open your workspace", f"{site}/dashboard"))
         + t.p("I read every reply. If anything is confusing or missing, tell me and I'll fix it.")
         + t.signoff(MAKER_NAME, MAKER_ROLE)
     )
-    return t.layout("welcome", "Three quick steps to your first booking and invoice", body)
+    return t.layout("welcome", "Three quick steps to your first booking", body)
 
 
 def send_welcome(user: User) -> None:
@@ -859,7 +859,7 @@ def render_free_meetings(user: User, left: int, free: int) -> str:
     body = (
         t.h1(title)
         + t.p(lead)
-        + t.p("A plan is one yearly payment and covers booking, time tracking and invoicing.", muted=True)
+        + t.p("A plan is one small yearly payment for everything in TimeIQ.", muted=True)
         + t.buttons(t.button("Pick a plan", f"{site}/pricing"))
         + t.signoff(MAKER_NAME, MAKER_ROLE)
     )

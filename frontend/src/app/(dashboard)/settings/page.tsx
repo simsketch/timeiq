@@ -29,6 +29,7 @@ interface UserSettings {
   timezone: string;
   weekly_hours_target: number;
   weekly_summary_enabled: boolean;
+  invoicing_enabled?: boolean;
 }
 
 const TIMEZONES = [
@@ -243,6 +244,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {settings.invoicing_enabled && (
         <div className="space-y-2 max-w-xs">
           <Label htmlFor="weekly_hours_target">Weekly hours target</Label>
           <Input
@@ -255,11 +257,12 @@ export default function SettingsPage() {
           />
           <p className="text-xs text-muted-foreground">Shown on the timesheet as progress for the week.</p>
         </div>
+        )}
 
         <div className="flex items-center justify-between gap-4 max-w-md">
           <div className="space-y-1">
             <Label htmlFor="weekly_summary_enabled">Your week email</Label>
-            <p className="text-xs text-muted-foreground">Your bookings, open time and billing every Monday around 7 am in your timezone.</p>
+            <p className="text-xs text-muted-foreground">Your bookings and open time every Monday around 7 am in your timezone.</p>
           </div>
           <Switch
             id="weekly_summary_enabled"
@@ -339,7 +342,7 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground max-w-md">
-              Download everything you have created as a zip of CSV files: clients, time entries, invoices, invoice lines, and bookings.
+              Download everything you have created as a zip of CSV files, including your bookings.
             </p>
             <Button variant="outline" onClick={exportData} disabled={exporting}>
               <Download className="h-4 w-4 mr-2" />

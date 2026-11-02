@@ -169,10 +169,11 @@ def render_content(user, content, unsubscribe_url) -> str:
                         f"({(end - start).total_seconds() / 3600:g} hours)")
     else:
         body += t.p("There are no open blocks of an hour or more in your saved availability this week.")
-    if content["tracking"]:
+    if content["tracking"] and user.invoicing_enabled:
         body += heading("Unbilled time") + t.p(f"{content['hours']:g} hours")
         body += t.p(", ".join(f"{currency} {amount:,.2f}" for currency, amount in sorted(content["amounts"].items())) or "No unbilled amount")
-    body += heading("Invoices") + t.p(f"Overdue invoices: {content['overdue']}")
+    if user.invoicing_enabled:
+        body += heading("Invoices") + t.p(f"Overdue invoices: {content['overdue']}")
     body += t.buttons(t.button("Open TimeIQ", f"{settings.FRONTEND_URL.rstrip('/')}/bookings"))
     body += t.p("Open time uses your saved availability and latest calendar sync.", muted=True)
     body += f'<p style="font-size:12px;"><a href="{escape(unsubscribe_url, quote=True)}">Unsubscribe from Your week</a></p>'

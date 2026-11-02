@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import update, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_user
+from app.auth import get_current_user, require_invoicing
 from app.database import get_db
 from app.models.client import Client
 from app.models.invoice import Invoice
@@ -16,7 +16,7 @@ from app.models.user import User
 from app.schemas.client import ClientCreate, ClientResponse, ClientUpdate
 from app.services.invoicing import line_amount
 
-router = APIRouter(tags=["clients"])
+router = APIRouter(tags=["clients"], dependencies=[Depends(require_invoicing)])
 
 
 async def get_owned_client(db: AsyncSession, user: User, client_id: uuid.UUID) -> Client:

@@ -188,3 +188,10 @@ async def get_current_user(
             detail="subscription_required",
         )
     return user
+
+
+async def require_invoicing(user: User = Depends(get_current_user)) -> User:
+    """Time tracking and invoicing exist only for accounts they're switched on for."""
+    if not user.invoicing_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    return user

@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.auth import get_current_user
+from app.auth import get_current_user, require_invoicing
 from app.database import get_db
 from app.models.cached_event import CachedEvent
 from app.models.client import Client
@@ -40,7 +40,7 @@ from app.services.invoicing import (
     title_matches,
 )
 
-router = APIRouter(tags=["time-entries"])
+router = APIRouter(tags=["time-entries"], dependencies=[Depends(require_invoicing)])
 
 ENTRY_LOAD = (selectinload(TimeEntry.client), selectinload(TimeEntry.invoice))
 

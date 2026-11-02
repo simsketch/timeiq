@@ -42,6 +42,8 @@ class User(Base):
         Integer, nullable=False, default=40, server_default="40"
     )
     weekly_summary_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    # Time tracking and invoicing are hidden unless switched on for the account.
+    invoicing_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     weekly_summary_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Which 3D scene the public booking page shows; null means the default.
     booking_scene: Mapped[str | None] = mapped_column(String(32), nullable=True)

@@ -38,10 +38,10 @@ export function OnboardingChecklist() {
       try {
         const token = await getToken();
         const headers = { Authorization: `Bearer ${token}` };
-        const [eventTypes, calendars, clients] = await Promise.all([
+        const [eventTypes, calendars, bookings] = await Promise.all([
           apiFetch<unknown[]>("/api/event-types", { headers }),
           apiFetch<unknown[]>("/api/calendars", { headers }),
-          apiFetch<unknown[]>("/api/clients", { headers }),
+          apiFetch<unknown[]>("/api/bookings", { headers }),
         ]);
         // The card stays hidden until the steps load; the stored choice applies with them.
         setDismissed(wasDismissed);
@@ -63,12 +63,12 @@ export function OnboardingChecklist() {
             done: calendars.length > 0,
           },
           {
-            key: "client",
-            title: "Add your first client",
-            desc: "Set a rate, log hours on the timesheet, and invoice in one click.",
-            href: "/clients",
+            key: "booking",
+            title: "Get your first booking",
+            desc: "Share your booking link, or add a meeting yourself from Bookings.",
+            href: "/bookings",
             icon: Users,
-            done: clients.length > 0,
+            done: bookings.length > 0,
           },
         ]);
       } catch {
@@ -104,7 +104,7 @@ export function OnboardingChecklist() {
           <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-2">
             Getting set up · {doneCount} of {steps.length}
           </div>
-          <h2 className="font-display text-2xl tracking-[-0.02em]">Three steps to your first booking and invoice.</h2>
+          <h2 className="font-display text-2xl tracking-[-0.02em]">Three steps to your first booking.</h2>
         </div>
         <Button asChild>
           <Link href={next.href}>

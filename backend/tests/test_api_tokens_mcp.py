@@ -30,7 +30,7 @@ ACCEPT = {"Accept": "application/json, text/event-stream", "MCP-Protocol-Version
 @pytest.fixture
 async def env():
     async with async_session() as db:
-        user = User(clerk_id=f"user_{uuid.uuid4().hex[:20]}", email="tok@example.com",
+        user = User(clerk_id=f"user_{uuid.uuid4().hex[:20]}", email="tok@example.com", invoicing_enabled=True,
                     username=f"tok{uuid.uuid4().hex[:8]}", name="Token Tester", timezone="America/New_York",
                     subscription_status="active")
         db.add(user)

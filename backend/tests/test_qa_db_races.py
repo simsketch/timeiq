@@ -39,7 +39,7 @@ async def env(monkeypatch):
     async with async_session() as db:
         users = [
             User(clerk_id=f"rt_{key}_{i}", username=f"rt_{key}_{i}", email=f"rt{i}@example.com",
-                 name=f"RT {i}", subscription_status=status)
+                 name=f"RT {i}", subscription_status=status, invoicing_enabled=True)
             for i, status in enumerate(["active", "none", "none"])
         ]
         db.add_all(users)
@@ -302,3 +302,14 @@ async def test_account_survives_failed_stripe_cancel(env, monkeypatch):
     r = await env.client.delete("/api/me")
     assert r.status_code == 502
     assert (await env.client.get("/api/me")).status_code == 200
+
+
+async def test_time_and_invoicing_are_hidden_unless_switched_on(env):
+    async with async_session() as db:
+        user = await db.get(User, env.users[0].id)
+        user.invoicing_enabled = False
+        await db.commit()
+    for path in ("/api/clients", "/api/time-entries", "/api/invoices", "/api/timesheet-rows", "/api/dashboard/money"):
+        assert (await env.client.get(path)).status_code == 404, path
+    me = (await env.client.get("/api/me")).json()
+    assert me["invoicing_enabled"] is False

@@ -11,14 +11,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.auth import get_current_user
+from app.auth import get_current_user, require_invoicing
 from app.database import get_db
 from app.models.timesheet_row import TimesheetRow
 from app.models.user import User
 from app.routers.clients import get_owned_client
 from app.schemas.partial_update import PartialUpdate
 
-router = APIRouter(prefix="/api/timesheet-rows", tags=["timesheet-rows"])
+router = APIRouter(prefix="/api/timesheet-rows", tags=["timesheet-rows"], dependencies=[Depends(require_invoicing)])
 
 
 class RowCreate(BaseModel):
