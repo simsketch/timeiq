@@ -20,7 +20,7 @@ import {
   FileText,
 } from "lucide-react";
 import { LogoIcon } from "@/components/logo";
-import { PublicPricingCard } from "@/components/billing/pricing-card";
+import { PublicPricingCards } from "@/components/billing/pricing-card";
 import { HeaderAuthLinks } from "@/components/landing/header-auth-links";
 import type { Headline } from "@/components/landing/headlines";
 import { GitHubIcon, GITHUB_URL } from "@/components/github-icon";
@@ -713,9 +713,9 @@ export function LandingPage({ headline }: { headline: Headline }) {
                 Pricing
               </div>
               <h2 className="text-4xl lg:text-6xl leading-[1.02] tracking-[-0.025em] text-balance">
-                <span className="font-display">One plan.</span>{" "}
+                <span className="font-display">Free to start.</span>{" "}
                 <span className="font-display text-muted-foreground">
-                  Stupid cheap.
+                  Stupid cheap after.
                 </span>
               </h2>
               <p className="text-lg text-muted-foreground mt-6 text-pretty">
@@ -735,7 +735,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
                 .
               </p>
             </div>
-            <PublicPricingCard headline={headline.id} />
+            <PublicPricingCards headline={headline.id} />
           </div>
         </section>
 

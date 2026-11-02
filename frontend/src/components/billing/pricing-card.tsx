@@ -25,31 +25,98 @@ const noSubscribe = () => () => {};
 export function PricingCard({ compact = false }: { compact?: boolean }) {
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const checkoutUrl = async () => (isSignedIn ? startCheckout(await getToken()) : startGuestCheckout());
-  return <PricingCardView compact={compact} ready={isLoaded} signedIn={!!isSignedIn} checkoutUrl={checkoutUrl} />;
+  return <PricingCardView compact={compact} ready={isLoaded} checkoutUrl={checkoutUrl} />;
+}
+
+/** Free and paid side by side, for pages inside Clerk. */
+export function PricingCards() {
+  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const checkoutUrl = async () => (isSignedIn ? startCheckout(await getToken()) : startGuestCheckout());
+  return (
+    <div className="grid md:grid-cols-2 gap-5 max-w-4xl mx-auto items-stretch">
+      <FreeCard signedIn={!!isSignedIn} />
+      <PricingCardView compact={false} ready={isLoaded} checkoutUrl={checkoutUrl} secondary />
+    </div>
+  );
 }
 
 /**
  * For public pages that skip Clerk. Signed-in visitors finish on
  * /billing/checkout, which has Clerk; everyone else goes straight to Stripe.
  */
-export function PublicPricingCard({ compact = false, headline }: { compact?: boolean; headline?: string }) {
+export function PublicPricingCards({ headline }: { headline?: string }) {
   const signedIn = useSyncExternalStore(noSubscribe, hasSessionCookie, () => false);
   const checkoutUrl = async () => (hasSessionCookie() ? "/billing/checkout" : startGuestCheckout());
-  return <PricingCardView compact={compact} ready signedIn={signedIn} checkoutUrl={checkoutUrl} headline={headline} />;
+  return (
+    <div className="grid md:grid-cols-2 gap-5 max-w-4xl mx-auto items-stretch">
+      <FreeCard signedIn={signedIn} headline={headline} />
+      <PricingCardView compact={false} ready checkoutUrl={checkoutUrl} headline={headline} secondary />
+    </div>
+  );
+}
+
+const FREE_INCLUDED = [
+  "Every feature, nothing held back",
+  "Your booking link and all your calendars",
+  "Forward schedules and cc TimeIQ on threads",
+  "Timesheets and invoices",
+];
+
+/** Free to start: the first meetings are on us, no card. */
+function FreeCard({ signedIn, headline }: { signedIn: boolean; headline?: string }) {
+  const [freeMeetings, setFreeMeetings] = useState(7);
+  useEffect(() => {
+    fetchPricing().then((p) => p.free_meetings && setFreeMeetings(p.free_meetings)).catch(() => null);
+  }, []);
+  return (
+    <div className="glass rounded-[1.75rem] p-7 sm:p-9 w-full flex flex-col">
+      <div className="text-sm font-medium mb-6">Free to start</div>
+      <div className="flex items-baseline gap-2 mb-2">
+        <span className="font-display text-6xl tracking-[-0.03em]">$0</span>
+        <span className="text-muted-foreground">for your first {freeMeetings} meetings</span>
+      </div>
+      <p className="text-sm text-muted-foreground mb-7 text-pretty">
+        <span className="block font-medium text-foreground mb-1">No card needed.</span>
+        Use all of TimeIQ until {freeMeetings} meetings are booked with you, then pick a plan to keep your link open.
+      </p>
+      <ul className="space-y-2.5 mb-8 text-sm">
+        {FREE_INCLUDED.map((line) => (
+          <li key={line} className="flex items-start gap-2.5">
+            <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+            <span>{line}</span>
+          </li>
+        ))}
+      </ul>
+      <Button asChild variant="default" size="xl" className="w-full mt-auto">
+        {signedIn ? (
+          <Link href="/dashboard" className="gap-2">
+            Go to your dashboard
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        ) : (
+          <Link href="/sign-up" className="gap-2" onClick={() => track("Lead", { ...(headline && { content_name: headline }) })}>
+            Start free
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        )}
+      </Button>
+      <p className="mt-3 text-center text-[11px] text-muted-foreground">Sign up with Google or email</p>
+    </div>
+  );
 }
 
 function PricingCardView({
   compact,
   ready,
-  signedIn,
   checkoutUrl,
   headline,
+  secondary = false,
 }: {
   compact: boolean;
   ready: boolean;
-  // Signed-out visitors start free; the plan is a link under the button.
-  signedIn: boolean;
   checkoutUrl: () => Promise<string>;
+  // Beside the Free card, which takes the primary button.
+  secondary?: boolean;
   headline?: string;
 }) {
   const { toast } = useToast();
@@ -101,13 +168,12 @@ function PricingCardView({
     }
   }
 
-  const freeMeetings = pricing?.free_meetings ?? 7;
   let buttonLabel = founderOpen ? "Claim founder price" : "Subscribe";
   if (price === null) buttonLabel = pricingError ? "Checkout unavailable" : "Loading price…";
   if (busy) buttonLabel = "Opening checkout…";
 
   return (
-    <div className="glass glass-chroma rounded-[1.75rem] p-7 sm:p-9 max-w-md w-full mx-auto">
+    <div className={`glass rounded-[1.75rem] p-7 sm:p-9 w-full flex flex-col ${secondary ? "" : "max-w-md mx-auto"}`}>
       <div className="flex items-center justify-between gap-3 mb-6">
         <div className="text-sm font-medium">
           {pricing ? (founderOpen ? "Founding member" : "Standard") : "TimeIQ"}
@@ -126,9 +192,6 @@ function PricingCardView({
             <span className="text-muted-foreground">/ year + tax</span>
           </div>
           <p className="text-sm text-muted-foreground mb-7 text-pretty">
-            <span className="block font-medium text-foreground mb-1">
-              Your first {freeMeetings} meetings are free. No card needed.
-            </span>
             {founderOpen
               ? `The first ${pricing.founder_seats} subscribers pay ${fmtCents(price, currency)} a year, forever. After that it's ${fmtCents(pricing.standard_price_cents, currency)}.`
               : "Everything in TimeIQ for less than a coffee a month. Cancel anytime."}
@@ -164,36 +227,17 @@ function PricingCardView({
         </ul>
       )}
 
-      {signedIn ? (
-        <Button variant="default" size="xl" className="w-full" onClick={subscribe} disabled={busy || price === null}>
-          {buttonLabel}
-          <ArrowRight className="h-4 w-4" />
-        </Button>
-      ) : (
-        <Button asChild variant="default" size="xl" className="w-full">
-          <Link href="/sign-up" onClick={() => track("Lead", { ...(headline && { content_name: headline }) })}>
-            Start free
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Button>
-      )}
-      <p className="mt-3 text-center text-[11px] text-muted-foreground">
-        {signedIn ? (
-          "Secure checkout by Stripe · Cancel anytime"
-        ) : (
-          <>
-            {founderOpen ? "Want the founder price now?" : "Ready to subscribe?"}{" "}
-            <button
-              type="button"
-              onClick={subscribe}
-              disabled={busy || price === null}
-              className="underline underline-offset-2 hover:text-foreground disabled:opacity-50"
-            >
-              {busy ? "Opening checkout…" : "Pay now"}
-            </button>
-          </>
-        )}
-      </p>
+      <Button
+        variant={secondary ? "outline" : "default"}
+        size="xl"
+        className="w-full mt-auto"
+        onClick={subscribe}
+        disabled={busy || price === null}
+      >
+        {buttonLabel}
+        <ArrowRight className="h-4 w-4" />
+      </Button>
+      <p className="mt-3 text-center text-[11px] text-muted-foreground">Secure checkout by Stripe · Cancel anytime</p>
     </div>
   );
 }
