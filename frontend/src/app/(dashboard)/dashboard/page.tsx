@@ -152,8 +152,8 @@ export default function DashboardPage() {
       {profile && (
         <Card className="border-dashed">
           <CardContent className="p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <div className="flex min-w-0 flex-1 items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex min-w-0 flex-[1_1_18rem] items-center gap-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white">
                   <ExternalLink className="h-5 w-5 text-gray-600" />
                 </div>
@@ -161,7 +161,7 @@ export default function DashboardPage() {
                   <p className="text-sm font-medium text-muted-foreground mb-1">
                     Your booking link
                   </p>
-                  <p className="text-sm font-mono truncate">
+                  <p className="text-sm font-mono break-all">
                     timeiq.app/book/{profile.username}
                   </p>
                 </div>
