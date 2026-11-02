@@ -190,21 +190,69 @@ async def test_founder_seat_is_held_during_checkout(env, monkeypatch):
     assert expired == ["cs_1"]  # the reopened checkout replaced the first one
 
 
-async def test_first_checkout_gets_the_trial_and_a_returning_one_does_not(env, monkeypatch):
+async def test_checkout_charges_straight_away(env, monkeypatch):
     monkeypatch.setattr(settings, "STRIPE_PRICE_FOUNDER", "")
     monkeypatch.setattr(stripe.Customer, "create", lambda **kw: {"id": f"cus_{kw['metadata']['timeiq_user_id']}"})
     monkeypatch.setattr(stripe.checkout.Session, "list", lambda **kw: {"data": []})
-    history: dict = {"data": []}
-    monkeypatch.setattr(stripe.Subscription, "list", lambda **kw: history)
+    monkeypatch.setattr(stripe.Subscription, "list", lambda **kw: {"data": []})
     calls = []
     monkeypatch.setattr(stripe.checkout.Session, "create", lambda **kw: calls.append(kw) or {"id": "cs", "url": "https://x"})
     env.as_user(env.users[1])
     assert (await env.client.post("/api/billing/checkout")).status_code == 200
-    assert calls[-1]["subscription_data"]["trial_period_days"] == billing.TRIAL_DAYS
-    assert calls[-1]["payment_method_collection"] == "always"
-    history["data"] = [{"id": "sub_old", "status": "canceled", "created": 1}]  # subscribed before
-    assert (await env.client.post("/api/billing/checkout")).status_code == 200
     assert "trial_period_days" not in calls[-1]["subscription_data"]
+    assert calls[-1]["payment_method_collection"] == "always"
+
+
+async def test_first_meetings_are_free_then_the_paywall(env):
+    from datetime import datetime, timedelta, timezone
+
+    from app.models.booking import Booking
+    from app.models.event_type import EventType
+
+    host = env.users[1]  # no plan
+    async with async_session() as db:
+        et = EventType(user_id=host.id, slug="intro", name="Intro", duration_minutes=30)
+        db.add(et)
+        await db.flush()
+        start = datetime.now(timezone.utc) + timedelta(days=3)
+
+        def booking(i, status="confirmed"):
+            return Booking(event_type_id=et.id, host_user_id=host.id, visitor_name=f"G{i}",
+                           visitor_email=f"g{i}@example.com", starts_at=start + timedelta(hours=i),
+                           ends_at=start + timedelta(hours=i, minutes=30), timezone="UTC", status=status,
+                           cancel_token=uuid.uuid4().hex)
+        # A cancelled booking gives its meeting back.
+        db.add_all([booking(i) for i in range(5)] + [booking(9, "cancelled")])
+        await db.commit()
+
+    env.as_user(host)
+    status = (await env.client.get("/api/billing/status")).json()
+    assert status["entitled"] is True and status["subscribed"] is False
+    assert (status["free_meetings"], status["free_meetings_left"]) == (billing.FREE_MEETINGS, 2)
+    assert (await env.client.get("/api/event-types")).status_code == 200
+
+    async with async_session() as db:
+        stored = await db.get(User, host.id)
+        await billing.note_meeting_booked(db, stored)  # 2 left: heads-up
+        db.add_all([booking(5), booking(6)])
+        await db.commit()
+        await billing.note_meeting_booked(db, stored)  # none left: link paused
+    assert [m["subject"] for m in env.mail] == ["2 free TimeIQ meetings left", "Your booking link is paused"]
+
+    status = (await env.client.get("/api/billing/status")).json()
+    assert status["entitled"] is False and status["free_meetings_left"] == 0
+    assert (await env.client.get("/api/event-types")).status_code == 402
+    day = (start + timedelta(days=1)).date().isoformat()
+    assert (await env.client.get(f"/api/public/{host.username}/intro/slots?date={day}")).json() == []
+    booked = await env.client.post(f"/api/public/{host.username}/intro/book", json={
+        "starts_at": (start + timedelta(days=1)).isoformat(), "visitor_name": "Late",
+        "visitor_email": "late@example.com", "timezone": "UTC",
+    })
+    assert booked.status_code == 403
+
+    env.as_user(env.users[0])  # a plan: no limit
+    status = (await env.client.get("/api/billing/status")).json()
+    assert status["entitled"] is True and status["free_meetings_left"] is None
 
 
 async def test_trial_ending_reminder_is_sent_once_per_trial(env, monkeypatch):

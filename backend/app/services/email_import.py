@@ -337,11 +337,11 @@ def _is_transient(exc: BaseException) -> bool:
     return code >= 500 or code == 429
 
 
-def _entitled(user: User) -> bool:
+async def _entitled(db: AsyncSession, user: User) -> bool:
     """The same rule as the dashboard's subscription gate (auth.get_current_user)."""
     from app.services import billing
 
-    return not billing.enabled() or billing.is_entitled(user)
+    return await billing.has_access(db, user)
 
 
 async def _claim(db: AsyncSession, email_id: str, now: datetime) -> tuple[EmailImport | None, bool]:
@@ -477,7 +477,7 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
             user = await db.get(User, user_id) if user_id else None
             shared = record.inbound_address == agent_address()
 
-        if user is not None and not _entitled(user):
+        if user is not None and not await _entitled(db, user):
             # A lapsed subscription: don't read the email or answer anyone on
             # the thread. Tell the owner, at most once a day.
             noticed = (
@@ -532,7 +532,7 @@ async def process_inbound(payload: dict, now: datetime | None = None) -> EmailIm
                     return record
                 user_id = user.id
                 record.user_id = user_id
-                if not _entitled(user):
+                if not await _entitled(db, user):
                     noticed = await db.scalar(select(func.count()).select_from(EmailImport).where(
                         EmailImport.user_id == user_id, EmailImport.status == "skipped",
                         EmailImport.created_at > now - timedelta(days=1),

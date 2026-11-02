@@ -71,15 +71,15 @@ export function SubscriptionGate({
       <div className="space-y-8 py-6">
         <div className="text-center max-w-xl mx-auto">
           <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-4">
-            {lapsed ? "Subscription ended" : "Almost there"}
+            {lapsed ? "Subscription ended" : `${status.free_meetings} free meetings booked`}
           </div>
           <h1 className="text-4xl lg:text-5xl leading-[1.02] tracking-[-0.025em] text-balance">
-            <span className="font-display">{lapsed ? "Pick up where you left off." : "Unlock your workspace."}</span>
+            <span className="font-display">{lapsed ? "Pick up where you left off." : "Keep your link open."}</span>
           </h1>
           <p className="text-muted-foreground mt-4 text-pretty">
             {lapsed
               ? "Your bookings, time, and invoices are all still here. Renew to keep going."
-              : "One small yearly payment covers scheduling, time tracking, and invoicing."}
+              : "People are booking you through TimeIQ. Your booking link is paused for new bookings until you pick a plan. Every meeting already booked stays on your calendar."}
           </p>
         </div>
         <PricingCard />
@@ -87,7 +87,25 @@ export function SubscriptionGate({
     );
   }
 
-  return <>{children}</>;
+  const left = status !== null && status !== "error" ? status.free_meetings_left : null;
+  return (
+    <>
+      {left !== null && left > 0 && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border border-foreground/[0.08] bg-background/60 px-4 py-3 text-sm">
+          <span className="text-muted-foreground">
+            <span className="font-medium text-foreground tabular-nums">
+              {left} of {status !== "error" && status !== null ? status.free_meetings : 7}
+            </span>{" "}
+            free meetings left. After that your booking link pauses until you pick a plan.
+          </span>
+          <a href="/pricing" className="font-medium text-foreground underline underline-offset-4 hover:no-underline">
+            See plans
+          </a>
+        </div>
+      )}
+      {children}
+    </>
+  );
 }
 
 const ENTITLED_KEY = "timeiq.entitled";

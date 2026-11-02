@@ -842,6 +842,47 @@ def send_welcome(user: User) -> None:
     )
 
 
+def render_free_meetings(user: User, left: int, free: int) -> str:
+    site = _site()
+    if left:
+        title = f"{left} free meetings left"
+        lead = (
+            f"People have booked {free - left} meetings with you through TimeIQ. "
+            f"After {left} more, your booking link stops taking new bookings until you pick a plan."
+        )
+    else:
+        title = f"That was your {free}th free meeting"
+        lead = (
+            f"People have booked {free} meetings with you through TimeIQ. Your booking link is paused "
+            "for new bookings until you pick a plan. Every meeting already booked stays on the calendar."
+        )
+    body = (
+        t.h1(title)
+        + t.p(lead)
+        + t.p("A plan is one yearly payment and covers booking, time tracking and invoicing.", muted=True)
+        + t.buttons(t.button("Pick a plan", f"{site}/pricing"))
+        + t.signoff(MAKER_NAME, MAKER_ROLE)
+    )
+    return t.layout("reminder", lead, body)
+
+
+async def send_free_meetings_notice(user: User, left: int, free: int, key: str) -> None:
+    if not user.email:
+        return
+    _init_resend()
+    await _send_durable(
+        {
+            "from": f"{MAKER_NAME} at TimeIQ <bookings@timeiq.app>",
+            "to": [user.email],
+            "reply_to": MAKER_EMAIL,
+            "subject": f"{left} free TimeIQ meetings left" if left else "Your booking link is paused",
+            "html": render_free_meetings(user, left, free),
+        },
+        "free meetings notice",
+        key,
+    )
+
+
 def render_trial_ending(trial_end: datetime, price: str, interval: str, has_account: bool) -> str:
     when = trial_end.strftime("%B %-d")
     manage = (

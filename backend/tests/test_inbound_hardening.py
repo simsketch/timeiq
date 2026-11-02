@@ -134,6 +134,9 @@ async def _setup(env, monkeypatch, user=None, status=None):
         u.timezone = "America/New_York"
         if status:
             u.subscription_status = status
+            from app.services import billing
+
+            monkeypatch.setattr(billing, "FREE_MEETINGS", 0)  # free meetings used up
         token = email_import.ensure_inbound_token(u)
         await db.commit()
     for name, value in {"RESEND_INBOUND_API_KEY": "re_in", "RESEND_INBOUND_WEBHOOK_SECRET": SECRET, "ANTHROPIC_API_KEY": "sk-ant-x"}.items():

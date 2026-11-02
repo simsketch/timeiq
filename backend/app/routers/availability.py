@@ -18,6 +18,7 @@ from app.schemas.availability import (
     AvailabilityRuleResponse,
     AvailableSlot,
 )
+from app.services import billing
 from app.services.availability import get_available_slots, host_zone
 from app.services.free_time import free_windows
 from app.tasks import freshen_user_calendars
@@ -206,6 +207,8 @@ async def get_public_slots(
         )
 
     require_payments(host, event_type)
+    if await billing.free_meetings_left(db, host) == 0:
+        return []  # free meetings used and no plan: the link takes no bookings
     await expire_holds(db, host.id)
     slots = await get_available_slots(db, host, event_type, target_date)
     return [AvailableSlot(start=s) for s in slots]

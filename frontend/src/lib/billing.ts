@@ -7,12 +7,17 @@ export interface PricingInfo {
   currency: string;
   founder_seats: number;
   founder_seats_left: number;
-  trial_days: number;
+  free_meetings: number;
 }
 
 export interface BillingStatus {
   enabled: boolean;
+  /** Can use the app: a plan, or free meetings left. */
   entitled: boolean;
+  subscribed: boolean;
+  free_meetings: number;
+  /** null with a plan or with billing off. */
+  free_meetings_left: number | null;
   status: string;
   plan: "founder" | "standard" | null;
   current_period_end: string | null;

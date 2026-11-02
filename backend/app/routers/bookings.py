@@ -26,6 +26,7 @@ from app.services.availability import (
 )
 from app.services.email import send_booking_confirmation, send_cancellation_notice
 from app.services.ics_generator import ical_uid_for
+from app.services import billing
 from app.services import booking_payments as payments
 from app.services import push
 from app.services.booking_lock import lock_host_bookings
@@ -232,6 +233,7 @@ async def create_booking_as_host(
     await db.refresh(booking)
     await db.commit()
     await send_booking_confirmation(booking, event_type, user)
+    await billing.note_meeting_booked(db, user)
     return booking
 
 
@@ -424,6 +426,11 @@ async def create_public_booking(
     await lock_host_bookings(db, host.id)
     starts_at, ends_at = _requested_window(payload, event_type)
     await limit_booking_emails(db, host, payload)
+    if await billing.free_meetings_left(db, host) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This calendar isn't taking new bookings right now.",
+        )
     ip_hash = source_ip_hash(request)
     await limit_booking_sources(db, host, ip_hash)
     if not await is_bookable(db, host, event_type, starts_at, freshen=False):
@@ -456,6 +463,7 @@ async def create_public_booking(
     if booking.status == "confirmed":
         await send_booking_confirmation(booking, event_type, host)
         await push.booking_event("booked", booking, event_type, host)
+        await billing.note_meeting_booked(db, host)
 
     return booking
 

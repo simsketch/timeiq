@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
-import { ArrowRight, CheckCircle2, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowRight, CheckCircle2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { track } from "@/components/meta-pixel";
@@ -18,11 +19,13 @@ const INCLUDED = [
   "Founder price locked in for life",
 ];
 
+const noSubscribe = () => () => {};
+
 /** For pages inside Clerk: checks out the signed-in account directly. */
 export function PricingCard({ compact = false }: { compact?: boolean }) {
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const checkoutUrl = async () => (isSignedIn ? startCheckout(await getToken()) : startGuestCheckout());
-  return <PricingCardView compact={compact} ready={isLoaded} checkoutUrl={checkoutUrl} />;
+  return <PricingCardView compact={compact} ready={isLoaded} signedIn={!!isSignedIn} checkoutUrl={checkoutUrl} />;
 }
 
 /**
@@ -30,18 +33,22 @@ export function PricingCard({ compact = false }: { compact?: boolean }) {
  * /billing/checkout, which has Clerk; everyone else goes straight to Stripe.
  */
 export function PublicPricingCard({ compact = false, headline }: { compact?: boolean; headline?: string }) {
+  const signedIn = useSyncExternalStore(noSubscribe, hasSessionCookie, () => false);
   const checkoutUrl = async () => (hasSessionCookie() ? "/billing/checkout" : startGuestCheckout());
-  return <PricingCardView compact={compact} ready checkoutUrl={checkoutUrl} headline={headline} />;
+  return <PricingCardView compact={compact} ready signedIn={signedIn} checkoutUrl={checkoutUrl} headline={headline} />;
 }
 
 function PricingCardView({
   compact,
   ready,
+  signedIn,
   checkoutUrl,
   headline,
 }: {
   compact: boolean;
   ready: boolean;
+  // Signed-out visitors start free; the plan is a link under the button.
+  signedIn: boolean;
   checkoutUrl: () => Promise<string>;
   headline?: string;
 }) {
@@ -94,20 +101,19 @@ function PricingCardView({
     }
   }
 
-  const trialDays = pricing?.trial_days ?? 0;
-  let buttonLabel = trialDays ? `Start your ${trialDays}-day free trial` : founderOpen ? "Claim founder price" : "Subscribe";
+  const freeMeetings = pricing?.free_meetings ?? 7;
+  let buttonLabel = founderOpen ? "Claim founder price" : "Subscribe";
   if (price === null) buttonLabel = pricingError ? "Checkout unavailable" : "Loading price…";
   if (busy) buttonLabel = "Opening checkout…";
 
   return (
     <div className="glass glass-chroma rounded-[1.75rem] p-7 sm:p-9 max-w-md w-full mx-auto">
       <div className="flex items-center justify-between gap-3 mb-6">
-        <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-mono uppercase tracking-[0.15em] bg-[hsl(var(--aurora-1)/0.1)] text-[hsl(var(--aurora-1))]">
-          <Sparkles className="h-3 w-3" />
+        <div className="text-sm font-medium">
           {pricing ? (founderOpen ? "Founding member" : "Standard") : "TimeIQ"}
         </div>
         {founderOpen && pricing && (
-          <span className="text-xs font-mono text-muted-foreground tabular-nums">
+          <span className="text-xs text-muted-foreground tabular-nums">
             {pricing.founder_seats_left} of {pricing.founder_seats} spots left
           </span>
         )}
@@ -120,11 +126,9 @@ function PricingCardView({
             <span className="text-muted-foreground">/ year + tax</span>
           </div>
           <p className="text-sm text-muted-foreground mb-7 text-pretty">
-            {trialDays > 0 && (
-              <span className="block font-medium text-foreground mb-1">
-                Free for {trialDays} days, then {fmtCents(price, currency)} a year.
-              </span>
-            )}
+            <span className="block font-medium text-foreground mb-1">
+              Your first {freeMeetings} meetings are free. No card needed.
+            </span>
             {founderOpen
               ? `The first ${pricing.founder_seats} subscribers pay ${fmtCents(price, currency)} a year, forever. After that it's ${fmtCents(pricing.standard_price_cents, currency)}.`
               : "Everything in TimeIQ for less than a coffee a month. Cancel anytime."}
@@ -153,27 +157,42 @@ function PricingCardView({
         <ul className="space-y-2.5 mb-8 text-sm">
           {INCLUDED.map((line) => (
             <li key={line} className="flex items-start gap-2.5">
-              <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--aurora-1))]" />
+              <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
               <span>{line}</span>
             </li>
           ))}
         </ul>
       )}
 
-      <Button
-        variant="aurora"
-        size="xl"
-        className="w-full"
-        onClick={subscribe}
-        disabled={busy || price === null}
-      >
-        {buttonLabel}
-        <ArrowRight className="h-4 w-4" />
-      </Button>
+      {signedIn ? (
+        <Button variant="default" size="xl" className="w-full" onClick={subscribe} disabled={busy || price === null}>
+          {buttonLabel}
+          <ArrowRight className="h-4 w-4" />
+        </Button>
+      ) : (
+        <Button asChild variant="default" size="xl" className="w-full">
+          <Link href="/sign-up" onClick={() => track("Lead", { ...(headline && { content_name: headline }) })}>
+            Start free
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </Button>
+      )}
       <p className="mt-3 text-center text-[11px] text-muted-foreground">
-        {trialDays
-          ? `Card required · Cancel within ${trialDays} days and pay nothing`
-          : "Secure checkout by Stripe · Cancel anytime"}
+        {signedIn ? (
+          "Secure checkout by Stripe · Cancel anytime"
+        ) : (
+          <>
+            {founderOpen ? "Want the founder price now?" : "Ready to subscribe?"}{" "}
+            <button
+              type="button"
+              onClick={subscribe}
+              disabled={busy || price === null}
+              className="underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+            >
+              {busy ? "Opening checkout…" : "Pay now"}
+            </button>
+          </>
+        )}
       </p>
     </div>
   );

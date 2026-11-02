@@ -342,6 +342,7 @@ async def test_subscription_gate_matches_existing_tokens(env, monkeypatch):
         user.subscription_status = "canceled"
         await db.commit()
     monkeypatch.setattr(billing, "enabled", lambda: True)
+    monkeypatch.setattr(billing, "FREE_MEETINGS", 0)  # free meetings used up
     r = await rpc(env, out["access_token"], "tools/call", {"name": "list_bookings", "arguments": {}})
     assert r.json()["result"]["isError"] and "subscription" in r.json()["result"]["content"][0]["text"]
     assert (await session(env, "GET", "/api/me/connections")).status_code == 200

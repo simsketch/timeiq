@@ -252,6 +252,9 @@ async def send_confirmed(db: AsyncSession, booking: Booking) -> None:
         from app.services import push
 
         await push.booking_event("booked", booking, event_type, host)
+        from app.services import billing
+
+        await billing.note_meeting_booked(db, host)
 
 
 async def expire_holds(db: AsyncSession, host_id: uuid.UUID | None = None) -> int:

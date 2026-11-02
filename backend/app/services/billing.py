@@ -40,10 +40,13 @@ _FOUNDER_LOCK_KEY = 0x71730001
 # session could be paid after the last seat went, overselling the cap).
 MAX_GUEST_HOLDS = 10
 GUEST_REF_PREFIX = "guest:"
-# New subscriptions start with a free trial; the card is taken at checkout and
-# charged when it ends. Stripe sends customer.subscription.trial_will_end three
-# days before, and we email a reminder then.
-TRIAL_DAYS = 7
+# Every account gets its first FREE_MEETINGS meetings without a plan: full use
+# of the app, and the booking link takes bookings, until that many are booked.
+# Then the paywall. A meeting is a confirmed booking (a reschedule keeps one
+# confirmed row; a cancelled one gives its meeting back). Checkout charges
+# straight away; no Stripe trials. The trial_will_end handler below stays for
+# subscriptions that started on the old 7-day trial.
+FREE_MEETINGS = 7
 
 
 def _d(obj: Any) -> Any:
@@ -62,7 +65,46 @@ def _init() -> None:
 
 
 def is_entitled(user: User) -> bool:
+    """Has a plan (paid, trialing, past due or complimentary)."""
     return user.subscription_status in ENTITLED_STATUSES
+
+
+async def meetings_used(db: AsyncSession, user_id) -> int:
+    from app.models.booking import Booking
+
+    count = await db.scalar(
+        select(func.count(Booking.id)).where(Booking.host_user_id == user_id, Booking.status == "confirmed")
+    )
+    return count or 0
+
+
+async def free_meetings_left(db: AsyncSession, user: User) -> int | None:
+    """Free meetings the account still has, or None when it has a plan or
+    billing is off (no limit)."""
+    if not enabled() or is_entitled(user):
+        return None
+    return max(FREE_MEETINGS - await meetings_used(db, user.id), 0)
+
+
+# Free meetings left at which the host hears about it.
+FREE_MEETING_NOTICES = (2, 0)
+
+
+async def note_meeting_booked(db: AsyncSession, host: User) -> None:
+    """After a booking is confirmed: tell a host on free meetings when they're
+    running out, and when the last one is used."""
+    left = await free_meetings_left(db, host)
+    if left not in FREE_MEETING_NOTICES:
+        return
+    from app.services.email import send_free_meetings_notice
+
+    await send_free_meetings_notice(host, left, FREE_MEETINGS, key=f"free-meetings/{host.id}/{left}")
+
+
+async def has_access(db: AsyncSession, user: User) -> bool:
+    """A plan, or free meetings still left."""
+    left = await free_meetings_left(db, user)
+    return left is None or left > 0
 
 
 def plan_for_price(price_id: str | None) -> str:
@@ -176,7 +218,7 @@ async def pricing_info(db: AsyncSession) -> dict[str, Any]:
             "standard_price_cents": 2900,
             "currency": "USD",
             "founder_seats": settings.FOUNDER_SEATS,
-        "trial_days": TRIAL_DAYS,
+        "free_meetings": FREE_MEETINGS,
             "founder_seats_left": settings.FOUNDER_SEATS,
         }
     taken = await founder_seats_taken(db)  # includes open checkout holds
@@ -188,15 +230,19 @@ async def pricing_info(db: AsyncSession) -> dict[str, Any]:
         "standard_price_cents": standard["cents"],
         "currency": standard["currency"],
         "founder_seats": settings.FOUNDER_SEATS,
-        "trial_days": TRIAL_DAYS,
+        "free_meetings": FREE_MEETINGS,
         "founder_seats_left": max(settings.FOUNDER_SEATS - taken, 0) if founder else 0,
     }
 
 
-def status_payload(user: User) -> dict[str, Any]:
+async def status_payload(db: AsyncSession, user: User) -> dict[str, Any]:
+    left = await free_meetings_left(db, user)
     return {
         "enabled": enabled(),
-        "entitled": (not enabled()) or is_entitled(user),
+        "entitled": left is None or left > 0,
+        "subscribed": (not enabled()) or is_entitled(user),
+        "free_meetings": FREE_MEETINGS,
+        "free_meetings_left": left,
         "status": user.subscription_status,
         "plan": user.subscription_plan,
         "current_period_end": user.subscription_current_period_end,
@@ -260,7 +306,7 @@ async def create_checkout_session(user: User, db: AsyncSession) -> str:
     price_id, plan = await choose_price(db, user)
     customer_id = _ensure_customer(user)
     await db.flush()
-    had_subscription = _settle_open_checkouts(user, customer_id)
+    _settle_open_checkouts(user, customer_id)
     extra: dict[str, Any] = {}
     if plan == PLAN_FOUNDER:
         # The seat is only held for FOUNDER_RESERVATION_TTL, so the session
@@ -274,22 +320,11 @@ async def create_checkout_session(user: User, db: AsyncSession) -> str:
         allow_promotion_codes=True,
         success_url=f"{settings.FRONTEND_URL}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{settings.FRONTEND_URL}/pricing",
-        subscription_data=_subscription_data(
-            {"timeiq_user_id": str(user.id), "plan": plan},
-            trial=not (had_subscription or user.stripe_subscription_id),
-        ),
+        subscription_data={"metadata": {"timeiq_user_id": str(user.id), "plan": plan}},
         payment_method_collection="always",
         **extra,
     )
     return session["url"]
-
-
-def _subscription_data(metadata: dict[str, str], *, trial: bool) -> dict[str, Any]:
-    """One free trial per account; someone who subscribed before pays from day one."""
-    data: dict[str, Any] = {"metadata": metadata}
-    if trial:
-        data["trial_period_days"] = TRIAL_DAYS
-    return data
 
 
 async def create_guest_checkout_session(db: AsyncSession) -> str:
@@ -322,9 +357,7 @@ async def create_guest_checkout_session(db: AsyncSession) -> str:
         allow_promotion_codes=True,
         success_url=f"{settings.FRONTEND_URL}/billing/welcome?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{settings.FRONTEND_URL}/pricing",
-        subscription_data=_subscription_data(
-            {"timeiq_guest_checkout_id": str(guest.id), "plan": guest.plan}, trial=True
-        ),
+        subscription_data={"metadata": {"timeiq_guest_checkout_id": str(guest.id), "plan": guest.plan}},
         payment_method_collection="always",
         **extra,
     )

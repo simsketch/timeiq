@@ -46,9 +46,10 @@ def test_apply_subscription_maps_fields(monkeypatch):
     assert user.subscription_current_period_end.year == 2027
 
 
-def test_status_payload_when_disabled(monkeypatch):
+@pytest.mark.asyncio
+async def test_status_payload_when_disabled(monkeypatch):
     monkeypatch.setattr(billing.settings, "STRIPE_SECRET_KEY", "")
-    payload = billing.status_payload(_user("none"))
+    payload = await billing.status_payload(None, _user("none"))
     assert payload["enabled"] is False and payload["entitled"] is True
 
 

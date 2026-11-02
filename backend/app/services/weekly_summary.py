@@ -25,7 +25,6 @@ from app.models.user import User
 from app.services import email as mail
 from app.services import email_templates as t
 from app.services.availability import host_zone
-from app.services.email_import import _entitled
 from app.services.free_time import free_windows
 
 # Stop starting new sends after this many seconds of a cron run (Vercel stops
@@ -34,6 +33,13 @@ CRON_BUDGET_SECONDS = 45
 
 logger = logging.getLogger(__name__)
 TOKEN_LIFETIME = timedelta(days=180)
+
+
+def _subscribed(user: User) -> bool:
+    """Weekly summaries go to accounts with a plan (or with billing off)."""
+    from app.services import billing
+
+    return not billing.enabled() or billing.is_entitled(user)
 
 
 def week_bounds(user, now):
@@ -53,7 +59,7 @@ def should_send(user, now) -> bool:
     return bool(
         # From 7 AM on the owner's Monday: a run that missed 7 (a timeout,
         # a skipped cron) still sends it later that day.
-        user.weekly_summary_enabled and _entitled(user) and local.weekday() == 0 and local.hour >= 7
+        user.weekly_summary_enabled and _subscribed(user) and local.weekday() == 0 and local.hour >= 7
         and (sent is None or sent < start)
     )
 

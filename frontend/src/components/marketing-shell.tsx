@@ -19,8 +19,8 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
           <Link href="/blog" className="px-2 py-1 text-muted-foreground hover:text-foreground">Blog</Link>
           <Link href="/mcp" className="hidden px-2 py-1 text-muted-foreground hover:text-foreground lg:inline">AI assistants</Link>
           <Link href="/pricing" className="hidden px-2 py-1 text-muted-foreground hover:text-foreground sm:inline">Pricing</Link>
-          <Link href="/billing/checkout" className="hidden sm:inline">
-            <Button size="sm">Get started</Button>
+          <Link href="/sign-up" className="hidden sm:inline">
+            <Button size="sm">Start free</Button>
           </Link>
         </nav>
       </header>
@@ -53,9 +53,9 @@ export function TimeIQCta({ heading, body }: { heading?: string; body?: string }
           {body ??
             "TimeIQ merges Google, Outlook and iCloud so people only book when you're really free. Email it a schedule and it adds the events. Share your open times in any time zone in one click."}
         </p>
-        <Link href="/billing/checkout" className="mt-7 inline-block">
+        <Link href="/sign-up" className="mt-7 inline-block">
           <Button variant="aurora" size="lg">
-            Try TimeIQ free for 7 days
+            Start free: 7 meetings on us
             <ArrowRight className="h-4 w-4" />
           </Button>
         </Link>

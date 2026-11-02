@@ -69,7 +69,7 @@ async def test_guest_pays_then_claims_with_session(env, monkeypatch):
     assert "customer" not in created and created["client_reference_id"].startswith("guest:")
     assert created["success_url"].endswith("/billing/welcome?session_id={CHECKOUT_SESSION_ID}")
     assert created["line_items"][0]["price"] == "price_founder" and "expires_at" in created
-    assert created["subscription_data"]["trial_period_days"] == billing.TRIAL_DAYS
+    assert "trial_period_days" not in created["subscription_data"]
     assert created["payment_method_collection"] == "always"
 
     info = (await env.client.get(f"/api/billing/guest-session/{sid}")).json()

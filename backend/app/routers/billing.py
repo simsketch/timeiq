@@ -26,12 +26,17 @@ class PricingInfo(BaseModel):
     currency: str
     founder_seats: int
     founder_seats_left: int
-    trial_days: int = 0
+    free_meetings: int = 0
 
 
 class BillingStatus(BaseModel):
     enabled: bool
+    # Can use the app: a plan, or free meetings left.
     entitled: bool
+    subscribed: bool = False
+    free_meetings: int = 0
+    # None with a plan or with billing off.
+    free_meetings_left: Optional[int] = None
     status: str
     plan: Optional[str]
     current_period_end: Optional[datetime]
@@ -61,7 +66,7 @@ async def billing_status(
         await billing.claim_guest_by_email(db, user)
     except stripe.StripeError as exc:
         logger.warning("Guest claim by email failed for %s: %s", user.id, exc)
-    return billing.status_payload(user)
+    return await billing.status_payload(db, user)
 
 
 @router.post("/api/billing/checkout", response_model=UrlResponse)
@@ -100,7 +105,7 @@ async def confirm(
         logger.error("Stripe confirm failed: %s", exc)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Could not confirm checkout")
     await db.flush()
-    return billing.status_payload(user)
+    return await billing.status_payload(db, user)
 
 
 class GuestSessionInfo(BaseModel):

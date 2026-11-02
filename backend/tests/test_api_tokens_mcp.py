@@ -147,5 +147,6 @@ async def test_mcp_tools_respect_the_subscription_gate(env, monkeypatch):
         user.subscription_status = "canceled"
         await db.commit()
     monkeypatch.setattr(billing, "enabled", lambda: True)
+    monkeypatch.setattr(billing, "FREE_MEETINGS", 0)  # free meetings used up
     result = (await _rpc(env, token, "tools/call", {"name": "list_bookings", "arguments": {}})).json()["result"]
     assert result["isError"] and "subscription" in result["content"][0]["text"]

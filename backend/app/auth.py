@@ -177,11 +177,12 @@ async def get_current_user_unrestricted(
 
 async def get_current_user(
     user: User = Depends(get_current_user_unrestricted),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Current user, additionally requiring an entitled subscription when billing is on."""
+    """Current user, additionally requiring a plan or free meetings left when billing is on."""
     from app.services import billing
 
-    if billing.enabled() and not billing.is_entitled(user):
+    if not await billing.has_access(db, user):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail="subscription_required",
