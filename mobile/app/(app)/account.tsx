@@ -4,9 +4,10 @@ import * as Clipboard from "expo-clipboard";
 import { Image } from "expo-image";
 import * as Notifications from "expo-notifications";
 import * as WebBrowser from "expo-web-browser";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, ScrollView, Share, StyleSheet, Text, View } from "react-native";
-import { Button, Card, Label } from "@/components/ui";
+import { Button, Card, Label, Row } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { SITE_URL } from "@/lib/config";
 import { pushToken } from "@/lib/push";
@@ -17,6 +18,7 @@ export default function Account() {
   const t = useTheme();
   const api = useApi();
   const me = useMe();
+  const router = useRouter();
   const { user } = useUser();
   const { signOut } = useAuth();
   const [busy, setBusy] = useState<"out" | "delete" | null>(null);
@@ -95,12 +97,16 @@ export default function Account() {
         </Card>
       )}
 
-      <Card style={{ gap: 12 }}>
-        <Label>More on the web</Label>
-        <Text style={{ color: t.muted, fontSize: 15, lineHeight: 21 }}>
-          Availability, event types, calendars, time tracking and invoices are at timeiq.app.
-        </Text>
-        <Button title="Open timeiq.app" kind="secondary" icon={<Ionicons name="open-outline" size={18} color={t.text} />} onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/dashboard`)} />
+      <Card style={{ paddingVertical: 6 }}>
+        <Row icon="calendar-outline" title="Calendars" detail="Connect and sync the calendars that block your times" onPress={() => router.push("/calendars")} />
+        <Row icon="time-outline" title="Availability" detail="The hours people can book you" onPress={() => router.push("/availability")} />
+        <Row icon="albums-outline" title="Event types" detail="Your meeting kinds and their links" onPress={() => router.push("/event-types")} />
+        <Row
+          icon="open-outline"
+          title="Open timeiq.app"
+          detail={me?.invoicing_enabled ? "Group meetings, time tracking, invoices, settings" : "Group meetings and settings"}
+          onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/dashboard`)}
+        />
       </Card>
 
       <Button title="Sign out" kind="secondary" busy={busy === "out"} onPress={async () => { setBusy("out"); await leave(); setBusy(null); }} />

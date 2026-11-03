@@ -2,9 +2,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Notice } from "@/components/ui";
-import { ApiError, type Booking, type CachedEvent, type EventType, useApi } from "@/lib/api";
+import { ApiError, type BillingStatus, type Booking, type CachedEvent, type EventType, useApi } from "@/lib/api";
 import { SITE_URL } from "@/lib/config";
 import { colorFor, useTheme } from "@/lib/theme";
 import { dayKey, fmt, timeOf, zoneDayStart } from "@/lib/time";
@@ -26,6 +27,7 @@ export default function Agenda() {
   const [types, setTypes] = useState<Record<string, string>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
 
   // The Monday-to-Sunday week around the selected day, in the account's zone.
   const weekDays = useMemo(() => {
@@ -44,6 +46,7 @@ export default function Agenda() {
         api<CachedEvent[]>(`/api/calendars/cached-events?${q}`),
         api<EventType[]>("/api/event-types"),
       ]);
+      api<BillingStatus>("/api/billing/status").then(setBilling).catch(() => undefined);
       setBookings([...confirmed, ...pending]);
       setEvents(cached);
       setTypes(Object.fromEntries(eventTypes.map((e) => [String(e.id), e.name])));
@@ -51,7 +54,7 @@ export default function Agenda() {
     } catch (e) {
       setError(
         e instanceof ApiError && e.status === 402
-          ? "Your TimeIQ plan isn't active, so bookings can't load. Your account details are under Account."
+          ? "You've used your free meetings, so your booking link is paused. Your bookings and calendars are safe."
           : e instanceof Error ? e.message : "Couldn't load your agenda."
       );
     }
@@ -151,6 +154,20 @@ export default function Agenda() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
       >
         {error && <Notice tone="warn">{error}</Notice>}
+        {billing?.enabled && billing.free_meetings_left != null && (
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/pricing`)}
+            style={[styles.free, { borderColor: t.border, backgroundColor: t.card }]}
+          >
+            <Text style={{ color: t.text, fontSize: 14, flex: 1 }}>
+              {billing.free_meetings_left > 0
+                ? `${billing.free_meetings_left} of ${billing.free_meetings} free meetings left`
+                : "Free meetings used · booking link paused"}
+            </Text>
+            <Text style={{ color: t.primary, fontSize: 14, fontWeight: "600" }}>See plans</Text>
+          </Pressable>
+        )}
         {!error && items.length === 0 && (
           <View style={styles.empty}>
             <Ionicons name="sunny-outline" size={36} color={t.muted} />
@@ -221,6 +238,7 @@ function isoDay(key: string): string {
 }
 
 const styles = StyleSheet.create({
+  free: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
   header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 },
   month: { fontSize: 14, fontWeight: "600" },
   title: { fontSize: 30, fontWeight: "800", letterSpacing: -0.5 },

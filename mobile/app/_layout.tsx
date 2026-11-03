@@ -36,6 +36,9 @@ function Routes() {
           <Stack.Screen name="(app)" options={{ headerShown: false }} />
           <Stack.Screen name="booking/[id]" options={{ title: "Booking", headerBackTitle: "Back" }} />
           <Stack.Screen name="new-booking" options={{ title: "New booking", presentation: "modal" }} />
+          <Stack.Screen name="calendars" options={{ title: "Calendars", headerBackTitle: "Account" }} />
+          <Stack.Screen name="availability" options={{ title: "Availability", headerBackTitle: "Account" }} />
+          <Stack.Screen name="event-types" options={{ title: "Event types", headerBackTitle: "Account" }} />
         </Stack.Protected>
       </Stack>
     </>

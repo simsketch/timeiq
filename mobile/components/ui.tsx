@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { useTheme } from "@/lib/theme";
 
@@ -68,4 +69,23 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: 16, fontWeight: "600" },
   label: { fontSize: 13, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 6 },
   notice: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, padding: 14 },
+});
+
+/** A tappable settings-style row with an icon, title, optional detail and a chevron. */
+export function Row({ icon, title, detail, onPress }: { icon: React.ComponentProps<typeof Ionicons>["name"]; title: string; detail?: string; onPress: () => void }) {
+  const t = useTheme();
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [rowStyles.row, { opacity: pressed ? 0.6 : 1 }]}>
+      <Ionicons name={icon} size={22} color={t.primary} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: t.text, fontSize: 16, fontWeight: "500" }}>{title}</Text>
+        {detail ? <Text style={{ color: t.muted, fontSize: 13, marginTop: 2 }} numberOfLines={1}>{detail}</Text> : null}
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={t.muted} />
+    </Pressable>
+  );
+}
+
+const rowStyles = StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center", gap: 14, minHeight: 52, paddingVertical: 6 },
 });
