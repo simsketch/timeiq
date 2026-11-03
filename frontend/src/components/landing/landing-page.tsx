@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +24,7 @@ import { LazyDemo } from "@/components/landing/lazy-demo";
 import { McpDemo } from "@/components/landing/mcp-demo";
 import { McpDemoContent } from "@/components/landing/mcp-demo-content";
 import { OctoLoader } from "@/components/landing/octo/octo-loader";
-import { HeroVideo } from "@/components/landing/hero-video";
+import { HeroScroll } from "@/components/landing/hero-scroll";
 
 export function LandingPage({ headline }: { headline: Headline }) {
   return (
@@ -73,55 +74,127 @@ export function LandingPage({ headline }: { headline: Headline }) {
 
       <main>
         {/* ================================================================
-             HERO — black stage, a door of light, copy on the left
+             HERO — copy on black, a silver panel that takes over on scroll
+             and assembles the product around its first two cards
              ================================================================ */}
-        <section className="hero-stage relative isolate -mt-[73px] flex min-h-[100svh] flex-col overflow-hidden bg-[#050505] text-[#fafafa]">
-          <div aria-hidden className="absolute inset-0 -z-10">
-            <div className="hero-door absolute inset-0" />
-            <HeroVideo />
-            <div className="hero-stage__fade absolute inset-0" />
-          </div>
-
-          <div className="container mx-auto flex flex-1 flex-col justify-center px-6 lg:px-10 pt-[calc(73px+3rem)] pb-16">
-            <h1 className="reveal reveal-1 max-w-[16ch] text-[2.75rem] sm:text-6xl xl:text-[4.5rem] font-normal leading-[1.1] tracking-[0.004em] text-balance">
-              <span className="block">{headline.lead}</span>
-              <span className="block">{headline.accent}</span>
-            </h1>
-
-            <p className="reveal reveal-2 mt-7 max-w-[30rem] text-lg leading-[1.4] text-[#a7a6a6] text-pretty">
-              Forward a schedule, cc a thread, or ask Claude or ChatGPT.
-              TimeIQ puts it on your calendar and books you when you&apos;re free.
-            </p>
-
-            <div className="reveal reveal-3 mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">
-              <Link
-                href="/sign-up"
-                className="inline-flex h-[50px] items-center rounded-full bg-white px-8 text-[17px] font-medium text-[#050505] transition-colors hover:bg-white/85"
-              >
-                Start free
-              </Link>
-              <a href="#try" className="text-[17px] font-medium text-white transition-opacity hover:opacity-75">
-                Try the demo
-              </a>
+        <HeroScroll>
+          <div className="hs-stage">
+            <div className="hs-copy">
+              <h1 className="reveal reveal-1 text-[2.6rem] sm:text-6xl xl:text-[4.25rem] font-normal leading-[1.08] tracking-[-0.01em] text-balance text-[#ededed]">
+                <span className="block">{headline.lead}</span>
+                <span className="block text-[#a3a3a3]">{headline.accent}</span>
+              </h1>
+              <p className="reveal reveal-2 mt-6 max-w-[27rem] text-[17px] leading-[1.45] text-[#a3a3a3] text-pretty">
+                Forward a schedule, cc a thread, or ask Claude or ChatGPT.
+                TimeIQ puts it on your calendar and books you when you&apos;re free.
+              </p>
+              <div className="reveal reveal-3 mt-9 flex flex-wrap justify-center gap-3">
+                <Link
+                  href="/sign-up"
+                  className="inline-flex h-12 items-center rounded-md bg-white px-6 text-[15px] font-medium text-[#0a0a0a] transition-colors hover:bg-white/85"
+                >
+                  Start free
+                </Link>
+                <a
+                  href="#try"
+                  className="inline-flex h-12 items-center rounded-md border border-white/15 bg-[#111] px-6 text-[15px] font-medium text-white transition-colors hover:bg-[#1c1c1c]"
+                >
+                  Try the demo
+                </a>
+              </div>
+              <p className="reveal reveal-4 mt-5 text-[13px] text-[#737373]">
+                First 7 meetings free, no card. Then $19 a year.
+              </p>
+              <div className="hs-works reveal reveal-5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#525252]">Works with</p>
+                <ul className="mt-3 flex flex-wrap justify-center gap-x-7 gap-y-2 text-[15px] font-semibold tracking-tight text-[#6b6b6b]">
+                  <li>Google Calendar</li>
+                  <li>Outlook</li>
+                  <li>iCloud</li>
+                  <li>Claude</li>
+                  <li>ChatGPT</li>
+                </ul>
+              </div>
             </div>
 
-            <p className="reveal reveal-4 mt-6 text-sm text-[#8b8a8a]">
-              Your first 7 meetings are free, no card needed. Then $19 a year.
-            </p>
-          </div>
+            <div className="hs-panel" aria-label="TimeIQ at a glance">
+              <div aria-hidden className="hs-panel__bg" />
 
-          {/* Works-with strip, sitting in the bottom fade */}
-          <div className="reveal reveal-5 container mx-auto px-6 lg:px-10 pb-10">
-            <p className="sr-only">Works with</p>
-            <ul className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-[15px] font-semibold tracking-tight text-[#8b8a8a]">
-              <li>Google Calendar</li>
-              <li>Outlook</li>
-              <li>iCloud</li>
-              <li>Claude</li>
-              <li>ChatGPT</li>
-            </ul>
+              <div className="hs-caption">
+                <p className="text-xl font-medium text-white">Booked while you slept</p>
+                <p className="mt-2 text-sm text-white/70">Your link fills the week. Your calendars stay clean.</p>
+              </div>
+
+              <div className="hs-bento">
+                {/* Column 1: the two cards that start on the panel */}
+                <div className="hs-card hs-a">
+                  <p className="hs-label"><span className="hs-dot" />Next up</p>
+                  <p className="mt-4 text-3xl font-medium text-white">Intro call</p>
+                  <p className="mt-1 text-sm text-white/60">Aghil · Tue 9:00 – 9:30 AM</p>
+                  <ul className="mt-5 space-y-2.5 text-[11px] font-semibold uppercase tracking-[0.08em]">
+                    <li className="flex items-center gap-2 text-white/85"><span className="hs-dot" />Invite sent</li>
+                    <li className="flex items-center gap-2 text-white/85"><span className="hs-dot" />Google Meet link</li>
+                    <li className="flex items-center gap-2 text-white/30"><span className="hs-dot hs-dot--dim" />Reminder 1h before</li>
+                  </ul>
+                </div>
+                <div className="hs-card hs-b">
+                  <p className="hs-label">This week</p>
+                  <p className="mt-3 text-3xl font-medium text-white">12 meetings <span className="align-middle text-xs text-white/60">▲ 3</span></p>
+                  <svg viewBox="0 0 220 60" className="mt-4 h-14 w-full" aria-hidden>
+                    <path d="M0 48 C 25 44, 35 30, 60 34 S 95 50, 120 36 S 160 14, 185 20 S 210 10, 220 8" fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="1.5" />
+                  </svg>
+                </div>
+
+                {/* Columns 2 and 3: assemble on scroll */}
+                <div className="hs-card hs-late">
+                  <p className="hs-label">Your calendars</p>
+                  <div className="mt-4 flex items-baseline gap-8">
+                    <p><span className="text-3xl font-medium text-white">4</span><span className="block text-xs text-white/55">connected</span></p>
+                    <p><span className="text-3xl font-medium text-white">0</span><span className="block text-xs text-white/55">clashes</span></p>
+                  </div>
+                  <div className="mt-4 flex h-6 gap-1">
+                    <span className="w-[46%] bg-white" />
+                    <span className="w-[26%] bg-white/45" />
+                    <span className="w-[16%] bg-white/25" />
+                    <span className="w-[12%] bg-white/12" />
+                  </div>
+                  <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45">Last synced 2 min ago</p>
+                </div>
+                <div className="hs-card hs-late hidden sm:block">
+                  <p className="hs-label">Forwarded</p>
+                  <p className="mt-4 inline-block rounded bg-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/80">9 events added</p>
+                  <p className="mt-3 text-sm font-medium text-white">Fw: U10 fall soccer schedule</p>
+                  <p className="mt-3 text-xs leading-relaxed text-white/45">Practice Tue &amp; Thu 5:30 PM<br />Games Sat 9:00 AM</p>
+                </div>
+                <div className="hs-card hs-late">
+                  <p className="hs-label">Ask your AI</p>
+                  <p className="mt-4 rounded-md bg-white/[0.06] px-3 py-2 font-mono text-xs text-white/70">book 30 min with Aghil Tuesday</p>
+                  <p className="mt-3 text-sm text-white">Booked Tue 9:00 AM. Invite sent.</p>
+                  <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/40">Claude · ChatGPT · Cursor</p>
+                </div>
+                <div className="hs-card hs-late hidden sm:block">
+                  <p className="hs-label">Free hours</p>
+                  <div className="mt-4 flex h-28 items-end justify-between gap-2">
+                    {[["Mon", 3], ["Tue", 5], ["Wed", 2], ["Thu", 6], ["Fri", 4]].map(([d, h]) => (
+                      <div key={d} className="flex flex-1 flex-col items-center gap-1.5">
+                        <span className="text-xs text-white/70">{h}h</span>
+                        <span
+                          className={`w-full rounded-sm ${h === 6 ? "bg-white" : "bg-white/20"}`}
+                          style={{ height: `${Number(h) * 12}px` }}
+                        />
+                        <span className="text-[10px] text-white/45">{d}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <p className="hs-tagline">
+                <span className="hs-word" style={{ "--i": 0 } as CSSProperties}>Every </span><span className="hs-word" style={{ "--i": 1 } as CSSProperties}>calendar, </span><span className="hs-word" style={{ "--i": 2 } as CSSProperties}>every </span><span className="hs-word" style={{ "--i": 3 } as CSSProperties}>invite, </span><span className="hs-word" style={{ "--i": 4 } as CSSProperties}>one </span><span className="hs-word" style={{ "--i": 5 } as CSSProperties}>booking </span><span className="hs-word" style={{ "--i": 6 } as CSSProperties}>link. </span>
+              </p>
+            </div>
           </div>
-        </section>
+        </HeroScroll>
 
         {/* ================================================================
              LIVE DEMO — email a schedule

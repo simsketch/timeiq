@@ -584,20 +584,6 @@
 .article strong { color: hsl(var(--foreground)); font-weight: 650; }
 .article blockquote { border-left: 3px solid hsl(var(--aurora-1) / 0.5); padding-left: 1em; color: hsl(var(--muted-foreground)); }
 
-/* Hero stage: a black void with a looping door-of-light video. The door sits
-   in the right third of the clip, so the video is anchored right and the copy
-   reads on the dark left. Two fades: a side wash behind the copy and a bottom
-   fade into the page black where the works-with strip sits. */
-.hero-video { object-position: 72% center; }
-/* A door of light drawn in CSS, for portrait screens where the video is skipped */
-.hero-door { display: none; }
-.hero-stage__fade {
-  background:
-    linear-gradient(to bottom,
-      rgba(5,5,5,0) 70%, rgba(5,5,5,.45) 80%, rgba(5,5,5,.84) 88%, #050505 100%),
-    linear-gradient(to right,
-      rgba(5,5,5,.55) 0%, rgba(5,5,5,.2) 40%, rgba(5,5,5,0) 60%);
-}
 /* The landing nav bar is see-through over the hero and fades in as the page
    scrolls, where scroll-driven animations exist; elsewhere it stays on. */
 @supports (animation-timeline: scroll()) {
@@ -608,21 +594,71 @@
   }
   @keyframes landing-nav-in { from { opacity: 0; } to { opacity: 1; } }
 }
-/* Portrait: the door moves behind the copy, so the wash gets heavier */
-@media (max-aspect-ratio: 11/10) {
-  .hero-door {
-    display: block;
-    background:
-      radial-gradient(60% 9% at 76% 86%, rgba(255,255,255,.22), transparent 70%),
-      radial-gradient(28% 55% at 76% 46%, rgba(255,255,255,.18), transparent 70%),
-      linear-gradient(to right, transparent calc(76% - 26px), rgba(255,255,255,.55) calc(76% - 18px), rgba(255,255,255,.75) 76%, rgba(255,255,255,.55) calc(76% + 18px), transparent calc(76% + 26px));
-    -webkit-mask-image: linear-gradient(to bottom, transparent 4%, #000 14%, #000 80%, transparent 92%);
-            mask-image: linear-gradient(to bottom, transparent 4%, #000 14%, #000 80%, transparent 92%);
+/* Hero scroll scene. Default is a static stack (phones, portrait, reduced
+   motion): copy, then the silver panel with every card. On wide landscape
+   screens the stage pins for 280vh and HeroScroll feeds progress variables:
+   --c copy out, --e panel expand, --m cards move, --b bento in, --t tagline. */
+.hs { background: #0a0a0a; --c: 0; --e: 0; --m: 0; --b: 1; --t: 1; }
+.hs-copy {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  padding: calc(73px + 3.5rem) 1.5rem 3rem;
+}
+.hs-works { margin-top: 3.5rem; }
+.hs-panel { position: relative; overflow: hidden; margin: 0 0.75rem 0.75rem; border-radius: 20px; padding: 2.5rem 1rem 2rem; }
+.hs-panel__bg {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(55% 75% at 18% 12%, #ececec 0%, #a8a8a8 30%, transparent 68%),
+    radial-gradient(45% 65% at 82% 58%, #0d0d0d 0%, transparent 72%),
+    radial-gradient(40% 60% at 70% 105%, #bdbdbd 0%, transparent 70%),
+    linear-gradient(118deg, #d6d6d6 0%, #8c8c8c 38%, #232323 66%, #6e6e6e 100%);
+}
+.hs-panel__bg::after {
+  content: ""; position: absolute; inset: 0; opacity: 0.32; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.hs-caption { display: none; }
+.hs-bento { position: relative; display: grid; gap: 10px; max-width: 1080px; margin: 0 auto; grid-template-columns: 1fr; }
+@media (min-width: 640px) { .hs-bento { grid-template-columns: repeat(2, 1fr); } }
+.hs-card {
+  position: relative; border-radius: 14px; padding: 1.25rem;
+  background: rgba(22, 22, 22, 0.86); border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.hs-label { display: flex; align-items: center; gap: 0.5rem; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,.8); }
+.hs-dot { width: 7px; height: 7px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.15); flex: none; }
+.hs-dot--dim { background: transparent; box-shadow: inset 0 0 0 1px rgba(255,255,255,.3); }
+.hs-tagline { position: relative; margin-top: 2rem; text-align: center; font-size: clamp(1.4rem, 3.2vw, 2.4rem); color: #f5f5f5; text-wrap: balance; }
+
+@media (min-width: 1024px) and (min-aspect-ratio: 11/10) and (prefers-reduced-motion: no-preference) {
+  .hs { height: 280vh; --b: 0; --t: 0; }
+  .hs-stage { position: sticky; top: 0; height: 100svh; overflow: hidden; }
+  .hs-copy {
+    position: absolute; inset: 0 50% 0 0; justify-content: center; padding: 73px 3rem 0;
+    opacity: calc(1 - var(--c)); transform: translateX(calc(var(--c) * -48px));
   }
-  .hero-stage__fade {
-    background:
-      linear-gradient(to bottom,
-        rgba(5,5,5,.6) 0%, rgba(5,5,5,.3) 25%, rgba(5,5,5,.35) 55%, rgba(5,5,5,.85) 82%, #050505 100%),
-      linear-gradient(to right, rgba(5,5,5,.8) 0%, rgba(5,5,5,.5) 45%, rgba(5,5,5,.15) 100%);
+  .hs-works { position: absolute; bottom: 2.25rem; left: 0; right: 0; margin: 0; }
+  .hs-panel {
+    position: absolute; inset: 0; margin: 0; border-radius: 0; padding: 0;
+    clip-path: inset(0 0 0 calc(50% * (1 - var(--e))));
   }
+  .hs-caption {
+    display: block; position: absolute; left: 75%; bottom: 13%; width: 40%; text-align: center;
+    transform: translateX(-50%); opacity: calc(1 - var(--c) * 1.6);
+  }
+  .hs-bento {
+    --W: min(1080px, 86vw);
+    position: absolute; left: 50%; top: 45%; width: var(--W); max-width: none; margin: 0;
+    grid-template-columns: repeat(3, 1fr); padding: 10px;
+    transform: translate(-50%, -50%) translateX(calc((25vw + var(--W) / 3) * (1 - var(--m))));
+  }
+  /* the dark frame around the assembled bento */
+  .hs-bento::before {
+    content: ""; position: absolute; inset: 0; border-radius: 22px;
+    background: rgba(12, 12, 12, 0.72); opacity: var(--b);
+  }
+  .hs-a { grid-column: 1; grid-row: 1; }
+  .hs-b { grid-column: 1; grid-row: 2; }
+  .hs-late { opacity: var(--b); transform: translateY(calc((1 - var(--b)) * 28px)) scale(calc(0.97 + var(--b) * 0.03)); }
+  .hs-tagline { position: absolute; left: 50%; bottom: 7%; margin: 0; transform: translateX(-50%); white-space: nowrap; }
+  .hs-word { opacity: clamp(0, calc(var(--t) * 7 - var(--i)), 1); }
 }
