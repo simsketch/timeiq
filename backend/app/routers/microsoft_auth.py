@@ -138,6 +138,10 @@ async def microsoft_callback(
     db: AsyncSession = Depends(get_db),
 ):
     _require_configured()
+    if state.startswith("m."):
+        from app.routers.calendar_handoff import park_code
+        return await park_code(db, "microsoft", state, code, _error_outcome(error, error_description) if error else None, verifier_cookie)
+
     user_id = read_state(state, verifier_cookie)
     if error:
         return _redirect(_error_outcome(error, error_description))
@@ -146,7 +150,14 @@ async def microsoft_callback(
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Your TimeIQ account was not found. Sign in to TimeIQ again.")
+    if await connect_microsoft(db, user, code, verifier_cookie) is None:
+        return _redirect("failed")
+    return _redirect("connected")
 
+
+async def connect_microsoft(db: AsyncSession, user: User, code: str, verifier: str) -> CalendarSource | None:
+    """Exchange a sign-in code for tokens and add (or refresh) the user's Outlook
+    calendar. None when Microsoft refuses the code or the profile."""
     async with httpx.AsyncClient(timeout=15.0) as client:
         try:
             resp = await client.post(
@@ -157,13 +168,13 @@ async def microsoft_callback(
                     "code": code,
                     "grant_type": "authorization_code",
                     "redirect_uri": settings.microsoft_redirect_uri,
-                    "code_verifier": verifier_cookie,
+                    "code_verifier": verifier,
                     "scope": SCOPES,
                 },
             )
             data = response_data(resp)
             if resp.status_code != 200 or not isinstance(data.get("refresh_token"), str) or not data["refresh_token"]:
-                return _redirect("failed")
+                return None
             access_token, expires_at = token_values(data)
             profile_resp = await client.get(
                 f"{GRAPH_URL}/me",
@@ -171,11 +182,11 @@ async def microsoft_callback(
                 params={"$select": "id,mail,userPrincipalName,displayName"},
             )
         except (httpx.TransportError, CalendarSyncError):
-            return _redirect("failed")
+            return None
     profile = response_data(profile_resp)
     account_id = profile.get("id")
     if profile_resp.status_code != 200 or not isinstance(account_id, str) or not account_id or len(account_id) > 255:
-        return _redirect("failed")
+        return None
 
     # Ownership comes from the signed state, never from a callback user id.
     # Reconnecting updates this owner's existing account and clears its health.
@@ -205,4 +216,4 @@ async def microsoft_callback(
     except Exception as exc:
         record_failure(source, classify(exc), now)
     await db.flush()
-    return _redirect("connected")
+    return source

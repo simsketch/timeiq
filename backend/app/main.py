@@ -38,6 +38,7 @@ from app.routers import (
     email_aliases,
     group_meetings,
     event_types,
+    calendar_handoff,
     google_auth,
     microsoft_auth,
     invoices,
@@ -104,6 +105,7 @@ app.include_router(invoices.router)
 app.include_router(invoices.public_router)  # before public.router: see invoices.py
 app.include_router(google_auth.router)
 app.include_router(microsoft_auth.router)
+app.include_router(calendar_handoff.router)
 app.include_router(public.router)
 app.include_router(cron.router)
 app.include_router(weekly_summary.router)

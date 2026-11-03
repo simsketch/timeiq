@@ -114,8 +114,9 @@ async def get_google_auth_url(
 
 @router.get("/callback")
 async def google_callback(
-    code: str = Query(...),
     state: str = Query(...),
+    code: str | None = Query(default=None),
+    error: str | None = Query(default=None),
     nonce_cookie: str | None = Cookie(default=None, alias=STATE_COOKIE),
     db: AsyncSession = Depends(get_db),
 ):
@@ -129,7 +130,13 @@ async def google_callback(
             detail="Google Calendar integration is not configured",
         )
 
+    if state.startswith("m."):
+        from app.routers.calendar_handoff import park_code
+        return await park_code(db, "google", state, code, ("denied" if error == "access_denied" else "failed") if error else None, nonce_cookie)
+
     user_id = read_state(state, nonce_cookie)
+    if not code:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Google didn't return a sign-in code. Try connecting again.")
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -138,7 +145,16 @@ async def google_callback(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
         )
+    await connect_google(db, user, code)
 
+    # Redirect back to frontend
+    redirect = RedirectResponse(url=f"{settings.FRONTEND_URL}/calendars?google=connected")
+    redirect.delete_cookie(STATE_COOKIE, path="/api/google")
+    return redirect
+
+
+async def connect_google(db: AsyncSession, user: User, code: str) -> CalendarSource:
+    """Exchange a sign-in code for tokens and add (or refresh) the user's Google calendar."""
     # Exchange authorization code for tokens
     async with httpx.AsyncClient(timeout=15.0) as client:
         resp = await client.post(
@@ -206,8 +222,4 @@ async def google_callback(
     source.last_sync_error = None
     source.broken_notified_at = None
     await db.flush()
-
-    # Redirect back to frontend
-    redirect = RedirectResponse(url=f"{settings.FRONTEND_URL}/calendars?google=connected")
-    redirect.delete_cookie(STATE_COOKIE, path="/api/google")
-    return redirect
+    return source
