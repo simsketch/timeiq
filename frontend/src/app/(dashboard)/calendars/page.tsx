@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { CalendarSubscriptionCard } from "@/components/calendar-subscription-card";
 import { EmailSchedules } from "@/components/email-schedules";
 import { apiFetch } from "@/lib/api";
+import { FIX_CALENDAR_EVENT } from "@/components/dashboard/calendar-health-banner";
 import { Plus, Trash2, RefreshCw, CalendarDays, Clock, AlertTriangle, Link2 } from "lucide-react";
 import { addDays, format, startOfWeek } from "date-fns";
 import { CalEvent, ViewToggle, WeekCalendar, colorFor, useCalendarView } from "@/components/week-calendar";
@@ -126,6 +127,40 @@ export default function CalendarsPage() {
       window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
     }
   }, []);
+
+  // "Fix it" in the broken-calendar banner: start this calendar's repair.
+  // Each request gets a number so a second click on the same calendar runs again.
+  const [fixRequest, setFixRequest] = useState<{ id: string; n: number } | null>(() => {
+    if (typeof window === "undefined") return null;
+    const id = new URLSearchParams(window.location.search).get("fix");
+    return id ? { id, n: 0 } : null;
+  });
+  const fixHandled = useRef(-1);
+  useEffect(() => {
+    const onFix = (e: Event) => setFixRequest((r) => ({ id: (e as CustomEvent<string>).detail, n: (r?.n ?? 0) + 1 }));
+    window.addEventListener(FIX_CALENDAR_EVENT, onFix);
+    return () => window.removeEventListener(FIX_CALENDAR_EVENT, onFix);
+  }, []);
+  useEffect(() => {
+    const calendar = fixRequest && fixRequest.n !== fixHandled.current ? calendars.find((c) => c.id === fixRequest.id) : undefined;
+    if (!calendar || !fixRequest) return;
+    fixHandled.current = fixRequest.n;
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("fix")) {
+      params.delete("fix");
+      const query = params.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+    }
+    document.getElementById(`calendar-${calendar.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (calendar.type === "google") handleConnectGoogle();
+    else if (calendar.type === "microsoft" && outlookEnabled) handleConnectOutlook();
+    else if (calendar.type === "ics_url") {
+      setReplacing(calendar.id);
+      setNewLink("");
+    }
+    // The handlers are plain functions recreated each render; the request is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixRequest, calendars, outlookEnabled]);
 
   async function handleConnectGoogle() {
     setConnectingGoogle(true);
@@ -422,7 +457,7 @@ export default function CalendarsPage() {
           </Card>
         ) : (
           calendars.map((calendar) => (
-            <Card key={calendar.id}>
+            <Card key={calendar.id} id={`calendar-${calendar.id}`} className="scroll-mt-24">
               <CardContent className="py-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
