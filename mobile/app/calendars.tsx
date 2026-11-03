@@ -1,12 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as WebBrowser from "expo-web-browser";
-import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Button, Card, Label, Notice } from "@/components/ui";
-import { type CalendarSource, useApi } from "@/lib/api";
-import { SITE_URL } from "@/lib/config";
+import { ConnectCalendar, type Provider, useCalendarConnect } from "@/components/connect-calendar";
+import { WeekCalendar, bookingItems, syncedItems } from "@/components/week-calendar";
+import { type Booking, type CachedEvent, type CalendarSource, type EventType, useApi } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
+import { useMe } from "@/lib/use-me";
 
 const KIND: Record<string, { icon: React.ComponentProps<typeof Ionicons>["name"]; name: string }> = {
   google: { icon: "logo-google", name: "Google" },
@@ -33,6 +34,39 @@ export default function Calendars() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const router = useRouter();
+  const me = useMe();
+  const zone = me?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // What the synced calendars hold, on a read-only calendar under the list.
+  const [range, setRange] = useState<{ start: number; end: number } | null>(null);
+  const [events, setEvents] = useState<CachedEvent[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [types, setTypes] = useState<Record<string, string>>({});
+  const onRangeChange = useCallback(
+    (start: Date, end: Date) => setRange((cur) => (cur && cur.start === start.getTime() && cur.end === end.getTime() ? cur : { start: start.getTime(), end: end.getTime() })),
+    []
+  );
+  const loadEvents = useCallback(async () => {
+    if (!range) return;
+    const q = `start=${encodeURIComponent(new Date(range.start).toISOString())}&end=${encodeURIComponent(new Date(range.end).toISOString())}`;
+    try {
+      const [cached, confirmed, pending, eventTypes] = await Promise.all([
+        api<CachedEvent[]>(`/api/calendars/cached-events?${q}`),
+        api<Booking[]>("/api/bookings?status=confirmed"),
+        api<Booking[]>("/api/bookings?status=pending_payment"),
+        api<EventType[]>("/api/event-types"),
+      ]);
+      setEvents(cached);
+      setBookings([...confirmed, ...pending]);
+      setTypes(Object.fromEntries(eventTypes.map((e) => [String(e.id), e.name])));
+    } catch {
+      setEvents([]);
+    }
+  }, [api, range]);
+  useEffect(() => {
+    loadEvents();
+  }, [loadEvents]);
+  const calItems = useMemo(() => [...syncedItems(events), ...bookingItems(bookings, types)], [events, bookings, types]);
 
   const load = useCallback(async () => {
     try {
@@ -53,7 +87,7 @@ export default function Calendars() {
     setSyncing(id);
     try {
       await api(id === "all" ? "/api/calendars/sync-all" : `/api/calendars/${id}/sync`, { method: "POST" });
-      await load();
+      await Promise.all([load(), loadEvents()]);
     } catch (e) {
       Alert.alert("Sync failed", e instanceof Error ? e.message : "Try again.");
     } finally {
@@ -70,7 +104,7 @@ export default function Calendars() {
         onPress: async () => {
           try {
             await api(`/api/calendars/${s.id}`, { method: "DELETE" });
-            await load();
+            await Promise.all([load(), loadEvents()]);
           } catch (e) {
             Alert.alert("Not removed", e instanceof Error ? e.message : "Try again.");
           }
@@ -78,6 +112,11 @@ export default function Calendars() {
       },
     ]);
   }
+
+  const reconnect = useCalendarConnect(() => {
+    load();
+    loadEvents();
+  });
 
   async function addLink() {
     const link = url.trim().replace(/^webcal:\/\//i, "https://");
@@ -123,6 +162,11 @@ export default function Calendars() {
                     {failing ? s.last_sync_error || "Sync is failing" : `${kind.name} · ${ago(s.last_synced_at)}`}
                   </Text>
                 </View>
+                {failing && (s.type === "google" || s.type === "microsoft") && reconnect.enabled[s.type] && (
+                  <Pressable accessibilityRole="button" hitSlop={8} onPress={() => reconnect.connect(s.type as Provider)} disabled={!!reconnect.busy}>
+                    {reconnect.busy === s.type ? <ActivityIndicator /> : <Text style={{ color: t.primary, fontWeight: "600" }}>Reconnect</Text>}
+                  </Pressable>
+                )}
                 <Pressable accessibilityLabel={`Sync ${s.name}`} hitSlop={8} onPress={() => sync(s.id)} disabled={!!syncing}>
                   {syncing === s.id ? <ActivityIndicator /> : <Ionicons name="refresh" size={20} color={t.primary} />}
                 </Pressable>
@@ -165,18 +209,23 @@ export default function Calendars() {
         <Button title="Add a calendar link" icon={<Ionicons name="add" size={20} color={t.primaryText} />} onPress={() => setAdding(true)} />
       )}
 
-      <Button
-        title="Connect Google or Outlook"
-        kind="secondary"
-        icon={<Ionicons name="open-outline" size={18} color={t.text} />}
-        onPress={async () => {
-          await WebBrowser.openBrowserAsync(`${SITE_URL}/calendars`);
-          load();
-        }}
-      />
-      <Text style={{ color: t.muted, fontSize: 13, lineHeight: 18, textAlign: "center" }}>
-        Google and Outlook connect on timeiq.app. They show up here once connected.
-      </Text>
+      <ConnectCalendar onConnected={() => Promise.all([load(), loadEvents()])} />
+
+      {sources && sources.length > 0 && (
+        <View style={{ gap: 8, marginTop: 8 }}>
+          <Label>What your calendars hold</Label>
+          <WeekCalendar
+            items={calItems}
+            zone={zone}
+            gridHeight={520}
+            onRangeChange={onRangeChange}
+            onSelect={(it) => router.push({ pathname: "/booking/[id]", params: { id: it.id } })}
+          />
+          <Text style={{ color: t.muted, fontSize: 13, lineHeight: 18 }}>
+            Synced events are faded; TimeIQ bookings are in color. Tap an event for its details.
+          </Text>
+        </View>
+      )}
     </ScrollView>
   );
 }

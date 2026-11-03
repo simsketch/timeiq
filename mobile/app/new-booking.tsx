@@ -16,11 +16,12 @@ export default function NewBooking() {
   const router = useRouter();
   const me = useMe();
   const zone = me?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const params = useLocalSearchParams<{ start?: string }>();
+  // A tapped or dragged calendar slot opens this pre-filled: `start` (ISO) and, for a drag, `minutes`.
+  const params = useLocalSearchParams<{ start?: string; minutes?: string }>();
   const [start, setStart] = useState(() => (params.start ? new Date(params.start) : nextHalfHour()));
   const [types, setTypes] = useState<EventType[] | null>(null);
   const [typeId, setTypeId] = useState<string | null>(null);
-  const [minutes, setMinutes] = useState("");
+  const [minutes, setMinutes] = useState(() => (params.minutes && Number(params.minutes) > 0 ? String(Math.round(Number(params.minutes))) : ""));
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [guests, setGuests] = useState("");

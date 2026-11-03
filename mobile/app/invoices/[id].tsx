@@ -3,9 +3,10 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Clipboard from "expo-clipboard";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { Button, Card, Label, Notice } from "@/components/ui";
+import { getPref, setPref } from "@/lib/prefs";
 import { useApi } from "@/lib/api";
 import { API_URL, SITE_URL } from "@/lib/config";
 import {
@@ -50,7 +51,14 @@ export default function InvoiceDetail() {
   const [expense, setExpense] = useState({ description: "", amount: "" });
   const [sending, setSending] = useState<"send" | "remind" | null>(null);
   const [chosen, setChosen] = useState<string[]>([]);
-  const [copyMe, setCopyMe] = useState(true);
+  const [copyMe, setCopyMeState] = useState(true);
+  useEffect(() => {
+    getPref("invoice.copyMe").then((v) => v !== null && setCopyMeState(v === "1"));
+  }, []);
+  const setCopyMe = (v: boolean) => {
+    setCopyMeState(v);
+    setPref("invoice.copyMe", v ? "1" : "0");
+  };
   const [copied, setCopied] = useState(false);
 
   const show = useCallback(

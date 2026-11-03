@@ -73,6 +73,7 @@ export default function EventTypes() {
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [payments, setPayments] = useState<"ready" | "needs_setup" | "off" | null>(null);
+  const [connect, setConnect] = useState<{ status: string; charges_enabled: boolean; payouts_enabled: boolean } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -86,11 +87,23 @@ export default function EventTypes() {
   useFocusEffect(
     useCallback(() => {
       load();
-      api<{ enabled: boolean; status: string }>("/api/connect/status")
-        .then((c) => setPayments(!c.enabled ? "off" : c.status === "ready" ? "ready" : "needs_setup"))
+      api<{ enabled: boolean; status: string; charges_enabled: boolean; payouts_enabled: boolean }>("/api/connect/status")
+        .then((c) => {
+          setConnect(c.enabled ? c : null);
+          setPayments(!c.enabled ? "off" : c.status === "ready" ? "ready" : "needs_setup");
+        })
         .catch(() => setPayments("off"));
     }, [load, api])
   );
+
+  async function openStripe() {
+    try {
+      const { url } = await api<{ url: string }>("/api/connect/dashboard", { method: "POST" });
+      await WebBrowser.openBrowserAsync(url);
+    } catch (e) {
+      Alert.alert("Couldn't open Stripe", e instanceof Error ? e.message : "Try again.");
+    }
+  }
 
   async function setUpPayments() {
     try {
@@ -307,6 +320,24 @@ export default function EventTypes() {
 
       {types && (
         <Button title="New event type" icon={<Ionicons name="add" size={20} color={t.primaryText} />} onPress={() => setDraft(draftOf())} />
+      )}
+
+      {connect && (
+        <Card style={{ gap: 10, marginTop: 8 }}>
+          <Label>Payments</Label>
+          <Text style={{ color: t.text, fontSize: 15, lineHeight: 21 }}>
+            {connect.status === "ready"
+              ? `Stripe is connected. ${connect.payouts_enabled ? "Payouts are on." : "Payouts are paused until Stripe has what it needs."}`
+              : connect.status === "needs_info"
+              ? "Stripe needs a few more details before you can charge for bookings."
+              : "Charge for a booking by connecting Stripe. TimeIQ takes no platform fee."}
+          </Text>
+          {connect.status === "ready" ? (
+            <Button title="Open Stripe dashboard" kind="secondary" onPress={openStripe} />
+          ) : (
+            <Button title={connect.status === "needs_info" ? "Finish Stripe setup" : "Set up payments"} kind="secondary" onPress={setUpPayments} />
+          )}
+        </Card>
       )}
     </ScrollView>
   );

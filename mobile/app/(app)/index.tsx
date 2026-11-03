@@ -4,16 +4,22 @@ import { useCallback, useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { SetupChecklist } from "@/components/setup-checklist";
 import { Notice } from "@/components/ui";
+import { type CalItem, WeekCalendar, bookingItems, confirmMove, syncedItems } from "@/components/week-calendar";
 import { ApiError, type BillingStatus, type Booking, type CachedEvent, type EventType, useApi } from "@/lib/api";
 import { SITE_URL } from "@/lib/config";
 import { colorFor, useTheme } from "@/lib/theme";
-import { dayKey, fmt, timeOf, zoneDayStart } from "@/lib/time";
+import { dayKey, fmt, nextHalfHour, timeOf, zoneDayStart } from "@/lib/time";
 import { useMe } from "@/lib/use-me";
 
 type Item =
   | { kind: "booking"; id: string; start: Date; end: Date; title: string; sub: string; color: string; pending: boolean }
   | { kind: "event"; id: string; start: Date; end: Date; title: string; sub: string; allDay: boolean };
+
+type View_ = "list" | "calendar";
+// The List / Calendar choice lasts for the app session.
+let rememberedView: View_ = "list";
 
 export default function Agenda() {
   const t = useTheme();
@@ -28,6 +34,17 @@ export default function Agenda() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [view, setViewState] = useState<View_>(rememberedView);
+  const setView = (v: View_) => {
+    rememberedView = v;
+    setViewState(v);
+  };
+  // The instants the calendar shows, so its synced events load with it.
+  const [calRange, setCalRange] = useState<{ start: number; end: number } | null>(null);
+  const onRangeChange = useCallback(
+    (start: Date, end: Date) => setCalRange((cur) => (cur && cur.start === start.getTime() && cur.end === end.getTime() ? cur : { start: start.getTime(), end: end.getTime() })),
+    []
+  );
 
   // The Monday-to-Sunday week around the selected day, in the account's zone.
   const weekDays = useMemo(() => {
@@ -37,8 +54,9 @@ export default function Agenda() {
 
   const load = useCallback(async () => {
     try {
-      const start = weekDays[0];
-      const end = zoneDayStart(weekDays[6], zone, 1);
+      const range = view === "calendar" && calRange ? calRange : null;
+      const start = range ? new Date(range.start) : weekDays[0];
+      const end = range ? new Date(range.end) : zoneDayStart(weekDays[6], zone, 1);
       const q = `start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`;
       const [confirmed, pending, cached, eventTypes] = await Promise.all([
         api<Booking[]>("/api/bookings?status=confirmed"),
@@ -58,7 +76,7 @@ export default function Agenda() {
           : e instanceof Error ? e.message : "Couldn't load your agenda."
       );
     }
-  }, [api, weekDays, zone]);
+  }, [api, weekDays, zone, view, calRange]);
 
   useFocusEffect(
     useCallback(() => {
@@ -93,6 +111,7 @@ export default function Agenda() {
       })),
   ].sort((a, b) => Number(b.kind === "event" && b.allDay) - Number(a.kind === "event" && a.allDay) || a.start.getTime() - b.start.getTime());
 
+  const calItems = useMemo(() => [...syncedItems(events), ...bookingItems(bookings, types)], [events, bookings, types]);
   const today = dayKey(new Date(), zone);
   const bookingLink = me ? `${SITE_URL}/book/${me.username}` : null;
 
@@ -102,14 +121,32 @@ export default function Agenda() {
         <View style={{ flex: 1 }}>
           <Text style={[styles.month, { color: t.muted }]}>{fmt(selected, zone, { month: "long", year: "numeric" })}</Text>
           <Text style={[styles.title, { color: t.text }]}>
-            {key === today ? "Today" : fmt(selected, zone, { weekday: "long", month: "short", day: "numeric" })}
+            {view === "calendar" ? "Calendar" : key === today ? "Today" : fmt(selected, zone, { weekday: "long", month: "short", day: "numeric" })}
           </Text>
         </View>
-        {key !== today && (
+        {view === "list" && key !== today && (
           <Pressable onPress={() => setSelected(new Date())} hitSlop={8} style={[styles.pill, { borderColor: t.border }]}>
             <Text style={{ color: t.text, fontWeight: "600" }}>Today</Text>
           </Pressable>
         )}
+        <View style={[styles.viewToggle, { borderColor: t.border }]} accessibilityRole="radiogroup" accessibilityLabel="View">
+          {(["list", "calendar"] as const).map((v) => {
+            const on = view === v;
+            return (
+              <Pressable
+                key={v}
+                accessibilityRole="radio"
+                accessibilityLabel={v === "list" ? "List" : "Calendar"}
+                accessibilityState={{ checked: on }}
+                onPress={() => setView(v)}
+                hitSlop={4}
+                style={[styles.viewBtn, on && { backgroundColor: t.text }]}
+              >
+                <Ionicons name={v === "list" ? "list" : "calendar-clear-outline"} size={17} color={on ? t.bg : t.muted} />
+              </Pressable>
+            );
+          })}
+        </View>
         {bookingLink && (
           <Pressable
             accessibilityLabel="Share your booking link"
@@ -122,6 +159,27 @@ export default function Agenda() {
         )}
       </View>
 
+      {view === "calendar" ? (
+        <View style={styles.calendar}>
+          {error && <Notice tone="warn">{error}</Notice>}
+          <WeekCalendar
+            items={calItems}
+            zone={zone}
+            date={selected}
+            onDateChange={setSelected}
+            onRangeChange={onRangeChange}
+            onSelect={(it: CalItem) => router.push({ pathname: "/booking/[id]", params: { id: it.id } })}
+            onSlotPress={(start, minutes) => {
+              const at = start.getTime() < Date.now() ? nextHalfHour() : start;
+              router.push({ pathname: "/new-booking", params: { start: at.toISOString(), ...(minutes ? { minutes: String(minutes) } : {}) } });
+            }}
+            onMove={(it, start, shownZone) => confirmMove(api, it, start, shownZone, zone, load)}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
+            hint="Nothing here yet. Tap a time to book it, or hold and drag to pick a length."
+          />
+        </View>
+      ) : (
+      <>
       <View style={styles.week}>
         <Pressable accessibilityLabel="Previous week" onPress={() => setSelected(zoneDayStart(selected, zone, -7))} hitSlop={6}>
           <Ionicons name="chevron-back" size={22} color={t.muted} />
@@ -154,6 +212,7 @@ export default function Agenda() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
       >
         {error && <Notice tone="warn">{error}</Notice>}
+        <SetupChecklist />
         {billing?.enabled && billing.free_meetings_left != null && (
           <Pressable
             accessibilityRole="link"
@@ -214,6 +273,8 @@ export default function Agenda() {
           );
         })}
       </ScrollView>
+      </>
+      )}
 
       <Pressable
         accessibilityRole="button"
@@ -238,6 +299,9 @@ function isoDay(key: string): string {
 }
 
 const styles = StyleSheet.create({
+  calendar: { flex: 1, paddingHorizontal: 12, paddingTop: 6, paddingBottom: 12, gap: 8 },
+  viewToggle: { flexDirection: "row", borderWidth: 1, borderRadius: 999, padding: 2 },
+  viewBtn: { width: 34, height: 32, borderRadius: 999, alignItems: "center", justifyContent: "center" },
   free: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
   header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 },
   month: { fontSize: 14, fontWeight: "600" },
