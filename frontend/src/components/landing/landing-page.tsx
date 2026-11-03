@@ -23,16 +23,15 @@ import { LazyDemo } from "@/components/landing/lazy-demo";
 import { McpDemo } from "@/components/landing/mcp-demo";
 import { McpDemoContent } from "@/components/landing/mcp-demo-content";
 import { OctoLoader } from "@/components/landing/octo/octo-loader";
-import { HeroBeam } from "@/components/landing/hero-beam";
-import { HeroWindow } from "@/components/landing/hero-window";
+import { HeroVideo } from "@/components/landing/hero-video";
 
 export function LandingPage({ headline }: { headline: Headline }) {
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="relative min-h-screen overflow-x-clip">
 
-      {/* Glass nav */}
+      {/* Nav: transparent over the black hero, a dark glass bar further down */}
       <header className="sticky top-0 z-50">
-        <div className="absolute inset-x-0 top-0 h-full bg-[hsl(var(--brand-deep)/0.72)] backdrop-blur-xl border-b border-white/10" />
+        <div className="landing-nav-bar absolute inset-x-0 top-0 h-full bg-[#050505]/70 backdrop-blur-xl border-b border-white/[0.06]" />
         <div className="relative container mx-auto px-6 lg:px-10 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
             <LogoIcon />
@@ -40,14 +39,11 @@ export function LandingPage({ headline }: { headline: Headline }) {
               TimeIQ
             </span>
           </Link>
-          <nav className="hidden lg:flex items-center gap-6 text-sm font-medium text-white/75">
+          <nav className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-6 text-[15px] text-[#b6b5b5]">
             <a href="#how" className="hover:text-white transition-colors">
               How it works
             </a>
-            <a
-              href="#features"
-              className="hover:text-white transition-colors"
-            >
+            <a href="#features" className="hover:text-white transition-colors">
               Features
             </a>
             <a href="#pricing" className="hover:text-white transition-colors">
@@ -66,7 +62,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="TimeIQ on GitHub"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-white/75 hover:text-white transition-colors"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-[#b6b5b5] hover:text-white transition-colors"
             >
               <GitHubIcon className="h-4 w-4" />
             </a>
@@ -77,44 +73,53 @@ export function LandingPage({ headline }: { headline: Headline }) {
 
       <main>
         {/* ================================================================
-             HERO
+             HERO — black stage, a door of light, copy on the left
              ================================================================ */}
-        <section className="relative isolate -mt-[73px] overflow-hidden bg-[hsl(var(--brand-deep))] text-white">
-          <HeroBeam />
-          <div className="relative container mx-auto px-6 lg:px-10 pt-[calc(73px+3.5rem)] lg:pt-[calc(73px+5rem)] flex flex-col items-center text-center">
-            <h1 className="font-serif font-normal text-[3.4rem] sm:text-7xl xl:text-[6rem] leading-[1.02] tracking-[-0.01em] text-balance">
-              {headline.lead}
-              <br />
-              <em className="text-[hsl(260_100%_84%)]">{headline.accent}</em>
+        <section className="hero-stage relative isolate -mt-[73px] flex min-h-[100svh] flex-col overflow-hidden bg-[#050505] text-[#fafafa]">
+          <div aria-hidden className="absolute inset-0 -z-10">
+            <div className="hero-door absolute inset-0" />
+            <HeroVideo />
+            <div className="hero-stage__fade absolute inset-0" />
+          </div>
+
+          <div className="container mx-auto flex flex-1 flex-col justify-center px-6 lg:px-10 pt-[calc(73px+3rem)] pb-16">
+            <h1 className="reveal reveal-1 max-w-[16ch] text-[2.75rem] sm:text-6xl xl:text-[4.5rem] font-normal leading-[1.1] tracking-[0.004em] text-balance">
+              <span className="block">{headline.lead}</span>
+              <span className="block">{headline.accent}</span>
             </h1>
 
-            <p className="reveal reveal-3 mt-6 text-lg text-white/70 max-w-[662px] leading-relaxed text-pretty">
-              Forward a schedule, cc an email thread, or ask Claude or ChatGPT.
-              TimeIQ puts it on your calendar and books meetings when you&apos;re free.
+            <p className="reveal reveal-2 mt-7 max-w-[30rem] text-lg leading-[1.4] text-[#a7a6a6] text-pretty">
+              Forward a schedule, cc a thread, or ask Claude or ChatGPT.
+              TimeIQ puts it on your calendar and books you when you&apos;re free.
             </p>
 
-            <div className="reveal reveal-4 mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <Link href="/sign-up">
-                <Button variant="brand" size="xl" className="w-full sm:w-auto">
-                  Start free
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
+            <div className="reveal reveal-3 mt-10 flex flex-wrap items-center gap-x-8 gap-y-4">
+              <Link
+                href="/sign-up"
+                className="inline-flex h-[50px] items-center rounded-full bg-white px-8 text-[17px] font-medium text-[#050505] transition-colors hover:bg-white/85"
+              >
+                Start free
               </Link>
-              <a href="#try">
-                <Button variant="brandInk" size="xl" className="w-full sm:w-auto ring-1 ring-white/10">
-                  Try the demo
-                </Button>
+              <a href="#try" className="text-[17px] font-medium text-white transition-opacity hover:opacity-75">
+                Try the demo
               </a>
             </div>
 
-            <p className="reveal reveal-5 mt-5 text-sm text-white/55">
+            <p className="reveal reveal-4 mt-6 text-sm text-[#8b8a8a]">
               Your first 7 meetings are free, no card needed. Then $19 a year.
             </p>
+          </div>
 
-            {/* The product, rising out of the bottom of the hero */}
-            <div className="reveal reveal-5 mt-14 lg:mt-16 w-full h-[300px] sm:h-[360px] lg:h-[400px] overflow-hidden">
-              <HeroWindow />
-            </div>
+          {/* Works-with strip, sitting in the bottom fade */}
+          <div className="reveal reveal-5 container mx-auto px-6 lg:px-10 pb-10">
+            <p className="sr-only">Works with</p>
+            <ul className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-[15px] font-semibold tracking-tight text-[#8b8a8a]">
+              <li>Google Calendar</li>
+              <li>Outlook</li>
+              <li>iCloud</li>
+              <li>Claude</li>
+              <li>ChatGPT</li>
+            </ul>
           </div>
         </section>
 
