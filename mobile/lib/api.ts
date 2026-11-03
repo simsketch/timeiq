@@ -62,6 +62,9 @@ export interface Me {
   timezone: string;
   image_url: string | null;
   invoicing_enabled?: boolean;
+  weekly_hours_target?: number;
+  weekly_summary_enabled?: boolean;
+  booking_scene?: string | null;
 }
 
 export interface Booking {
@@ -102,6 +105,19 @@ export interface EventType {
   description?: string | null;
   price_cents?: number | null;
   currency?: string;
+  color?: string;
+  buffer_time?: number;
+  max_bookings_per_day?: number | null;
+  min_notice_minutes?: number;
+  max_days_ahead?: number | null;
+  reminder_minutes?: number[];
+  remind_host?: boolean;
+  collect_phone?: boolean;
+  require_phone?: boolean;
+  collect_company?: boolean;
+  require_company?: boolean;
+  collect_url?: boolean;
+  require_url?: boolean;
 }
 
 export interface CalendarSource {
@@ -128,4 +144,8 @@ export interface BillingStatus {
   subscribed: boolean;
   free_meetings: number;
   free_meetings_left: number | null;
+  status?: string;
+  plan?: string | null;
+  current_period_end?: string | null;
+  has_customer?: boolean;
 }

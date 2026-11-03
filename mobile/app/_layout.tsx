@@ -39,6 +39,15 @@ function Routes() {
           <Stack.Screen name="calendars" options={{ title: "Calendars", headerBackTitle: "Account" }} />
           <Stack.Screen name="availability" options={{ title: "Availability", headerBackTitle: "Account" }} />
           <Stack.Screen name="event-types" options={{ title: "Event types", headerBackTitle: "Account" }} />
+          <Stack.Screen name="settings" options={{ title: "Settings", headerBackTitle: "Account" }} />
+          <Stack.Screen name="email-addresses" options={{ title: "Linked emails", headerBackTitle: "Settings" }} />
+          <Stack.Screen name="api-tokens" options={{ title: "AI assistants and API", headerBackTitle: "Settings" }} />
+          <Stack.Screen name="new-meeting" options={{ title: "Find a time", presentation: "modal" }} />
+          <Stack.Screen name="meeting/[id]" options={{ title: "Group meeting", headerBackTitle: "Back" }} />
+          <Stack.Screen name="time" options={{ title: "Time", headerBackTitle: "Account" }} />
+          <Stack.Screen name="clients" options={{ title: "Clients", headerBackTitle: "Account" }} />
+          <Stack.Screen name="invoices/index" options={{ title: "Invoices", headerBackTitle: "Account" }} />
+          <Stack.Screen name="invoices/[id]" options={{ title: "Invoice", headerBackTitle: "Invoices" }} />
         </Stack.Protected>
       </Stack>
     </>

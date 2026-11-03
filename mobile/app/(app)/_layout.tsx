@@ -61,6 +61,14 @@ export default function AppLayout() {
         options={{ title: "Agenda", headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" color={color as string} size={size} /> }}
       />
       <Tabs.Screen
+        name="bookings"
+        options={{ title: "Bookings", tabBarIcon: ({ color, size }) => <Ionicons name="list-outline" color={color as string} size={size} /> }}
+      />
+      <Tabs.Screen
+        name="meetings"
+        options={{ title: "Meetings", tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" color={color as string} size={size} /> }}
+      />
+      <Tabs.Screen
         name="import"
         options={{ title: "Import", tabBarIcon: ({ color, size }) => <Ionicons name="mail-unread-outline" color={color as string} size={size} /> }}
       />

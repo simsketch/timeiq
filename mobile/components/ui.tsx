@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, TextInput, View, type ViewStyle } from "react-native";
 import { useTheme } from "@/lib/theme";
 
 export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
@@ -88,4 +88,84 @@ export function Row({ icon, title, detail, onPress }: { icon: React.ComponentPro
 
 const rowStyles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 14, minHeight: 52, paddingVertical: 6 },
+});
+
+/** A themed single- or multi-line text input. */
+export function Input(props: React.ComponentProps<typeof TextInput>) {
+  const t = useTheme();
+  return (
+    <TextInput
+      placeholderTextColor={t.muted}
+      {...props}
+      style={[inputStyles.input, props.multiline && { minHeight: 88, textAlignVertical: "top" }, { color: t.text, borderColor: t.border, backgroundColor: t.card }, props.style]}
+    />
+  );
+}
+
+/** A row of mutually exclusive choices. */
+export function Segmented<T extends string | number>({ options, value, onChange }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
+  const t = useTheme();
+  return (
+    <View style={[inputStyles.segments, { backgroundColor: t.border }]}>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <Pressable
+            key={String(o.value)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
+            onPress={() => onChange(o.value)}
+            style={[inputStyles.segment, on && { backgroundColor: t.card }]}
+          >
+            <Text style={{ color: on ? t.text : t.muted, fontWeight: "600", fontSize: 14 }} numberOfLines={1}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** Wrapping pill choices, for picking one value from a short list. */
+export function Chips<T extends string | number>({ options, value, onChange }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
+  const t = useTheme();
+  return (
+    <View style={inputStyles.chips}>
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <Pressable
+            key={String(o.value)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
+            onPress={() => onChange(o.value)}
+            style={[inputStyles.chip, { borderColor: on ? t.primary : t.border, backgroundColor: on ? t.primary : t.card }]}
+          >
+            <Text style={{ color: on ? t.primaryText : t.text, fontWeight: "600" }}>{o.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** A label and explanation beside an on/off switch. */
+export function ToggleRow({ title, detail, value, onChange, disabled }: { title: string; detail?: string; value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+  const t = useTheme();
+  return (
+    <View style={[rowStyles.row, { opacity: disabled ? 0.5 : 1 }]}>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: t.text, fontSize: 16, fontWeight: "500" }}>{title}</Text>
+        {detail ? <Text style={{ color: t.muted, fontSize: 13, marginTop: 2, lineHeight: 18 }}>{detail}</Text> : null}
+      </View>
+      <Switch value={value} onValueChange={onChange} disabled={disabled} trackColor={{ true: t.primary }} accessibilityLabel={title} />
+    </View>
+  );
+}
+
+const inputStyles = StyleSheet.create({
+  input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
+  segments: { flexDirection: "row", borderRadius: 11, padding: 3, gap: 3 },
+  segment: { flex: 1, minHeight: 34, borderRadius: 8, alignItems: "center", justifyContent: "center", paddingHorizontal: 6 },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
 });

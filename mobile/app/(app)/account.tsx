@@ -3,7 +3,6 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { Image } from "expo-image";
 import * as Notifications from "expo-notifications";
-import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, ScrollView, Share, StyleSheet, Text, View } from "react-native";
@@ -98,16 +97,19 @@ export default function Account() {
       )}
 
       <Card style={{ paddingVertical: 6 }}>
-        <Row icon="calendar-outline" title="Calendars" detail="Connect and sync the calendars that block your times" onPress={() => router.push("/calendars")} />
+        <Row icon="albums-outline" title="Event types" detail="Your meeting kinds, rules, reminders and prices" onPress={() => router.push("/event-types")} />
         <Row icon="time-outline" title="Availability" detail="The hours people can book you" onPress={() => router.push("/availability")} />
-        <Row icon="albums-outline" title="Event types" detail="Your meeting kinds and their links" onPress={() => router.push("/event-types")} />
-        <Row
-          icon="open-outline"
-          title="Open timeiq.app"
-          detail={me?.invoicing_enabled ? "Group meetings, time tracking, invoices, settings" : "Group meetings and settings"}
-          onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/dashboard`)}
-        />
+        <Row icon="calendar-outline" title="Calendars" detail="Connect and sync the calendars that block your times" onPress={() => router.push("/calendars")} />
+        <Row icon="settings-outline" title="Settings" detail="Profile, time zone, booking page, billing, AI assistants" onPress={() => router.push("/settings")} />
       </Card>
+
+      {me?.invoicing_enabled && (
+        <Card style={{ paddingVertical: 6 }}>
+          <Row icon="stopwatch-outline" title="Time" detail="Your timesheet" onPress={() => router.push("/time")} />
+          <Row icon="briefcase-outline" title="Clients" detail="Rates and billing details" onPress={() => router.push("/clients")} />
+          <Row icon="document-text-outline" title="Invoices" detail="Create, send and track invoices" onPress={() => router.push("/invoices")} />
+        </Card>
+      )}
 
       <Button title="Sign out" kind="secondary" busy={busy === "out"} onPress={async () => { setBusy("out"); await leave(); setBusy(null); }} />
       <Button title="Delete account" kind="danger" busy={busy === "delete"} onPress={confirmDelete} />

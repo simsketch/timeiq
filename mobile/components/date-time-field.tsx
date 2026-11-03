@@ -56,3 +56,40 @@ const styles = StyleSheet.create({
   ios: { alignItems: "flex-start" },
   android: { borderWidth: 1, borderRadius: 12, padding: 14 },
 });
+
+/** A calendar-date picker over "YYYY-MM-DD" strings (no time or zone involved). */
+export function DateField({ value, onChange, minimum }: { value: string; onChange: (v: string) => void; minimum?: string }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  const [y, m, d] = value.split("-").map(Number);
+  const asDate = new Date(y, m - 1, d, 12);
+  const min = minimum ? new Date(`${minimum}T12:00:00`) : undefined;
+  const pick = (picked: Date) =>
+    onChange(`${picked.getFullYear()}-${String(picked.getMonth() + 1).padStart(2, "0")}-${String(picked.getDate()).padStart(2, "0")}`);
+
+  if (Platform.OS === "ios") {
+    return (
+      <View style={styles.ios}>
+        <DateTimePicker value={asDate} mode="date" minimumDate={min} onChange={(_, picked) => picked && pick(picked)} accentColor={t.primary} />
+      </View>
+    );
+  }
+  return (
+    <>
+      <Pressable onPress={() => setOpen(true)} style={[styles.android, { borderColor: t.border, backgroundColor: t.card }]}>
+        <Text style={{ color: t.text, fontSize: 16 }}>{asDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</Text>
+      </Pressable>
+      {open && (
+        <DateTimePicker
+          value={asDate}
+          mode="date"
+          minimumDate={min}
+          onChange={(e, picked) => {
+            setOpen(false);
+            if (e.type === "set" && picked) pick(picked);
+          }}
+        />
+      )}
+    </>
+  );
+}

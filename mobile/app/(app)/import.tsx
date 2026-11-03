@@ -1,12 +1,38 @@
 import * as Clipboard from "expo-clipboard";
-import { useEffect, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Button, Card, Label, Notice } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { useSharedText } from "@/lib/shared-text";
 import { useTheme } from "@/lib/theme";
 import { fmt, timeOf } from "@/lib/time";
 import { useMe } from "@/lib/use-me";
+
+interface PastImport {
+  id: string;
+  sender: string | null;
+  subject: string | null;
+  status: string;
+  event_count: number;
+  error: string | null;
+  created_at: string;
+}
+
+const STATUS: Record<string, string> = {
+  processing: "Reading…",
+  empty: "No schedule found",
+  failed: "Error",
+  rejected: "Not added",
+  undone: "Undone",
+  meeting: "Started a group meeting",
+  meeting_reply: "Meeting reply",
+  meeting_booked: "Booked a meeting",
+  meeting_accepted: "Accepted a time",
+  meeting_error: "Meeting error",
+  ignored: "Ignored",
+  skipped: "Skipped",
+};
 
 interface ImportResult {
   id: string;
@@ -27,6 +53,7 @@ export default function Import() {
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [undone, setUndone] = useState(false);
+  const [history, setHistory] = useState<PastImport[]>([]);
 
   useEffect(() => {
     if (!shared) return;
@@ -35,9 +62,34 @@ export default function Import() {
     clearShared();
   }, [shared, clearShared]);
 
-  useEffect(() => {
-    api<{ address: string }>("/api/email-imports").then((r) => setAddress(r.address)).catch(() => undefined);
+  const loadInbox = useCallback(() => {
+    api<{ address: string; imports: PastImport[] }>("/api/email-imports")
+      .then((r) => {
+        setAddress(r.address);
+        setHistory(r.imports);
+      })
+      .catch(() => undefined);
   }, [api]);
+
+  useFocusEffect(loadInbox);
+
+  function undoPast(item: PastImport) {
+    Alert.alert(`Undo "${item.subject || "this import"}"?`, `Removes the ${item.event_count} event${item.event_count === 1 ? "" : "s"} it added.`, [
+      { text: "Keep", style: "cancel" },
+      {
+        text: "Undo",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await api(`/api/email-imports/${item.id}/undo`, { method: "POST" });
+            loadInbox();
+          } catch (e) {
+            Alert.alert("Couldn't undo", e instanceof Error ? e.message : "Try again.");
+          }
+        },
+      },
+    ]);
+  }
 
   async function run() {
     setBusy(true);
@@ -46,6 +98,7 @@ export default function Import() {
     try {
       setResult(await api<ImportResult>("/api/email-imports/text", { method: "POST", body: JSON.stringify({ text }) }));
       setText("");
+      loadInbox();
     } catch (e) {
       setError(e instanceof Error ? e.message : "The import didn't work. Try again.");
     } finally {
@@ -59,6 +112,7 @@ export default function Import() {
     try {
       await api(`/api/email-imports/${result.id}/undo`, { method: "POST" });
       setUndone(true);
+      loadInbox();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Undo didn't work.");
     } finally {
@@ -121,6 +175,31 @@ export default function Import() {
             </Text>
           </Card>
         )}
+        {history.length > 0 && (
+          <View style={{ gap: 8 }}>
+            <Label>Recent</Label>
+            <Card style={{ gap: 14 }}>
+              {history.slice(0, 20).map((item) => (
+                <View key={item.id} style={styles.past}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: t.text, fontSize: 15, fontWeight: "600" }} numberOfLines={1}>{item.subject || "Pasted text"}</Text>
+                    <Text style={{ color: t.muted, fontSize: 13, marginTop: 2 }} numberOfLines={2}>
+                      {fmt(new Date(item.created_at), zone, { month: "short", day: "numeric" })}
+                      {" · "}
+                      {item.status === "imported" ? `${item.event_count} added` : STATUS[item.status] ?? item.status}
+                      {item.status === "rejected" && item.error ? ` · ${item.error}` : ""}
+                    </Text>
+                  </View>
+                  {item.status === "imported" && (
+                    <Pressable hitSlop={8} onPress={() => undoPast(item)}>
+                      <Text style={{ color: t.primary, fontWeight: "600" }}>Undo</Text>
+                    </Pressable>
+                  )}
+                </View>
+              ))}
+            </Card>
+          </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -131,4 +210,5 @@ const styles = StyleSheet.create({
   lead: { fontSize: 15, lineHeight: 21 },
   box: { minHeight: 160, borderWidth: 1, borderRadius: 14, padding: 14, fontSize: 16, textAlignVertical: "top" },
   row: { flexDirection: "row", gap: 10 },
+  past: { flexDirection: "row", alignItems: "center", gap: 12 },
 });
