@@ -519,43 +519,37 @@ export function LandingPage({ headline }: { headline: Headline }) {
         </section>
 
         {/* ================================================================
-             OPEN SOURCE + HOSTED
+             OPEN SOURCE (plans live only in Pricing, below)
              ================================================================ */}
-        <section id="open-source" className="relative py-24 lg:py-36">
+        <section id="open-source" className="relative py-20 lg:py-28">
           <div className="container mx-auto px-6 lg:px-10">
-            <div className="text-center max-w-2xl mx-auto mb-14">
-              <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">
-                Open source
-              </div>
-              <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
-                <span>Every line is public.</span>{" "}
-                <em className="text-[hsl(var(--brand))]">
-                  We run it for you.
-                </em>
-              </h2>
-              <p className="text-lg text-muted-foreground mt-6 text-pretty">
-                TimeIQ is open source under the AGPL&#8209;3.0. Read the code, check
-                how your calendars and email are handled, or run your own
-                copy. Or let us host it for $19 a year and get back to work.
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-5 max-w-5xl mx-auto">
-              <div className="glass rounded-[1.5rem] p-8 flex flex-col">
-                <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">Self-hosted</div>
-                <h3 className="font-serif text-4xl tracking-[-0.01em] leading-[1.05] mb-2">
-                  Free, on your servers.
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                  Clone the repo and deploy the Next.js frontend and FastAPI
-                  backend wherever you like.
+            <div className="glass rounded-[1.5rem] p-8 lg:p-12 max-w-5xl mx-auto grid gap-10 md:grid-cols-[1.1fr_1fr] md:items-center">
+              <div>
+                <div className="text-sm font-medium text-[hsl(var(--brand))] mb-4">Open source</div>
+                <h2 className="font-serif font-normal text-4xl lg:text-5xl leading-[1.05] tracking-[-0.01em] text-balance">
+                  <span>Every line is public.</span>{" "}
+                  <em className="text-[hsl(var(--brand))]">Check it yourself.</em>
+                </h2>
+                <p className="text-base text-muted-foreground mt-5 text-pretty">
+                  TimeIQ is open source under the AGPL&#8209;3.0. Read exactly how your
+                  calendars and email are handled, or run your own copy on your servers.
                 </p>
-                <ul className="space-y-3 text-sm mb-8">
+                <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="inline-block mt-7">
+                  <Button variant="glass" size="lg">
+                    <GitHubIcon className="h-4 w-4" />
+                    View the code on GitHub
+                  </Button>
+                </a>
+              </div>
+              <div>
+                <div className="text-sm font-medium text-foreground/80 mb-4">Running it yourself means you</div>
+                <ul className="space-y-3 text-sm">
                   {[
-                    "You provision Postgres, Clerk auth and Resend email",
-                    "You schedule the calendar sync and reminder jobs",
-                    "You apply updates, migrations and security patches",
-                    "Changes you serve to others stay open under the AGPL",
+                    "Deploy the Next.js frontend and FastAPI backend",
+                    "Provision Postgres, Clerk auth and Resend email",
+                    "Schedule the calendar sync and reminder jobs",
+                    "Apply updates, migrations and security patches",
+                    "Keep changes you serve to others open under the AGPL",
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-2.5 text-muted-foreground">
                       <Server className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground/70" />
@@ -563,43 +557,6 @@ export function LandingPage({ headline }: { headline: Headline }) {
                     </li>
                   ))}
                 </ul>
-                <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="mt-auto">
-                  <Button variant="glass" size="lg" className="w-full">
-                    <GitHubIcon className="h-4 w-4" />
-                    View the code on GitHub
-                  </Button>
-                </a>
-              </div>
-
-              <div className="glass rounded-[1.5rem] p-8 flex flex-col">
-                <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">Hosted at timeiq.app</div>
-                <h3 className="font-serif text-4xl tracking-[-0.01em] leading-[1.05] mb-2">
-                  $19 a year plus tax. Nothing to run.
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-                  The same code, kept running, updated and backed up by the
-                  people who build it.
-                </p>
-                <ul className="space-y-3 text-sm mb-8">
-                  {[
-                    "Live in two minutes, with your booking link ready to share",
-                    "Calendars synced every hour and before every booking",
-                    "Booking email delivered from our domain",
-                    "Updates and security fixes the day they ship",
-                    "Supports the open source project you are using",
-                  ].map((item) => (
-                    <li key={item} className="flex items-start gap-2.5">
-                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--brand))]" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/sign-up" className="mt-auto">
-                  <Button variant="brand" size="lg" className="w-full">
-                    Start free
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </Link>
               </div>
             </div>
           </div>
