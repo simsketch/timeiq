@@ -6,6 +6,9 @@ export const HEADLINES = {
   default: { id: "vibe-scheduling", lead: "Vibe scheduling.", accent: "Say it. It’s scheduled." },
   "all-calendars": { id: "all-calendars", lead: "All your calendars.", accent: "One booking link." },
   "no-upsells": { id: "no-upsells", lead: "Scheduling for $19 a year.", accent: "No upsells, ever." },
+  "free-meetings": { id: "free-meetings", lead: "Your first 7 meetings", accent: "are on us." },
+  "cc-timeiq": { id: "cc-timeiq", lead: "Cc TimeIQ.", accent: "It finds the time." },
+  "forward-schedule": { id: "forward-schedule", lead: "Forward any schedule.", accent: "It’s on your calendar." },
 } satisfies Record<string, Headline>;
 
 export type HeadlineVariant = Exclude<keyof typeof HEADLINES, "default">;

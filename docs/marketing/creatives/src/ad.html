@@ -70,6 +70,7 @@
 const q = new URLSearchParams(location.search);
 const H = +(q.get("h") || 1080), tall = H > 1400;
 const el = document.getElementById("ad");
+const PILL = q.get("pill") || "$19 / year";
 el.style.height = H + "px";
 if (tall) el.style.padding = "140px 72px 220px";
 const brand = `<div class="brand"><img src="../../../../frontend/public/favicon.svg">TimeIQ</div>`;
@@ -81,7 +82,7 @@ const T = {
       <div style="margin-top:${tall ? 90 : 64}px"><span class="chip">First 100 founders lock it in for life</span></div>
       <div class="spacer"></div>${tall ? '<div class="spacer"></div>' : ""}`,
   B: `${brand}
-      <span class="pill" style="position:absolute;right:72px;top:${tall ? 128 : 56}px">$19 / year</span>
+      <span class="pill" style="position:absolute;right:72px;top:${tall ? 128 : 56}px">${PILL}</span>
       <h1 style="font-size:104px;margin-top:${tall ? 200 : 76}px">Log the hours.<br><span class="it" style="font-weight:400">Send the invoice.</span></h1>
       <div class="spacer"></div>
       <img class="card" src="../source/timesheet-card-crop.png" style="width:${tall ? 936 : 1000}px;border-radius:40px;margin-left:${tall ? 0 : -32}px">
@@ -113,7 +114,7 @@ if (!tall) document.head.insertAdjacentHTML("beforeend", `<style>
   .feeds{gap:12px}.feed{padding:13px 24px;font-size:27px;border-radius:18px}.feed i{width:18px;height:18px}
   .week{padding:24px 26px 26px}.week-h{margin-bottom:14px}.grid{gap:10px}.slot{height:48px}</style>`);
 T.G = `${brand}
-  <span class="pill" style="position:absolute;right:72px;top:${tall ? 128 : 56}px">$19 / year</span>
+  <span class="pill" style="position:absolute;right:72px;top:${tall ? 128 : 56}px">${PILL}</span>
   <h1 style="font-size:${tall ? 104 : 84}px;margin-top:${tall ? 160 : 44}px">All your calendars.<br><span class="it" style="font-weight:400">One booking link.</span></h1>
   <div style="height:${tall ? 0 : 36}px"></div><div class="spacer"></div>${feeds}
   <div style="height:${tall ? 40 : 20}px"></div>${weekCard()}
@@ -133,7 +134,7 @@ T.H = `${brand}
   <div><span class="chip">$19 a year for the first 100 founders</span></div>
   ${tall ? '<div class="spacer"></div>' : ""}`;
 T.I = `${brand}
-  <span class="pill" style="position:absolute;right:72px;top:${tall ? 128 : 56}px">$19 / year</span>
+  <span class="pill" style="position:absolute;right:72px;top:${tall ? 128 : 56}px">${PILL}</span>
   <h1 style="font-size:${tall ? 108 : 92}px;margin-top:${tall ? 160 : 48}px">Cc TimeIQ.<br><span class="it" style="font-weight:400">It finds the time.</span></h1>
   <div class="spacer"></div>
   <div class="mail card"><div class="meta"><span class="who">Dana</span>to Elon <span class="cc">Cc: TimeIQ</span></div>
@@ -141,13 +142,13 @@ T.I = `${brand}
   <div style="height:${tall ? 26 : 18}px"></div>
   <div class="mail agent card"><div class="meta"><span class="who">Elon via TimeIQ</span>to Dana, Elon</div>
     ${tall ? "Here are 3 times that work for Elon:" : "Times that work for Elon:"}
-    <span class="opt">Mon Nov 2, 9 AM</span><span class="opt on">Tue Nov 3, 10:30 AM</span>${tall ? '<span class="opt">Wed Nov 4, 11 AM</span>' : ""}
+    <span class="opt">Mon, 9 AM</span><span class="opt on">Tue, 10:30 AM</span>${tall ? '<span class="opt">Wed, 11 AM</span>' : ""}
   </div>
   <div style="height:${tall ? 30 : 22}px"></div>
   <div><span class="done">&#10003; Booked. Invite sent to both.</span></div>
   <div class="spacer"></div>${tall ? '<p class="sub" style="text-align:center">No back-and-forth. You just say &ldquo;book it.&rdquo;</p><div class="spacer"></div>' : ""}`;
 T.J = `${brand}
-  <span class="pill" style="position:absolute;right:72px;top:${tall ? 128 : 56}px">$19 / year</span>
+  <span class="pill" style="position:absolute;right:72px;top:${tall ? 128 : 56}px">${PILL}</span>
   <h1 style="font-size:${tall ? 104 : 86}px;margin-top:${tall ? 160 : 48}px">Forward any schedule.<br><span class="it" style="font-weight:400">It&rsquo;s on your calendar.</span></h1>
   <div class="spacer"></div>
   <div class="mail card"><div class="meta"><span class="who">You</span>to schedule@timeiq</div>
@@ -160,6 +161,13 @@ T.J = `${brand}
   <div style="height:${tall ? 30 : 22}px"></div>
   <div><span class="done">&#10003; Added 10 events. Undo anytime.</span></div>
   <div class="spacer"></div>${tall ? '<p class="sub" style="text-align:center">PDFs, screenshots, or the coach&rsquo;s email. All work.</p><div class="spacer"></div>' : ""}`;
+// K: the free-to-start offer that replaced founder pricing on 2026-11-02.
+T.K = `${brand}<div class="spacer"></div>
+  <h1 style="font-size:${tall ? 200 : 176}px">7 meetings</h1>
+  <h1 class="it" style="font-size:${tall ? 170 : 150}px;margin-top:10px">on us.</h1>
+  <p class="sub" style="margin-top:56px">One booking link across every calendar.<br>No card to start. Then $19 a year.</p>
+  <div style="margin-top:${tall ? 90 : 64}px"><span class="chip">Start free at timeiq.app</span></div>
+  <div class="spacer"></div>${tall ? '<div class="spacer"></div>' : ""}`;
 el.innerHTML = T[q.get("ad") || "A"];
 </script>
 </body>

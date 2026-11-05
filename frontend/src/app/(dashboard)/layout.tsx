@@ -6,6 +6,7 @@ import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { SubscriptionGate } from "@/components/billing/subscription-gate";
 import { CalendarHealthBanner } from "@/components/dashboard/calendar-health-banner";
 import { UNGATED_PATHS } from "@/lib/api";
+import { SignupPixel } from "@/components/signup-pixel";
 
 export default async function DashboardLayout({
   children,
@@ -24,6 +25,7 @@ export default async function DashboardLayout({
         <div className="aurora-bg aurora-bg-soft" aria-hidden />
         <div className="grain" aria-hidden />
 
+        <SignupPixel />
         <MobileNav />
 
         <aside className="hidden md:flex md:w-72 md:flex-col md:fixed md:inset-y-0 z-30 p-3">

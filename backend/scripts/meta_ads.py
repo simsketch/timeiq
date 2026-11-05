@@ -11,6 +11,7 @@ Commands (run from backend/ with .venv/bin/python):
     scripts/meta_ads.py check                       verify token, account, page, pixel
     scripts/meta_ads.py launch --budget 5 [--live]  create campaign + ad set + ads (PAUSED unless --live)
     scripts/meta_ads.py status                      list campaign/ad set/ad statuses
+    scripts/meta_ads.py free                        add the free-to-start sign-up ad set + ads (PAUSED)
     scripts/meta_ads.py report [--days 7]           per-ad spend, clicks, CTR, CPC, purchases, cost per purchase
     scripts/meta_ads.py pause <ad_id> | resume <ad_id>
     scripts/meta_ads.py add-ad --image path --name N --headline H --body B [--live]
@@ -131,6 +132,8 @@ CREATIVES = [
 
 # The ads launch creates; the rest stay in CREATIVES for add-ad. $5/day carries three at most.
 LAUNCH_SET = ("A-price-shock", "B-timesheet", "F-founder-ai")
+FREE_SET = ("K-free-meetings", "L-all-calendars-free", "M-cc-timeiq-free", "N-forward-schedule-free")
+FREE_ADSET_NAME = "Free to start - sign-ups"
 
 TARGETING = {
     "geo_locations": {"countries": ["US", "CA", "GB", "AU"]},
@@ -348,6 +351,32 @@ def _build(campaign: dict, status: str, live: bool):
     return adset, specs, ads
 
 
+def cmd_free(_: argparse.Namespace) -> None:
+    """Add the free-to-start ad set and its ads to the campaign, all PAUSED."""
+    require_env()
+    c = find_campaign()
+    if not c:
+        die("no campaign yet; run launch first")
+    existing = call("GET", f"{c['id']}/adsets", fields="id,name").get("data", [])
+    if any(a["name"] == FREE_ADSET_NAME for a in existing):
+        die(f"ad set '{FREE_ADSET_NAME}' already exists")
+    adset = call(
+        "POST",
+        f"{ACCOUNT}/adsets",
+        name=FREE_ADSET_NAME,
+        campaign_id=c["id"],
+        status="PAUSED",
+        billing_event="IMPRESSIONS",
+        optimization_goal="OFFSITE_CONVERSIONS",
+        promoted_object=json.dumps({"pixel_id": PIXEL, "custom_event_type": "COMPLETE_REGISTRATION"}),
+        targeting=json.dumps(TARGETING),
+    )
+    print("ad set  ", adset["id"], FREE_ADSET_NAME, "PAUSED")
+    for spec in (c for c in CREATIVES if c["name"] in FREE_SET):
+        print("ad      ", create_ad(adset["id"], spec, False), spec["name"])
+    print("Everything is PAUSED. To switch over: resume the new ad set and pause the old one.")
+
+
 def cmd_status(_: argparse.Namespace) -> None:
     require_env()
     c = find_campaign()
@@ -402,12 +431,13 @@ def main() -> None:
     sub.add_parser("check").set_defaults(fn=cmd_check)
     p = sub.add_parser("launch"); p.add_argument("--budget", type=float, default=5.0); p.add_argument("--live", action="store_true"); p.set_defaults(fn=cmd_launch)
     sub.add_parser("status").set_defaults(fn=cmd_status)
+    sub.add_parser("free").set_defaults(fn=cmd_free)
     p = sub.add_parser("report"); p.add_argument("--days", type=int, default=7); p.set_defaults(fn=cmd_report)
     p = sub.add_parser("pause"); p.add_argument("id"); p.set_defaults(fn=lambda a: cmd_toggle(a, "PAUSED"))
     p = sub.add_parser("resume"); p.add_argument("id"); p.set_defaults(fn=lambda a: cmd_toggle(a, "ACTIVE"))
     p = sub.add_parser("add-ad")
     for f in ("image", "name", "headline", "body"): p.add_argument(f"--{f}", required=True)
-    p.add_argument("--description", default="Founding member price, locked forever."); p.add_argument("--live", action="store_true"); p.set_defaults(fn=cmd_add_ad)
+    p.add_argument("--description", default="Free to start. No card needed."); p.add_argument("--live", action="store_true"); p.set_defaults(fn=cmd_add_ad)
     args = ap.parse_args()
     args.fn(args)
 
