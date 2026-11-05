@@ -128,6 +128,52 @@ CREATIVES = [
         ),
         "description": "Everything included. $19/year founder price.",
     },
+    # Free-to-start set (2026-11-04). Accounts start free with 7 meetings, so these
+    # run in their own ad set that optimises for sign-ups (CompleteRegistration).
+    {
+        "name": "K-free-meetings",
+        "image": CREATIVES_DIR / "ad-K-free-meetings-1080.png",
+        "headline": "Your first 7 meetings are on us.",
+        "body": (
+            "One booking link that checks every calendar you have, so people only ever pick a time "
+            "you're actually free. Start free, no card. Your first 7 meetings cost nothing, "
+            "and after that it's $19 a year."
+        ),
+        "description": "Free to start. No card needed.",
+    },
+    {
+        "name": "L-all-calendars-free",
+        "image": CREATIVES_DIR / "ad-G-all-calendars-free-1080.png",
+        "headline": "All your calendars. One booking link.",
+        "body": (
+            "Personal on Google, work on Outlook, family on iCloud? TimeIQ reads every one of them "
+            "and gives you a single booking link that only offers the times you are actually free.\n\n"
+            "Free to start. Your first 7 meetings are on us."
+        ),
+        "description": "Free to start. No card needed.",
+    },
+    {
+        "name": "M-cc-timeiq-free",
+        "image": CREATIVES_DIR / "ad-I-cc-timeiq-free-1080.png",
+        "headline": "Cc TimeIQ. It finds the time.",
+        "body": (
+            "Someone asks for a meeting by email? Add TimeIQ to the thread. It replies with times "
+            "you're free, and when they pick one, the invite goes out to both of you. "
+            "No more back-and-forth.\n\nFree to start. Your first 7 meetings are on us."
+        ),
+        "description": "Free to start. No card needed.",
+    },
+    {
+        "name": "N-forward-schedule-free",
+        "image": CREATIVES_DIR / "ad-J-forward-schedule-free-1080.png",
+        "headline": "Forward any schedule. It's on your calendar.",
+        "body": (
+            "The soccer schedule PDF, a screenshot of the school calendar, the coach's email. "
+            "Forward it to TimeIQ and every date lands on your calendar, ready to undo if "
+            "anything's off.\n\nFree to start."
+        ),
+        "description": "Free to start. No card needed.",
+    },
 ]
 
 # The ads launch creates; the rest stay in CREATIVES for add-ad. $5/day carries three at most.
@@ -358,8 +404,12 @@ def cmd_free(_: argparse.Namespace) -> None:
     if not c:
         die("no campaign yet; run launch first")
     existing = call("GET", f"{c['id']}/adsets", fields="id,name").get("data", [])
-    if any(a["name"] == FREE_ADSET_NAME for a in existing):
-        die(f"ad set '{FREE_ADSET_NAME}' already exists")
+    adset = next((a for a in existing if a["name"] == FREE_ADSET_NAME), None)
+    if adset:
+        names = {a["name"] for a in call("GET", f"{adset['id']}/ads", fields="name").get("data", [])}
+        for spec in (s for s in CREATIVES if s["name"] in FREE_SET and s["name"] not in names):
+            print("ad      ", create_ad(adset["id"], spec, False), spec["name"])
+        return
     adset = call(
         "POST",
         f"{ACCOUNT}/adsets",
@@ -372,7 +422,7 @@ def cmd_free(_: argparse.Namespace) -> None:
         targeting=json.dumps(TARGETING),
     )
     print("ad set  ", adset["id"], FREE_ADSET_NAME, "PAUSED")
-    for spec in (c for c in CREATIVES if c["name"] in FREE_SET):
+    for spec in (s for s in CREATIVES if s["name"] in FREE_SET):
         print("ad      ", create_ad(adset["id"], spec, False), spec["name"])
     print("Everything is PAUSED. To switch over: resume the new ad set and pause the old one.")
 
