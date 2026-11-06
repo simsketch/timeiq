@@ -1,12 +1,12 @@
 import { useColorScheme } from "react-native";
 
 const light = {
-  bg: "#f7f7fb",
+  bg: "#f4f5f6",
   card: "#ffffff",
-  text: "#14141f",
-  muted: "#6b6b80",
-  border: "#e6e6ef",
-  primary: "#6e5cf0",
+  text: "#141414",
+  muted: "#62656b",
+  border: "#e4e5e7",
+  primary: "#e0540a",
   primaryText: "#ffffff",
   danger: "#dc2626",
   warnBg: "#fef3c7",
@@ -16,12 +16,12 @@ const light = {
 };
 
 const dark: typeof light = {
-  bg: "#0b0b12",
-  card: "#16161f",
-  text: "#f2f2f7",
-  muted: "#9a9ab0",
-  border: "#2a2a38",
-  primary: "#8b7bff",
+  bg: "#0b0b0c",
+  card: "#17171a",
+  text: "#f2f2f3",
+  muted: "#9c9ea3",
+  border: "#2a2a2e",
+  primary: "#ff7a2e",
   primaryText: "#ffffff",
   danger: "#f87171",
   warnBg: "#422006",

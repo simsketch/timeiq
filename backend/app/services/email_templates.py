@@ -16,12 +16,12 @@ from html import escape as esc
 
 from app.config import settings
 
-INK = "#111421"
-MUTED = "#636a7a"
-INDIGO = "#6254f0"
-PAGE_BG = "#f5f6fb"
-CARD_BORDER = "#e6e8f2"
-PANEL_BG = "#f7f8fc"
+INK = "#141414"
+MUTED = "#62656b"
+ACCENT = "#c2410c"  # tangerine, dark enough for link text on white
+PAGE_BG = "#f4f5f6"
+CARD_BORDER = "#e4e5e7"
+PANEL_BG = "#f7f7f8"
 FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
 
 HEROES = {"confirmed", "new-booking", "cancelled", "invoice", "welcome", "reminder"}
@@ -93,9 +93,9 @@ def details(rows: list[tuple[str, str]], rows_html: bool = False) -> str:
 
 
 def button(label: str, url: str, secondary: bool = False) -> str:
-    bg = "#ffffff" if secondary else INDIGO
+    bg = "#ffffff" if secondary else INK
     fg = INK if secondary else "#ffffff"
-    border = f"1px solid {CARD_BORDER}" if secondary else f"1px solid {INDIGO}"
+    border = f"1px solid {CARD_BORDER}" if secondary else f"1px solid {INK}"
     safe_url = esc(url, quote=True)
     return (
         f'<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
@@ -127,7 +127,7 @@ def checklist(items: list[tuple[str, str, str]]) -> str:
         rows.append(
             f'<tr>'
             f'<td style="padding:14px 0 14px 18px;vertical-align:top;width:40px;">'
-            f'<div style="width:28px;height:28px;border-radius:14px;background:{INDIGO};color:#ffffff;'
+            f'<div style="width:28px;height:28px;border-radius:14px;background:{ACCENT};color:#ffffff;'
             f'font-family:{FONT};font-size:13px;font-weight:700;line-height:28px;text-align:center;">{i}</div>'
             f"</td>"
             f'<td style="padding:12px 18px 12px 12px;vertical-align:top;">'
@@ -168,7 +168,7 @@ def layout(hero: str, preheader: str, body_html: str, footer_note: str | None = 
 <style>
   body {{ margin:0; padding:0; background:{PAGE_BG}; -webkit-font-smoothing:antialiased; }}
   img {{ border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; }}
-  a {{ color:{INDIGO}; }}
+  a {{ color:{ACCENT}; }}
   @media (max-width: 640px) {{
     .card {{ width:100% !important; }}
     .pad {{ padding:24px !important; }}

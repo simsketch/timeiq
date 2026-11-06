@@ -207,7 +207,7 @@ def _location_row(event_type: EventType) -> tuple[str, str]:
     if not loc:
         return ("Location", "")
     if loc.startswith(("http://", "https://")):
-        return ("Location", f'<a href="{html_escape(loc, quote=True)}" style="color:{t.INDIGO};">{html_escape(loc)}</a>')
+        return ("Location", f'<a href="{html_escape(loc, quote=True)}" style="color:{t.ACCENT};">{html_escape(loc)}</a>')
     return ("Location", html_escape(loc))
 
 
@@ -340,7 +340,7 @@ def render_booking_confirmation_host(booking: Booking, event_type: EventType, ho
         ("Event", html_escape(event_type.name)),
         ("Phone", html_escape(booking.visitor_phone or "")),
         ("Company", html_escape(booking.visitor_company or "")),
-        ("Link", f'<a href="{html_escape(booking.visitor_url, quote=True)}" style="color:{t.INDIGO};">{html_escape(booking.visitor_url)}</a>' if booking.visitor_url else ""),
+        ("Link", f'<a href="{html_escape(booking.visitor_url, quote=True)}" style="color:{t.ACCENT};">{html_escape(booking.visitor_url)}</a>' if booking.visitor_url else ""),
         ("Notes", html_escape(booking.visitor_notes or "")),
     ]
     body = (
@@ -650,7 +650,7 @@ def render_overdue_digest(user: User, invoices: list, today: date) -> str:
                 inv.number,
                 f'{html_escape(inv.client_name)} · {html_escape(fmt_money(inv.subtotal, inv.currency))} · '
                 f'<span style="color:#e11d48;">{days} day{"s" if days != 1 else ""} overdue</span> · '
-                f'<a href="{_site()}/invoices/{inv.id}" style="color:{t.INDIGO};">Open</a>',
+                f'<a href="{_site()}/invoices/{inv.id}" style="color:{t.ACCENT};">Open</a>',
             )
         )
     total = sum((inv.subtotal for inv in invoices), 0)
@@ -936,7 +936,7 @@ def render_monthly_drafts_digest(user: User, invoices: list, start: date, end: d
     from app.services.invoice_pdf import fmt_money
 
     rows = [
-        (inv.number, f'{html_escape(inv.client_name)} · {html_escape(fmt_money(inv.subtotal, inv.currency))} · <a href="{_site()}/invoices/{inv.id}" style="color:{t.INDIGO};">Review and send</a>')
+        (inv.number, f'{html_escape(inv.client_name)} · {html_escape(fmt_money(inv.subtotal, inv.currency))} · <a href="{_site()}/invoices/{inv.id}" style="color:{t.ACCENT};">Review and send</a>')
         for inv in invoices
     ]
     # Currencies can't be added together: one total per currency.
@@ -1008,7 +1008,7 @@ def _window_text(meeting) -> str:
 def _timeiq_note() -> str:
     return t.p_html(
         f'Already on TimeIQ? Sign in on that page and share your calendar in one click. Only free and busy '
-        f'times are shared, never what your events are. Not yet? <a href="{_site()}" style="color:{t.INDIGO};">TimeIQ</a> '
+        f'times are shared, never what your events are. Not yet? <a href="{_site()}" style="color:{t.ACCENT};">TimeIQ</a> '
         f"finds a time with anyone and puts emailed schedules on your calendar.",
         muted=True,
     )
@@ -1049,7 +1049,7 @@ def render_group_invite(meeting, participant, suggested: list[datetime] | None =
             t.p("Tap a time that works for you:", muted=True)
             + _time_buttons(participant, suggested, tz)
             + t.p_html(
-                f'None of these work? <a href="{_pick_url(participant)}" style="color:{t.INDIGO};">Pick a different time</a>.',
+                f'None of these work? <a href="{_pick_url(participant)}" style="color:{t.ACCENT};">Pick a different time</a>.',
                 muted=True,
             )
         )
@@ -1285,15 +1285,15 @@ def render_agent_proposal(meeting, options: list[datetime], intro: str | None = 
     if options:
         items = "".join(
             f'<li style="margin:4px 0;"><a href="{html_escape(_pick_url(participant, s), quote=True)}" '
-            f'style="color:{t.INDIGO};font-weight:600;">{html_escape(_local(s, tz))}</a></li>'
+            f'style="color:{t.ACCENT};font-weight:600;">{html_escape(_local(s, tz))}</a></li>'
             for s in options
         )
         paras.append(f"Here are {len(options)} times that work for {html_escape(org)}. Tap one, or just reply:"
                      f'<ul style="margin:6px 0 0;padding-left:20px;">{items}</ul>')
-        paras.append(f'None of these work? <a href="{_pick_url(participant)}" style="color:{t.INDIGO};">Pick a different time</a>.')
+        paras.append(f'None of these work? <a href="{_pick_url(participant)}" style="color:{t.ACCENT};">Pick a different time</a>.')
     else:
         paras.append(f"{html_escape(org)} has no open time in that range yet. "
-                     f'<a href="{_pick_url(participant)}" style="color:{t.INDIGO};">Tap here</a> and I\'ll show times as they open up.')
+                     f'<a href="{_pick_url(participant)}" style="color:{t.ACCENT};">Tap here</a> and I\'ll show times as they open up.')
     paras.append(f"Once everyone's answered, I'll check with {html_escape(org)} and send the calendar invite.")
     return _agent_html(paras, _footer(meeting))
 
@@ -1314,7 +1314,7 @@ def _render_agent_summary(meeting, options: list[datetime], intro: str | None) -
         paras.append(f"You have no open time in that range yet, so I've sent {who} a link for <strong>{title}</strong> "
                      "that shows times as they open up.")
     paras.append(f'I\'ll let you know once everyone\'s answered. <a href="{_site()}/meetings/{meeting.id}" '
-                 f'style="color:{t.INDIGO};">Open the meeting in TimeIQ</a>')
+                 f'style="color:{t.ACCENT};">Open the meeting in TimeIQ</a>')
     return _agent_html(paras, _footer(meeting))
 
 
@@ -1338,7 +1338,7 @@ def send_agent_ack(meeting, participant, picked: list[datetime], detail: dict) -
         line = f"Thanks {first}, noted: {times}."
     else:
         line = f"Thanks {first}, noted that none of those times work. I'll let {html_escape(_first_name(meeting.organizer))} know."
-    link = f'<a href="{_site()}/meet/{participant.token}" style="color:{t.INDIGO};">See or change your times</a>.'
+    link = f'<a href="{_site()}/meet/{participant.token}" style="color:{t.ACCENT};">See or change your times</a>.'
     _send_agent(meeting, [participant.email], meeting.thread_subject or meeting.title,
                 _agent_html([line, link], _footer(meeting)), detail.get("message_id"), "agent ack")
 
@@ -1360,7 +1360,7 @@ def send_agent_booked(meeting, detail: dict | None) -> None:
 def send_agent_note(meeting, detail: dict, to: list[str], text: str, link: bool = False) -> None:
     paras = [html_escape(text)]
     if link:
-        paras.append(f'<a href="{_site()}/meetings/{meeting.id}" style="color:{t.INDIGO};">Open the meeting in TimeIQ</a>')
+        paras.append(f'<a href="{_site()}/meetings/{meeting.id}" style="color:{t.ACCENT};">Open the meeting in TimeIQ</a>')
     _send_agent(meeting, to, meeting.thread_subject or meeting.title, _agent_html(paras, _footer(meeting)),
                 detail.get("message_id"), "agent note")
 
@@ -1379,7 +1379,7 @@ def send_agent_all_answered(meeting, best: dict | None) -> None:
         ]
     else:
         lines = [f"Everyone has answered for <strong>{html_escape(meeting.title)}</strong>, but no time works for all of you."]
-    lines.append(f'<a href="{_site()}/meetings/{meeting.id}" style="color:{t.INDIGO};">See every answer in TimeIQ</a>')
+    lines.append(f'<a href="{_site()}/meetings/{meeting.id}" style="color:{t.ACCENT};">See every answer in TimeIQ</a>')
     _send_agent(meeting, [meeting.organizer.email], meeting.thread_subject or meeting.title,
                 _agent_html(lines, _footer(meeting)), None, "agent all answered")
 

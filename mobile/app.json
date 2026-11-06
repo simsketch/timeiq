@@ -19,7 +19,7 @@
       "package": "app.timeiq",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#6e5cf0"
+        "backgroundColor": "#141414"
       }
     },
     "plugins": [
@@ -35,7 +35,7 @@
           "imageWidth": 160,
           "backgroundColor": "#ffffff",
           "dark": {
-            "backgroundColor": "#0b0b12"
+            "backgroundColor": "#0b0b0c"
           }
         }
       ],
