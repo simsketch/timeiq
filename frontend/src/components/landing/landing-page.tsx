@@ -25,8 +25,9 @@ import { McpDemo } from "@/components/landing/mcp-demo";
 import { McpDemoContent } from "@/components/landing/mcp-demo-content";
 import { OctoLoader } from "@/components/landing/octo/octo-loader";
 import { HeroScroll } from "@/components/landing/hero-scroll";
+import { ClockHero } from "@/components/landing/clock-hero";
 
-export function LandingPage({ headline }: { headline: Headline }) {
+export function LandingPage({ headline, hero = "panel" }: { headline: Headline; hero?: "panel" | "clock" }) {
   return (
     <div className="relative min-h-screen overflow-x-clip">
 
@@ -77,6 +78,9 @@ export function LandingPage({ headline }: { headline: Headline }) {
              HERO — copy on black, a silver panel that takes over on scroll
              and assembles the product around its first two cards
              ================================================================ */}
+        {hero === "clock" ? (
+          <ClockHero headline={headline} />
+        ) : (
         <HeroScroll>
           <div className="hs-stage">
             <div className="hs-copy">
@@ -195,6 +199,7 @@ export function LandingPage({ headline }: { headline: Headline }) {
             </div>
           </div>
         </HeroScroll>
+        )}
 
         {/* ================================================================
              LIVE DEMO — email a schedule

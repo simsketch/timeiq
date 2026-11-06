@@ -57,6 +57,8 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
     url.pathname = `/lp/${variant}`;
     return NextResponse.rewrite(url);
   }
+  // The clock draft of the homepage skips Clerk for the same reason.
+  if (request.nextUrl.pathname === "/clock") return NextResponse.next();
   if (isEmbeddedBooking(request)) {
     const response = NextResponse.next();
     response.headers.set("Content-Security-Policy", "frame-ancestors *");
