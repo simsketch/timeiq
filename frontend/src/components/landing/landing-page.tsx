@@ -27,7 +27,7 @@ import { OctoLoader } from "@/components/landing/octo/octo-loader";
 import { HeroScroll } from "@/components/landing/hero-scroll";
 import { ClockHero } from "@/components/landing/clock-hero";
 
-export function LandingPage({ headline, hero = "panel" }: { headline: Headline; hero?: "panel" | "clock" }) {
+export function LandingPage({ headline, hero = "clock" }: { headline: Headline; hero?: "panel" | "clock" }) {
   return (
     <div className="relative min-h-screen overflow-x-clip">
 
