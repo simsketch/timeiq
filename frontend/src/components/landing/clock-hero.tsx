@@ -129,7 +129,6 @@ export function ClockHero({ headline }: { headline: Headline }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [active, setActive] = useState(0);
   const [live, setLive] = useState(false);
-  const [scrub, setScrub] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
@@ -138,7 +137,7 @@ export function ClockHero({ headline }: { headline: Headline }) {
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
     if (still || saveData) return;
-    setScrub(true);
+    el.dataset.scrub = "";
 
     let url = "";
     let ready = false;
@@ -224,7 +223,7 @@ export function ClockHero({ headline }: { headline: Headline }) {
   const dark = active > 0 && BEATS[active - 1]?.dark;
 
   return (
-    <section ref={ref} className={`ch relative -mt-[73px]${scrub ? " ch--scrub" : ""}${live ? " ch--live" : ""}`} data-dark={dark ? "" : undefined}
+    <section ref={ref} className={`ch relative -mt-[73px]${live ? " ch--live" : ""}`} data-dark={dark ? "" : undefined}
       style={{ "--ch-floor": FLOOR[active] } as React.CSSProperties}
     >
       <div className="ch-stage">

@@ -667,7 +667,7 @@
    pins while ClockHero scrubs public/clock/day.mp4; it is one screen tall
    until JS opts into scrubbing, so reduced motion and no-JS get the poster. */
 .ch { height: 100svh; background: #c9ccd0; color: #141414; }
-.ch--scrub { height: 820vh; }
+.ch[data-scrub] { height: 820vh; }
 .ch[data-dark] { color: #f2f2f2; }
 .ch-stage { position: sticky; top: 0; height: 100svh; overflow: hidden; }
 .ch-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
