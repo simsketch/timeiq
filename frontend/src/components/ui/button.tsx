@@ -17,11 +17,11 @@ const buttonVariants = cva(
         // Glass outline — transparent, sits on aurora bg
         glass:
           "shimmer glass text-foreground hover:-translate-y-[1px]",
-        // Landing brand pair (bright violet, deep purple) and an outline for dark bands
+        // Landing brand pair (tangerine, near-black) and an outline for dark bands
         brand:
-          "bg-[hsl(var(--brand))] text-white shadow-[0_8px_28px_-10px_hsl(var(--brand)/0.7)] hover:bg-[hsl(260_97%_66%)] hover:-translate-y-[1px]",
+          "bg-[hsl(var(--brand))] text-white shadow-[0_8px_28px_-10px_hsl(var(--brand)/0.7)] hover:bg-[hsl(21_90%_56%)] hover:-translate-y-[1px]",
         brandInk:
-          "bg-[hsl(var(--brand-ink))] text-[#f6f7f9] hover:bg-[hsl(254_30%_27%)] hover:-translate-y-[1px]",
+          "bg-[hsl(var(--brand-ink))] text-[#f6f7f9] hover:bg-[hsl(0_0%_18%)] hover:-translate-y-[1px]",
         onDark:
           "border border-white/25 bg-white/[0.06] text-white backdrop-blur-md hover:bg-white/[0.14]",
         destructive:

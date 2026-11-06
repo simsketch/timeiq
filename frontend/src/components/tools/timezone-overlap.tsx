@@ -130,11 +130,11 @@ export function TimezoneOverlapCalculator() {
             <span className="text-sm font-medium">{zoneAbbr(z, at)}</span>
             <div className="relative h-7 overflow-hidden rounded-md bg-muted">
               {strip(windows[i][0], windows[i][1]).map(([a, b]) => (
-                <div key={a} className="absolute inset-y-0 bg-[hsl(var(--aurora-1)/0.35)]" style={{ left: `${(a / 24) * 100}%`, width: `${((b - a) / 24) * 100}%` }} />
+                <div key={a} className="absolute inset-y-0 bg-[hsl(var(--aurora-4)/0.35)]" style={{ left: `${(a / 24) * 100}%`, width: `${((b - a) / 24) * 100}%` }} />
               ))}
               {overlap > 0 &&
                 folded.map(([a, b]) => (
-                  <div key={"o" + a} className="absolute inset-y-0 bg-[hsl(var(--aurora-4)/0.85)]" style={{ left: `${(a / 24) * 100}%`, width: `${((b - a) / 24) * 100}%` }} />
+                  <div key={"o" + a} className="absolute inset-y-0 bg-[hsl(var(--aurora-1)/0.9)]" style={{ left: `${(a / 24) * 100}%`, width: `${((b - a) / 24) * 100}%` }} />
                 ))}
             </div>
           </div>
@@ -143,7 +143,7 @@ export function TimezoneOverlapCalculator() {
           <span />
           <div className="flex justify-between"><span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>12 AM</span></div>
         </div>
-        <p className="text-xs text-muted-foreground">Hours shown on {zoneAbbr(base, at)} time. Purple is each place&apos;s workday; blue is the overlap.</p>
+        <p className="text-xs text-muted-foreground">Hours shown on {zoneAbbr(base, at)} time. Grey is each place&apos;s workday; orange is the overlap.</p>
       </div>
 
       <div className="mt-6 rounded-xl border bg-background/70 p-4">

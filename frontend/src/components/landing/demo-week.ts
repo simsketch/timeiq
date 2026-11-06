@@ -23,7 +23,7 @@ export interface DemoCalendar {
 export const DEMO_CALENDARS: DemoCalendar[] = [
   { key: "work", name: "Work", source: "Outlook", color: "hsl(var(--aurora-1))" },
   { key: "personal", name: "Personal", source: "Google", color: "hsl(var(--aurora-4))" },
-  { key: "family", name: "Family", source: "iCloud", color: "hsl(var(--aurora-3))" },
+  { key: "family", name: "Family", source: "iCloud", color: "hsl(0 0% 30%)" },
   { key: "school", name: "Kids' school", source: "Emailed in", color: "hsl(var(--aurora-2))" },
 ];
 

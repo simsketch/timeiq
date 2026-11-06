@@ -242,7 +242,7 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
                 </div>
               </div>
               <div className="lg:col-span-6 mx-auto w-full max-w-md lg:max-w-none">
-                <div className="relative rounded-[1.75rem] bg-white shadow-[0_30px_80px_-30px_hsl(260_60%_40%/0.35)] ring-1 ring-black/5">
+                <div className="relative rounded-[1.75rem] bg-white shadow-[0_30px_80px_-30px_hsl(0_0%_10%/0.35)] ring-1 ring-black/5">
                   <LazyDemo name="email" />
                 </div>
               </div>
@@ -257,12 +257,12 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
           <div className="container mx-auto px-6 lg:px-10">
             <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
               <div className="lg:col-span-5">
-                <div className="text-sm font-medium text-[hsl(260_100%_82%)] mb-5">
+                <div className="text-sm font-medium text-[hsl(24_95%_62%)] mb-5">
                   Claude, ChatGPT and Cursor
                 </div>
                 <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
                   <span>Ask your AI.</span>{" "}
-                  <em className="text-[hsl(260_100%_82%)]">It knows your calendar.</em>
+                  <em className="text-[hsl(24_95%_62%)]">It knows your calendar.</em>
                 </h2>
                 <p className="mt-5 text-lg text-white/70 leading-relaxed text-pretty">
                   Connect TimeIQ to Claude, ChatGPT or Cursor and ask in plain words. It checks every calendar you
@@ -276,17 +276,17 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
                     "Disconnect anytime from Settings",
                   ].map((t) => (
                     <li key={t} className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(260_100%_82%)]" />
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(24_95%_62%)]" />
                       {t}
                     </li>
                   ))}
                 </ul>
-                <Link href="/mcp" className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium underline underline-offset-4 hover:text-[hsl(260_100%_82%)]">
+                <Link href="/mcp" className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium underline underline-offset-4 hover:text-[hsl(24_95%_62%)]">
                   How to connect your assistant
                   <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
                 </Link>
               </div>
-              <div className="lg:col-span-7 rounded-[1.75rem] bg-white text-foreground shadow-[0_40px_120px_-30px_hsl(260_97%_30%/0.7)]">
+              <div className="lg:col-span-7 rounded-[1.75rem] bg-white text-foreground shadow-[0_40px_120px_-30px_hsl(0_0%_0%/0.7)]">
                 <McpDemo fallback={<McpDemoContent />} />
               </div>
             </div>

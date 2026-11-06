@@ -58,9 +58,9 @@ export function ClockLoader({
               y2="58"
               gradientUnits="userSpaceOnUse"
             >
-              <stop offset="0%" stopColor="hsl(280 80% 64%)" />
-              <stop offset="50%" stopColor="hsl(248 82% 62%)" />
-              <stop offset="100%" stopColor="hsl(192 90% 58%)" />
+              <stop offset="0%" stopColor="hsl(240 2% 26%)" />
+              <stop offset="50%" stopColor="hsl(240 2% 14%)" />
+              <stop offset="100%" stopColor="hsl(240 3% 6%)" />
             </linearGradient>
             <linearGradient
               id="cl-face"
@@ -71,7 +71,7 @@ export function ClockLoader({
               gradientUnits="userSpaceOnUse"
             >
               <stop offset="0%" stopColor="hsl(0 0% 100% / 0.95)" />
-              <stop offset="100%" stopColor="hsl(232 40% 96%)" />
+              <stop offset="100%" stopColor="hsl(220 6% 96%)" />
             </linearGradient>
             <linearGradient
               id="cl-hand-minute"
@@ -81,8 +81,8 @@ export function ClockLoader({
               y2="34"
               gradientUnits="userSpaceOnUse"
             >
-              <stop offset="0%" stopColor="hsl(280 80% 58%)" />
-              <stop offset="100%" stopColor="hsl(248 82% 58%)" />
+              <stop offset="0%" stopColor="hsl(28 95% 56%)" />
+              <stop offset="100%" stopColor="hsl(21 90% 50%)" />
             </linearGradient>
             <linearGradient
               id="cl-hand-hour"
@@ -92,8 +92,8 @@ export function ClockLoader({
               y2="34"
               gradientUnits="userSpaceOnUse"
             >
-              <stop offset="0%" stopColor="hsl(248 82% 55%)" />
-              <stop offset="100%" stopColor="hsl(232 40% 18%)" />
+              <stop offset="0%" stopColor="hsl(21 90% 48%)" />
+              <stop offset="100%" stopColor="hsl(0 0% 12%)" />
             </linearGradient>
             <radialGradient id="cl-shine" cx="0.42" cy="0.3" r="0.55">
               <stop offset="0%" stopColor="white" stopOpacity="0.7" />
@@ -112,7 +112,7 @@ export function ClockLoader({
             cx="32"
             cy="32"
             r="22"
-            stroke="hsl(248 82% 62% / 0.12)"
+            stroke="hsl(21 90% 50% / 0.12)"
             strokeWidth="1"
             fill="none"
           />
@@ -137,7 +137,7 @@ export function ClockLoader({
                 x2={x2}
                 y2={y2}
                 stroke={
-                  isMajor ? "hsl(232 40% 18% / 0.55)" : "hsl(232 40% 18% / 0.2)"
+                  isMajor ? "hsl(0 0% 12% / 0.55)" : "hsl(0 0% 12% / 0.2)"
                 }
                 strokeWidth={isMajor ? 1.25 : 0.75}
                 strokeLinecap="round"
@@ -214,11 +214,11 @@ export function ClockLoader({
             cx="32"
             cy="32"
             r="3"
-            stroke="hsl(248 82% 62%)"
+            stroke="hsl(21 90% 50%)"
             strokeWidth="0.75"
             fill="none"
           />
-          <circle cx="32" cy="32" r="1.1" fill="hsl(248 82% 62%)" />
+          <circle cx="32" cy="32" r="1.1" fill="hsl(21 90% 50%)" />
         </svg>
       </div>
       {label && (

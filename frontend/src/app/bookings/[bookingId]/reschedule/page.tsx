@@ -249,7 +249,7 @@ export default function ReschedulePage() {
   return (
     <div className="min-h-screen bg-[#f5f5f7] relative overflow-hidden py-8">
       <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-blue-200/20 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-purple-200/15 rounded-full blur-3xl" />
+      <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-orange-200/15 rounded-full blur-3xl" />
 
       <div className="relative container mx-auto px-4 max-w-5xl">
         <div className="mb-8">

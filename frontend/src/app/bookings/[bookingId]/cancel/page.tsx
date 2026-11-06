@@ -174,7 +174,7 @@ export default function CancelBookingPage() {
   return (
     <div className="min-h-screen bg-[#f5f5f7] relative overflow-hidden flex items-center justify-center py-8">
       <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-red-200/20 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-purple-200/15 rounded-full blur-3xl" />
+      <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-orange-200/15 rounded-full blur-3xl" />
 
       <div className="max-w-md w-full mx-4 bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-black/[0.03] p-8 relative">
         <div className="flex items-center gap-3 mb-2">

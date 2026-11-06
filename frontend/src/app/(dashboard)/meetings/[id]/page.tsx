@@ -280,7 +280,7 @@ export default function MeetingPage() {
                 );
               })}
               {m.slots.length > SHOWN && (
-                <button type="button" className="text-sm font-medium text-indigo-700 hover:underline" onClick={() => setShowAll(!showAll)}>
+                <button type="button" className="text-sm font-medium text-orange-700 hover:underline" onClick={() => setShowAll(!showAll)}>
                   {showAll ? "Show fewer" : `Show all ${m.slots.length} times`}
                 </button>
               )}

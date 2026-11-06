@@ -28,9 +28,9 @@ export function LogoIcon({ className }: LogoIconProps) {
           y2="38"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0%" stopColor="hsl(280 80% 64%)" />
-          <stop offset="50%" stopColor="hsl(248 82% 62%)" />
-          <stop offset="100%" stopColor="hsl(192 90% 58%)" />
+          <stop offset="0%" stopColor="hsl(240 2% 26%)" />
+          <stop offset="50%" stopColor="hsl(240 2% 14%)" />
+          <stop offset="100%" stopColor="hsl(240 3% 6%)" />
         </linearGradient>
         <linearGradient
           id={id("logo-shine")}
@@ -88,10 +88,10 @@ export function LogoIcon({ className }: LogoIconProps) {
       />
 
       {/* Tick marks at 12 / 3 / 6 / 9 */}
-      <circle cx="20" cy="12.5" r="0.9" fill="hsl(248 82% 55%)" />
-      <circle cx="28" cy="20.5" r="0.65" fill="hsl(248 82% 55%)" fillOpacity="0.7" />
-      <circle cx="20" cy="28.5" r="0.65" fill="hsl(248 82% 55%)" fillOpacity="0.7" />
-      <circle cx="12" cy="20.5" r="0.65" fill="hsl(248 82% 55%)" fillOpacity="0.7" />
+      <circle cx="20" cy="12.5" r="0.9" fill="hsl(21 90% 48%)" />
+      <circle cx="28" cy="20.5" r="0.65" fill="hsl(21 90% 48%)" fillOpacity="0.7" />
+      <circle cx="20" cy="28.5" r="0.65" fill="hsl(21 90% 48%)" fillOpacity="0.7" />
+      <circle cx="12" cy="20.5" r="0.65" fill="hsl(21 90% 48%)" fillOpacity="0.7" />
 
       {/* Hour hand */}
       <line
@@ -99,7 +99,7 @@ export function LogoIcon({ className }: LogoIconProps) {
         y1="20.5"
         x2="16.5"
         y2="17"
-        stroke="hsl(232 40% 18%)"
+        stroke="hsl(0 0% 12%)"
         strokeWidth="2"
         strokeLinecap="round"
       />
@@ -109,14 +109,14 @@ export function LogoIcon({ className }: LogoIconProps) {
         y1="20.5"
         x2="24.8"
         y2="15.8"
-        stroke="hsl(248 82% 55%)"
+        stroke="hsl(21 90% 48%)"
         strokeWidth="1.5"
         strokeLinecap="round"
       />
       {/* Center pivot */}
       <circle cx="20" cy="20.5" r="1.5" fill="white" />
-      <circle cx="20" cy="20.5" r="1.5" stroke="hsl(248 82% 55%)" strokeWidth="0.5" />
-      <circle cx="20" cy="20.5" r="0.55" fill="hsl(248 82% 55%)" />
+      <circle cx="20" cy="20.5" r="1.5" stroke="hsl(21 90% 48%)" strokeWidth="0.5" />
+      <circle cx="20" cy="20.5" r="0.55" fill="hsl(21 90% 48%)" />
     </svg>
   );
 }

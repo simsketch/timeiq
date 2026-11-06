@@ -61,7 +61,7 @@ function StatusBadge({ m }: { m: MeetingSummary }) {
       </span>
     );
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800">
+    <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-800">
       <Clock className="h-3 w-3" /> {m.responded_count} of {m.participant_count} answered
     </span>
   );
@@ -175,8 +175,8 @@ export default function MeetingsPage() {
       </div>
 
       {address && (
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-indigo-50/60 px-4 py-3 text-sm">
-          <Mail className="h-4 w-4 shrink-0 text-indigo-700" />
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-orange-50/60 px-4 py-3 text-sm">
+          <Mail className="h-4 w-4 shrink-0 text-orange-700" />
           <span className="min-w-0 flex-1">
             <span className="font-medium">Or just cc TimeIQ.</span> Add{" "}
             <code className="rounded bg-white/80 px-1.5 py-0.5 text-xs break-all">{address}</code> from your account email or a verified linked address to any thread
@@ -196,7 +196,7 @@ export default function MeetingsPage() {
       ) : meetings.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-14 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-700">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100 text-orange-700">
               <UsersRound className="h-6 w-6" />
             </div>
             <div>

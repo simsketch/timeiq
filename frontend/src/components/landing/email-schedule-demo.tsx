@@ -61,7 +61,7 @@ const SAMPLES: Sample[] = [
   },
 ];
 
-const BASE: DemoEvent[] = MERGE_EVENTS.work.map((e) => ({ ...e, color: "hsl(232 20% 70%)" }));
+const BASE: DemoEvent[] = MERGE_EVENTS.work.map((e) => ({ ...e, color: "hsl(220 6% 70%)" }));
 
 type Phase = "ready" | "sending" | "reading" | "added" | "undone";
 
@@ -226,7 +226,7 @@ export function EmailScheduleDemo() {
       <div className="rounded-xl bg-white/60 p-2.5 sm:p-3 ring-1 ring-foreground/[0.05]">
         <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
           <span className="inline-flex items-center gap-1">
-            <span className="h-2 w-2 rounded-sm" style={{ background: "hsl(232 20% 70%)" }} /> Your week
+            <span className="h-2 w-2 rounded-sm" style={{ background: "hsl(220 6% 70%)" }} /> Your week
           </span>
           <span className="inline-flex items-center gap-1">
             <span className="h-2 w-2 rounded-sm" style={{ background: KIDS }} /> From email
