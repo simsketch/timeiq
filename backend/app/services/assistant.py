@@ -75,6 +75,9 @@ cancelling, reminders{invoices}), say exactly what you're about to do in one or 
 - Keep replies short: a sentence or two, then a short list if it helps. No tables, no headings.
 - If something needs the app (connecting a calendar, payment), say where: Calendars, Settings, \
 Pricing.
+- Someone new may have no calendars connected yet. If their calendar comes back empty, answer what \
+you can, then say that connecting Google, Outlook or iCloud on Calendars lets you see their real \
+free time.
 - If a tool fails, say what went wrong in plain words and what they can do."""
 
 

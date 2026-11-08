@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { HeroAsk } from "@/components/landing/hero-ask";
 import type { Headline } from "@/components/landing/headlines";
 
 // Scroll-scrubbed hero: one day passes around a floating clock while life
@@ -239,17 +240,10 @@ export function ClockHero({ headline }: { headline: Headline }) {
             <span className="block opacity-55">{headline.accent}</span>
           </h1>
           <p className="mt-5 max-w-[26rem] text-[16px] sm:text-[17px] leading-[1.45] opacity-70 text-pretty">
-            Life moves fast. TimeIQ keeps time for you: forward a schedule, cc a thread, or ask your AI.
+            TimeIQ is the AI for scheduling. Tell it what you need, and it finds the time across all your calendars, books it and lets everyone know.
           </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Link href="/sign-up" className="inline-flex h-12 items-center rounded-md bg-[#141414] px-6 text-[15px] font-medium text-white transition-colors hover:bg-black">
-              Start free
-            </Link>
-            <a href="#try" className="inline-flex h-12 items-center rounded-md border border-black/15 bg-white/60 px-6 text-[15px] font-medium backdrop-blur transition-colors hover:bg-white/80">
-              Try the demo
-            </a>
-          </div>
-          <p className="mt-4 text-[13px] opacity-55">First 7 meetings free, no card. Then $19 a year.</p>
+          <HeroAsk />
+          <p className="mt-4 text-[13px] opacity-55">First 7 meetings free, no card. Then $19 a year. <a href="#try" className="underline underline-offset-2">Try the demo</a></p>
         </div>
 
         {BEATS.map((b, i) => (

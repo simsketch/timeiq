@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { ArrowUp, Mic, RotateCcw, Square } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { LogoMark } from "@/components/logo";
 import { cn } from "@/lib/utils";
+import { listen, speechRecognizer, takePendingAsk, type Recognizer } from "@/lib/speech";
 
 // Anthropic-format history, kept as the server returns it so tool results carry over between turns.
 type Block = { type: string; text?: string; name?: string; [k: string]: unknown };
@@ -14,6 +15,7 @@ type Step = { tool: string; ok: boolean };
 type Turn = { role: "user" | "assistant"; text: string; steps?: Step[] };
 
 const STORE = "timeiq-assistant-v1";
+const noop = () => () => {};
 const SUGGESTIONS = [
   "When am I free this week?",
   "What's on my calendar tomorrow?",
@@ -80,19 +82,6 @@ function Reply({ text }: { text: string }) {
   );
 }
 
-// The browser's own speech recognition (Chrome, Edge, Safari). Not in TypeScript's DOM types yet.
-type Recognizer = {
-  lang: string; continuous: boolean; interimResults: boolean;
-  start(): void; stop(): void;
-  onresult: ((e: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
-  onend: (() => void) | null; onerror: ((e: { error: string }) => void) | null;
-};
-function speechRecognizer(): (new () => Recognizer) | null {
-  if (typeof window === "undefined") return null;
-  const w = window as unknown as Record<string, unknown>;
-  return (w.SpeechRecognition || w.webkitSpeechRecognition || null) as (new () => Recognizer) | null;
-}
-
 function saved(): { history: Message[]; steps: Step[][] } {
   // Kept for this tab, so a reload or a trip to Calendars doesn't lose the conversation.
   try {
@@ -111,9 +100,8 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
-  const [canListen] = useState(() => Boolean(speechRecognizer()));
+  const canListen = useSyncExternalStore(noop, () => Boolean(speechRecognizer()), () => false);
   const recognizer = useRef<Recognizer | null>(null);
-  const spokenBase = useRef("");
   const input = useRef<HTMLTextAreaElement>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -157,30 +145,25 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
     }
   }, [busy, getToken, history]);
 
+  // A request typed on the homepage before signing up: ask it now.
+  const asked = useRef(false);
+  useEffect(() => {
+    if (asked.current) return;
+    asked.current = true;
+    const pending = takePendingAsk();
+    // after this render, so the effect itself never sets state
+    if (pending) setTimeout(() => void send(pending), 0);
+  }, [send]);
+
   function toggleMic() {
     if (listening) { recognizer.current?.stop(); return; }
-    const Rec = speechRecognizer();
-    if (!Rec) return;
-    const rec = new Rec();
-    rec.lang = navigator.language || "en-US";
-    rec.continuous = true;
-    rec.interimResults = true;
-    spokenBase.current = draft ? `${draft.trimEnd()} ` : "";
-    rec.onresult = (e) => {
-      let finalText = "", interim = "";
-      for (let i = 0; i < e.results.length; i++) {
-        const r = e.results[i];
-        if (r.isFinal) finalText += r[0].transcript; else interim += r[0].transcript;
-      }
-      setDraft(spokenBase.current + finalText + interim);
-    };
-    rec.onerror = (e) => {
-      if (e.error === "not-allowed") setError("Microphone access is blocked. Allow it in your browser to talk to TimeIQ.");
-    };
-    rec.onend = () => { setListening(false); recognizer.current = null; input.current?.focus(); };
-    recognizer.current = rec;
-    setListening(true);
-    rec.start();
+    recognizer.current = listen(
+      draft,
+      setDraft,
+      () => { setListening(false); recognizer.current = null; input.current?.focus(); },
+      (error) => { if (error === "not-allowed") setError("Microphone access is blocked. Allow it in your browser to talk to TimeIQ."); },
+    );
+    if (recognizer.current) setListening(true);
   }
 
   function reset() {
