@@ -148,6 +148,8 @@ export function ClockHero({ headline }: { headline: Headline }) {
     let visible = true;
     let cancelled = false;
     let shownLive = false;
+    let painted = false; // a real frame has drawn (iOS shows blank until one does)
+    let needsGesture = false; // Low Power Mode refuses even a muted play until a tap
 
     const progress = () => {
       const rect = el.getBoundingClientRect();
@@ -158,7 +160,7 @@ export function ClockHero({ headline }: { headline: Headline }) {
       if (!visible) return;
       const p = progress();
       setActive(Math.round(p * FRAMES));
-      if (ready && !shownLive && window.scrollY > 0) {
+      if (painted && !shownLive && window.scrollY > 0) {
         shownLive = true;
         setLive(true);
       }
@@ -174,13 +176,35 @@ export function ClockHero({ headline }: { headline: Headline }) {
       if (!frame) frame = requestAnimationFrame(step);
     };
 
-    // Phones and mobile Safari only seek a video that has played once.
-    const onMeta = () => {
-      video.play().then(() => video.pause()).catch(() => {}).finally(() => {
+    // iOS Safari never finishes a seek on a video that hasn't played (it stalls with
+    // seeking stuck), so scrubbing waits for a muted play then pause. React's `muted`
+    // prop doesn't reliably set the attribute iOS checks, so set both by hand.
+    video.muted = true;
+    video.playsInline = true;
+    video.setAttribute("muted", "");
+    video.setAttribute("playsinline", "");
+    const unlock = () =>
+      video.play().then(() => {
+        video.pause();
+        needsGesture = false;
         ready = true;
         kick();
       });
+    const onMeta = () => {
+      unlock().catch(() => { needsGesture = true; });
     };
+    // The poster stays up until the video has really painted a frame.
+    const onSeeked = () => {
+      if (!ready) return;
+      painted = true;
+      video.removeEventListener("seeked", onSeeked);
+      kick();
+    };
+    video.addEventListener("seeked", onSeeked);
+    // Low Power Mode: retry on a tap (touchend and click carry user activation on iOS).
+    const onTap = () => { if (needsGesture) unlock().catch(() => {}); };
+    window.addEventListener("touchend", onTap, { passive: true });
+    window.addEventListener("click", onTap);
     const load = () => {
       fetch("/clock/day.mp4")
         .then((r) => r.blob())
@@ -188,7 +212,11 @@ export function ClockHero({ headline }: { headline: Headline }) {
           if (cancelled) return;
           url = URL.createObjectURL(blob);
           video.addEventListener("loadedmetadata", onMeta, { once: true });
+          // preload="none" kept the element idle until now; iOS won't even read
+          // metadata from the blob while it's still set.
+          video.preload = "auto";
           video.src = url;
+          video.load();
         })
         .catch(() => {});
     };
@@ -216,6 +244,9 @@ export function ClockHero({ headline }: { headline: Headline }) {
       intents.forEach((e) => window.removeEventListener(e, start));
       window.removeEventListener("scroll", kick);
       window.removeEventListener("resize", kick);
+      window.removeEventListener("touchend", onTap);
+      window.removeEventListener("click", onTap);
+      video.removeEventListener("seeked", onSeeked);
       cancelAnimationFrame(frame);
       if (url) URL.revokeObjectURL(url);
     };
