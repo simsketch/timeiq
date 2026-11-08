@@ -63,7 +63,15 @@ async def get_current_user_clerk_id(request: Request, db: AsyncSession = Depends
 
     token = auth_header.split(" ", 1)[1]
 
-    from app.services import api_tokens, oauth
+    from app.services import api_tokens, assistant, oauth
+
+    # The in-app assistant's tools call the API in-process with a one-off token (services/assistant.py).
+    if assistant.looks_like_token(token):
+        clerk_id = assistant.clerk_id_for(token)
+        if clerk_id is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+        request.state.auth_method = "token"
+        return clerk_id
 
     if oauth.looks_like_token(token):
         user = await oauth.user_for(db, token)

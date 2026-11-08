@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import Link from "next/link";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
+import { AssistantChat } from "@/components/dashboard/assistant-chat";
 import { MoneyStats, fmtMoney } from "@/lib/invoicing";
 import { Timer, Receipt, Wallet, BadgeCheck } from "lucide-react";
 
@@ -145,6 +146,8 @@ export default function DashboardPage() {
           </Link>
         </Button>
       </div>
+
+      <AssistantChat firstName={user?.firstName} />
 
       <OnboardingChecklist />
 
