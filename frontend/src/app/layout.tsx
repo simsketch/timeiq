@@ -14,7 +14,11 @@ export const metadata: Metadata = {
   title: "TimeIQ - Forward any schedule. It's on your calendar.",
   description: DESCRIPTION,
   icons: {
-    icon: "/favicon.svg",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
   },
   openGraph: {
     type: "website",
@@ -46,23 +50,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <head>
-        {/* next/font used to preload these; self-hosting means doing it here. */}
-        <link
-          rel="preload"
-          href="/fonts/PlusJakartaSans-normal-latin.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
-        <link
-          rel="preload"
-          href="/fonts/PlusJakartaSans-italic-latin.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
-      </head>
       <body className="font-sans antialiased">
         {children}
         <Toaster />

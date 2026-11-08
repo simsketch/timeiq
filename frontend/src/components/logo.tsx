@@ -1,122 +1,40 @@
-import { useId } from "react";
 import { cn } from "@/lib/utils";
+
+// The TimeIQ mark: a ring with a notch (a Q, and a speech bubble) and a tangerine
+// full stop. Geometry comes from brand/build.py; regenerate the paths there.
+export const MARK_RING =
+  "M69.691 69.962 A31.5 31.5 0 1 1 69.962 69.691 L65.900 60.578 A22.5 22.5 0 1 0 60.578 65.900 Z";
+export const MARK_DOT = { cx: 77.747, cy: 77.747, r: 6.2 };
 
 interface LogoIconProps {
   className?: string;
 }
 
+/** The app-icon tile: graphite rounded square with the cream mark. */
 export function LogoIcon({ className }: LogoIconProps) {
-  // Unique gradient ids per instance. The icon renders several times per page
-  // (mobile nav, drawer, sidebar) and a shared id would resolve to whichever
-  // instance comes first in the DOM, which may be display:none and then the
-  // gradients don't paint.
-  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
-  const id = (name: string) => `${name}-${uid}`;
   return (
     <svg
-      viewBox="0 0 40 40"
+      viewBox="0 0 100 100"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={cn("w-9 h-9", className)}
+      aria-hidden="true"
     >
-      <defs>
-        <linearGradient
-          id={id("logo-bg")}
-          x1="2"
-          y1="2"
-          x2="38"
-          y2="38"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0%" stopColor="hsl(240 2% 26%)" />
-          <stop offset="50%" stopColor="hsl(240 2% 14%)" />
-          <stop offset="100%" stopColor="hsl(240 3% 6%)" />
-        </linearGradient>
-        <linearGradient
-          id={id("logo-shine")}
-          x1="4"
-          y1="4"
-          x2="22"
-          y2="22"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0%" stopColor="white" stopOpacity="0.45" />
-          <stop offset="100%" stopColor="white" stopOpacity="0" />
-        </linearGradient>
-        <radialGradient id={id("logo-inner")} cx="0.5" cy="0.35" r="0.65">
-          <stop offset="0%" stopColor="white" stopOpacity="0.28" />
-          <stop offset="100%" stopColor="white" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient
-          id={id("logo-face")}
-          x1="12"
-          y1="10"
-          x2="28"
-          y2="30"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0%" stopColor="white" stopOpacity="0.95" />
-          <stop offset="100%" stopColor="white" stopOpacity="0.78" />
-        </linearGradient>
-      </defs>
+      <rect width="100" height="100" rx="24" fill="#141414" />
+      <g transform="translate(10 10) scale(0.8)">
+        <path d={MARK_RING} fill="#F4EFE3" />
+        <circle {...MARK_DOT} fill="#F2690D" />
+      </g>
+    </svg>
+  );
+}
 
-      {/* Base aurora rounded square */}
-      <rect x="2" y="2" width="36" height="36" rx="11" fill={`url(#${id("logo-bg")})`} />
-      {/* Top-left specular shine */}
-      <rect x="2" y="2" width="36" height="36" rx="11" fill={`url(#${id("logo-shine")})`} />
-      {/* Ambient inner glow */}
-      <rect x="2" y="2" width="36" height="36" rx="11" fill={`url(#${id("logo-inner")})`} />
-      {/* Thin top highlight */}
-      <path
-        d="M11 3.5 H29 a7.5 7.5 0 0 1 7.5 7.5"
-        stroke="white"
-        strokeOpacity="0.42"
-        strokeWidth="0.6"
-        strokeLinecap="round"
-        fill="none"
-      />
-
-      {/* Clock face (glass disc) */}
-      <circle cx="20" cy="20.5" r="9.5" fill={`url(#${id("logo-face")})`} />
-      <circle
-        cx="20"
-        cy="20.5"
-        r="9.5"
-        stroke="white"
-        strokeOpacity="0.65"
-        strokeWidth="0.6"
-      />
-
-      {/* Tick marks at 12 / 3 / 6 / 9 */}
-      <circle cx="20" cy="12.5" r="0.9" fill="hsl(21 90% 48%)" />
-      <circle cx="28" cy="20.5" r="0.65" fill="hsl(21 90% 48%)" fillOpacity="0.7" />
-      <circle cx="20" cy="28.5" r="0.65" fill="hsl(21 90% 48%)" fillOpacity="0.7" />
-      <circle cx="12" cy="20.5" r="0.65" fill="hsl(21 90% 48%)" fillOpacity="0.7" />
-
-      {/* Hour hand */}
-      <line
-        x1="20"
-        y1="20.5"
-        x2="16.5"
-        y2="17"
-        stroke="hsl(0 0% 12%)"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      {/* Minute hand */}
-      <line
-        x1="20"
-        y1="20.5"
-        x2="24.8"
-        y2="15.8"
-        stroke="hsl(21 90% 48%)"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      {/* Center pivot */}
-      <circle cx="20" cy="20.5" r="1.5" fill="white" />
-      <circle cx="20" cy="20.5" r="1.5" stroke="hsl(21 90% 48%)" strokeWidth="0.5" />
-      <circle cx="20" cy="20.5" r="0.55" fill="hsl(21 90% 48%)" />
+/** The bare mark in the current text colour, with the tangerine full stop. */
+export function LogoMark({ className }: LogoIconProps) {
+  return (
+    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={cn("w-6 h-6", className)} aria-hidden="true">
+      <path d={MARK_RING} fill="currentColor" />
+      <circle {...MARK_DOT} fill="#F2690D" />
     </svg>
   );
 }
