@@ -655,7 +655,7 @@
   transition: opacity 450ms ease, transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .ch-beat[data-on] { opacity: 1; transform: none; }
-.ch-beat[data-on] a { pointer-events: auto; }
+.ch-beat[data-on] a, .ch-beat[data-on] button, .ch-beat[data-on] input { pointer-events: auto; }
 .ch-intro, .ch-copy { position: absolute; top: auto; left: 20px; right: 20px; bottom: calc(env(safe-area-inset-bottom) + 28px); }
 .ch-intro.ch-beat { inset: auto 20px calc(env(safe-area-inset-bottom) + 28px) 20px; }
 .ch-time { margin-bottom: 10px; font-size: 12px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #e8590c; }
