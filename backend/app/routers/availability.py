@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, delete, select
@@ -19,7 +19,7 @@ from app.schemas.availability import (
     AvailableSlot,
 )
 from app.services import billing
-from app.services.availability import get_available_slots, host_zone
+from app.services.availability import BOOKING_HORIZON_DAYS, get_available_slots, host_zone
 from app.services.free_time import free_windows
 from app.tasks import freshen_user_calendars
 from app.services.booking_payments import expire_holds, require_payments
@@ -266,14 +266,26 @@ async def debug_slots(
 async def availability_summary(
     days: int = Query(7, ge=1, le=31),
     min_minutes: int = Query(30, ge=15, le=480),
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Your open windows for the coming days, to share by hand (text or image)."""
+    """Open windows for upcoming days or an inclusive custom date range."""
+    now = datetime.now(timezone.utc)
+    today = now.astimezone(host_zone(user)).date()
+    if start_date is not None or end_date is not None:
+        if start_date is None or end_date is None:
+            raise HTTPException(status_code=422, detail="Choose both a start date and an end date.")
+        days = (end_date - start_date).days + 1
+        if not 1 <= days <= 31:
+            raise HTTPException(status_code=422, detail="Choose a date range of 1 to 31 days, including both dates.")
+        if start_date < today or end_date > today + timedelta(days=BOOKING_HORIZON_DAYS):
+            raise HTTPException(status_code=422, detail="Choose dates within the next 90 days.")
     # Pick up events added since the last sync; past the budget, cached events stand.
     await freshen_user_calendars(user.id, budget_seconds=4.0)
     return {
         "timezone": str(host_zone(user)),
         "username": user.username,
-        "days": await free_windows(db, user, days=days, min_minutes=min_minutes),
+        "days": await free_windows(db, user, days=days, min_minutes=min_minutes, now=now, start_date=start_date),
     }

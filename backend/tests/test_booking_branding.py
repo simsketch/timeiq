@@ -71,6 +71,10 @@ async def test_branding_is_saved_public_on_both_booking_pages_and_isolated_by_ac
 async def test_invalid_upload_does_not_change_existing_branding(env):
     value = logo()
     await env.client.patch("/api/me", json={"booking_logo": value})
+    assert (await env.client.get("/api/me")).json()["booking_white_label"] is True
     result = await env.client.patch("/api/me", json={"booking_logo": "data:image/svg+xml,<svg/>"})
     assert result.status_code == 422
     assert (await env.client.get("/api/me")).json()["booking_logo"] == value
+    # The host can explicitly turn branding back on after the upload.
+    result = await env.client.patch("/api/me", json={"booking_white_label": False})
+    assert result.json()["booking_white_label"] is False

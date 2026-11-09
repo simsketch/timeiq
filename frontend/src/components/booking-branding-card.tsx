@@ -58,7 +58,7 @@ export function BookingBrandingCard({ username, initialLogo, initialWhiteLabel }
           scale /= 2;
         } while (data.length > 175_000);
       } finally { bitmap.close(); }
-      await save(data, whiteLabel);
+      await save(data, true);
     } catch (error) {
       toast({ title: "Couldn't upload the logo", description: error instanceof Error ? error.message : "Try another image.", variant: "destructive" });
     } finally { setBusy(false); }
@@ -68,7 +68,7 @@ export function BookingBrandingCard({ username, initialLogo, initialWhiteLabel }
     <Card id="branding" className="scroll-mt-6">
       <CardHeader><CardTitle>Your branding</CardTitle></CardHeader>
       <CardContent className="space-y-5">
-        <p className="text-sm text-muted-foreground">Add your logo to your booking page and meeting pages. Transparent PNGs work best.</p>
+        <p className="text-sm text-muted-foreground">Upload your logo to replace TimeIQ branding on your booking page and meeting pages. Transparent PNGs work best. You can turn TimeIQ branding back on below.</p>
         {logo && (
           <div className="flex items-center gap-4 rounded-lg border bg-white p-4">
             {/* Uploaded logos are bounded, validated PNG data URLs. */}

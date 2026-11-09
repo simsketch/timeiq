@@ -282,6 +282,8 @@ async def update_me(
         user.booking_scene = payload.booking_scene
     if "booking_logo" in payload.model_fields_set:
         user.booking_logo = payload.booking_logo
+        if payload.booking_logo is not None and payload.booking_white_label is None:
+            user.booking_white_label = True
     if payload.booking_white_label is not None:
         user.booking_white_label = payload.booking_white_label
 

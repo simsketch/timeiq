@@ -47,11 +47,13 @@ export function ShareAvailability() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [range, setRange] = useState<number | "custom">(7);
-  const [customDays, setCustomDays] = useState("7");
-  const days = range === "custom" ? Number(customDays) : range;
-  const validDays = Number.isInteger(days) && days >= 1 && days <= 31;
-  const [loadedSummary, setSummary] = useState<AvailabilitySummary | null>(null);
-  const summary = validDays && loadedSummary?.days.length === days ? loadedSummary : null;
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const customDays = (Date.parse(endDate) - Date.parse(startDate)) / 86_400_000 + 1;
+  const validRange = range !== "custom" || (Boolean(startDate && endDate) && Number.isInteger(customDays) && customDays >= 1 && customDays <= 31);
+  const query = range === "custom" ? `start_date=${startDate}&end_date=${endDate}` : `days=${range}`;
+  const [loadedSummary, setSummary] = useState<{ query: string; data: AvailabilitySummary } | null>(null);
+  const summary = validRange && loadedSummary?.query === query ? loadedSummary.data : null;
   const [loadError, setLoadError] = useState<string | null>(null);
   const [zones, setZones] = useState<string[]>([]);
   const [includeEmpty, setIncludeEmpty] = useState(false);
@@ -62,16 +64,16 @@ export function ShareAvailability() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!open || !validDays) return;
+    if (!open || !validRange) return;
     let cancelled = false;
     (async () => {
       try {
         const token = await getToken();
-        const s = await apiFetch<AvailabilitySummary>(`/api/availability/summary?days=${days}`, {
+        const s = await apiFetch<AvailabilitySummary>(`/api/availability/summary?${query}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (cancelled) return;
-        setSummary(s);
+        setSummary({ query, data: s });
         setLoadError(null);
         // Your own zone first; anything you added last time comes back too.
         setZones((current) => {
@@ -86,7 +88,7 @@ export function ShareAvailability() {
     return () => {
       cancelled = true;
     };
-  }, [open, days, validDays, attempt, getToken]);
+  }, [open, query, validRange, attempt, getToken]);
 
   const bookingUrl = summary ? `${typeof window !== "undefined" ? window.location.origin : "https://timeiq.app"}/book/${summary.username}` : "";
   const text = useMemo(
@@ -173,24 +175,27 @@ export function ShareAvailability() {
                 {n} {n === 1 ? "day" : "days"}
               </Button>
             ))}
-            <Button size="sm" aria-pressed={range === "custom"} variant={range === "custom" ? "default" : "outline"} onClick={() => { setRange("custom"); setLoadError(null); }}>
+            <Button size="sm" aria-pressed={range === "custom"} variant={range === "custom" ? "default" : "outline"} onClick={() => {
+              if (!startDate && summary?.days.length) {
+                setStartDate(summary.days[0].date);
+                setEndDate(summary.days[summary.days.length - 1].date);
+              }
+              setRange("custom"); setLoadError(null);
+            }}>
               Custom
             </Button>
             {range === "custom" && (
-              <label className="flex items-center gap-2 text-sm">
-                Number of days
-                <input
-                  type="number"
-                  min={1}
-                  max={31}
-                  step={1}
-                  value={customDays}
-                  aria-invalid={!validDays}
-                  className="h-9 w-20 rounded-md border bg-background px-2 text-sm"
-                  onChange={(e) => { setCustomDays(e.target.value); setLoadError(null); }}
-                />
-                <span className="text-muted-foreground">1–31</span>
-              </label>
+              <div className="flex w-full flex-wrap items-end gap-3">
+                <label className="space-y-1 text-sm">
+                  <span className="block">Start date</span>
+                  <input type="date" value={startDate} aria-invalid={!validRange} className="h-9 rounded-md border bg-background px-2 text-sm" onChange={(e) => { setStartDate(e.target.value); setLoadError(null); }} />
+                </label>
+                <label className="space-y-1 text-sm">
+                  <span className="block">End date</span>
+                  <input type="date" value={endDate} min={startDate || undefined} aria-invalid={!validRange} className="h-9 rounded-md border bg-background px-2 text-sm" onChange={(e) => { setEndDate(e.target.value); setLoadError(null); }} />
+                </label>
+                <p className="text-xs text-muted-foreground">Up to 31 days, including both dates, within the next 90 days.</p>
+              </div>
             )}
           </div>
 
@@ -243,8 +248,8 @@ export function ShareAvailability() {
             </div>
           </div>
 
-          {!validDays ? (
-            <p role="alert" className="text-sm text-destructive">Enter a whole number of days from 1 to 31.</p>
+          {!validRange ? (
+            <p role="alert" className="text-sm text-destructive">Choose a start and end date spanning 1 to 31 days, including both dates.</p>
           ) : loadError ? (
             <div className="rounded-lg border p-4 text-sm" role="alert">
               <p className="mb-3">{loadError}</p>

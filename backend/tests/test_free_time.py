@@ -1,7 +1,7 @@
 """Open windows for sharing availability."""
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 from app.database import async_session
 from app.models.availability_rule import AvailabilityRule
@@ -55,3 +55,14 @@ async def test_windows_follow_hours_events_and_timezone(env):
     ]
     saturday = next(d for d in days if d["date"] == "2026-11-07")
     assert saturday["working"] is False and saturday["windows"] == []
+
+    async with async_session() as db:
+        db.add(CachedEvent(user_id=u.id, calendar_source_id=src.id, title="Future call",
+                           starts_at=datetime(2026, 11, 6, 15, tzinfo=UTC), ends_at=datetime(2026, 11, 6, 16, tzinfo=UTC)))
+        await db.commit()
+        chosen = await free_windows(db, u, days=3, now=now, start_date=date(2026, 11, 6))
+    assert [d["date"] for d in chosen] == ["2026-11-06", "2026-11-07", "2026-11-08"]
+    assert chosen[0]["windows"] == [
+        {"start": "2026-11-06T14:00:00+00:00", "end": "2026-11-06T15:00:00+00:00"},
+        {"start": "2026-11-06T16:00:00+00:00", "end": "2026-11-06T22:00:00+00:00"},
+    ]

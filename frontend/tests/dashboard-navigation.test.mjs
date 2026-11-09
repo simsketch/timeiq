@@ -92,9 +92,8 @@ test("booking branding uploads a resized logo, saves white labeling, and preserv
   assert.equal(event.target.value, "");
   assert.equal(calls[0].path, "/api/me");
   assert.equal(calls[0].headers.Authorization, "Bearer test-token");
-  assert.deepEqual(JSON.parse(calls[0].body), { booking_logo: png, booking_white_label: false });
+  assert.deepEqual(JSON.parse(calls[0].body), { booking_logo: png, booking_white_label: true });
   assert.equal(find(card.render(), (node) => node.type === "img").props.src, png);
-  await find(card.render(), (node) => node.type === "Switch").props.onCheckedChange(true);
   assert.equal(find(card.render(), (node) => node.type === "Switch").props.checked, true);
   fail = true;
   await find(card.render(), (node) => node.type === "Switch").props.onCheckedChange(false);
@@ -142,8 +141,17 @@ test("white-label booking metadata uses the host's title and logo instead of Tim
   }
 });
 
-test("availability sharing supports short and custom ranges and rejects invalid day counts", async () => {
-  for (const count of [1, 3, 5, 7, 14, 10, 31, 0, 32, 1.5, ""]) {
+test("availability sharing sends inclusive custom dates, validates ranges and never shows another range's output", async () => {
+  const cases = [
+    ...[1, 3, 5, 7, 14].map((preset) => ({ preset })),
+    { start: "2026-11-20", end: "2026-11-20", days: 1 },
+    { start: "2026-11-20", end: "2026-11-22", days: 3 },
+    { start: "2026-11-20", end: "2026-12-20", days: 31 },
+    { start: "2026-11-20", end: "2026-12-21" },
+    { start: "2026-11-22", end: "2026-11-20" },
+    { start: "", end: "2026-11-20" }, { start: "2026-11-20", end: "" },
+  ];
+  for (const c of cases) {
     const calls = [];
     const share = harness("components/share-availability.tsx", "ShareAvailability", {}, {
       effects: true,
@@ -152,34 +160,35 @@ test("availability sharing supports short and custom ranges and rejects invalid 
         "@/components/ui/use-toast": toastModule,
         "@/lib/api": { apiFetch: async (path) => {
           calls.push(path);
-          return { timezone: "UTC", username: "test", days: Array.from({ length: count }, () => ({})) };
+          return { timezone: "UTC", username: "test", days: Array.from({ length: c.preset ?? c.days }, (_, i) => ({ date: `2026-11-${9 + i}` })) };
         } },
         "@/lib/availability-share": { COMMON_ZONES: [], IMAGE_THEMES: load("lib/availability-share.ts").IMAGE_THEMES, zoneAbbr: (zone) => zone, buildText: (s) => `Range: ${s.days.length}`, drawImage() {} },
       },
       globals: { window: { location: { origin: "https://timeiq.test" } } },
     });
     let tree = share.render();
-    const preset = find(tree, (node) => node.type === "Button" && node.props?.children?.[0] === count);
-    if (preset) preset.props.onClick();
+    if (c.preset) find(tree, (node) => node.type === "Button" && node.props?.children?.[0] === c.preset).props.onClick();
     else {
       find(tree, (node) => node.type === "Button" && node.props.children === "Custom").props.onClick();
-      tree = share.render();
-      const input = find(tree, (node) => node.type === "input" && node.props.type === "number");
-      assert.equal(input.props.min, 1);
-      assert.equal(input.props.max, 31);
-      input.props.onChange({ target: { value: String(count) } });
+      const inputs = () => nodes(share.render(), (node) => node.type === "input" && node.props.type === "date");
+      inputs()[0].props.onChange({ target: { value: c.start } });
+      inputs()[1].props.onChange({ target: { value: c.end } });
     }
     find(share.render(), (node) => node.type === "Dialog").props.onOpenChange(true);
     await share.mount();
     tree = share.render();
-    const valid = Number.isInteger(count) && count >= 1 && count <= 31;
-    assert.deepEqual(calls, valid ? [`/api/availability/summary?days=${count}`] : []);
+    const valid = Boolean(c.preset ?? c.days);
+    const query = c.preset ? `days=${c.preset}` : `start_date=${c.start}&end_date=${c.end}`;
+    assert.deepEqual(calls, valid ? [`/api/availability/summary?${query}`] : []);
     if (valid) {
-      assert.equal(find(tree, (node) => node.type === "textarea").props.value, `Range: ${count}`);
+      assert.equal(find(tree, (node) => node.type === "textarea").props.value, `Range: ${c.preset ?? c.days}`);
       find(tree, (node) => node.type === "Button" && node.props.children?.includes?.("Midnight")).props.onClick();
       assert.equal(find(share.render(), (node) => node.type === "canvas").props["aria-label"], "Availability image, Midnight theme");
-    }
-    else assert.ok(find(tree, (node) => node.props?.role === "alert"));
+      if (!c.preset) {
+        nodes(share.render(), (node) => node.type === "input" && node.props.type === "date")[0].props.onChange({ target: { value: "2026-11-21" } });
+        assert.equal(find(share.render(), (node) => node.type === "textarea"), undefined);
+      }
+    } else assert.ok(find(tree, (node) => node.props?.role === "alert"));
   }
 });
 

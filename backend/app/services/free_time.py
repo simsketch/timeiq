@@ -59,6 +59,7 @@ async def free_windows(
     buffer_minutes: int = 0,
     now: datetime | None = None,
     default_hours: bool = False,
+    start_date: date | None = None,
 ) -> list[dict]:
     """Per host-local day: the open windows (UTC) inside working hours.
 
@@ -68,7 +69,7 @@ async def free_windows(
     now = now or datetime.now(timezone.utc)
     days = max(1, min(days, BOOKING_HORIZON_DAYS))
     tz = host_zone(host)
-    today = now.astimezone(tz).date()
+    today = start_date or now.astimezone(tz).date()
     span_start = datetime.combine(today, datetime.min.time(), tzinfo=tz).astimezone(timezone.utc)
     span_end = datetime.combine(today + timedelta(days=days + 1), datetime.min.time(), tzinfo=tz).astimezone(timezone.utc)
 
