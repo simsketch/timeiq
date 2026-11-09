@@ -45,6 +45,8 @@ class PublicUserProfile(BaseModel):
     name: Optional[str]
     image_url: Optional[str]
     booking_scene: Optional[str] = None
+    booking_logo: Optional[str] = None
+    booking_white_label: bool = False
     event_types: list[PublicEventType]
 
 
@@ -60,6 +62,8 @@ class PublicEventTypeDetail(BaseModel):
     color: str
     buffer_minutes: int
     host_name: Optional[str] = None
+    booking_logo: Optional[str] = None
+    booking_white_label: bool = False
     collect_phone: bool = False
     require_phone: bool = False
     collect_company: bool = False
@@ -170,6 +174,8 @@ async def get_public_profile(
         name=user.name,
         image_url=user.image_url,
         booking_scene=user.booking_scene,
+        booking_logo=user.booking_logo,
+        booking_white_label=user.booking_white_label,
         event_types=[PublicEventType.model_validate(et) for et in event_types
                      if et.price_cents is None or (user.stripe_connect_account_id and user.stripe_connect_charges_enabled)],
     )
@@ -211,5 +217,7 @@ async def get_public_event_type(
     detail = PublicEventTypeDetail.model_validate(event_type)
     require_payments(user, event_type)
     detail.host_name = user.name
+    detail.booking_logo = user.booking_logo
+    detail.booking_white_label = user.booking_white_label
     return detail
 

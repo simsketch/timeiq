@@ -29,6 +29,7 @@ from app.models.user import User
 from app.models.event_type import EventType
 from app.models.booking import Booking
 from app.services.email import send_welcome
+from app.services.branding import validate_booking_logo
 from sqlalchemy import func, and_
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,8 @@ class UserResponse(BaseModel):
     weekly_hours_target: int = 40
     weekly_summary_enabled: bool = True
     booking_scene: Optional[str] = None
+    booking_logo: Optional[str] = None
+    booking_white_label: bool = False
     invoicing_enabled: bool = False
 
     model_config = {"from_attributes": True}
@@ -68,6 +71,10 @@ class UserUpdate(BaseModel):
     weekly_hours_target: Optional[int] = None
     weekly_summary_enabled: Optional[bool] = None
     booking_scene: Optional[str] = Field(default=None, max_length=32)
+    booking_logo: Optional[str] = Field(default=None, max_length=180_000)
+    booking_white_label: Optional[bool] = None
+
+    _valid_booking_logo = field_validator("booking_logo")(validate_booking_logo)
 
     @field_validator("booking_scene")
     @classmethod
@@ -273,6 +280,10 @@ async def update_me(
 
     if payload.booking_scene is not None:
         user.booking_scene = payload.booking_scene
+    if "booking_logo" in payload.model_fields_set:
+        user.booking_logo = payload.booking_logo
+    if payload.booking_white_label is not None:
+        user.booking_white_label = payload.booking_white_label
 
     user.updated_at = datetime.now(timezone.utc)
     await db.flush()
@@ -507,7 +518,7 @@ async def export_my_data(
     et_name = {e.id: e.name for e in event_types}
 
     files = {
-        "profile.json": json.dumps({"username": user.username, "email": user.email, "name": user.name, "timezone": user.timezone, "exported_at": datetime.now(timezone.utc).isoformat()}, indent=2),
+        "profile.json": json.dumps({"username": user.username, "email": user.email, "name": user.name, "timezone": user.timezone, "booking_logo": user.booking_logo, "booking_white_label": user.booking_white_label, "exported_at": datetime.now(timezone.utc).isoformat()}, indent=2),
         "clients.csv": _csv([{"name": c.name, "contact_name": c.contact_name or "", "billing_email": c.billing_email or "", "address": c.address or "", "hourly_rate": str(c.hourly_rate), "currency": c.currency, "payment_terms_days": c.payment_terms_days} for c in clients]),
         "time_entries.csv": _csv([{"date": e.entry_date.isoformat(), "client": client_name.get(e.client_id, ""), "hours": str(e.hours), "description": e.description, "invoice": inv_number.get(e.invoice_id, "") if e.invoice_id else ""} for e in entries]),
         "invoices.csv": _csv([{"number": i.number, "client": i.client_name, "status": i.status, "issue_date": i.issue_date.isoformat(), "due_date": i.due_date.isoformat(), "period_start": i.period_start.isoformat(), "period_end": i.period_end.isoformat(), "currency": i.currency, "subtotal": str(i.subtotal), "sent_at": i.sent_at.isoformat() if i.sent_at else "", "paid_at": i.paid_at.isoformat() if i.paid_at else ""} for i in invoices]),

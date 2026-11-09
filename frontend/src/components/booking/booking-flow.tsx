@@ -27,6 +27,8 @@ interface EventType {
   color: string;
   buffer_minutes: number;
   host_name: string | null;
+  booking_logo?: string | null;
+  booking_white_label?: boolean;
   collect_phone: boolean;
   require_phone: boolean;
   collect_company: boolean;
@@ -323,6 +325,10 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
 
         {/* Event header */}
         <div className="mb-10 reveal reveal-1">
+          {eventType.booking_logo && (
+            // eslint-disable-next-line @next/next/no-img-element -- validated PNG data URL
+            <img src={eventType.booking_logo} alt={`${eventType.host_name || username} logo`} className="mb-6 max-h-24 max-w-60 object-contain" />
+          )}
           <div className="flex items-center gap-2 mb-4">
             <span
               className="h-2 w-2 rounded-full"
@@ -461,7 +467,7 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
         </div>
 
         {/* Footer */}
-        {!embed && <div className="flex items-center justify-center gap-2 mt-16 pt-10 border-t border-foreground/5">
+        {!embed && !eventType.booking_white_label && <div className="flex items-center justify-center gap-2 mt-16 pt-10 border-t border-foreground/5">
           <LogoIcon className="w-4 h-4" />
           <span className="text-xs text-muted-foreground">
             Powered by{" "}

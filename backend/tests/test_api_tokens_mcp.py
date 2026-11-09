@@ -117,6 +117,10 @@ async def test_mcp_requires_a_token(env):
 
 
 async def test_mcp_lists_tools_and_calls_them_as_the_token_owner(env):
+    async with async_session() as db:
+        user = await db.get(User, env["user"].id)
+        user.booking_logo = "data:image/png;base64," + "x" * 100_000
+        await db.commit()
     token = (await _create_token(env))["token"]
     init = await _rpc(env, token, "initialize", {
         "protocolVersion": "2025-11-25", "capabilities": {}, "clientInfo": {"name": "pytest", "version": "1"},
@@ -131,6 +135,7 @@ async def test_mcp_lists_tools_and_calls_them_as_the_token_owner(env):
     called = (await _rpc(env, token, "tools/call", {"name": "get_profile", "arguments": {}})).json()["result"]
     profile = json.loads(called["content"][0]["text"])
     assert profile["username"] == env["user"].username
+    assert "booking_logo" not in profile
     assert profile["booking_link"].endswith(f"/book/{env['user'].username}")
 
     # API errors come back as tool errors with the API's own message.

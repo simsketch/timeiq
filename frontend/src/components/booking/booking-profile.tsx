@@ -26,6 +26,8 @@ export interface PublicProfile {
   name: string;
   image_url: string | null;
   booking_scene?: string | null;
+  booking_logo?: string | null;
+  booking_white_label?: boolean;
   event_types: MeetingType[];
 }
 
@@ -67,17 +69,17 @@ export function BookingProfile({ profile, embed = false }: { profile: PublicProf
   return (
     <main className={`${styles.page} ${noScene ? styles.noScene : ""} ${embed ? styles.embed : ""}`}>
       {embed ? null : noScene ? (
-        <Link href="/" className={styles.wordmark} aria-label="TimeIQ home">
+        !profile?.booking_white_label && <Link href="/" className={styles.wordmark} aria-label="TimeIQ home">
           <LogoIcon className="h-6 w-6" />
           <span className="font-display">TimeIQ</span>
         </Link>
       ) : (
       <div data-scene={scene.id} className={`${styles.art} ${scene.ink === "light" ? styles.inkLight : ""}`}>
         <BookingScene active={active} sceneId={scene.id} />
-        <Link href="/" className={styles.wordmark} aria-label="TimeIQ home">
+        {!profile?.booking_white_label && <Link href="/" className={styles.wordmark} aria-label="TimeIQ home">
           <LogoIcon className="h-6 w-6" />
           <span className="font-display">TimeIQ</span>
-        </Link>
+        </Link>}
         <div className={styles.artCaption} aria-hidden="true">
           <span>A little time, made yours.</span>
           <span className={styles.captionLine} />
@@ -90,6 +92,10 @@ export function BookingProfile({ profile, embed = false }: { profile: PublicProf
           {profile ? (
             <>
               <header className={styles.header}>
+                {profile.booking_logo && (
+                  // eslint-disable-next-line @next/next/no-img-element -- validated PNG data URL
+                  <img src={profile.booking_logo} alt={`${name} logo`} className={styles.brandLogo} />
+                )}
                 <div className={styles.avatar}>
                   {profile.image_url && !avatarFailed ? (
                     // Remote profile images can come from any connected identity provider.
@@ -138,7 +144,7 @@ export function BookingProfile({ profile, embed = false }: { profile: PublicProf
           )}
         </div>
 
-        {!embed && <footer className={styles.footer}>
+        {!embed && !profile?.booking_white_label && <footer className={styles.footer}>
           <LogoIcon className="h-4 w-4 shrink-0" />
           <p>Powered by <Link href="/?utm_source=booking_page&utm_medium=powered_by">TimeIQ</Link>, a <a href="https://yoyocode.com" target="_blank" rel="noopener noreferrer">Yoyo Code</a> creation</p>
         </footer>}

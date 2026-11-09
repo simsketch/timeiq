@@ -78,13 +78,14 @@ def _out(data: Any) -> str:
 async def get_profile() -> str:
     """The user's name, username, time zone and public booking link."""
     me = await _api("GET", "/api/me")
+    me.pop("booking_logo", None)  # Image bytes aren't useful in a scheduling tool response.
     me["booking_link"] = f"{settings.FRONTEND_URL}/book/{me.get('username')}"
     return _out(me)
 
 
 @mcp.tool(annotations=READ)
 async def get_free_times(days: int = 7, min_minutes: int = 30) -> str:
-    """The user's open time windows over the next `days` days (5, 7 or 14), from every connected
+    """The user's open time windows over the next `days` days (1–31), from every connected
     calendar and their working hours, in their time zone. Use this to answer "when am I free?"."""
     return _out(await _api("GET", "/api/availability/summary", params={"days": days, "min_minutes": min_minutes}))
 

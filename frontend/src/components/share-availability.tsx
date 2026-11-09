@@ -11,6 +11,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { apiFetch, errorMessage } from "@/lib/api";
 import {
   AvailabilitySummary,
+  IMAGE_THEMES,
+  type AvailabilityImageTheme,
   COMMON_ZONES,
   buildText,
   drawImage,
@@ -53,6 +55,7 @@ export function ShareAvailability() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [zones, setZones] = useState<string[]>([]);
   const [includeEmpty, setIncludeEmpty] = useState(false);
+  const [imageTheme, setImageTheme] = useState<AvailabilityImageTheme>("classic");
   const [customZone, setCustomZone] = useState("");
   const [copied, setCopied] = useState<"text" | "image" | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -92,8 +95,8 @@ export function ShareAvailability() {
   );
 
   useEffect(() => {
-    if (summary && zones.length && canvasRef.current) drawImage(canvasRef.current, summary, zones, bookingUrl);
-  }, [summary, zones, bookingUrl]);
+    if (summary && zones.length && canvasRef.current) drawImage(canvasRef.current, summary, zones, bookingUrl, imageTheme);
+  }, [summary, zones, bookingUrl, imageTheme]);
 
   function updateZones(next: string[]) {
     setZones(next);
@@ -277,7 +280,16 @@ export function ShareAvailability() {
 
               <div className="space-y-2">
                 <p className="text-sm font-medium">As an image</p>
-                <canvas ref={canvasRef} className="w-full rounded-md border" />
+                <fieldset className="flex flex-wrap gap-2">
+                  <legend className="mb-2 text-sm text-muted-foreground">Image theme</legend>
+                  {(Object.keys(IMAGE_THEMES) as AvailabilityImageTheme[]).map((key) => (
+                    <Button key={key} size="sm" variant={imageTheme === key ? "default" : "outline"} aria-pressed={imageTheme === key} onClick={() => setImageTheme(key)}>
+                      <span aria-hidden="true" className="h-3 w-3 rounded-full border" style={{ backgroundColor: IMAGE_THEMES[key].openingBorder }} />
+                      {IMAGE_THEMES[key].label}
+                    </Button>
+                  ))}
+                </fieldset>
+                <canvas ref={canvasRef} aria-label={`Availability image, ${IMAGE_THEMES[imageTheme].label} theme`} className="w-full rounded-md border" />
                 <div className="flex gap-2">
                   <Button size="sm" onClick={copyImage}>
                     {copied === "image" ? <Check className="mr-2 h-4 w-4" /> : <ImageIcon className="mr-2 h-4 w-4" />}

@@ -32,6 +32,7 @@ import { BookingExtrasFields, DEFAULT_BOOKING_EXTRAS } from "@/components/bookin
 import { EmbedSnippets } from "@/components/embed-snippets";
 import { BookingLinkCard } from "@/components/booking-link-card";
 import { BookingScenePicker } from "@/components/booking-scene-picker";
+import { BookingBrandingCard } from "@/components/booking-branding-card";
 import { ConnectCard } from "@/components/connect-card";
 import { BookingPriceFields } from "@/components/booking-price-fields";
 import { bookingPrice } from "@/lib/booking-payments";
@@ -70,7 +71,7 @@ export default function EventTypesPage() {
   const { getToken } = useAuth();
   const { toast } = useToast();
   // Booking links use the TimeIQ username from /api/me, which can differ from Clerk's.
-  const [profile, setProfile] = useState<{ username: string; booking_scene: string | null } | null>(null);
+  const [profile, setProfile] = useState<{ username: string; booking_scene: string | null; booking_logo?: string | null; booking_white_label?: boolean } | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const username = profile?.username ?? null;
   const [eventTypes, setEventTypes] = useState<EventType[]>([]);
@@ -104,7 +105,7 @@ export default function EventTypesPage() {
   async function fetchUsername() {
     try {
       const token = await getToken();
-      const me = await apiFetch<{ username: string; booking_scene: string | null }>("/api/me", {
+      const me = await apiFetch<NonNullable<typeof profile>>("/api/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setProfile(me);
@@ -565,6 +566,7 @@ export default function EventTypesPage() {
         </CardContent>
       </Card>
 
+      {profile && <BookingBrandingCard username={profile.username} initialLogo={profile.booking_logo} initialWhiteLabel={profile.booking_white_label} />}
       {profile && <BookingScenePicker username={profile.username} initial={profile.booking_scene} />}
     </div>
   );

@@ -47,6 +47,8 @@ class User(Base):
     weekly_summary_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Which 3D scene the public booking page shows; null means the default.
     booking_scene: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    booking_logo: Mapped[str | None] = mapped_column(Text, nullable=True)
+    booking_white_label: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     # Billing
     stripe_connect_account_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     stripe_connect_charges_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")

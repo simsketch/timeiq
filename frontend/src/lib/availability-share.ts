@@ -1,5 +1,14 @@
 /** Turn open windows into shareable text and a weekly grid image. */
 
+export const IMAGE_THEMES = {
+  classic: { label: "Classic", background: "#ffffff", text: "#0f172a", muted: "#475569", grid: "#e2e8f0", border: "#cbd5e1", opening: "#d1fae5", openingBorder: "#10b981", openingText: "#065f46" },
+  midnight: { label: "Midnight", background: "#0f172a", text: "#f8fafc", muted: "#cbd5e1", grid: "#25344b", border: "#475569", opening: "#123c48", openingBorder: "#22d3ee", openingText: "#cffafe" },
+  ocean: { label: "Ocean", background: "#f0f9ff", text: "#0c4a6e", muted: "#335c75", grid: "#d2e8f5", border: "#93c5df", opening: "#dbeafe", openingBorder: "#3b82f6", openingText: "#1e3a8a" },
+  sunset: { label: "Sunset", background: "#fff7ed", text: "#431407", muted: "#7c3e28", grid: "#f5dfcd", border: "#e8b894", opening: "#ffedd5", openingBorder: "#ea580c", openingText: "#7c2d12" },
+  lavender: { label: "Lavender", background: "#faf5ff", text: "#3b0764", muted: "#6b4685", grid: "#eaddf5", border: "#d8b4fe", opening: "#ede9fe", openingBorder: "#8b5cf6", openingText: "#4c1d95" },
+} as const;
+export type AvailabilityImageTheme = keyof typeof IMAGE_THEMES;
+
 export interface FreeWindow {
   start: string;
   end: string;
@@ -200,8 +209,10 @@ export function drawImage(
   canvas: HTMLCanvasElement,
   summary: AvailabilitySummary,
   zones: string[],
-  bookingUrl: string
+  bookingUrl: string,
+  theme: AvailabilityImageTheme = "classic"
 ): HTMLCanvasElement {
+  const palette = IMAGE_THEMES[theme];
   const [primary] = zones;
   const groups = groupByDay(summary, primary, true);
   const weeks = Array.from({ length: Math.max(1, Math.ceil(groups.length / 7)) }, (_, i) => groups.slice(i * 7, i * 7 + 7));
@@ -243,13 +254,13 @@ export function drawImage(
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
   const font = (w: number, s: number) => `${w} ${s}px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif`;
 
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = palette.background;
   ctx.fillRect(0, 0, W, H);
 
-  ctx.fillStyle = "#0f172a";
+  ctx.fillStyle = palette.text;
   ctx.font = font(700, 26);
   ctx.fillText("When I'm free", left, 48);
-  ctx.fillStyle = "#475569";
+  ctx.fillStyle = palette.muted;
   ctx.font = font(400, 15);
   ctx.fillText(`Each opening shows ${zones.map((z) => z.replace(/_/g, " ")).join(" / ")}.`, left, 74, W - left - 24);
 
@@ -261,10 +272,10 @@ export function drawImage(
     week.forEach((g, i) => {
       const x = left + i * colW;
       const ref = g.windows[0]?.start ?? new Date(startOfDay(g.key, primary).getTime() + 12 * 3_600_000);
-      ctx.fillStyle = "#0f172a";
+      ctx.fillStyle = palette.text;
       ctx.font = font(600, 15);
       ctx.fillText(g.label, x + 8, gridTop - 30, colW - 16);
-      ctx.fillStyle = "#64748b";
+      ctx.fillStyle = palette.muted;
       ctx.font = font(500, 12);
       ctx.fillText(zoneAbbr(primary, ref), x + 8, gridTop - 12, colW - 16);
     });
@@ -272,12 +283,12 @@ export function drawImage(
     ctx.font = font(400, 12);
     for (let h = lo; h <= hi; h++) {
       const y = gridTop + (h - lo) * rowH;
-      ctx.strokeStyle = h === lo || h === hi ? "#cbd5e1" : "#e2e8f0";
+      ctx.strokeStyle = h === lo || h === hi ? palette.border : palette.grid;
       ctx.beginPath();
       ctx.moveTo(left, y);
       ctx.lineTo(W - 24, y);
       ctx.stroke();
-      ctx.fillStyle = "#64748b";
+      ctx.fillStyle = palette.muted;
       ctx.fillText(hourLabel(h), 8, y + 4);
     }
 
@@ -289,13 +300,13 @@ export function drawImage(
         if (e <= s) e = 24;
         const y1 = gridTop + (Math.max(s, lo) - lo) * rowH;
         const y2 = gridTop + (Math.min(e, hi) - lo) * rowH;
-        ctx.fillStyle = "#d1fae5";
-        ctx.strokeStyle = "#10b981";
+        ctx.fillStyle = palette.opening;
+        ctx.strokeStyle = palette.openingBorder;
         ctx.beginPath();
         ctx.roundRect(x, y1 + 2, colW - 8, Math.max(y2 - y1 - 4, 6), 8);
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = "#065f46";
+        ctx.fillStyle = palette.openingText;
         ctx.font = font(600, 12);
         zones.forEach((zone, index) => {
           // A converted time can fall on another date; name it instead of implying the column's date.
@@ -305,18 +316,18 @@ export function drawImage(
         });
       }
       if (!g.windows.length) {
-        ctx.fillStyle = "#64748b";
+        ctx.fillStyle = palette.muted;
         ctx.font = font(400, 12);
         ctx.fillText("No openings", x + 4, gridTop + 22, colW - 16);
       }
     });
   });
 
-  ctx.fillStyle = "#475569";
+  ctx.fillStyle = palette.muted;
   ctx.font = font(500, 14);
   ctx.fillText(`Book a time: ${bookingUrl.replace(/^https?:\/\//, "")}`, left, H - 28);
   ctx.textAlign = "right";
-  ctx.fillStyle = "#94a3b8";
+  ctx.fillStyle = palette.muted;
   ctx.font = font(400, 12);
   ctx.fillText("TimeIQ", W - 24, H - 28);
   ctx.textAlign = "left";

@@ -65,6 +65,83 @@ const find = (tree, predicate) => nodes(tree, predicate)[0];
 const auth = { useAuth: () => ({ getToken: async () => "test-token" }) };
 const toastModule = { useToast: () => ({ toast() {} }) };
 
+test("booking branding uploads a resized logo, saves white labeling, and preserves saved values after errors", async () => {
+  const calls = [];
+  const messages = [];
+  let fail = false;
+  const png = "data:image/png;base64,test-logo";
+  const card = harness("components/booking-branding-card.tsx", "BookingBrandingCard", { username: "host" }, {
+    modules: {
+      "@clerk/nextjs": auth,
+      "@/components/ui/use-toast": { useToast: () => ({ toast: (message) => messages.push(message) }) },
+      "@/lib/api": { apiFetch: async (path, options) => {
+        calls.push({ path, ...options });
+        if (fail) throw new Error("Not saved");
+        return JSON.parse(options.body);
+      } },
+    },
+    globals: {
+      createImageBitmap: async () => ({ width: 2000, height: 500, close() {} }),
+      document: { createElement: () => ({ getContext: () => ({ drawImage() {} }), toDataURL: () => png }) },
+    },
+  });
+  let tree = card.render();
+  const event = { target: { files: [{ type: "image/png", size: 1000 }], value: "logo.png" } };
+  find(tree, (node) => node.type === "input" && node.props.type === "file").props.onChange(event);
+  await new Promise(setImmediate);
+  assert.equal(event.target.value, "");
+  assert.equal(calls[0].path, "/api/me");
+  assert.equal(calls[0].headers.Authorization, "Bearer test-token");
+  assert.deepEqual(JSON.parse(calls[0].body), { booking_logo: png, booking_white_label: false });
+  assert.equal(find(card.render(), (node) => node.type === "img").props.src, png);
+  await find(card.render(), (node) => node.type === "Switch").props.onCheckedChange(true);
+  assert.equal(find(card.render(), (node) => node.type === "Switch").props.checked, true);
+  fail = true;
+  await find(card.render(), (node) => node.type === "Switch").props.onCheckedChange(false);
+  assert.equal(find(card.render(), (node) => node.type === "Switch").props.checked, true);
+  assert.equal(messages.at(-1).description, "Not saved");
+  fail = false;
+  await find(card.render(), (node) => node.type === "Button" && node.props.children === "Remove logo").props.onClick();
+  assert.equal(find(card.render(), (node) => node.type === "img"), undefined);
+  assert.deepEqual(JSON.parse(calls.at(-1).body), { booking_logo: null, booking_white_label: true });
+});
+
+test("public booking profiles show custom logos and honor white labeling with and without scenes and embeds", () => {
+  for (const noScene of [true, false]) {
+    for (const embed of [true, false]) {
+      for (const whiteLabel of [true, false]) {
+        const profile = { username: "host", name: "Host", image_url: null, event_types: [], booking_logo: "data:image/png;base64,logo", booking_white_label: whiteLabel };
+        const card = harness("components/booking/booking-profile.tsx", "BookingProfile", { profile, embed }, {
+          modules: {
+            "./booking-profile.module.css": new Proxy({}, { get: (_, key) => key }),
+            "./scenes": { isNoScene: () => noScene, sceneFor: () => ({ id: "orrery", ink: "light" }) },
+            "./booking-scene": { BookingScene: "BookingScene" },
+            "@/lib/booking-payments": {},
+          },
+        });
+        const tree = card.render();
+        assert.equal(find(tree, (node) => node.type === "img" && node.props.alt === "Host logo").props.src, profile.booking_logo);
+        assert.equal(Boolean(find(tree, (node) => node.type === "footer")), !embed && !whiteLabel);
+        assert.equal(Boolean(find(tree, (node) => node.props?.["aria-label"] === "TimeIQ home")), !embed && !whiteLabel);
+      }
+    }
+  }
+});
+
+test("white-label booking metadata uses the host's title and logo instead of TimeIQ branding", async () => {
+  for (const enabled of [false, true]) {
+    const { generateMetadata } = load("app/book/[username]/layout.tsx", {
+      "@/lib/public-booking-profile": { getPublicBookingProfile: async () => ({ name: "Acme Studio", booking_white_label: enabled, booking_logo: "data:image/png;base64,logo" }) },
+    });
+    const metadata = await generateMetadata({ params: Promise.resolve({ username: "acme" }) });
+    if (enabled) {
+      assert.equal(metadata.title, "Book time with Acme Studio");
+      assert.equal(metadata.icons.icon, "data:image/png;base64,logo");
+      assert.equal(metadata.openGraph.siteName, "Acme Studio");
+    } else assert.equal(Object.keys(metadata).length, 0);
+  }
+});
+
 test("availability sharing supports short and custom ranges and rejects invalid day counts", async () => {
   for (const count of [1, 3, 5, 7, 14, 10, 31, 0, 32, 1.5, ""]) {
     const calls = [];
@@ -77,7 +154,7 @@ test("availability sharing supports short and custom ranges and rejects invalid 
           calls.push(path);
           return { timezone: "UTC", username: "test", days: Array.from({ length: count }, () => ({})) };
         } },
-        "@/lib/availability-share": { COMMON_ZONES: [], zoneAbbr: (zone) => zone, buildText: (s) => `Range: ${s.days.length}`, drawImage() {} },
+        "@/lib/availability-share": { COMMON_ZONES: [], IMAGE_THEMES: load("lib/availability-share.ts").IMAGE_THEMES, zoneAbbr: (zone) => zone, buildText: (s) => `Range: ${s.days.length}`, drawImage() {} },
       },
       globals: { window: { location: { origin: "https://timeiq.test" } } },
     });
@@ -97,7 +174,11 @@ test("availability sharing supports short and custom ranges and rejects invalid 
     tree = share.render();
     const valid = Number.isInteger(count) && count >= 1 && count <= 31;
     assert.deepEqual(calls, valid ? [`/api/availability/summary?days=${count}`] : []);
-    if (valid) assert.equal(find(tree, (node) => node.type === "textarea").props.value, `Range: ${count}`);
+    if (valid) {
+      assert.equal(find(tree, (node) => node.type === "textarea").props.value, `Range: ${count}`);
+      find(tree, (node) => node.type === "Button" && node.props.children?.includes?.("Midnight")).props.onClick();
+      assert.equal(find(share.render(), (node) => node.type === "canvas").props["aria-label"], "Availability image, Midnight theme");
+    }
     else assert.ok(find(tree, (node) => node.props?.role === "alert"));
   }
 });

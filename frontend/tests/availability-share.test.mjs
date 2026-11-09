@@ -8,20 +8,30 @@ const compiled = { exports: {} };
 vm.runInNewContext(ts.transpileModule(readFileSync(new URL("../src/lib/availability-share.ts", import.meta.url), "utf8"), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText, { module: compiled, exports: compiled.exports, Date, Intl });
-const { drawImage } = compiled.exports;
+const { drawImage, IMAGE_THEMES } = compiled.exports;
 
-function render(days, zones = ["America/New_York", "America/Los_Angeles"], timezone = "America/New_York") {
+function render(days, zones = ["America/New_York", "America/Los_Angeles"], timezone = "America/New_York", theme = "classic") {
   const labels = [];
   const blocks = [];
+  const fills = [];
   const ctx = {
-    setTransform() {}, fillRect() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {}, fill() {},
+    setTransform() {}, fillRect() { fills.push(this.fillStyle); }, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {}, fill() { fills.push(this.fillStyle); },
     fillText(text, x, y) { labels.push({ text, x, y }); },
     roundRect(x, y, width, height) { blocks.push({ x, y, width, height }); },
   };
   const canvas = { getContext: () => ctx };
-  drawImage(canvas, { timezone, username: "host", days }, zones, "https://timeiq.app/book/host");
-  return { canvas, labels, blocks };
+  drawImage(canvas, { timezone, username: "host", days }, zones, "https://timeiq.app/book/host", theme);
+  return { canvas, labels, blocks, fills };
 }
+
+test("every image theme changes the exported palette and keeps actual timezone times", () => {
+  for (const [theme, palette] of Object.entries(IMAGE_THEMES)) {
+    const { labels, fills } = render([day("2026-11-09")], undefined, undefined, theme);
+    assert.equal(fills[0], palette.background);
+    assert.ok(fills.includes(palette.opening));
+    assert.ok(labels.some(({ text }) => text === "PST 6–7 AM"));
+  }
+});
 
 function day(date, start = `${date}T14:00:00Z`, end = `${date}T15:00:00Z`) {
   return { date, working: true, work_start: "09:00", work_end: "17:00", windows: [{ start, end }] };

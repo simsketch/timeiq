@@ -9,6 +9,7 @@
 .panel { position: relative; display: flex; flex-direction: column; padding: 35px 25px 24px; background: radial-gradient(ellipse at 0 0, #e8d5b729, transparent 55%), #faf9f6; }
 .content { width: 100%; max-width: 470px; margin: auto; }
 .header { margin-bottom: 35px; }
+.brandLogo { display: block; max-width: 240px; max-height: 96px; width: auto; height: auto; object-fit: contain; margin-bottom: 28px; }
 .avatar { width: 58px; height: 58px; margin-bottom: 24px; border-radius: 50%; overflow: hidden; background: #ebe7f0; box-shadow: 0 0 0 5px #eee7dd80, 0 8px 24px #8f744511; display: grid; place-items: center; font-size: 18px; color: #695b84; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 .header h1 { font-size: clamp(30px, 4vw, 47px); line-height: 1.16; font-weight: 500; letter-spacing: -.045em; margin-bottom: 18px; }

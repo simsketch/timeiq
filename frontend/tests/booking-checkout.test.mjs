@@ -10,11 +10,11 @@ const source = ts.transpileModule(readFileSync(new URL("../src/components/bookin
   compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
 }).outputText;
 
-function flow(embed, status = "pending_payment") {
+function flow(embed, status = "pending_payment", branding = {}) {
   const start = "2026-11-02T10:00:00Z";
   const checkout = "https://checkout.stripe.test/session";
   const states = [
-    { name: "Call", price_cents: 5000, currency: "usd", duration_minutes: 30 },
+    { name: "Call", price_cents: 5000, currency: "usd", duration_minutes: 30, ...branding },
     new Date(start), [{ start }], start, false,
   ];
   let cursor = 0;
@@ -82,4 +82,12 @@ test("free embedded bookings still show confirmation", async () => {
   await find(f.render(), (node) => node.type === "BookingForm").props.onSubmit({ name: "Guest", email: "guest@example.com" });
   assert.deepEqual(f.navigations, []);
   assert.ok(find(f.render(), (node) => node.props?.children === "Booking confirmed"));
+});
+
+test("meeting pages show the uploaded logo and remove the provider footer in white-label mode", () => {
+  for (const enabled of [false, true]) {
+    const tree = flow(false, "confirmed", { booking_logo: "data:image/png;base64,logo", booking_white_label: enabled, host_name: "Acme" }).render();
+    assert.equal(find(tree, (node) => node.type === "img" && node.props.alt === "Acme logo").props.src, "data:image/png;base64,logo");
+    assert.equal(Boolean(find(tree, (node) => node.props?.href === "/?utm_source=booking_page&utm_medium=powered_by")), !enabled);
+  }
 });
