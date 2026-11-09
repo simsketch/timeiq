@@ -548,6 +548,24 @@
 .article strong { color: hsl(var(--foreground)); font-weight: 650; }
 .article blockquote { border-left: 3px solid hsl(var(--aurora-1) / 0.5); padding-left: 1em; color: hsl(var(--muted-foreground)); }
 
+/* Switch text and glass together so both scroll states stay readable. */
+.landing-nav { color: #ededed; }
+.landing-nav a[href="/sign-in"] button { color: inherit; }
+@supports (animation-timeline: scroll()) {
+  .landing-nav--clock {
+    animation: landing-nav-ink steps(1, end) both;
+    animation-timeline: scroll(root);
+    animation-range: 0 64px;
+  }
+  .landing-nav--clock .landing-nav-bar {
+    animation: landing-nav-in steps(1, end) both;
+    animation-timeline: scroll(root);
+    animation-range: 0 64px;
+  }
+  @keyframes landing-nav-ink { from { color: #141414; } to { color: #ededed; } }
+  @keyframes landing-nav-in { from { opacity: 0; } to { opacity: 1; } }
+}
+
 /* Hero scroll scene. Default is a static stack (phones, portrait, reduced
    motion): copy, then the silver panel with every card. On wide landscape
    screens the stage pins for 280vh and HeroScroll feeds progress variables:

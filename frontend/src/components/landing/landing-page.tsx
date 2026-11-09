@@ -31,29 +31,30 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
   return (
     <div className="relative min-h-screen overflow-x-clip">
 
-      {/* Keep light navigation readable over every frame of the hero video. */}
-      <header className="sticky top-0 z-50 bg-[#050505] border-b border-white/[0.06]">
+      {/* Dark text over the clock hero; light text over dark glass after scrolling. */}
+      <header className={`landing-nav ${hero === "clock" ? "landing-nav--clock" : ""} sticky top-0 z-50`}>
+        <div aria-hidden="true" className="landing-nav-bar absolute inset-x-0 top-0 h-full bg-[#050505]/70 backdrop-blur-xl border-b border-white/[0.06]" />
         <div className="relative container mx-auto px-6 lg:px-10 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
             <LogoIcon />
-            <span className="text-xl font-semibold tracking-tight text-white">
+            <span className="text-xl font-semibold tracking-tight text-inherit">
               TimeIQ
             </span>
           </Link>
-          <nav className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-6 text-[15px] text-[#b6b5b5]">
-            <a href="#how" className="hover:text-white transition-colors">
+          <nav className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-6 text-[15px]">
+            <a href="#how" className="hover:opacity-70 transition-opacity">
               How it works
             </a>
-            <a href="#features" className="hover:text-white transition-colors">
+            <a href="#features" className="hover:opacity-70 transition-opacity">
               Features
             </a>
-            <a href="#pricing" className="hover:text-white transition-colors">
+            <a href="#pricing" className="hover:opacity-70 transition-opacity">
               Pricing
             </a>
-            <Link href="/tools" className="hover:text-white transition-colors">
+            <Link href="/tools" className="hover:opacity-70 transition-opacity">
               Free tools
             </Link>
-            <Link href="/blog" className="hover:text-white transition-colors">
+            <Link href="/blog" className="hover:opacity-70 transition-opacity">
               Blog
             </Link>
           </nav>
@@ -63,7 +64,7 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
               target="_blank"
               rel="noopener noreferrer"
               aria-label="TimeIQ on GitHub"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-[#b6b5b5] hover:text-white transition-colors"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm hover:opacity-70 transition-opacity"
             >
               <GitHubIcon className="h-4 w-4" />
             </a>
