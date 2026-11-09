@@ -202,9 +202,9 @@ export function drawImage(
   zones: string[],
   bookingUrl: string
 ): HTMLCanvasElement {
-  const [primary, ...others] = zones;
+  const [primary] = zones;
   const groups = groupByDay(summary, primary, true);
-  const cols = Math.max(groups.length, 1);
+  const weeks = Array.from({ length: Math.max(1, Math.ceil(groups.length / 7)) }, (_, i) => groups.slice(i * 7, i * 7 + 7));
 
   // Vertical range: the span of working hours and openings, in the primary zone.
   let lo = 24;
@@ -232,9 +232,11 @@ export function drawImage(
   const left = 64;
   const top = 132;
   const bottom = 70;
-  const rowH = 44;
-  const H = top + (hi - lo) * rowH + bottom;
-  const colW = (W - left - 24) / cols;
+  // Even a half-hour opening needs one readable line for every selected zone.
+  const rowH = Math.max(44, zones.length * 32 + 24);
+  const weekH = (hi - lo) * rowH;
+  const weekGap = 64;
+  const H = top + weeks.length * weekH + (weeks.length - 1) * weekGap + bottom;
   canvas.width = W * scale;
   canvas.height = H * scale;
   const ctx = canvas.getContext("2d")!;
@@ -249,99 +251,65 @@ export function drawImage(
   ctx.fillText("When I'm free", left, 48);
   ctx.fillStyle = "#475569";
   ctx.font = font(400, 15);
-  // Names and offsets per day, as of that day's first opening (or its midday), so a
-  // week that crosses a clock change labels each side correctly.
-  const zoneNote = (at: Date) => {
-    const rel = others.map((z) => {
-      const diff = (offsetMinutes(z, at) - offsetMinutes(primary, at)) / 60;
-      const sign = diff >= 0 ? "+" : "−";
-      return { abbr: zoneAbbr(z, at), rel: `${sign}${Math.abs(diff)}h` };
-    });
-    return { abbr: zoneAbbr(primary, at), others: rel };
-  };
-  const notes = groups.map((g) => zoneNote(g.windows[0]?.start ?? new Date(startOfDay(g.key, primary).getTime() + 12 * 3_600_000)));
-  const sig = (n: ReturnType<typeof zoneNote>) => [n.abbr, ...n.others.map((o) => o.abbr + o.rel)].join("|");
-  const segments: { note: ReturnType<typeof zoneNote>; first: string; last: string }[] = [];
-  groups.forEach((g, i) => {
-    const prev = segments[segments.length - 1];
-    if (prev && sig(prev.note) === sig(notes[i])) prev.last = g.label;
-    else segments.push({ note: notes[i], first: g.label, last: g.label });
-  });
-  const mixed = segments.length > 1;
-  let note: string;
-  if (!mixed) {
-    const n = segments[0]?.note ?? zoneNote(new Date());
-    note = `Times in ${n.abbr}.` + (n.others.length ? " " + n.others.map((o) => `${o.abbr} is ${o.rel}`).join(", ") + "." : "");
-  } else {
-    note =
-      "Times in " +
-      segments
-        .map((s, i) => {
-          const desc = s.note.abbr + (s.note.others.length ? ` (${s.note.others.map((o) => `${o.abbr} ${o.rel}`).join(", ")})` : "");
-          if (i === 0) return `${desc} through ${s.last}`;
-          if (i === segments.length - 1) return `${desc} from ${s.first}`;
-          return s.first === s.last ? `${desc} on ${s.first}` : `${desc} ${s.first}–${s.last}`;
-        })
-        .join("; ") +
-      ".";
-  }
-  ctx.fillText(note, left, 74, W - left - 24);
+  ctx.fillText(`Each opening shows ${zones.map((z) => z.replace(/_/g, " ")).join(" / ")}.`, left, 74, W - left - 24);
 
-  // Day headers
-  groups.forEach((g, i) => {
-    const x = left + i * colW;
-    ctx.fillStyle = "#0f172a";
-    ctx.font = font(600, 15);
-    ctx.fillText(g.label, x + 8, mixed ? top - 30 : top - 18, colW - 16);
-    if (mixed) {
-      // The clock changes inside this range, so each column names its own zone.
+  weeks.forEach((week, weekIndex) => {
+    const gridTop = top + weekIndex * (weekH + weekGap);
+    const colW = (W - left - 24) / Math.max(week.length, 1);
+
+    // Keep long ranges in rows of at most seven days, so labels remain readable.
+    week.forEach((g, i) => {
+      const x = left + i * colW;
+      const ref = g.windows[0]?.start ?? new Date(startOfDay(g.key, primary).getTime() + 12 * 3_600_000);
+      ctx.fillStyle = "#0f172a";
+      ctx.font = font(600, 15);
+      ctx.fillText(g.label, x + 8, gridTop - 30, colW - 16);
       ctx.fillStyle = "#64748b";
       ctx.font = font(500, 12);
-      ctx.fillText(notes[i].abbr, x + 8, top - 12, colW - 16);
-    }
-  });
+      ctx.fillText(zoneAbbr(primary, ref), x + 8, gridTop - 12, colW - 16);
+    });
 
-  // Hour lines
-  ctx.font = font(400, 12);
-  for (let h = lo; h <= hi; h++) {
-    const y = top + (h - lo) * rowH;
-    ctx.strokeStyle = h === lo || h === hi ? "#cbd5e1" : "#e2e8f0";
-    ctx.beginPath();
-    ctx.moveTo(left, y);
-    ctx.lineTo(W - 24, y);
-    ctx.stroke();
-    if (h < hi || h === hi) {
+    ctx.font = font(400, 12);
+    for (let h = lo; h <= hi; h++) {
+      const y = gridTop + (h - lo) * rowH;
+      ctx.strokeStyle = h === lo || h === hi ? "#cbd5e1" : "#e2e8f0";
+      ctx.beginPath();
+      ctx.moveTo(left, y);
+      ctx.lineTo(W - 24, y);
+      ctx.stroke();
       ctx.fillStyle = "#64748b";
       ctx.fillText(hourLabel(h), 8, y + 4);
     }
-  }
 
-  // Openings
-  groups.forEach((g, i) => {
-    const x = left + i * colW + 4;
-    for (const w of g.windows) {
-      const s = hourIn(w.start, primary);
-      let e = hourIn(w.end, primary);
-      if (e <= s) e = 24;
-      const y1 = top + (Math.max(s, lo) - lo) * rowH;
-      const y2 = top + (Math.min(e, hi) - lo) * rowH;
-      ctx.fillStyle = "#d1fae5";
-      ctx.strokeStyle = "#10b981";
-      ctx.beginPath();
-      ctx.roundRect(x, y1 + 2, colW - 8, Math.max(y2 - y1 - 4, 6), 8);
-      ctx.fill();
-      ctx.stroke();
-      if (y2 - y1 >= 30) {
+    week.forEach((g, i) => {
+      const x = left + i * colW + 4;
+      for (const w of g.windows) {
+        const s = hourIn(w.start, primary);
+        let e = hourIn(w.end, primary);
+        if (e <= s) e = 24;
+        const y1 = gridTop + (Math.max(s, lo) - lo) * rowH;
+        const y2 = gridTop + (Math.min(e, hi) - lo) * rowH;
+        ctx.fillStyle = "#d1fae5";
+        ctx.strokeStyle = "#10b981";
+        ctx.beginPath();
+        ctx.roundRect(x, y1 + 2, colW - 8, Math.max(y2 - y1 - 4, 6), 8);
+        ctx.fill();
+        ctx.stroke();
         ctx.fillStyle = "#065f46";
         ctx.font = font(600, 12);
-        ctx.fillText(blockRange(w.start, w.end, primary), x + 8, y1 + 20, colW - 20);
+        zones.forEach((zone, index) => {
+          // A converted time can fall on another date; name it instead of implying the column's date.
+          const localDay = dayKey(w.start, zone);
+          const date = localDay === g.key ? "" : `${dayLabel(localDay)}: `;
+          ctx.fillText(`${zoneAbbr(zone, w.start)} ${date}${blockRange(w.start, w.end, zone)}`, x + 8, y1 + 18 + index * 16, colW - 20);
+        });
       }
-    }
-    if (!g.windows.length) {
-      ctx.fillStyle = "#94a3b8";
-      ctx.font = font(400, 12);
-      ctx.fillText("No openings", x + 4, top + 22);
-    }
+      if (!g.windows.length) {
+        ctx.fillStyle = "#64748b";
+        ctx.font = font(400, 12);
+        ctx.fillText("No openings", x + 4, gridTop + 22, colW - 16);
+      }
+    });
   });
 
   ctx.fillStyle = "#475569";

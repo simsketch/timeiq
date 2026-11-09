@@ -65,6 +65,43 @@ const find = (tree, predicate) => nodes(tree, predicate)[0];
 const auth = { useAuth: () => ({ getToken: async () => "test-token" }) };
 const toastModule = { useToast: () => ({ toast() {} }) };
 
+test("availability sharing supports short and custom ranges and rejects invalid day counts", async () => {
+  for (const count of [1, 3, 5, 7, 14, 10, 31, 0, 32, 1.5, ""]) {
+    const calls = [];
+    const share = harness("components/share-availability.tsx", "ShareAvailability", {}, {
+      effects: true,
+      modules: {
+        "@clerk/nextjs": auth,
+        "@/components/ui/use-toast": toastModule,
+        "@/lib/api": { apiFetch: async (path) => {
+          calls.push(path);
+          return { timezone: "UTC", username: "test", days: Array.from({ length: count }, () => ({})) };
+        } },
+        "@/lib/availability-share": { COMMON_ZONES: [], zoneAbbr: (zone) => zone, buildText: (s) => `Range: ${s.days.length}`, drawImage() {} },
+      },
+      globals: { window: { location: { origin: "https://timeiq.test" } } },
+    });
+    let tree = share.render();
+    const preset = find(tree, (node) => node.type === "Button" && node.props?.children?.[0] === count);
+    if (preset) preset.props.onClick();
+    else {
+      find(tree, (node) => node.type === "Button" && node.props.children === "Custom").props.onClick();
+      tree = share.render();
+      const input = find(tree, (node) => node.type === "input" && node.props.type === "number");
+      assert.equal(input.props.min, 1);
+      assert.equal(input.props.max, 31);
+      input.props.onChange({ target: { value: String(count) } });
+    }
+    find(share.render(), (node) => node.type === "Dialog").props.onOpenChange(true);
+    await share.mount();
+    tree = share.render();
+    const valid = Number.isInteger(count) && count >= 1 && count <= 31;
+    assert.deepEqual(calls, valid ? [`/api/availability/summary?days=${count}`] : []);
+    if (valid) assert.equal(find(tree, (node) => node.type === "textarea").props.value, `Range: ${count}`);
+    else assert.ok(find(tree, (node) => node.props?.role === "alert"));
+  }
+});
+
 test("chat keeps reset disabled until the reply completes and preserves tool history for follow-ups", async () => {
   const calls = [];
   let finish;

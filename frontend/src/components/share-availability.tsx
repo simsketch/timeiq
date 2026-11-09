@@ -18,7 +18,7 @@ import {
   zoneAbbr,
 } from "@/lib/availability-share";
 
-const RANGES = [5, 7, 14];
+const RANGES = [1, 3, 5, 7, 14];
 const ZONES_KEY = "timeiq-share-zones";
 
 function loadSavedZones(): string[] | null {
@@ -44,8 +44,12 @@ export function ShareAvailability() {
   const { getToken } = useAuth();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [days, setDays] = useState(7);
-  const [summary, setSummary] = useState<AvailabilitySummary | null>(null);
+  const [range, setRange] = useState<number | "custom">(7);
+  const [customDays, setCustomDays] = useState("7");
+  const days = range === "custom" ? Number(customDays) : range;
+  const validDays = Number.isInteger(days) && days >= 1 && days <= 31;
+  const [loadedSummary, setSummary] = useState<AvailabilitySummary | null>(null);
+  const summary = validDays && loadedSummary?.days.length === days ? loadedSummary : null;
   const [loadError, setLoadError] = useState<string | null>(null);
   const [zones, setZones] = useState<string[]>([]);
   const [includeEmpty, setIncludeEmpty] = useState(false);
@@ -55,7 +59,7 @@ export function ShareAvailability() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !validDays) return;
     let cancelled = false;
     (async () => {
       try {
@@ -79,7 +83,7 @@ export function ShareAvailability() {
     return () => {
       cancelled = true;
     };
-  }, [open, days, attempt, getToken]);
+  }, [open, days, validDays, attempt, getToken]);
 
   const bookingUrl = summary ? `${typeof window !== "undefined" ? window.location.origin : "https://timeiq.app"}/book/${summary.username}` : "";
   const text = useMemo(
@@ -162,10 +166,29 @@ export function ShareAvailability() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-muted-foreground mr-1">Next</span>
             {RANGES.map((n) => (
-              <Button key={n} size="sm" variant={days === n ? "default" : "outline"} onClick={() => setDays(n)}>
-                {n} days
+              <Button key={n} size="sm" aria-pressed={range === n} variant={range === n ? "default" : "outline"} onClick={() => { setRange(n); setLoadError(null); }}>
+                {n} {n === 1 ? "day" : "days"}
               </Button>
             ))}
+            <Button size="sm" aria-pressed={range === "custom"} variant={range === "custom" ? "default" : "outline"} onClick={() => { setRange("custom"); setLoadError(null); }}>
+              Custom
+            </Button>
+            {range === "custom" && (
+              <label className="flex items-center gap-2 text-sm">
+                Number of days
+                <input
+                  type="number"
+                  min={1}
+                  max={31}
+                  step={1}
+                  value={customDays}
+                  aria-invalid={!validDays}
+                  className="h-9 w-20 rounded-md border bg-background px-2 text-sm"
+                  onChange={(e) => { setCustomDays(e.target.value); setLoadError(null); }}
+                />
+                <span className="text-muted-foreground">1–31</span>
+              </label>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -217,7 +240,9 @@ export function ShareAvailability() {
             </div>
           </div>
 
-          {loadError ? (
+          {!validDays ? (
+            <p role="alert" className="text-sm text-destructive">Enter a whole number of days from 1 to 31.</p>
+          ) : loadError ? (
             <div className="rounded-lg border p-4 text-sm" role="alert">
               <p className="mb-3">{loadError}</p>
               <Button size="sm" variant="outline" onClick={() => { setLoadError(null); setAttempt((n) => n + 1); }}>
