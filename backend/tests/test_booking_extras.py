@@ -313,10 +313,13 @@ async def test_reminder_cron_auth(monkeypatch, secret, header, code):
     monkeypatch.setattr(cron.settings, "CRON_SECRET", secret)
     sender = AsyncMock(return_value={"sent": 0, "failed": 0})
     monkeypatch.setattr(cron, "send_due_booking_reminders", sender)
+    outbox = AsyncMock(return_value={"sent": 0, "failed": 0})
+    monkeypatch.setattr("app.services.email.retry_outbound_emails", outbox)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/api/cron/booking-reminders", headers={"Authorization": header} if header else {})
     assert response.status_code == code
     assert sender.await_count == (1 if code == 200 else 0)
+    assert outbox.await_count == (1 if code == 200 else 0)
 
 
 async def test_public_booking_email_quota():

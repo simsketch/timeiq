@@ -13,7 +13,7 @@ function load(path, overrides = {}, globals = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
   vm.runInNewContext(source, {
-    module: compiled, exports: compiled.exports, Date, Intl, URLSearchParams,
+    module: compiled, exports: compiled.exports, Date, Error, Intl, URLSearchParams,
     require(name) {
       if (name in overrides) return overrides[name];
       if (name === "@/lib/calendar-time") return load("lib/calendar-time.ts");
@@ -39,6 +39,7 @@ function harness(path, name, props = {}, options = {}) {
     },
     useMemo: (compute) => compute(),
     useCallback: (callback) => callback,
+    useSyncExternalStore: (_subscribe, getSnapshot) => getSnapshot(),
     useRef: (initial) => ({ current: initial ?? null }),
     useEffect: (effect) => { if (options.effects) effects.push(effect); },
   };
@@ -63,6 +64,64 @@ function nodes(tree, predicate) {
 const find = (tree, predicate) => nodes(tree, predicate)[0];
 const auth = { useAuth: () => ({ getToken: async () => "test-token" }) };
 const toastModule = { useToast: () => ({ toast() {} }) };
+
+test("chat keeps reset disabled until the reply completes and preserves tool history for follow-ups", async () => {
+  const calls = [];
+  let finish;
+  const chat = harness("components/dashboard/assistant-chat.tsx", "AssistantChat", {}, {
+    modules: {
+      "@clerk/nextjs": auth,
+      "@/lib/speech": { speechRecognizer: () => null },
+      "@/lib/api": { apiFetch: (path, options) => {
+        calls.push({ path, ...options });
+        return new Promise((resolve) => { finish = resolve; });
+      } },
+    },
+  });
+  const message = (text) => find(chat.render(), (n) => n.type === "textarea").props.onChange({ target: { value: text } });
+  const submit = () => find(chat.render(), (n) => n.type === "form").props.onSubmit({ preventDefault() {} });
+  const reset = () => find(chat.render(), (n) => n.type === "button" && n.props.children?.includes?.(" New chat"));
+  message("When am I free?");
+  submit();
+  await new Promise(setImmediate);
+  assert.equal(reset().props.disabled, true);
+  assert.equal(calls[0].path, "/api/me/assistant");
+  assert.equal(calls[0].headers.Authorization, "Bearer test-token");
+  const history = [
+    { role: "user", content: "When am I free?" },
+    { role: "assistant", content: [{ type: "tool_use", id: "t1", name: "get_free_times", input: {} }] },
+    { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: "9 AM" }] },
+    { role: "assistant", content: [{ type: "text", text: "You're free at 9 AM." }] },
+  ];
+  finish({ messages: history, steps: [{ tool: "get_free_times", ok: true }] });
+  await new Promise(setImmediate);
+  assert.equal(reset().props.disabled, false);
+  message("And tomorrow?");
+  submit();
+  await new Promise(setImmediate);
+  assert.deepEqual(JSON.parse(calls[1].body).messages, [...history, { role: "user", content: "And tomorrow?" }]);
+  finish({ messages: [...history, { role: "assistant", content: [{ type: "text", text: "Tomorrow too." }] }], steps: [] });
+  await new Promise(setImmediate);
+  reset().props.onClick();
+  assert.equal(reset(), undefined);
+});
+
+test("chat restores the draft and shows API errors so a failed request can be retried", async () => {
+  const chat = harness("components/dashboard/assistant-chat.tsx", "AssistantChat", {}, {
+    modules: {
+      "@clerk/nextjs": auth,
+      "@/lib/speech": { speechRecognizer: () => null },
+      "@/lib/api": { apiFetch: async () => { throw new Error("Try again in a moment."); } },
+    },
+  });
+  find(chat.render(), (n) => n.type === "textarea").props.onChange({ target: { value: "My week?" } });
+  find(chat.render(), (n) => n.type === "form").props.onSubmit({ preventDefault() {} });
+  await new Promise(setImmediate);
+  const tree = chat.render();
+  assert.equal(find(tree, (n) => n.type === "textarea").props.value, "My week?");
+  assert.equal(find(tree, (n) => n.props?.role === "alert").props.children, "Try again in a moment.");
+  assert.equal(find(tree, (n) => n.props?.["aria-label"] === "Send").props.disabled, false);
+});
 
 test("navigation preserves routes, highlights nested pages and closes the mobile drawer on every link", async () => {
   let closed = 0;

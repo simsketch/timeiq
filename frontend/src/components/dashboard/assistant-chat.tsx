@@ -189,7 +189,7 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
         ) : (
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-muted-foreground">Ask TimeIQ</p>
-            <button type="button" onClick={reset} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+            <button type="button" onClick={reset} disabled={busy} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50">
               <RotateCcw className="h-3.5 w-3.5" /> New chat
             </button>
           </div>

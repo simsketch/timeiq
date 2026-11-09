@@ -548,16 +548,6 @@
 .article strong { color: hsl(var(--foreground)); font-weight: 650; }
 .article blockquote { border-left: 3px solid hsl(var(--aurora-1) / 0.5); padding-left: 1em; color: hsl(var(--muted-foreground)); }
 
-/* The landing nav bar is see-through over the hero and fades in as the page
-   scrolls, where scroll-driven animations exist; elsewhere it stays on. */
-@supports (animation-timeline: scroll()) {
-  .landing-nav-bar {
-    animation: landing-nav-in linear both;
-    animation-timeline: scroll(root);
-    animation-range: 0 160px;
-  }
-  @keyframes landing-nav-in { from { opacity: 0; } to { opacity: 1; } }
-}
 /* Hero scroll scene. Default is a static stack (phones, portrait, reduced
    motion): copy, then the silver panel with every card. On wide landscape
    screens the stage pins for 280vh and HeroScroll feeds progress variables:

@@ -31,9 +31,8 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
   return (
     <div className="relative min-h-screen overflow-x-clip">
 
-      {/* Nav: transparent over the black hero, a dark glass bar further down */}
-      <header className="sticky top-0 z-50">
-        <div className="landing-nav-bar absolute inset-x-0 top-0 h-full bg-[#050505]/70 backdrop-blur-xl border-b border-white/[0.06]" />
+      {/* Keep light navigation readable over every frame of the hero video. */}
+      <header className="sticky top-0 z-50 bg-[#050505] border-b border-white/[0.06]">
         <div className="relative container mx-auto px-6 lg:px-10 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
             <LogoIcon />
@@ -208,7 +207,7 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
           <div className="container mx-auto px-6 lg:px-10">
             <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
               <div className="lg:col-span-6">
-                <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">
+                <div className="text-sm font-medium text-[#b34409] mb-5">
                   Forward it
                 </div>
                 <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
@@ -300,7 +299,7 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
           <div className="container mx-auto px-6 lg:px-10">
             <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
               <div className="lg:col-span-5">
-                <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">
+                <div className="text-sm font-medium text-[#b34409] mb-5">
                   Cc TimeIQ
                 </div>
                 <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
@@ -338,7 +337,7 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
         <section id="calendars" className="relative py-24 lg:py-32 scroll-mt-16">
           <div className="container mx-auto px-6 lg:px-10">
             <div className="max-w-2xl mb-12">
-              <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">
+              <div className="text-sm font-medium text-[#b34409] mb-5">
                 Every calendar you use
               </div>
               <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
@@ -362,7 +361,7 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
           <div className="container mx-auto px-6 lg:px-10">
             <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
               <div className="lg:col-span-5">
-                <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">
+                <div className="text-sm font-medium text-[#b34409] mb-5">
                   Share availability
                 </div>
                 <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
@@ -400,7 +399,7 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
         <section id="how" className="relative py-24 lg:py-36">
           <div className="container mx-auto px-6 lg:px-10">
             <div className="max-w-2xl mb-20">
-              <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">
+              <div className="text-sm font-medium text-[#b34409] mb-5">
                 How it works
               </div>
               <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
@@ -455,7 +454,7 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
           <div className="container mx-auto px-6 lg:px-10">
             <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between mb-16 gap-6">
               <div className="max-w-2xl">
-                <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">
+                <div className="text-sm font-medium text-[#b34409] mb-5">
                   Features
                 </div>
                 <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
@@ -573,7 +572,7 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
         <section id="pricing" className="relative py-24 lg:py-36">
           <div className="container mx-auto px-6 lg:px-10">
             <div className="text-center max-w-2xl mx-auto mb-12">
-              <div className="text-sm font-medium text-[hsl(var(--brand))] mb-5">
+              <div className="text-sm font-medium text-[#b34409] mb-5">
                 Pricing
               </div>
               <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
@@ -610,11 +609,11 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
           <div className="container mx-auto px-6 lg:px-10">
             <div className="rounded-[2rem] lg:rounded-[2.5rem] bg-[hsl(var(--brand))] p-12 lg:p-20 text-center">
               <div className="max-w-3xl mx-auto">
-                <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-white text-balance">
+                <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-[hsl(var(--brand-ink))] text-balance">
                   Try vibe scheduling.{" "}
-                  <em className="text-white/75">The first 7 meetings are on us.</em>
+                  <em className="text-[hsl(var(--brand-ink))]">The first 7 meetings are on us.</em>
                 </h2>
-                <p className="text-lg text-white/80 mt-7 mb-10 leading-relaxed text-pretty">
+                <p className="text-lg text-[hsl(var(--brand-ink))] mt-7 mb-10 leading-relaxed text-pretty">
                   Connect your calendars, share your link and forward the next
                   schedule that lands in your inbox. No card needed to start.
                 </p>
@@ -655,7 +654,7 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
                 </a>{" "}
                 creation
               </span>
-              <span className="text-muted-foreground/70 text-sm font-mono tabular-nums">
+              <span className="text-muted-foreground text-sm font-mono tabular-nums">
                 · &copy; 2026
               </span>
             </div>

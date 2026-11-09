@@ -19,7 +19,7 @@ const buttonVariants = cva(
           "shimmer glass text-foreground hover:-translate-y-[1px]",
         // Landing brand pair (tangerine, near-black) and an outline for dark bands
         brand:
-          "bg-[hsl(var(--brand))] text-white shadow-[0_8px_28px_-10px_hsl(var(--brand)/0.7)] hover:bg-[hsl(21_90%_56%)] hover:-translate-y-[1px]",
+          "bg-[hsl(var(--brand))] text-[hsl(var(--brand-ink))] shadow-[0_8px_28px_-10px_hsl(var(--brand)/0.7)] hover:bg-[hsl(21_90%_56%)] hover:-translate-y-[1px]",
         brandInk:
           "bg-[hsl(var(--brand-ink))] text-[#f6f7f9] hover:bg-[hsl(0_0%_18%)] hover:-translate-y-[1px]",
         onDark:
