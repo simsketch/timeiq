@@ -7,7 +7,7 @@ export const metadata = {
   description: "What TimeIQ collects, why, and how to remove it.",
 };
 
-const UPDATED = "September 10, 2026";
+const UPDATED = "November 9, 2026";
 const CONTACT = "simsketch@gmail.com";
 
 export default function PrivacyPage() {
@@ -46,7 +46,7 @@ export default function PrivacyPage() {
               <li><strong>Bookings.</strong> When someone books time with you, we store their name, email, and any details they enter in the booking form, and we email both of you a confirmation.</li>
               <li><strong>Time and invoicing data.</strong> Clients, hourly rates, time entries, and invoices you create. Invoices you send are emailed to your client and available at a private link you control.</li>
               <li><strong>Payment.</strong> Subscriptions are processed by Stripe. We store your Stripe customer and subscription identifiers and status. We never see or store your card number.</li>
-              <li><strong>Usage.</strong> Standard server logs, and analytics from Google Analytics and, where enabled, the Meta Pixel, used to understand traffic and measure advertising. These may set cookies.</li>
+              <li><strong>Usage.</strong> Standard server logs, and analytics from Google Analytics and, where enabled, the Meta Pixel, used to understand traffic and measure advertising. These may set cookies. We also retain campaign labels from your first tagged ad visit in browser storage for up to 30 days, and associate them with a new account to measure which ads bring sign-ups. We do not store the full referring URL for this attribution.</li>
             </ul>
           </Section>
 

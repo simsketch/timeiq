@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { apiFetch } from "@/lib/api";
+import { AdminAdPerformance } from "@/components/admin-ad-performance";
 import { Button } from "@/components/ui/button";
 
 type Analytics = {
@@ -10,7 +11,8 @@ type Analytics = {
   users: { total: number; last_24h: number; last_7d: number; last_30d: number; active_subscriptions: number; trials: number; complimentary: number };
   signups: { date: string; count: number }[];
   activity: Record<string, number>;
-  recent_users: { name: string | null; email: string; username: string; created_at: string; subscription_status: string }[];
+  acquisition: { source: string | null; campaign: string | null; ad: string | null; users: number }[];
+  recent_users: { name: string | null; email: string; username: string; created_at: string; subscription_status: string; signup_attribution?: { utm_source: string; utm_campaign?: string; utm_content?: string } | null }[];
 };
 
 const activityLabels: Record<string, string> = {
@@ -94,6 +96,7 @@ export default function AdminPage() {
           </div>
           <div className="mt-2 flex justify-between text-xs text-muted-foreground"><span>{data.signups[0]?.date}</span><span>{data.signups.at(-1)?.date}</span></div>
         </section>
+        <AdminAdPerformance />
         <section>
           <h2 className="mb-4 text-lg font-semibold">Product activity</h2>
           <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -107,15 +110,22 @@ export default function AdminPage() {
           <p className="mt-1 text-sm text-muted-foreground">Most recent 50 accounts. Website visits and ad clicks do not create accounts.</p>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead><tr className="border-b text-muted-foreground">{["User", "Email", "Joined", "Subscription"].map((title) => <th key={title} scope="col" className="p-3 font-medium">{title}</th>)}</tr></thead>
+              <thead><tr className="border-b text-muted-foreground">{["User", "Email", "Joined", "Subscription", "First ad source"].map((title) => <th key={title} scope="col" className="p-3 font-medium">{title}</th>)}</tr></thead>
               <tbody>{data.recent_users.map((user) => <tr key={user.username} className="border-b last:border-0">
                 <td className="p-3">{user.name || user.username}<span className="block text-xs text-muted-foreground">@{user.username}</span></td>
-                <td className="p-3">{user.email}</td><td className="whitespace-nowrap p-3">{new Date(user.created_at).toLocaleDateString()}</td><td className="p-3">{user.subscription_status}</td>
+                <td className="p-3">{user.email}</td><td className="whitespace-nowrap p-3">{new Date(user.created_at).toLocaleDateString()}</td><td className="p-3">{user.subscription_status}</td><td className="p-3">{user.signup_attribution ? [user.signup_attribution.utm_source, user.signup_attribution.utm_campaign, user.signup_attribution.utm_content].filter(Boolean).join(" / ") : "Unknown"}</td>
               </tr>)}</tbody>
             </table>
           </div>
         </section>
-        <p className="text-sm text-muted-foreground">Ad-source attribution and chatbot usage are not recorded in the application database yet. Review spend and click attribution in <a href="https://www.facebook.com/adsmanager" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">Meta Ads Manager</a>.</p>
+        <section className="rounded-2xl border bg-background/70 p-5">
+          <h2 className="text-lg font-semibold">Sign-ups by first ad source · all time</h2>
+          <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm">
+            <thead><tr className="border-b text-muted-foreground">{["Source", "Campaign", "Ad", "Users"].map((label) => <th key={label} scope="col" className="p-3 font-medium">{label}</th>)}</tr></thead>
+            <tbody>{data.acquisition?.map((source, index) => <tr key={index} className="border-b last:border-0"><td className="p-3">{source.source || "Unknown"}</td><td className="p-3">{source.campaign || "—"}</td><td className="p-3">{source.ad || "—"}</td><td className="p-3">{source.users}</td></tr>)}</tbody>
+          </table></div>
+          <p className="mt-3 text-xs text-muted-foreground">Top 100 source combinations. Unknown includes older accounts, untagged links, and visits where tracking was unavailable. Chatbot usage is not recorded yet.</p>
+        </section>
       </>}
     </div>
   );

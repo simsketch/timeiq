@@ -34,10 +34,10 @@ export function MobileNav() {
   return (
     <>
       {/* Top bar */}
-      <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-14 glass rounded-none border-b border-white/20">
+      <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-16 glass rounded-none border-b border-white/20">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <LogoIcon />
-          <span className="text-base font-semibold tracking-tight">TimeIQ</span>
+          <LogoIcon className="h-11 w-11" />
+          <span className="text-xl font-semibold tracking-tight">TimeIQ</span>
         </Link>
         <div className="flex items-center gap-3">
           <UserButton afterSignOutUrl="/" />

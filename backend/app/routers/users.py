@@ -525,7 +525,7 @@ async def export_my_data(
     et_name = {e.id: e.name for e in event_types}
 
     files = {
-        "profile.json": json.dumps({"username": user.username, "email": user.email, "name": user.name, "timezone": user.timezone, "booking_logo": user.booking_logo, "booking_white_label": user.booking_white_label, "exported_at": datetime.now(timezone.utc).isoformat()}, indent=2),
+        "profile.json": json.dumps({"username": user.username, "email": user.email, "name": user.name, "timezone": user.timezone, "booking_logo": user.booking_logo, "booking_white_label": user.booking_white_label, "signup_attribution": user.signup_attribution, "exported_at": datetime.now(timezone.utc).isoformat()}, indent=2),
         "clients.csv": _csv([{"name": c.name, "contact_name": c.contact_name or "", "billing_email": c.billing_email or "", "address": c.address or "", "hourly_rate": str(c.hourly_rate), "currency": c.currency, "payment_terms_days": c.payment_terms_days} for c in clients]),
         "time_entries.csv": _csv([{"date": e.entry_date.isoformat(), "client": client_name.get(e.client_id, ""), "hours": str(e.hours), "description": e.description, "invoice": inv_number.get(e.invoice_id, "") if e.invoice_id else ""} for e in entries]),
         "invoices.csv": _csv([{"number": i.number, "client": i.client_name, "status": i.status, "issue_date": i.issue_date.isoformat(), "due_date": i.due_date.isoformat(), "period_start": i.period_start.isoformat(), "period_end": i.period_end.isoformat(), "currency": i.currency, "subtotal": str(i.subtotal), "sent_at": i.sent_at.isoformat() if i.sent_at else "", "paid_at": i.paid_at.isoformat() if i.paid_at else ""} for i in invoices]),

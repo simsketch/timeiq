@@ -2,7 +2,8 @@
 from datetime import datetime, timedelta, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, Query
+from typing import Literal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -63,7 +64,7 @@ async def analytics(response: Response, db: AsyncSession = Depends(get_db)):
         User.created_at >= today - timedelta(days=29)
     ).group_by(signup_day))).all())
     recent = (await db.execute(select(
-        User.name, User.email, User.username, User.created_at, User.subscription_status
+        User.name, User.email, User.username, User.created_at, User.subscription_status, User.signup_attribution
     ).order_by(User.created_at.desc()).limit(50))).mappings().all()
     calendars = (CalendarSource.is_active.is_(True), CalendarSource.type.not_in(("email", "meetings")))
     return {
@@ -84,4 +85,41 @@ async def analytics(response: Response, db: AsyncSession = Depends(get_db)):
             "email_failures_30d": await count(EmailImport, EmailImport.created_at >= now - timedelta(days=30), EmailImport.status == "failed"),
         },
         "recent_users": [dict(row) for row in recent],
+        "acquisition": [dict(row) for row in (await db.execute(select(
+            User.signup_attribution["utm_source"].astext.label("source"),
+            User.signup_attribution["utm_campaign"].astext.label("campaign"),
+            User.signup_attribution["utm_content"].astext.label("ad"),
+            func.count().label("users"),
+        ).group_by(
+            "source", "campaign", "ad",
+        ).order_by(func.count().desc()).limit(100))).mappings()],
     }
+
+
+@router.get("/ads", dependencies=[Depends(require_admin)])
+async def ads(response: Response, days: Literal["0", "7", "30"] = Query(default="7"), db: AsyncSession = Depends(get_db)):
+    from app.services.ad_performance import fetch_report
+
+    response.headers["Cache-Control"] = "private, no-store"
+    try:
+        report = await fetch_report(int(days))
+    except ValueError as exc:
+        raise HTTPException(503, str(exc)) from None
+    except (httpx.HTTPError, KeyError):
+        # Provider errors can include credentials; never forward their raw body or URL.
+        raise HTTPException(502, "Could not load Meta results. Please try again; the reporting connection may need renewing.") from None
+    signup_day = func.date(func.timezone(report["timezone"], User.created_at))
+    from datetime import date
+    sources = (await db.execute(select(User.signup_attribution).where(
+        User.signup_attribution.is_not(None),
+        signup_day >= date.fromisoformat(report["since"]), signup_day <= date.fromisoformat(report["until"]),
+    ))).scalars().all()
+    for ad in report["ads"]:
+        ad["attributed_users"] = sum(1 for source in sources if source and (
+            source.get("ad_id") == ad["id"] or (
+                not source.get("ad_id") and source.get("utm_source", "").lower() in {"facebook", "instagram", "meta"}
+                and source.get("utm_campaign") == "founder100" and source.get("utm_content") == ad["name"]
+            )
+        ))
+    report["totals"]["attributed_users"] = sum(ad["attributed_users"] for ad in report["ads"])
+    return report

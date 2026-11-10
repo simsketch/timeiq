@@ -19,6 +19,8 @@ for _env_path, _override in (
 
 
 class Settings:
+    META_ACCESS_TOKEN: str = os.getenv("META_ACCESS_TOKEN", "")
+    META_AD_ACCOUNT_ID: str = os.getenv("META_AD_ACCOUNT_ID", "")
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
     CLERK_SECRET_KEY: str = os.getenv("CLERK_SECRET_KEY", "")
     CLERK_WEBHOOK_SECRET: str = os.getenv("CLERK_WEBHOOK_SECRET", "")

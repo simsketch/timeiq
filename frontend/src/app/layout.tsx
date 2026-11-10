@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Toaster } from "@/components/ui/toaster";
+import { AttributionCapture } from "@/components/attribution-capture";
 import { SiteAnalytics } from "@/components/site-analytics";
 import "./globals.css";
 
@@ -53,6 +54,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         {children}
         <Toaster />
+        <AttributionCapture />
         <SiteAnalytics />
       </body>
     </html>

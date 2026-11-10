@@ -13,9 +13,11 @@ function load(path, overrides = {}, globals = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
   vm.runInNewContext(source, {
-    module: compiled, exports: compiled.exports, Date, Error, Intl, URLSearchParams,
+    module: compiled, exports: compiled.exports, Date, Error, Intl, URL, URLSearchParams,
     require(name) {
       if (name in overrides) return overrides[name];
+      if (name === "@/lib/signup-attribution") return load("lib/signup-attribution.ts");
+      if (name === "@/lib/analytics-url") return load("lib/analytics-url.ts");
       if (name === "@/lib/calendar-time") return load("lib/calendar-time.ts");
       if (name === "@/lib/utils") return { cn: (...values) => values.filter(Boolean).join(" ") };
       if (name === "next/link") return { __esModule: true, default: "Link" };
@@ -270,7 +272,7 @@ test("navigation preserves routes, highlights nested pages and closes the mobile
   assert.equal(find(tree, (node) => node.props?.["aria-current"] === "page").props.href, "/meetings");
   for (const link of links) link.props.onClick();
   assert.equal(closed, links.length);
-  assert.deepEqual(nodes(tree, (node) => node.type === "p").map((node) => node.props.children), ["Scheduling"]);
+  assert.deepEqual(nodes(tree, (node) => node.type === "p").map((node) => node.props.children), ["Scheduling", "Workspace"]);
 
   const owner = harness("components/dashboard/sidebar.tsx", "Sidebar", {}, { modules: modules(true), effects: true });
   await owner.mount();
@@ -278,7 +280,7 @@ test("navigation preserves routes, highlights nested pages and closes the mobile
   assert.deepEqual(nodes(ownerTree, (node) => node.type === "Link").slice(1).map((node) => node.props.href), [
     "/dashboard", "/event-types", "/availability", "/calendars", "/bookings", "/meetings", "/time", "/clients", "/invoices", "/settings",
   ]);
-  assert.deepEqual(nodes(ownerTree, (node) => node.type === "p").map((node) => node.props.children), ["Scheduling", "Time & invoicing"]);
+  assert.deepEqual(nodes(ownerTree, (node) => node.type === "p").map((node) => node.props.children), ["Scheduling", "Time & invoicing", "Workspace"]);
 
   const admin = harness("components/dashboard/sidebar.tsx", "Sidebar", {}, { modules: modules(false, true), effects: true });
   await admin.mount();
@@ -463,4 +465,70 @@ test("admin analytics shows counts, refreshes, and keeps private data out of err
   tree = page.render();
   assert.equal(find(tree, (node) => node.props?.role === "alert").props.children, "Admin access is restricted to the owner.");
   assert.equal(nodes(tree, (node) => node.type === "td").length, 0);
+});
+
+
+test("campaign capture survives signup navigation, expires, and excludes private URLs", () => {
+  const {captureAttribution, readAttribution} = load("lib/signup-attribution.ts");
+  const values = new Map();
+  const storage = {getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: (key) => values.delete(key)};
+  const now = Date.now();
+  captureAttribution("https://timeiq.app/?utm_source=facebook&utm_campaign=founder100&utm_content=G-all-calendars&fbclid=private-click", storage, now);
+  assert.equal(readAttribution(storage, now).utm_content, "G-all-calendars");
+  assert.equal([...values.values()][0].includes("private-click"), false);
+  captureAttribution("https://timeiq.app/sign-up", storage, now+100);
+  captureAttribution("https://timeiq.app/?utm_source=other", storage, now+200);
+  assert.equal(readAttribution(storage, now+300).utm_source, "facebook");
+  assert.equal(readAttribution(storage, now+31*86400000), null);
+  captureAttribution("https://timeiq.app/invoice/secret?utm_source=facebook", storage, now);
+  assert.equal(values.size, 0);
+  captureAttribution("https://timeiq.app/?utm_source=instagram&ad_id=123", storage, now);
+  assert.equal(readAttribution(storage, now).ad_id, "123");
+});
+
+test("new account reports saved attribution independently of the Meta pixel", async () => {
+  const calls = [];
+  const page = harness("components/signup-pixel.tsx", "SignupPixel", {}, {
+    effects: true,
+    modules: {
+      "@clerk/nextjs": {useUser: () => ({user: {createdAt: new Date(Date.now()-2*3600000)}}), useAuth: () => ({getToken: async () => "new-user"})},
+      "@/components/meta-pixel": {track() {}},
+      "@/lib/signup-attribution": {readAttribution: () => ({utm_source: "facebook", captured_at: new Date().toISOString()})},
+      "@/lib/api": {apiFetch: async (path, options) => calls.push({path,...options})},
+    },
+    globals: {window: {localStorage: {}}},
+  });
+  await page.mount();
+  assert.equal(calls[0].path, "/api/me/attribution");
+  assert.equal(calls[0].headers.Authorization, "Bearer new-user");
+  assert.equal(JSON.parse(calls[0].body).utm_source, "facebook");
+});
+
+
+test("ad report loads separate from analytics and clears stale results when the period changes", async () => {
+  const calls = [];
+  let fail = false;
+  const panel = harness("components/admin-ad-performance.tsx", "AdminAdPerformance", {}, {
+    effects: true,
+    modules: {
+      "@clerk/nextjs": {useAuth: () => ({getToken: async () => "owner"})},
+      "@/lib/api": {apiFetch: async (path, options) => {
+        calls.push({path,...options});
+        if (fail) throw new Error("Meta connection needs renewing");
+        const totals = {spend: 35.97, impressions: 1358, link_clicks: 32, landing_page_views: 15, attributed_users: 0, meta_registrations: 0, purchases: 0};
+        return {generated_at: new Date().toISOString(), since: "2026-11-02", until: "2026-11-08", currency: "USD", timezone: "America/New_York", totals, ads: [{id: "123", name: "G-all-calendars", campaign: "TimeIQ Founder 100", ...totals}]};
+      }},
+    },
+  });
+  await panel.mount();
+  let tree = panel.render();
+  assert.equal(calls[0].path, "/api/admin/ads?days=7");
+  assert.ok(find(tree, (node) => node.type === "td" && node.props.children === "$35.97"));
+  find(tree, (node) => node.type === "select").props.onChange({target: {value: "30"}});
+  fail = true;
+  await panel.mount();
+  tree = panel.render();
+  assert.equal(calls.at(-1).path, "/api/admin/ads?days=30");
+  assert.equal(nodes(tree, (node) => node.type === "td").length, 0);
+  assert.equal(find(tree, (node) => node.props?.role === "alert").props.children, "Meta connection needs renewing");
 });

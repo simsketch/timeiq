@@ -46,6 +46,7 @@ async def test_admin_refuses_other_unverified_or_secondary_email(env, monkeypatc
     r = await env.client.get("/api/admin/analytics")
     assert r.status_code == 403
     assert "recent_users" not in r.text
+    assert (await env.client.get("/api/admin/ads")).status_code == 403
 
 
 @pytest.mark.asyncio
@@ -75,3 +76,49 @@ async def test_admin_refuses_api_tokens_and_anonymous(env):
     assert (await env.client.get("/api/admin/analytics")).status_code == 403
     app.dependency_overrides.clear()
     assert (await env.client.get("/api/admin/analytics")).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_attribution_is_first_write_only_and_owner_can_see_source(env, monkeypatch):
+    from datetime import datetime, timezone
+    payload = {"utm_source": "facebook", "utm_medium": "paid", "utm_campaign": "founder100", "utm_content": "G-all-calendars", "captured_at": datetime.now(timezone.utc).isoformat()}
+    r = await env.client.post("/api/me/attribution", json=payload)
+    assert r.status_code == 200, r.text
+    assert r.json() == {"recorded": True}
+    assert (await env.client.post("/api/me/attribution", json={**payload, "utm_content": "later-ad"})).json() == {"recorded": False}
+    clerk(monkeypatch)
+    r = await env.client.get("/api/admin/analytics")
+    assert r.status_code == 200, r.text
+    assert any(source["ad"] == "G-all-calendars" and source["users"] >= 1 for source in r.json()["acquisition"])
+
+
+@pytest.mark.asyncio
+async def test_attribution_refuses_old_accounts_and_bad_payloads(env):
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import update
+    now = datetime.now(timezone.utc)
+    payload = {"utm_source": "facebook", "captured_at": now.isoformat()}
+    async with async_session() as db:
+        await db.execute(update(User).where(User.id == env.users[0].id).values(created_at=now-timedelta(days=100)))
+        await db.commit()
+    assert (await env.client.post("/api/me/attribution", json=payload)).json() == {"recorded": False}
+    assert (await env.client.post("/api/me/attribution", json={**payload, "utm_source": "x"*161})).status_code == 422
+    assert (await env.client.post("/api/me/attribution", json={**payload, "ad_id": "not-an-id"})).status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_ads_endpoint_periods_ownership_and_error_isolation(env, monkeypatch):
+    from app.services import ad_performance
+    clerk(monkeypatch)
+    periods = []
+    async def report(days):
+        periods.append(days)
+        return {"timezone": "America/New_York", "since": "2026-01-01", "until": "2027-01-01", "totals": {}, "ads": [{"id": "123", "name": "G-all-calendars"}]}
+    monkeypatch.setattr(ad_performance, "fetch_report", report)
+    for days in (7, 30, 0):
+        r = await env.client.get(f"/api/admin/ads?days={days}")
+        assert r.status_code == 200, r.text
+        assert r.headers["cache-control"] == "private, no-store"
+        assert r.json()["totals"]["attributed_users"] == 0
+    assert periods == [7, 30, 0]
+    assert (await env.client.get("/api/admin/ads?days=8")).status_code == 422

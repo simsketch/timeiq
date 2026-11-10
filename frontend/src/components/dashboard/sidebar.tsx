@@ -31,8 +31,8 @@ const routes = [
   { label: "Time", icon: Timer, href: "/time", invoicing: true },
   { label: "Clients", icon: Users, href: "/clients", invoicing: true },
   { label: "Invoices", icon: Receipt, href: "/invoices", invoicing: true },
-  { label: "Admin", icon: ShieldCheck, href: "/admin", admin: true },
   { label: "Settings", icon: Settings, href: "/settings" },
+  { label: "Admin", icon: ShieldCheck, href: "/admin", admin: true },
 ];
 
 /** Time tracking and invoicing show only for accounts they're switched on for. */
@@ -72,8 +72,8 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="relative z-10 flex h-full min-h-0 flex-col py-7">
         <div className="px-6 mb-9">
           <Link href="/dashboard" onClick={onNavigate} className="flex items-center gap-2.5 group">
-            <LogoIcon />
-            <span className="text-lg font-semibold tracking-tight text-white">
+            <LogoIcon className="h-12 w-12 shrink-0" />
+            <span className="text-2xl font-semibold tracking-tight text-white">
               TimeIQ
             </span>
           </Link>
@@ -87,6 +87,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             const isActive = pathname === route.href || pathname.startsWith(`${route.href}/`);
             return (
               <div key={route.href} className={route.href === "/settings" ? "mt-5! border-t border-white/10 pt-3" : undefined}>
+                {route.href === "/settings" && <p className="px-4 pb-2 pt-2 text-xs font-medium text-white/50">Workspace</p>}
                 {route.href === "/event-types" && <p className="px-4 pb-2 pt-5 text-xs font-medium text-white/35">Scheduling</p>}
                 {route.href === "/time" && <p className="px-4 pb-2 pt-5 text-xs font-medium text-white/35">Time &amp; invoicing</p>}
                 <Link
