@@ -25,6 +25,7 @@ from app.models import (  # noqa: F401
     User,
 )
 from app.routers import (
+    admin,
     api_tokens,
     assistant,
     push_devices,
@@ -95,6 +96,7 @@ app.include_router(group_meetings.router)
 app.include_router(billing.router)
 app.include_router(connect.router)
 app.include_router(users.router)
+app.include_router(admin.router)
 app.include_router(event_types.router)
 app.include_router(availability.router)
 app.include_router(bookings.router)

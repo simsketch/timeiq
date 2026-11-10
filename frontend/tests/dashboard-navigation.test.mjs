@@ -252,10 +252,10 @@ test("chat restores the draft and shows API errors so a failed request can be re
 
 test("navigation preserves routes, highlights nested pages and closes the mobile drawer on every link", async () => {
   let closed = 0;
-  const modules = (invoicing) => ({
+  const modules = (invoicing, admin = false) => ({
     "next/navigation": { usePathname: () => "/meetings/123" },
     "@clerk/nextjs": { useAuth: () => ({ isLoaded: true, getToken: async () => "t" }) },
-    "@/lib/api": { apiFetch: async (path) => (assert.equal(path, "/api/me"), { invoicing_enabled: invoicing }) },
+    "@/lib/api": { apiFetch: async (path) => (assert.equal(path, "/api/me"), { invoicing_enabled: invoicing, is_admin: admin }) },
   });
   const sidebar = harness("components/dashboard/sidebar.tsx", "Sidebar", { onNavigate: () => closed++ }, {
     modules: modules(false), effects: true,
@@ -279,6 +279,10 @@ test("navigation preserves routes, highlights nested pages and closes the mobile
     "/dashboard", "/event-types", "/availability", "/calendars", "/bookings", "/meetings", "/time", "/clients", "/invoices", "/settings",
   ]);
   assert.deepEqual(nodes(ownerTree, (node) => node.type === "p").map((node) => node.props.children), ["Scheduling", "Time & invoicing"]);
+
+  const admin = harness("components/dashboard/sidebar.tsx", "Sidebar", {}, { modules: modules(false, true), effects: true });
+  await admin.mount();
+  assert.equal(nodes(admin.render(), (node) => node.type === "Link").some((node) => node.props.href === "/admin"), true);
 
   const mobile = harness("components/dashboard/mobile-nav.tsx", "MobileNav", {}, {
     modules: { "next/navigation": { usePathname: () => "/availability" }, "@clerk/nextjs": {} },
@@ -423,4 +427,40 @@ test("daylight-saving days still align busy events with the wall-clock grid", ()
   const block = find(calendar.render(), (node) => node.type === "button" && node.props?.title?.startsWith("Call ·"));
   assert.equal(block.props.style.top, 9 * 44);
   assert.equal(block.props.style.height, 42);
+});
+
+
+test("admin analytics shows counts, refreshes, and keeps private data out of error states", async () => {
+  const calls = [];
+  let fail = false;
+  const page = harness("app/(dashboard)/admin/page.tsx", "default", {}, {
+    effects: true,
+    modules: {
+      "@clerk/nextjs": { useAuth: () => ({ isLoaded: true, userId: "owner", getToken: async () => "owner-token" }) },
+      "@/lib/api": { apiFetch: async (path, options) => {
+        calls.push({path, ...options});
+        if (fail) throw new Error("Admin access is restricted to the owner.");
+        return {
+          generated_at: "2026-11-09T12:00:00Z",
+          users: {total: 12, last_24h: 1, last_7d: 3, last_30d: 8, active_subscriptions: 2, trials: 1, complimentary: 1},
+          signups: [{date: "2026-11-09", count: 1}], activity: {cc_agent_meetings: 4},
+          recent_users: [{name: "Owner", username: "owner", email: "owner@example.com", created_at: "2026-11-09T12:00:00Z", subscription_status: "active"}],
+        };
+      } },
+    },
+  });
+  await page.mount();
+  let tree = page.render();
+  assert.equal(calls[0].path, "/api/admin/analytics");
+  assert.equal(calls[0].headers.Authorization, "Bearer owner-token");
+  assert.equal(calls[0].cache, "no-store");
+  assert.ok(find(tree, (node) => node.type === "td" && node.props.children === "owner@example.com"));
+  assert.ok(find(tree, (node) => node.type === "p" && node.props.children === "Registered users"));
+  assert.ok(find(tree, (node) => node.props?.["aria-label"] === "2026-11-09: 1 sign-ups"));
+  find(tree, (node) => node.type === "Button").props.onClick();
+  fail = true;
+  await page.mount();
+  tree = page.render();
+  assert.equal(find(tree, (node) => node.props?.role === "alert").props.children, "Admin access is restricted to the owner.");
+  assert.equal(nodes(tree, (node) => node.type === "td").length, 0);
 });

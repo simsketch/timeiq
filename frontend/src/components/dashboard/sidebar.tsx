@@ -7,6 +7,7 @@ import { useAuth } from "@clerk/nextjs";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
+  ShieldCheck,
   LayoutDashboard,
   Calendar,
   Clock,
@@ -30,23 +31,24 @@ const routes = [
   { label: "Time", icon: Timer, href: "/time", invoicing: true },
   { label: "Clients", icon: Users, href: "/clients", invoicing: true },
   { label: "Invoices", icon: Receipt, href: "/invoices", invoicing: true },
+  { label: "Admin", icon: ShieldCheck, href: "/admin", admin: true },
   { label: "Settings", icon: Settings, href: "/settings" },
 ];
 
 /** Time tracking and invoicing show only for accounts they're switched on for. */
-function useInvoicingEnabled(): boolean {
+function useAccountFeatures() {
   const { getToken, isLoaded } = useAuth();
-  const [enabled, setEnabled] = useState(false);
+  const [enabled, setEnabled] = useState({ invoicing: false, admin: false });
   useEffect(() => {
     if (!isLoaded) return;
     let cancelled = false;
     (async () => {
       try {
         const token = await getToken();
-        const me = await apiFetch<{ invoicing_enabled?: boolean }>("/api/me", {
+        const me = await apiFetch<{ invoicing_enabled?: boolean; is_admin?: boolean }>("/api/me", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!cancelled) setEnabled(!!me.invoicing_enabled);
+        if (!cancelled) setEnabled({ invoicing: !!me.invoicing_enabled, admin: !!me.is_admin });
       } catch {
         // Hidden stays hidden.
       }
@@ -60,8 +62,8 @@ function useInvoicingEnabled(): boolean {
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const invoicing = useInvoicingEnabled();
-  const visible = routes.filter((r) => !r.invoicing || invoicing);
+  const features = useAccountFeatures();
+  const visible = routes.filter((r) => (!r.invoicing || features.invoicing) && (!r.admin || features.admin));
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col rounded-[1.5rem] overflow-hidden aurora-bg-dark">

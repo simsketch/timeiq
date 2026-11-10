@@ -4,7 +4,7 @@ let userSynced = false;
 
 // Pages a lapsed subscriber can still use (billing, export, account deletion).
 // A 402 there surfaces as an error message and leaves them on the page.
-export const UNGATED_PATHS = ["/settings"];
+export const UNGATED_PATHS = ["/settings", "/admin"];
 
 const LOCATION_PREFIXES = ["body", "query", "path", "header", "cookie"];
 

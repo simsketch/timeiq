@@ -14,7 +14,7 @@ from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, computed_field, field_validator
 
 from app.schemas.booking import validate_iana_timezone
 from sqlalchemy import select
@@ -50,6 +50,11 @@ class UserResponse(BaseModel):
     booking_logo: Optional[str] = None
     booking_white_label: bool = False
     invoicing_enabled: bool = False
+
+    @computed_field
+    @property
+    def is_admin(self) -> bool:
+        return self.email.lower() == "simsketch@gmail.com"
 
     model_config = {"from_attributes": True}
 
