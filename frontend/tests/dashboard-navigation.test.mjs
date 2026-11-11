@@ -114,7 +114,7 @@ test("public booking profiles show custom logos and honor white labeling with an
         const profile = { username: "host", name: "Host", image_url: null, event_types: [], booking_logo: "data:image/png;base64,logo", booking_white_label: whiteLabel };
         const card = harness("components/booking/booking-profile.tsx", "BookingProfile", { profile, embed }, {
           modules: {
-            "./booking-profile.module.css": new Proxy({}, { get: (_, key) => key }),
+            "./booking-profile.module.css": { __esModule: true, default: new Proxy({}, { get: (_, key) => key }) },
             "./scenes": { isNoScene: () => noScene, sceneFor: () => ({ id: "orrery", ink: "light" }) },
             "./booking-scene": { BookingScene: "BookingScene" },
             "@/lib/booking-payments": {},
@@ -122,8 +122,34 @@ test("public booking profiles show custom logos and honor white labeling with an
         });
         const tree = card.render();
         assert.equal(find(tree, (node) => node.type === "img" && node.props.alt === "Host logo").props.src, profile.booking_logo);
+        assert.equal(find(tree, (node) => node.props?.className === "avatar"), undefined);
         assert.equal(Boolean(find(tree, (node) => node.type === "footer")), !embed && !whiteLabel);
         assert.equal(Boolean(find(tree, (node) => node.props?.["aria-label"] === "TimeIQ home")), !embed && !whiteLabel);
+      }
+    }
+  }
+});
+
+test("booking identity prefers a brand logo and falls back to a photo or initials without one", () => {
+  for (const logo of [null, "data:image/png;base64,brand"]) {
+    for (const photo of [null, "https://example.com/host.png"]) {
+      const card = harness("components/booking/booking-profile.tsx", "BookingProfile", {
+        profile: { username: "host", name: "North Studio", image_url: photo, booking_logo: logo, event_types: [] }, embed: true,
+      }, { modules: {
+        "./booking-profile.module.css": { __esModule: true, default: new Proxy({}, { get: (_, key) => key }) },
+        "./scenes": { isNoScene: () => true, sceneFor: () => ({ id: "none" }) },
+        "./booking-scene": { BookingScene: "BookingScene" },
+        "@/lib/booking-payments": {},
+      } });
+      const tree = card.render();
+      const images = nodes(tree, node => node.type === "img");
+      assert.equal(images.length, logo || photo ? 1 : 0);
+      if (images.length) assert.equal(images[0].props.src, logo || photo);
+      assert.equal(Boolean(find(tree, node => node.props?.className === "avatar")), !logo);
+      if (!logo && photo) {
+        images[0].props.onError();
+        assert.equal(nodes(card.render(), node => node.type === "img").length, 0);
+        assert.ok(visibleText(card.render()).includes("NS"));
       }
     }
   }
@@ -540,18 +566,20 @@ function visibleText(tree) {
   return visibleText(tree.props?.children);
 }
 
-test("signup matches recognized ad promises, ignores arbitrary query copy, and preserves Clerk routing", async () => {
+test("signup leads with the AI agent, keeps recognized ad angles, and preserves Clerk routing", async () => {
   const page = load("app/(auth)/sign-up/[[...sign-up]]/page.tsx", {
     "@clerk/nextjs": { SignUp: "SignUp" },
     "@/components/landing/headlines": load("components/landing/headlines.ts"),
   }).default;
   for (const [query, expected] of [
-    [{ utm_content: "G-all-calendars" }, "All your calendars. One booking link."],
-    [{ utm_content: "D-cc-timeiq" }, "Cc TimeIQ. It finds the time."],
-    [{ utm_content: "B-no-upsells" }, "Simple scheduling. One clear price."],
-    [{}, "Chat. Forward. Get booked."],
-    [{ utm_content: "<script>untrusted ad copy</script>" }, "Chat. Forward. Get booked."],
-    [{ utm_content: ["G-all-calendars", "D-cc-timeiq"] }, "Chat. Forward. Get booked."],
+    [{ utm_content: "G-all-calendars" }, "Your AI agent. Every calendar, handled."],
+    [{ utm_content: "D-cc-timeiq" }, "Your AI agent. Just Cc it."],
+    [{ utm_content: "B-no-upsells" }, "Your AI agent. One clear price."],
+    [{ utm_content: "K-free-meetings" }, "Your AI agent. Your first 7 meetings free."],
+    [{ utm_content: "N-forward-schedule-free" }, "Your AI agent. Forward it. It’s scheduled."],
+    [{}, "Your AI agent. Your schedule, handled."],
+    [{ utm_content: "<script>untrusted ad copy</script>" }, "Your AI agent. Your schedule, handled."],
+    [{ utm_content: ["G-all-calendars", "D-cc-timeiq"] }, "Your AI agent. Your schedule, handled."],
   ]) {
     const tree = await page({ searchParams: Promise.resolve({ ...query, redirect_url: "/meet/invite-token" }) });
     assert.equal(visibleText(find(tree, (node) => node.type === "h1")).replace(/\s+/g, " ").trim(), expected);

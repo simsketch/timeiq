@@ -92,17 +92,16 @@ export function BookingProfile({ profile, embed = false }: { profile: PublicProf
           {profile ? (
             <>
               <header className={styles.header}>
-                {profile.booking_logo && (
+                {profile.booking_logo ? (
                   // eslint-disable-next-line @next/next/no-img-element -- validated PNG data URL
                   <img src={profile.booking_logo} alt={`${name} logo`} className={styles.brandLogo} />
-                )}
-                <div className={styles.avatar}>
+                ) : <div className={styles.avatar}>
                   {profile.image_url && !avatarFailed ? (
                     // Remote profile images can come from any connected identity provider.
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={profile.image_url} alt="" width="64" height="64" onError={() => setAvatarFailed(true)} />
                   ) : <span>{initials}</span>}
-                </div>
+                </div>}
                 <h1 className="font-display">Book time with <span>{name}</span></h1>
                 <p>Pick a meeting to see open times.</p>
               </header>

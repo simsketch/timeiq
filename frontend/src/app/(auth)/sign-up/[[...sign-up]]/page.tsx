@@ -3,13 +3,13 @@ import Link from "next/link";
 import { SignUp } from "@clerk/nextjs";
 import { ArrowDown, ArrowRight, Check, ShieldCheck } from "lucide-react";
 import { LogoIcon } from "@/components/logo";
-import { HEADLINES, variantForAd } from "@/components/landing/headlines";
+import { variantForAd } from "@/components/landing/headlines";
 import { AuthFeatureShowcase } from "@/components/auth-feature-showcase";
 import { SignupOffer } from "@/components/signup-offer";
 
 export const metadata: Metadata = {
   title: "Start free — TimeIQ",
-  description: "Chat with your calendar, import schedules by forwarding emails, and share a booking page with your own logo. Free for everyone to try: first 7 meetings free, no card needed.",
+  description: "Your AI agent finds meeting times, coordinates by email, and imports schedules. Share a booking page with your own logo. First 7 meetings free, no card needed.",
   alternates: { canonical: "/sign-up" },
 };
 
@@ -23,13 +23,13 @@ export default async function SignUpPage({
   const signInHref = typeof query.redirect_url === "string" ? `/sign-in?redirect_url=${encodeURIComponent(query.redirect_url)}` : "/sign-in";
   const content = typeof query.utm_content === "string" ? query.utm_content : null;
   const variant = variantForAd(content);
-  const headline = variant === "no-upsells" ? {
-    lead: "Simple scheduling.",
-    accent: "One clear price.",
-  } : variant ? HEADLINES[variant] : {
-    lead: "Chat. Forward.",
-    accent: "Get booked.",
-  };
+  const accent = variant ? {
+    "all-calendars": "Every calendar, handled.",
+    "no-upsells": "One clear price.",
+    "free-meetings": "Your first 7 meetings free.",
+    "cc-timeiq": "Just Cc it.",
+    "forward-schedule": "Forward it. It’s scheduled.",
+  }[variant] : "Your schedule, handled.";
 
   return (
     <div className="min-h-screen bg-[#f7f5f0] text-[#20201e]">
@@ -47,11 +47,11 @@ export default async function SignUpPage({
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-10 xl:gap-16">
           <section aria-labelledby="signup-heading" className="min-w-0">
             <h1 id="signup-heading" className="max-w-xl text-[clamp(1.5rem,2.5vw,2rem)] font-semibold leading-[1.15] tracking-[-0.03em] text-balance">
-              {headline.lead}{" "}
-              <span className="text-[#98410d]">{headline.accent}</span>
+              Your AI agent.{" "}
+              <span className="block text-[#98410d] sm:inline">{accent}</span>
             </h1>
             <p className="mt-2 max-w-[38rem] text-sm leading-relaxed text-[#595950]">
-              Chat to schedule. Forward emails to import. Let clients book with your logo.
+              Your AI agent finds meeting times, coordinates by email, and imports schedules.
             </p>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#595950]">
               <p className="inline-flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#b84705]" aria-hidden="true" />7 meetings free · No credit card</p>

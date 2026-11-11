@@ -11,8 +11,8 @@ export default function SignInPage() {
       </header>
       <main className="mx-auto grid max-w-7xl items-start gap-6 px-5 pb-12 pt-2 sm:px-8 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-10 lg:px-12 xl:gap-16">
         <section className="min-w-0">
-          <h1 className="text-[clamp(1.5rem,2.5vw,2rem)] font-semibold leading-[1.15] tracking-[-0.03em]">Chat. Forward. Get booked.</h1>
-          <p className="mt-2 text-sm leading-relaxed text-[#595950]">Chat to schedule. Forward emails to import. Let clients book with your logo.</p>
+          <h1 className="text-[clamp(1.5rem,2.5vw,2rem)] font-semibold leading-[1.15] tracking-[-0.03em]">Your AI agent. <span className="block text-[#98410d] sm:inline">Your schedule, handled.</span></h1>
+          <p className="mt-2 text-sm leading-relaxed text-[#595950]">Your AI agent finds meeting times, coordinates by email, and imports schedules.</p>
           <a href="#sign-in" className="mt-2 inline-block rounded-full border border-[#d8d3c8] bg-white px-4 py-2 text-xs font-semibold lg:hidden">Go to sign in ↓</a>
           <AuthFeatureShowcase />
         </section>
