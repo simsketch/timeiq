@@ -549,22 +549,19 @@ test("signup matches recognized ad promises, ignores arbitrary query copy, and p
     [{ utm_content: "G-all-calendars" }, "All your calendars. One booking link."],
     [{ utm_content: "D-cc-timeiq" }, "Cc TimeIQ. It finds the time."],
     [{ utm_content: "B-no-upsells" }, "Simple scheduling. One clear price."],
-    [{}, "Your calendar. Your AI assistant."],
-    [{ utm_content: "<script>untrusted ad copy</script>" }, "Your calendar. Your AI assistant."],
-    [{ utm_content: ["G-all-calendars", "D-cc-timeiq"] }, "Your calendar. Your AI assistant."],
+    [{}, "Chat. Forward. Get booked."],
+    [{ utm_content: "<script>untrusted ad copy</script>" }, "Chat. Forward. Get booked."],
+    [{ utm_content: ["G-all-calendars", "D-cc-timeiq"] }, "Chat. Forward. Get booked."],
   ]) {
     const tree = await page({ searchParams: Promise.resolve({ ...query, redirect_url: "/meet/invite-token" }) });
     assert.equal(visibleText(find(tree, (node) => node.type === "h1")).replace(/\s+/g, " ").trim(), expected);
     assert.equal(visibleText(tree).includes("untrusted ad copy"), false);
     const copy = visibleText(tree).replace(/\s+/g, " ");
     for (const message of [
-      "built-in AI chatbot",
-      "automatically extracts the events and adds them to your TimeIQ calendar",
-      "Upload your logo and hide TimeIQ branding",
-      "Cc TimeIQ to coordinate a meeting",
       "Free for everyone to try",
       "Your first 7 meetings are free, with every feature included.",
     ]) assert.ok(copy.includes(message), `Signup must explain: ${message}`);
+    assert.ok(find(tree, (node) => node.type === "AuthFeatureShowcase"));
     const signup = find(tree, (node) => node.type === "SignUp");
     assert.ok(signup);
     for (const prop of ["forceRedirectUrl", "signInForceRedirectUrl", "afterSignUpUrl", "routing", "path"])
@@ -648,4 +645,25 @@ test("direct tagged signup captures first-touch attribution before Clerk auth-st
     await capture.mount();
     assert.equal(JSON.stringify(readAttribution(storage)), first);
   }
+});
+
+
+test("auth feature examples switch between chat, interactive imports, and a non-bookable branded preview", () => {
+  const demo = harness("components/auth-feature-showcase.tsx", "AuthFeatureShowcase", {}, {
+    modules: { "next/dynamic": { __esModule: true, default: () => "LazyDemo" } },
+  });
+  let tree = demo.render();
+  assert.ok(find(tree, node => node.type === "McpDemoContent" && node.props.compact && node.props.title === "TimeIQ chatbot"));
+  find(tree, node => node.type === "button" && visibleText(node).includes("Email imports")).props.onClick();
+  tree = demo.render();
+  assert.ok(visibleText(tree).includes("Try forwarding a sample PDF"));
+  assert.ok(find(tree, node => node.type === "LazyDemo"));
+  find(tree, node => node.type === "button" && visibleText(node).includes("Your brand")).props.onClick();
+  tree = demo.render();
+  assert.ok(visibleText(tree).includes("hide TimeIQ branding"));
+  assert.ok(find(tree, node => node.props?.inert === true));
+  const booking = find(tree, node => node.type === "LazyDemo");
+  assert.equal(booking.props.profile.booking_white_label, true);
+  assert.ok(booking.props.profile.booking_logo.startsWith("data:image/svg+xml,"));
+  assert.equal(booking.props.embed, true);
 });

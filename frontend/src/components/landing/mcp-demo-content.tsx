@@ -42,22 +42,26 @@ export function McpDemoContent({
   onSelect,
   ref,
   announce = true,
+  compact = false,
+  title = "Your assistant + TimeIQ",
 }: {
   selected?: number;
   onSelect?: (index: number) => void;
   ref?: Ref<HTMLDivElement>;
   /** Announce answer changes to screen readers; off while the demo plays itself. */
   announce?: boolean;
+  compact?: boolean;
+  title?: string;
 }) {
   const example = EXAMPLES[selected];
 
   return (
-    <div ref={ref} className="glass glass-chroma min-w-0 rounded-[1.5rem] p-4 sm:p-6">
+    <div ref={ref} className={`glass glass-chroma min-w-0 rounded-[1.5rem] p-4 ${compact ? "" : "sm:p-6"}`}>
       <div className="flex items-center justify-between gap-3 border-b border-foreground/10 pb-4">
-        <span className="text-sm font-semibold">Your assistant + TimeIQ</span>
+        <span className="text-sm font-semibold">{title}</span>
         <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">Example chat</span>
       </div>
-      <div className="my-4 grid grid-cols-2 gap-2" aria-label="Example prompts">
+      {!compact && <div className="my-4 grid grid-cols-2 gap-2" aria-label="Example prompts">
         {EXAMPLES.map((item, index) => (
           <button
             key={item.label}
@@ -71,15 +75,15 @@ export function McpDemoContent({
             {item.label}
           </button>
         ))}
-      </div>
-      <div id="mcp-demo-answer" aria-live={announce ? "polite" : "off"} aria-atomic="true" className="min-h-[29rem] space-y-4 sm:min-h-[25rem]">
+      </div>}
+      <div id="mcp-demo-answer" aria-live={announce ? "polite" : "off"} aria-atomic="true" className={compact ? "mt-4 space-y-3" : "min-h-[29rem] space-y-4 sm:min-h-[25rem]"}>
         <div className="ml-5 rounded-2xl rounded-tr-sm bg-foreground px-4 py-3 text-sm leading-relaxed text-background sm:ml-10">
           <p className="mb-1 text-xs text-background/70">You</p>
           {example.prompt}
         </div>
         <div className="rounded-2xl rounded-tl-sm border border-foreground/10 bg-white/80 p-4">
           <p className="mb-2 text-xs font-semibold text-[hsl(var(--aurora-1))]">TimeIQ</p>
-          <p className="text-sm leading-relaxed">{example.answer}</p>
+          <p className="text-sm leading-relaxed">{compact && selected === 0 ? "Two openings on Thursday, across your connected calendars:" : example.answer}</p>
           <dl className="mt-4 divide-y divide-foreground/10 rounded-xl border border-foreground/10 bg-background/70 px-3">
             {example.rows.map(([label, value]) => (
               <div key={label} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3 text-xs">
@@ -90,10 +94,10 @@ export function McpDemoContent({
           </dl>
           <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{example.note}</p>
         </div>
-        <p className="break-words font-mono text-[11px] leading-relaxed text-muted-foreground">{example.tools}</p>
+        {!compact && <p className="break-words font-mono text-[11px] leading-relaxed text-muted-foreground">{example.tools}</p>}
       </div>
       <p className="mt-4 border-t border-foreground/10 pt-3 text-xs leading-relaxed text-muted-foreground">
-        Sample data. Choose a prompt to see how the tools work. Your assistant&apos;s wording will vary.
+        {compact ? "Illustrative example with sample data. Your assistant’s wording will vary." : "Sample data. Choose a prompt to see how the tools work. Your assistant’s wording will vary."}
       </p>
     </div>
   );
