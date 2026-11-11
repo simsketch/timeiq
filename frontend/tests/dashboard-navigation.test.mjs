@@ -549,13 +549,22 @@ test("signup matches recognized ad promises, ignores arbitrary query copy, and p
     [{ utm_content: "G-all-calendars" }, "All your calendars. One booking link."],
     [{ utm_content: "D-cc-timeiq" }, "Cc TimeIQ. It finds the time."],
     [{ utm_content: "B-no-upsells" }, "Simple scheduling. One clear price."],
-    [{}, "Less scheduling. More time back."],
-    [{ utm_content: "<script>untrusted ad copy</script>" }, "Less scheduling. More time back."],
-    [{ utm_content: ["G-all-calendars", "D-cc-timeiq"] }, "Less scheduling. More time back."],
+    [{}, "Your calendar. Your AI assistant."],
+    [{ utm_content: "<script>untrusted ad copy</script>" }, "Your calendar. Your AI assistant."],
+    [{ utm_content: ["G-all-calendars", "D-cc-timeiq"] }, "Your calendar. Your AI assistant."],
   ]) {
     const tree = await page({ searchParams: Promise.resolve({ ...query, redirect_url: "/meet/invite-token" }) });
     assert.equal(visibleText(find(tree, (node) => node.type === "h1")).replace(/\s+/g, " ").trim(), expected);
     assert.equal(visibleText(tree).includes("untrusted ad copy"), false);
+    const copy = visibleText(tree).replace(/\s+/g, " ");
+    for (const message of [
+      "built-in AI chatbot",
+      "automatically extracts the events and adds them to your TimeIQ calendar",
+      "Upload your logo and hide TimeIQ branding",
+      "Cc TimeIQ to coordinate a meeting",
+      "Free for everyone to try",
+      "Your first 7 meetings are free, with every feature included.",
+    ]) assert.ok(copy.includes(message), `Signup must explain: ${message}`);
     const signup = find(tree, (node) => node.type === "SignUp");
     assert.ok(signup);
     for (const prop of ["forceRedirectUrl", "signInForceRedirectUrl", "afterSignUpUrl", "routing", "path"])
