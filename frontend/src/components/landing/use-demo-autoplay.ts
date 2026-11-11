@@ -45,7 +45,7 @@ function scrollsInside(target: EventTarget | null, root: HTMLElement) {
  */
 export function useDemoAutoplay<T extends HTMLElement = HTMLDivElement>(
   onStep: Step,
-  { interval = 3200, firstDelay = interval }: { interval?: number; firstDelay?: number } = {},
+  { interval = 3200, firstDelay = interval, stopOnInteraction = true, paused = false }: { interval?: number; firstDelay?: number; stopOnInteraction?: boolean; paused?: boolean } = {},
 ) {
   const ref = useRef<T>(null);
   const [stopped, setStopped] = useState(false);
@@ -53,15 +53,16 @@ export function useDemoAutoplay<T extends HTMLElement = HTMLDivElement>(
   const reduced = useSyncExternalStore(subscribeReducedMotion, reducedMotion, serverReducedMotion);
   const visible = useSyncExternalStore(subscribeVisibility, pageVisible, serverPageVisible);
   const started = useRef(false);
+  const [replay, setReplay] = useState(0);
   const step = useEffectEvent(onStep);
 
   const active = !stopped && !reduced;
-  const playing = active && inView && visible;
+  const playing = active && inView && visible && !paused;
 
   // Any real interaction hands the demo to the visitor for good.
   useEffect(() => {
     const node = ref.current;
-    if (!node || !active) return;
+    if (!node || !active || !stopOnInteraction) return;
     const stop = () => setStopped(true);
     // Touch pointerdown also starts page scrolls, so a touch only counts once it becomes a tap (click).
     const onPointer = (e: PointerEvent) => {
@@ -86,7 +87,7 @@ export function useDemoAutoplay<T extends HTMLElement = HTMLDivElement>(
       node.removeEventListener("wheel", onScroll, passive);
       node.removeEventListener("touchmove", onScroll, passive);
     };
-  }, [active]);
+  }, [active, stopOnInteraction]);
 
   useEffect(() => {
     const node = ref.current;
@@ -108,7 +109,12 @@ export function useDemoAutoplay<T extends HTMLElement = HTMLDivElement>(
     schedule(started.current ? interval : firstDelay);
     started.current = true;
     return () => clearTimeout(timer);
-  }, [playing, interval, firstDelay]);
+  }, [playing, interval, firstDelay, replay]);
 
-  return { ref, active, playing };
+  function restart() {
+    started.current = false;
+    setStopped(false);
+    setReplay(n => n + 1);
+  }
+  return { ref, active, playing, restart };
 }

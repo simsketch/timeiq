@@ -653,7 +653,7 @@ test("auth feature examples switch between chat, interactive imports, and a non-
     modules: { "next/dynamic": { __esModule: true, default: () => "LazyDemo" } },
   });
   let tree = demo.render();
-  assert.ok(find(tree, node => node.type === "McpDemoContent" && node.props.compact && node.props.title === "TimeIQ chatbot"));
+  assert.ok(find(tree, node => node.type === "SchedulingStory" && node.props.mode === undefined));
   find(tree, node => node.type === "button" && visibleText(node).includes("Email imports")).props.onClick();
   tree = demo.render();
   assert.ok(visibleText(tree).includes("Try forwarding a sample PDF"));
@@ -666,4 +666,29 @@ test("auth feature examples switch between chat, interactive imports, and a non-
   assert.equal(booking.props.profile.booking_white_label, true);
   assert.ok(booking.props.profile.booking_logo.startsWith("data:image/svg+xml,"));
   assert.equal(booking.props.embed, true);
+});
+
+
+test("meeting animations require approval and show four guest replies before the five-person invitation", () => {
+  for (const mode of ["chat", "email"]) {
+    let restarts = 0;
+    const story = harness("components/landing/scheduling-story.tsx", "SchedulingStory", {mode}, {
+      modules: {"./use-demo-autoplay": {useDemoAutoplay: () => ({ref:{current:null},playing:false,active:false,restart:()=>restarts++})}},
+    });
+    let tree=story.render();
+    assert.equal(visibleText(tree).includes("Booked ·"), false);
+    if(mode === "email") for(const name of ["Maya","Jordan","Alex","Sam"]) assert.ok(visibleText(tree).includes(name));
+    const final = mode === "email" ? 9 : 5;
+    for(let beat=1;beat<=final;beat++) {
+      find(tree,n=>n.type==="button" && visibleText(n).includes("Next step")).props.onClick();
+      tree=story.render();
+      if(mode === "email" && beat >= 2) assert.ok(visibleText(tree).includes(`${Math.min(4,beat-2)} of 4 guests replied`));
+      assert.equal(visibleText(tree).includes("Booked ·"),beat===final);
+    }
+    assert.ok(visibleText(tree).includes(mode === "email" ? "all five people" : "you and Maya"));
+    assert.ok(visibleText(tree).includes("no real emails or bookings"));
+    find(tree,n=>n.props?.["aria-label"]==="Replay example").props.onClick();
+    assert.equal(restarts,1);
+    assert.equal(visibleText(story.render()).includes("Booked ·"),false);
+  }
 });
