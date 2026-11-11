@@ -532,3 +532,111 @@ test("ad report loads separate from analytics and clears stale results when the 
   assert.equal(nodes(tree, (node) => node.type === "td").length, 0);
   assert.equal(find(tree, (node) => node.props?.role === "alert").props.children, "Meta connection needs renewing");
 });
+
+function visibleText(tree) {
+  if (tree == null || typeof tree === "boolean") return "";
+  if (Array.isArray(tree)) return tree.map(visibleText).join("");
+  if (typeof tree !== "object") return String(tree);
+  return visibleText(tree.props?.children);
+}
+
+test("signup matches recognized ad promises, ignores arbitrary query copy, and preserves Clerk routing", async () => {
+  const page = load("app/(auth)/sign-up/[[...sign-up]]/page.tsx", {
+    "@clerk/nextjs": { SignUp: "SignUp" },
+    "@/components/landing/headlines": load("components/landing/headlines.ts"),
+  }).default;
+  for (const [query, expected] of [
+    [{ utm_content: "G-all-calendars" }, "All your calendars. One booking link."],
+    [{ utm_content: "D-cc-timeiq" }, "Cc TimeIQ. It finds the time."],
+    [{ utm_content: "B-no-upsells" }, "Simple scheduling. One clear price."],
+    [{}, "Less scheduling. More time back."],
+    [{ utm_content: "<script>untrusted ad copy</script>" }, "Less scheduling. More time back."],
+    [{ utm_content: ["G-all-calendars", "D-cc-timeiq"] }, "Less scheduling. More time back."],
+  ]) {
+    const tree = await page({ searchParams: Promise.resolve({ ...query, redirect_url: "/meet/invite-token" }) });
+    assert.equal(visibleText(find(tree, (node) => node.type === "h1")).replace(/\s+/g, " ").trim(), expected);
+    assert.equal(visibleText(tree).includes("untrusted ad copy"), false);
+    const signup = find(tree, (node) => node.type === "SignUp");
+    assert.ok(signup);
+    for (const prop of ["forceRedirectUrl", "signInForceRedirectUrl", "afterSignUpUrl", "routing", "path"])
+      assert.equal(signup.props[prop], undefined, `${prop} must keep Clerk's existing behavior`);
+  }
+});
+
+test("signup header sign-in preserves only an explicit string redirect destination", async () => {
+  const page = load("app/(auth)/sign-up/[[...sign-up]]/page.tsx", {
+    "@clerk/nextjs": { SignUp: "SignUp" },
+    "@/components/landing/headlines": load("components/landing/headlines.ts"),
+  }).default;
+  for (const [redirect, href] of [
+    ["/meet/invite?token=private&mode=reply#time", "/sign-in?redirect_url=%2Fmeet%2Finvite%3Ftoken%3Dprivate%26mode%3Dreply%23time"],
+    [["/meet/one", "/meet/two"], "/sign-in"],
+    [undefined, "/sign-in"],
+  ]) {
+    const tree = await page({ searchParams: Promise.resolve({ redirect_url: redirect, utm_source: "facebook", token: "not-forwarded" }) });
+    const header = find(tree, (node) => node.type === "header");
+    assert.equal(find(header, (node) => node.type === "Link" && visibleText(node).startsWith("Sign in")).props.href, href);
+  }
+});
+
+test("signup offer uses live founder availability and safely falls back when pricing fails", async () => {
+  const { fmtCents } = load("lib/billing.ts", { "@/lib/api": {} });
+  for (const scenario of [
+    { seats: 17, founder: 1900, amount: "$19", founderCopy: true },
+    { seats: 0, founder: 1900, amount: "$29", founderCopy: false },
+    { seats: 17, founder: null, amount: "$29", founderCopy: false },
+    { fail: true },
+  ]) {
+    const offer = harness("components/signup-offer.tsx", "SignupOffer", {}, {
+      effects: true,
+      modules: { "@/lib/billing": {
+        fmtCents,
+        fetchPricing: async () => {
+          if (scenario.fail) throw new Error("Pricing unavailable");
+          return { enabled: true, founder_price_cents: scenario.founder, standard_price_cents: 2900,
+            founder_seats: 100, founder_seats_left: scenario.seats, currency: "USD", free_meetings: 7 };
+        },
+      } },
+    });
+    await offer.mount();
+    const tree = offer.render();
+    const text = visibleText(tree);
+    assert.ok(text.includes("No payment at signup."));
+    const plans = find(tree, (node) => node.type === "Link");
+    assert.equal(plans.props.href, "/pricing");
+    if (scenario.fail) {
+      assert.ok(text.includes("Start free, then choose a plan."));
+      assert.ok(text.includes("See current pricing"));
+      assert.equal(/\$\d/.test(text), false);
+    } else {
+      assert.ok(text.includes(`Your first 7 meetings are free. Then ${scenario.amount}/year + tax.`));
+      assert.equal(text.includes("Founder price"), scenario.founderCopy);
+      if (!scenario.founderCopy) assert.equal(text.includes("$19"), false);
+    }
+  }
+});
+
+test("direct tagged signup captures first-touch attribution before Clerk auth-step navigation", async () => {
+  const values = new Map();
+  const storage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: (key) => values.delete(key) };
+  let pathname = "/sign-up";
+  const location = { href: "https://timeiq.app/sign-up?utm_source=facebook&utm_medium=paid_social&utm_campaign=founder100&utm_content=G-all-calendars&ad_id=123456&fbclid=private-click" };
+  const capture = harness("components/attribution-capture.tsx", "AttributionCapture", {}, {
+    effects: true,
+    modules: { "next/navigation": { usePathname: () => pathname } },
+    globals: { window: { location, localStorage: storage } },
+  });
+  await capture.mount();
+  const { readAttribution } = load("lib/signup-attribution.ts");
+  const first = JSON.stringify(readAttribution(storage));
+  assert.equal(readAttribution(storage).utm_source, "facebook");
+  assert.equal(readAttribution(storage).utm_content, "G-all-calendars");
+  assert.equal(readAttribution(storage).ad_id, "123456");
+  assert.equal(first.includes("private-click"), false);
+  for (const href of ["https://timeiq.app/sign-up/verify-email-address", "https://timeiq.app/sign-up/sso-callback?utm_source=other", "https://timeiq.app/dashboard"]) {
+    location.href = href;
+    pathname = new URL(href).pathname;
+    await capture.mount();
+    assert.equal(JSON.stringify(readAttribution(storage)), first);
+  }
+});

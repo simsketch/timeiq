@@ -15,16 +15,19 @@ Commands (run from backend/ with .venv/bin/python):
     scripts/meta_ads.py report [--days 7]           per-ad spend, clicks, CTR, CPC, purchases, cost per purchase
     scripts/meta_ads.py pause <ad_id> | resume <ad_id>
     scripts/meta_ads.py add-ad --image path --name N --headline H --body B [--live]
+    scripts/meta_ads.py retarget-signup --snapshot path [--apply]  preview or update the four active signup ads
 
 Creative copy lives in CREATIVES below and mirrors docs/marketing/2026-09-facebook-founder-campaign.md.
 """
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 import json
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
@@ -38,7 +41,15 @@ PAGE = os.getenv("META_PAGE_ID", "")
 PIXEL = os.getenv("META_PIXEL_ID", "")
 
 CAMPAIGN_NAME = "TimeIQ Founder 100"
-LANDING = "https://timeiq.app/?utm_source=facebook&utm_medium=paid&utm_campaign=founder100&utm_content={{ad.name}}"
+CAMPAIGN_ID = "120251255611590756"
+SIGNUP_ADSET_ID = "120251484826350756"
+SIGNUP_ADS = {
+    "120251484832510756": "K-free-meetings",
+    "120251484832680756": "L-all-calendars-free",
+    "120251484832940756": "M-cc-timeiq-free",
+    "120251484833140756": "N-forward-schedule-free",
+}
+LANDING = "https://timeiq.app/sign-up?utm_source=facebook&utm_medium=paid&utm_campaign=founder100&utm_content={{ad.name}}"
 CREATIVES_DIR = Path(__file__).resolve().parent.parent.parent / "docs/marketing/creatives"
 
 CREATIVES = [
@@ -204,14 +215,14 @@ def die(msg: str) -> None:
 
 
 def call(method: str, path: str, **params):
-    params["access_token"] = TOKEN
+    headers = {"Authorization": f"Bearer {TOKEN}"}
     if method == "GET":
-        r = httpx.get(f"{API}/{path}", params=params, timeout=60)
+        r = httpx.get(f"{API}/{path}", params=params, headers=headers, timeout=60)
     elif method == "DELETE":
-        r = httpx.delete(f"{API}/{path}", params=params, timeout=60)
+        r = httpx.delete(f"{API}/{path}", params=params, headers=headers, timeout=60)
     else:
         files = params.pop("_files", None)
-        r = httpx.post(f"{API}/{path}", data=params, files=files, timeout=120)
+        r = httpx.post(f"{API}/{path}", data=params, files=files, headers=headers, timeout=120)
     try:
         body = r.json()
     except Exception:
@@ -474,6 +485,76 @@ def cmd_add_ad(args: argparse.Namespace) -> None:
     print("ad", create_ad(adset["id"], spec, args.live), args.name)
 
 
+def signup_creative(creative: dict) -> dict:
+    """Copy the current link creative, changing only its two destination paths."""
+    if creative.get("asset_feed_spec"):
+        die("dynamic creatives need a separate review; nothing changed")
+    payload = {key: deepcopy(creative[key]) for key in (
+        "object_story_spec", "degrees_of_freedom_spec", "url_tags"
+    ) if creative.get(key) is not None}
+    story = payload.get("object_story_spec", {})
+    link = story.get("link_data", {})
+    cta = link.get("call_to_action", {})
+    if story.get("page_id") != PAGE or cta.get("type") != "SIGN_UP":
+        die("unexpected page or call to action; nothing changed")
+    for container, key in ((link, "link"), (cta.get("value", {}), "link")):
+        parts = urlsplit(container.get(key, ""))
+        if parts.scheme != "https" or parts.netloc != "timeiq.app" or parts.path not in ("", "/", "/sign-up"):
+            die("unexpected ad destination; nothing changed")
+        container[key] = urlunsplit(parts._replace(path="/sign-up"))
+    payload["name"] = f"{creative.get('name', 'TimeIQ')[:90]} signup"
+    return payload
+
+
+def cmd_retarget_signup(args: argparse.Namespace) -> None:
+    require_env()
+    campaign = call("GET", CAMPAIGN_ID, fields="id,name,account_id,status,daily_budget")
+    if campaign.get("name") != CAMPAIGN_NAME or campaign.get("account_id") != ACCOUNT.removeprefix("act_"):
+        die("unexpected campaign or account; nothing changed")
+    adset = call("GET", SIGNUP_ADSET_ID, fields="id,campaign_id,name,status,targeting,promoted_object,optimization_goal")
+    if adset.get("campaign_id") != CAMPAIGN_ID or adset.get("status") != "ACTIVE":
+        die("signup ad set changed; nothing changed")
+    ads = []
+    plans = []
+    for ad_id, name in SIGNUP_ADS.items():
+        ad = call("GET", ad_id, fields="id,name,campaign_id,adset_id,status,tracking_specs,creative{id,name,object_story_spec,asset_feed_spec,url_tags,degrees_of_freedom_spec}")
+        if (ad.get("name") != name or ad.get("campaign_id") != CAMPAIGN_ID
+                or ad.get("adset_id") != SIGNUP_ADSET_ID or ad.get("status") != "ACTIVE"):
+            die(f"{ad_id} changed; nothing changed")
+        payload = signup_creative(ad["creative"])
+        ads.append(ad)
+        if payload["object_story_spec"] != ad["creative"]["object_story_spec"]:
+            plans.append((ad, payload))
+    # Explicit fields above contain no credentials. Never overwrite the rollback snapshot.
+    with Path(args.snapshot).open("x") as snapshot:
+        json.dump({"campaign": campaign, "adset": adset, "ads": ads}, snapshot, indent=2)
+    print("Snapshot:", args.snapshot)
+    for ad, payload in plans:
+        print(ad["id"], ad["name"], "->", payload["object_story_spec"]["link_data"]["link"])
+    if not args.apply:
+        print(f"Preview only: {len(plans)} ads need updating. No Meta writes made.")
+        return
+    for ad, payload in plans:
+        current = call("GET", ad["id"], fields="creative{id},status")
+        if current["creative"]["id"] != ad["creative"]["id"] or current["status"] != ad["status"]:
+            die(f"{ad['id']} changed during the update; stopped before replacing it")
+        created = call("POST", f"{ACCOUNT}/adcreatives", **{
+            key: json.dumps(value) if isinstance(value, dict) else value for key, value in payload.items()
+        })
+        print("Replacement creative:", ad["id"], ad["creative"]["id"], "->", created["id"], flush=True)
+        call("POST", ad["id"], creative=json.dumps({"creative_id": created["id"]}))
+        after = call("GET", ad["id"], fields="status,adset_id,tracking_specs,creative{id,object_story_spec}")
+        if (after["creative"]["id"] != created["id"] or after["creative"]["object_story_spec"] != payload["object_story_spec"]
+                or any(after.get(key) != ad.get(key) for key in ("status", "adset_id", "tracking_specs"))):
+            die(f"verification mismatch for {ad['id']}; use the snapshot's original creative ID to restore it")
+        print("Verified:", ad["id"], flush=True)
+    final_campaign = call("GET", CAMPAIGN_ID, fields="id,name,account_id,status,daily_budget")
+    final_adset = call("GET", SIGNUP_ADSET_ID, fields="id,campaign_id,name,status,targeting,promoted_object,optimization_goal")
+    if final_campaign != campaign or final_adset != adset:
+        die("campaign or ad set changed during the operation; review the snapshot")
+    print("Verified: campaign budget/status and ad-set targeting, optimization, and status unchanged.")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -488,6 +569,10 @@ def main() -> None:
     p = sub.add_parser("add-ad")
     for f in ("image", "name", "headline", "body"): p.add_argument(f"--{f}", required=True)
     p.add_argument("--description", default="Free to start. No card needed."); p.add_argument("--live", action="store_true"); p.set_defaults(fn=cmd_add_ad)
+    p = sub.add_parser("retarget-signup")
+    p.add_argument("--snapshot", required=True)
+    p.add_argument("--apply", action="store_true")
+    p.set_defaults(fn=cmd_retarget_signup)
     args = ap.parse_args()
     args.fn(args)
 
