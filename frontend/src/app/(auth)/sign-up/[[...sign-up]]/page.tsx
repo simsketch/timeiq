@@ -33,9 +33,9 @@ export default async function SignUpPage({
 
   return (
     <div className="min-h-screen bg-[#f7f5f0] text-[#20201e]">
-      <header className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-12">
+      <header className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3 sm:px-8 lg:px-12">
         <Link href="/" className="inline-flex items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#b84705]" aria-label="TimeIQ home">
-          <LogoIcon className="h-11 w-11" />
+          <LogoIcon className="h-9 w-9" />
           <span className="text-[23px] font-semibold tracking-tight">TimeIQ</span>
         </Link>
         <Link href={signInHref} className="inline-flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-medium text-[#494943] transition hover:text-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b84705]">
@@ -43,46 +43,36 @@ export default async function SignUpPage({
         </Link>
       </header>
 
-      <main className="mx-auto max-w-7xl px-5 pb-12 pt-5 sm:px-8 sm:pt-9 lg:px-12 lg:pt-5">
-        <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-16 xl:gap-24">
-          <section aria-labelledby="signup-heading" className="min-w-0 lg:pt-3">
-            <p className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#785138] sm:mb-5">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#d35109]" aria-hidden="true" />
-              AI scheduling. Your calendar. Your brand.
-            </p>
-            <h1 id="signup-heading" className="max-w-xl text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-[1.15] tracking-[-0.03em] text-balance">
+      <main className="mx-auto max-w-7xl px-5 pb-12 pt-2 sm:px-8 lg:px-12">
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-10 xl:gap-16">
+          <section aria-labelledby="signup-heading" className="min-w-0">
+            <h1 id="signup-heading" className="max-w-xl text-[clamp(1.5rem,2.5vw,2rem)] font-semibold leading-[1.15] tracking-[-0.03em] text-balance">
               {headline.lead}{" "}
               <span className="text-[#98410d]">{headline.accent}</span>
             </h1>
-            <p className="mt-5 max-w-[34rem] text-[16px] leading-relaxed text-[#595950] sm:text-lg">
-              A chatbot that knows your schedule. Automatic imports from forwarded emails.
-              A booking page with your own logo. All in one place.
+            <p className="mt-2 max-w-[38rem] text-sm leading-relaxed text-[#595950]">
+              Chat to schedule. Forward emails to import. Let clients book with your logo.
             </p>
-            <p className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium text-[#33332f]">
-              <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-[#b84705]" aria-hidden="true" />Free for everyone to try</span>
-              <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-[#b84705]" aria-hidden="true" />No credit card</span>
-            </p>
-            <p className="mt-2 text-xs text-[#69695f]">Your first 7 meetings are free, with every feature included.</p>
-            <a href="#create-account" className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#d8d3c8] bg-white/70 px-4 py-2.5 text-sm font-semibold lg:hidden">
-              Create your free account <ArrowDown className="h-4 w-4" aria-hidden="true" />
-            </a>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#595950]">
+              <p className="inline-flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#b84705]" aria-hidden="true" />7 meetings free · No credit card</p>
+              <a href="#create-account" className="inline-flex min-h-9 items-center gap-1 rounded-full border border-[#d8d3c8] bg-white/70 px-3 font-semibold lg:hidden">
+                Start free <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
+              </a>
+            </div>
 
             <AuthFeatureShowcase />
           </section>
 
-          <section id="create-account" aria-labelledby="create-account-heading" className="min-w-0 scroll-mt-5 rounded-[1.6rem] border border-[#e4dfd4] bg-white p-5 shadow-[0_20px_60px_-35px_rgba(49,37,18,0.35)] sm:p-8">
-            <div className="mb-5 border-b border-[#eeece6] pb-5">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#a34410]">Try every feature free</p>
-              <h2 id="create-account-heading" className="text-xl font-semibold tracking-tight">Your time back starts here.</h2>
-              <p className="mt-2 text-sm leading-relaxed text-[#69695f]">Create an account, then connect your calendars. You choose what to connect.</p>
-            </div>
+          <section id="create-account" aria-labelledby="create-account-heading" className="min-w-0 scroll-mt-5 rounded-[1.6rem] border border-[#e4dfd4] bg-white p-5 shadow-[0_20px_60px_-35px_rgba(49,37,18,0.35)] sm:p-6">
+            <h2 id="create-account-heading" className="sr-only">Create your free TimeIQ account</h2>
+            <p className="mb-4 text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-[#a34410]">Try every feature free</p>
             <SignUp appearance={{ elements: {
               rootBox: { width: "100%" },
               cardBox: { width: "100%", maxWidth: "none", boxShadow: "none" },
               card: { width: "100%", border: "none", background: "transparent", padding: 0, boxShadow: "none" },
               footer: { background: "transparent" },
             } }} />
-            <div className="mt-5 border-t border-[#eeece6] pt-5">
+            <div className="mt-3 border-t border-[#eeece6] pt-3">
               <SignupOffer />
             </div>
           </section>

@@ -71,7 +71,7 @@ export function SchedulingStory({ mode = "chat" }: { mode?: "chat" | "email" }) 
         <span className="rounded-full bg-[#f3f1ec] px-2 py-1 text-[10px] text-[#6b655c]">Animated example</span>
       </div>
 
-      <div ref={body} className="flex h-[440px] flex-col gap-3 overflow-y-auto p-4 sm:h-[460px] [&>*]:shrink-0" aria-live={animate ? "off" : "polite"}>
+      <div ref={body} className="flex h-[340px] flex-col gap-3 overflow-y-auto p-3 sm:p-4 [&>*]:shrink-0" aria-live={animate ? "off" : "polite"}>
         {email ? (
           <>
             <div className="rounded-xl border border-[#e6e1d7] bg-white p-3.5 text-xs">
@@ -94,7 +94,7 @@ export function SchedulingStory({ mode = "chat" }: { mode?: "chat" | "email" }) 
           </>
         ) : (
           <>
-            {beat === 0 ? <div className="grid min-h-[260px] place-content-center justify-items-center gap-3 text-center"><LogoMark className="h-12 w-12 text-[#98410d]" /><div className="text-xl font-semibold tracking-tight">What should we schedule?</div><p className="max-w-[28ch] text-sm leading-relaxed text-[#69695f]">Ask in plain words. TimeIQ checks your calendars and coordinates the replies.</p><div className="mt-2 flex gap-2 text-[10px]"><span className="rounded-full border bg-white px-3 py-1.5">Work calendar</span><span className="rounded-full border bg-white px-3 py-1.5">Personal calendar</span></div></div> : <ChatMessage you>{prompt}</ChatMessage>}
+            {beat === 0 ? <div className="grid min-h-[190px] place-content-center justify-items-center gap-2 text-center"><LogoMark className="h-9 w-9 text-[#98410d]" /><div className="text-lg font-semibold tracking-tight">What should we schedule?</div><p className="max-w-[28ch] text-sm leading-relaxed text-[#69695f]">Ask in plain words. TimeIQ checks your calendars and coordinates the replies.</p><div className="mt-1 flex gap-2 text-[10px]"><span className="rounded-full border bg-white px-3 py-1.5">Work calendar</span><span className="rounded-full border bg-white px-3 py-1.5">Personal calendar</span></div></div> : <ChatMessage you>{prompt}</ChatMessage>}
             {beat >= 1 && <ChatMessage>You’re free Thursday at <strong>2:00 pm ET</strong>. Shall I email Maya to check if that works?<div className="mt-3 flex items-center gap-1.5 text-xs text-[#69695f]"><CalendarCheck className="h-4 w-4 text-[#285d3e]" />Work + personal calendars checked</div></ChatMessage>}
             {beat >= 3 && <ChatMessage you>Yes, send it.</ChatMessage>}
             {beat >= 3 && <ChatMessage><div className="mb-2 flex items-center gap-2 rounded-lg bg-[#eef5ef] p-2 text-xs text-[#285d3e]"><Person name="Maya" color="#e8ddf3" />Maya replied: “Thursday at 2 works!”</div>Ready to book <strong>Thursday, 2:00–2:30 pm ET</strong>?</ChatMessage>}

@@ -558,8 +558,8 @@ test("signup matches recognized ad promises, ignores arbitrary query copy, and p
     assert.equal(visibleText(tree).includes("untrusted ad copy"), false);
     const copy = visibleText(tree).replace(/\s+/g, " ");
     for (const message of [
-      "Free for everyone to try",
-      "Your first 7 meetings are free, with every feature included.",
+      "7 meetings free · No credit card",
+      "Try every feature free",
     ]) assert.ok(copy.includes(message), `Signup must explain: ${message}`);
     assert.ok(find(tree, (node) => node.type === "AuthFeatureShowcase"));
     const signup = find(tree, (node) => node.type === "SignUp");

@@ -19,16 +19,15 @@ export function AuthFeatureShowcase() {
   const [selected, setSelected] = useState(0);
   const feature = features[selected];
   return (
-    <section className="mt-6 min-w-0" aria-label="Explore TimeIQ features">
-      <div className="mb-5 grid grid-cols-2 gap-1 sm:flex rounded-xl border border-[#dedacf] bg-[#eeebe3] p-1" role="group" aria-label="Feature examples">
+    <section className="mt-4 min-w-0" aria-label="Explore TimeIQ features">
+      <div className="mb-3 grid grid-cols-2 gap-1 sm:flex rounded-xl border border-[#dedacf] bg-[#eeebe3] p-1" role="group" aria-label="Feature examples">
         {features.map(({ label, icon: Icon }, index) => (
           <button key={label} type="button" aria-pressed={selected === index} onClick={() => setSelected(index)} className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#98410d] ${selected === index ? "bg-white text-[#20201e] shadow-sm" : "text-[#69695f] hover:text-black"}`}>
             <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />{label}
           </button>
         ))}
       </div>
-      <h2 className="text-lg font-semibold tracking-tight">{feature.title}</h2>
-      <p className="mb-4 mt-1.5 text-sm leading-relaxed text-[#65655b]">{feature.description}</p>
+      <h2 className="mb-2 text-base font-semibold tracking-tight">{feature.title}</h2>
       {selected === 0 ? <SchedulingStory key="chat" /> : selected === 1 ? <SchedulingStory key="email" mode="email" /> : selected === 2 ? <EmailDemo /> : (
         <figure className="overflow-hidden rounded-2xl border border-[#dedacf] bg-white">
           <figcaption className="border-b border-[#eeebe3] px-5 py-3 text-xs text-[#65655b]">Example booking page · your logo, no TimeIQ branding</figcaption>
@@ -40,6 +39,7 @@ export function AuthFeatureShowcase() {
           </div>
         </figure>
       )}
+      <p className="mt-2 text-xs leading-relaxed text-[#65655b]">{feature.description}</p>
     </section>
   );
 }

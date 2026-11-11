@@ -6,17 +6,17 @@ import { AuthFeatureShowcase } from "@/components/auth-feature-showcase";
 export default function SignInPage() {
   return (
     <div className="min-h-screen bg-[#f7f5f0] text-[#20201e]">
-      <header className="mx-auto max-w-7xl px-5 py-5 sm:px-8 lg:px-12">
-        <Link href="/" className="inline-flex items-center gap-2.5" aria-label="TimeIQ home"><LogoIcon className="h-11 w-11" /><span className="text-[23px] font-semibold tracking-tight">TimeIQ</span></Link>
+      <header className="mx-auto max-w-7xl px-5 py-3 sm:px-8 lg:px-12">
+        <Link href="/" className="inline-flex items-center gap-2.5" aria-label="TimeIQ home"><LogoIcon className="h-9 w-9" /><span className="text-[23px] font-semibold tracking-tight">TimeIQ</span></Link>
       </header>
-      <main className="mx-auto grid max-w-7xl items-start gap-8 px-5 pb-12 pt-5 sm:px-8 lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-16 lg:px-12 lg:pt-5">
+      <main className="mx-auto grid max-w-7xl items-start gap-6 px-5 pb-12 pt-2 sm:px-8 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-10 lg:px-12 xl:gap-16">
         <section className="min-w-0">
-          <h1 className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-[1.15] tracking-[-0.03em]">Chat. Forward. Get booked.</h1>
-          <p className="mt-4 text-base leading-relaxed text-[#595950]">Chat with your schedule, import forwarded emails, and share a booking page with your own logo.</p>
-          <a href="#sign-in" className="mt-4 inline-block rounded-full border border-[#d8d3c8] bg-white px-4 py-2 text-sm font-semibold lg:hidden">Go to sign in ↓</a>
+          <h1 className="text-[clamp(1.5rem,2.5vw,2rem)] font-semibold leading-[1.15] tracking-[-0.03em]">Chat. Forward. Get booked.</h1>
+          <p className="mt-2 text-sm leading-relaxed text-[#595950]">Chat to schedule. Forward emails to import. Let clients book with your logo.</p>
+          <a href="#sign-in" className="mt-2 inline-block rounded-full border border-[#d8d3c8] bg-white px-4 py-2 text-xs font-semibold lg:hidden">Go to sign in ↓</a>
           <AuthFeatureShowcase />
         </section>
-        <section id="sign-in" aria-label="Sign in to TimeIQ" className="min-w-0 scroll-mt-5 rounded-[1.6rem] border border-[#e4dfd4] bg-white p-5 shadow-[0_20px_60px_-35px_rgba(49,37,18,0.35)] sm:p-8">
+        <section id="sign-in" aria-label="Sign in to TimeIQ" className="min-w-0 scroll-mt-5 rounded-[1.6rem] border border-[#e4dfd4] bg-white p-5 shadow-[0_20px_60px_-35px_rgba(49,37,18,0.35)] sm:p-6">
           <SignIn appearance={{ elements: {
             rootBox: { width: "100%" },
             cardBox: { width: "100%", maxWidth: "none", boxShadow: "none" },
