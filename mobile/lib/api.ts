@@ -1,5 +1,5 @@
 import { useAuth } from "@clerk/expo";
-import { useCallback } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import { API_URL } from "./config";
 
 export class ApiError extends Error {
@@ -41,16 +41,22 @@ export async function apiRequest<T>(token: string | null, path: string, init: Re
  * account on first use (as the website does). */
 export function useApi() {
   const { getToken, userId } = useAuth();
+  // @clerk/expo returns a new getToken every render; keeping it out of the deps
+  // keeps `api` stable, so effects that depend on it don't refetch in a loop.
+  const getTokenRef = useRef(getToken);
+  useLayoutEffect(() => {
+    getTokenRef.current = getToken;
+  });
   return useCallback(
     async <T,>(path: string, init?: RequestInit): Promise<T> => {
-      const token = await getToken();
+      const token = await getTokenRef.current();
       if (token && userId && synced !== userId) {
         await apiRequest(token, "/api/me/sync", { method: "POST" }).catch(() => undefined);
         synced = userId;
       }
       return apiRequest<T>(token, path, init);
     },
-    [getToken, userId]
+    [userId]
   );
 }
 
@@ -65,6 +71,8 @@ export interface Me {
   weekly_hours_target?: number;
   weekly_summary_enabled?: boolean;
   booking_scene?: string | null;
+  booking_logo?: string | null;
+  booking_white_label?: boolean;
 }
 
 export interface Booking {

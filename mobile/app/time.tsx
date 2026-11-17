@@ -338,7 +338,7 @@ export default function Timesheet() {
     return (
       <View style={styles.page}>
         {header}
-        <Notice>Time tracking and invoicing aren't turned on for this account.</Notice>
+        <Notice>Time tracking and invoicing aren&apos;t turned on for this account.</Notice>
       </View>
     );
   }
@@ -584,7 +584,7 @@ function PendingCard({
   const elsewhere = allWeeks.length - thisWeek.length;
   return (
     <Card style={{ gap: 12 }}>
-      <Text style={[styles.pendingTitle, { color: t.text }]}>Rename "{row.description}"?</Text>
+      <Text style={[styles.pendingTitle, { color: t.text }]}>Rename &quot;{row.description}&quot;?</Text>
       <Text style={{ color: t.muted, fontSize: 15, lineHeight: 21 }}>
         This task has {plural(thisWeek.length, "entry", "entries")} in the week on screen{elsewhere > 0 ? ` and ${elsewhere} in other weeks` : ""}.
         {billed.length > 0 && ` ${billed.length} of them are billed on ${invoiceList(allWeeks)}; renaming those rewrites the invoice lines and retotals the invoice. Invoices you already sent will no longer match the copy your client received.`}
@@ -686,7 +686,7 @@ function ImportForm({ clients, start: start0, end: end0, onClose, onImported }: 
 
   return (
     <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-      <Text style={{ color: t.muted, fontSize: 15, lineHeight: 21 }}>Finds synced calendar events whose title matches the client's keywords.</Text>
+      <Text style={{ color: t.muted, fontSize: 15, lineHeight: 21 }}>Finds synced calendar events whose title matches the client&apos;s keywords.</Text>
       <Label>Client</Label>
       <ClientChips clients={clients} value={clientId} onChange={setClientId} />
       {client && !client.match_keywords && <Notice tone="warn">This client has no calendar keywords. Add some on the Clients screen first.</Notice>}
@@ -695,7 +695,7 @@ function ImportForm({ clients, start: start0, end: end0, onClose, onImported }: 
         <View style={{ flex: 1 }}><Label>To</Label><DayField value={end} onChange={setEnd} /></View>
       </View>
       <Button title="Search" kind="secondary" busy={searching} disabled={busy || end < start} onPress={search} />
-      {rows?.length === 0 && <Notice>No matching events that aren't already logged.</Notice>}
+      {rows?.length === 0 && <Notice>No matching events that aren&apos;t already logged.</Notice>}
       {rows?.map((r, i) => (
         <Card key={`${r.external_id}-${r.starts_at}`} style={{ gap: 8, opacity: r.checked ? 1 : 0.6 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>

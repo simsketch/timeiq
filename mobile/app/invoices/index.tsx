@@ -122,7 +122,7 @@ export default function Invoices() {
     return (
       <View style={styles.page}>
         {header}
-        <Notice>Time tracking and invoicing aren't turned on for this account.</Notice>
+        <Notice>Time tracking and invoicing aren&apos;t turned on for this account.</Notice>
       </View>
     );
   }
@@ -206,7 +206,7 @@ export default function Invoices() {
       {header}
       {error && <Notice tone="error">{error}</Notice>}
       {!invoices && !error && <ActivityIndicator style={{ marginTop: 24 }} />}
-      {invoices?.length === 0 && <Notice>No invoices yet. Bill a client's unbilled time for a period.</Notice>}
+      {invoices?.length === 0 && <Notice>No invoices yet. Bill a client&apos;s unbilled time for a period.</Notice>}
       {invoices?.map((inv) => (
         <Pressable key={inv.id} onPress={() => router.push({ pathname: "/invoices/[id]", params: { id: inv.id } })} accessibilityRole="button">
           {({ pressed }) => (

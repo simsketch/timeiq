@@ -1,14 +1,16 @@
+import { useAuth } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
+import { Directory, File, Paths } from "expo-file-system";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
+import * as Sharing from "expo-sharing";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button, Card, Input, Label, Row, ToggleRow } from "@/components/ui";
 import { ZonePicker } from "@/components/zone-picker";
 import { type BillingStatus, type Me, useApi } from "@/lib/api";
-import { SITE_URL } from "@/lib/config";
+import { API_URL, SITE_URL } from "@/lib/config";
 import { useTheme } from "@/lib/theme";
 import { rememberMe, useMe } from "@/lib/use-me";
 
@@ -42,6 +44,8 @@ export default function Settings() {
   const [feed, setFeed] = useState<Feed | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [copied, setCopied] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const { getToken } = useAuth();
 
   useFocusEffect(
     useCallback(() => {
@@ -108,13 +112,22 @@ export default function Settings() {
     ]);
   }
 
-  async function manageBilling() {
+  // Download the CSV zip the website offers, then hand it to the share sheet.
+  async function exportData() {
+    setExporting(true);
     try {
-      const { url } = await api<{ url: string }>("/api/billing/portal", { method: "POST" });
-      await WebBrowser.openBrowserAsync(url);
-      api<BillingStatus>("/api/billing/status").then(setBilling).catch(() => undefined);
+      const token = await getToken();
+      const dir = new Directory(Paths.cache, "export");
+      dir.create({ idempotent: true });
+      const file = await File.downloadFileAsync(`${API_URL}/api/me/export`, new File(dir, "timeiq-export.zip"), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        idempotent: true,
+      });
+      await Sharing.shareAsync(file.uri, { mimeType: "application/zip", UTI: "public.zip-archive" });
     } catch (e) {
-      Alert.alert("Couldn't open billing", e instanceof Error ? e.message : "Try again.");
+      Alert.alert("Export didn't finish", e instanceof Error ? e.message : "Try again.");
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -242,11 +255,7 @@ export default function Settings() {
                 {new Date(billing.current_period_end).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
               </Text>
             )}
-            {billing.has_customer ? (
-              <Button title="Manage billing" kind="secondary" onPress={manageBilling} />
-            ) : billing.status !== "complimentary" ? (
-              <Button title="See plans" onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/pricing`)} />
-            ) : null}
+            {/* No plan or billing links: App Store rule 3.1.1 forbids pointing to web purchases outside the US. */}
           </Card>
         </>
       )}
@@ -254,7 +263,7 @@ export default function Settings() {
       <Label>Developers and data</Label>
       <Card style={{ paddingVertical: 6 }}>
         <Row icon="key-outline" title="API tokens and connected apps" detail="Claude, ChatGPT and scripts that use your account" onPress={() => router.push("/api-tokens")} />
-        <Row icon="download-outline" title="Export your data" detail="A zip of CSV files, on timeiq.app" onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/settings`)} />
+        <Row icon="download-outline" title={exporting ? "Preparing your export…" : "Export your data"} detail="A zip of CSV files you can save or send" onPress={() => !exporting && exportData()} />
       </Card>
 
       <ZonePicker
