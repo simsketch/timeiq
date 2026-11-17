@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance, type TextInputInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { confirmAiConsent } from "@/lib/ai-consent";
 import { useApi } from "@/lib/api";
 import { SCREENSHOT_MODE } from "@/lib/config";
 import { screenshotAssistant } from "@/lib/screenshot-fixtures";
@@ -108,6 +109,7 @@ export default function Assistant() {
   async function send(text: string) {
     const message = text.trim();
     if (!message || busy) return;
+    if (!(await confirmAiConsent())) return;
     const next: Message[] = [...history, { role: "user", content: message }];
     setHistory(next);
     setDraft("");

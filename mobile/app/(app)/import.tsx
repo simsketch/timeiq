@@ -3,6 +3,7 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Button, Card, Label, Notice } from "@/components/ui";
+import { confirmAiConsent } from "@/lib/ai-consent";
 import { useApi } from "@/lib/api";
 import { useSharedText } from "@/lib/shared-text";
 import { useTheme } from "@/lib/theme";
@@ -92,6 +93,7 @@ export default function Import() {
   }
 
   async function run() {
+    if (!(await confirmAiConsent())) return;
     setBusy(true);
     setError(null);
     setUndone(false);

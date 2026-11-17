@@ -5,6 +5,7 @@ import { Image } from "expo-image";
 import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { useState } from "react";
+import * as WebBrowser from "expo-web-browser";
 import { Alert, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { Button, Card, Label, Row } from "@/components/ui";
 import { useApi } from "@/lib/api";
@@ -110,6 +111,11 @@ export default function Account() {
           <Row icon="document-text-outline" title="Invoices" detail="Create, send and track invoices" onPress={() => router.push("/invoices")} />
         </Card>
       )}
+
+      <Card style={{ paddingVertical: 6 }}>
+        <Row icon="shield-checkmark-outline" title="Privacy policy" detail="What we collect and how we protect it" onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/privacy`)} />
+        <Row icon="document-outline" title="Terms of service" detail="The rules for using TimeIQ" onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/terms`)} />
+      </Card>
 
       <Button title="Sign out" kind="secondary" busy={busy === "out"} onPress={async () => { setBusy("out"); await leave(); setBusy(null); }} />
       <Button title="Delete account" kind="danger" busy={busy === "delete"} onPress={confirmDelete} />
