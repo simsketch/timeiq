@@ -10,7 +10,7 @@
     "ios": {
       "bundleIdentifier": "app.timeiq",
       "appleTeamId": "8836WUYZD5",
-      "supportsTablet": true,
+      "supportsTablet": false,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
