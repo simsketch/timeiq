@@ -82,7 +82,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         </div>
 
-        <nav aria-label="Main navigation" className="flex-1 min-h-0 overflow-y-auto px-3 space-y-0.5">
+        <nav aria-label="Main navigation" className="sidebar-scroll flex-1 min-h-0 overflow-y-auto px-3 space-y-0.5">
           {visible.map((route) => {
             const isActive = pathname === route.href || pathname.startsWith(`${route.href}/`);
             return (
