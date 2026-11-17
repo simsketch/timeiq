@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,8 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { ShareAvailability } from "@/components/share-availability";
-import { format } from "date-fns";
+import { format, startOfWeek } from "date-fns";
+import { CalEvent, ViewToggle, WeekCalendar, colorFor, useCalendarView } from "@/components/week-calendar";
 import Link from "next/link";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
@@ -23,6 +25,7 @@ interface Booking {
   visitor_name: string;
   visitor_email: string;
   starts_at: string;
+  ends_at: string;
   event_type_id: number;
 }
 
@@ -30,6 +33,7 @@ interface CalendarEvent {
   id: number;
   title: string | null;
   starts_at: string;
+  ends_at: string;
   is_all_day: boolean;
   source_name: string | null;
 }
@@ -85,6 +89,32 @@ export default function DashboardPage() {
   const { getToken } = useAuth();
   const [stats, setStats] = useState<Stats>({ upcoming_bookings: 0, total_event_types: 0 });
   const [upcoming, setUpcoming] = useState<UpcomingItem[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const router = useRouter();
+  const [view, setView] = useCalendarView("dashboard");
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [range, setRange] = useState<{ start: Date; end: Date } | null>(null);
+  const [synced, setSynced] = useState<CalendarEvent[]>([]);
+  const onRangeChange = useCallback((start: Date, end: Date) => setRange({ start, end }), []);
+
+  // Synced events for whichever week or month the calendar shows.
+  useEffect(() => {
+    if (!range) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getToken();
+        const q = `start=${encodeURIComponent(range.start.toISOString())}&end=${encodeURIComponent(range.end.toISOString())}`;
+        const evs = await apiFetch<CalendarEvent[]>(`/api/calendars/cached-events?${q}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!cancelled) setSynced(evs);
+      } catch {
+        if (!cancelled) setSynced([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [range, getToken]);
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [money, setMoney] = useState<DashboardMoney | null>(null);
@@ -106,6 +136,7 @@ export default function DashboardPage() {
         ]);
         setStats(statsData);
         setMoney(moneyData);
+        setBookings(bookingsData);
 
         const now = new Date();
         const upcoming = bookingsData.filter(b => new Date(b.starts_at) >= now);
@@ -332,19 +363,48 @@ export default function DashboardPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Upcoming meetings</CardTitle>
-              <CardDescription>Your next scheduled meetings</CardDescription>
+              <CardTitle>{view === "calendar" ? "Your week" : "Upcoming meetings"}</CardTitle>
+              <CardDescription>Bookings and events from your connected calendars</CardDescription>
             </div>
+            <div className="flex items-center gap-2">
+            <ViewToggle view={view} onChange={setView} />
             <Button asChild variant="ghost" size="sm">
               <Link href="/bookings">
                 View all
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          {upcoming.length === 0 ? (
+          {view === "calendar" ? (
+            <WeekCalendar
+              weekStart={weekStart}
+              onWeekChange={setWeekStart}
+              events={[
+                ...synced.map((e) => ({
+                  id: `e${e.id}`,
+                  title: e.title || "Busy",
+                  start: new Date(e.starts_at),
+                  end: new Date(e.ends_at),
+                  allDay: e.is_all_day,
+                  color: "#94a3b8",
+                  label: e.source_name ?? undefined,
+                })),
+                ...bookings.map((b) => ({
+                  id: `b${b.id}`,
+                  title: b.visitor_name,
+                  start: new Date(b.starts_at),
+                  end: new Date(b.ends_at),
+                  color: colorFor(String(b.event_type_id)),
+                })),
+              ]}
+              onSelect={(ev: CalEvent) => router.push(ev.id.startsWith("b") ? "/bookings" : "/calendars")}
+              onRangeChange={onRangeChange}
+              emptyHint="nothing scheduled this week"
+            />
+          ) : upcoming.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 mb-4">
                 <Calendar className="h-8 w-8 text-gray-400" />
