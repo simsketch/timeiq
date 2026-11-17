@@ -22,6 +22,7 @@ const isPublicRoute = createRouteMatcher([
   "/robots.txt",
   "/privacy",
   "/terms",
+  "/support",
   "/api(.*)",
 ]);
 
