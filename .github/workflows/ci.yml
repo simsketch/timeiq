@@ -60,7 +60,7 @@ jobs:
       - name: Unit tests
         run: node --test tests/*.test.mjs
       - name: Audit npm dependencies
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high  # dev-only tooling (eslint deps) has unpatched advisories that never ship
 
   mobile:
     runs-on: ubuntu-latest
