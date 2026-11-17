@@ -173,6 +173,25 @@ export default function Import() {
               </Text>{" "}
               and it lands here too. Tap the address to copy it.
             </Text>
+            <Text
+              accessibilityRole="button"
+              style={{ color: t.danger, fontWeight: "600", marginTop: 12 }}
+              onPress={() =>
+                Alert.alert("Get a new address?", "The old address stops working, so update any forwarding rules that use it.", [
+                  { text: "Keep this one", style: "cancel" },
+                  {
+                    text: "New address",
+                    style: "destructive",
+                    onPress: () =>
+                      api<{ address: string }>("/api/email-imports/address", { method: "POST" })
+                        .then((r) => setAddress(r.address))
+                        .catch((e) => Alert.alert("Couldn't change the address", e instanceof Error ? e.message : "Try again.")),
+                  },
+                ])
+              }
+            >
+              Get a new address
+            </Text>
           </Card>
         )}
         {history.length > 0 && (

@@ -34,6 +34,9 @@ export default function Calendars() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  // The ICS calendar whose link is being replaced, and the new link.
+  const [replacing, setReplacing] = useState<string | null>(null);
+  const [newLink, setNewLink] = useState("");
   const router = useRouter();
   const me = useMe();
   const zone = me?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -118,6 +121,22 @@ export default function Calendars() {
     loadEvents();
   });
 
+  async function replaceLink(id: string) {
+    const link = newLink.trim().replace(/^webcal:\/\//i, "https://");
+    if (!/^https?:\/\//i.test(link)) return Alert.alert("Check the link", "Paste the calendar's ICS link. It starts with https:// or webcal://.");
+    setSaving(true);
+    try {
+      await api(`/api/calendars/${id}`, { method: "PATCH", body: JSON.stringify({ ics_url: link }) });
+      setReplacing(null);
+      setNewLink("");
+      await Promise.all([load(), loadEvents()]);
+    } catch (e) {
+      Alert.alert("That link didn't work", e instanceof Error ? e.message : "Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function addLink() {
     const link = url.trim().replace(/^webcal:\/\//i, "https://");
     if (!/^https?:\/\//i.test(link)) return Alert.alert("Check the link", "Paste the calendar's ICS link. It starts with https:// or webcal://.");
@@ -154,7 +173,8 @@ export default function Calendars() {
             const kind = KIND[s.type] ?? KIND.ics_url;
             const failing = s.sync_status !== "ok";
             return (
-              <View key={s.id} style={[styles.source, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.border }]}>
+              <View key={s.id} style={i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.border }}>
+              <View style={styles.source}>
                 <Ionicons name={kind.icon} size={20} color={t.muted} />
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: t.text, fontSize: 16, fontWeight: "500" }} numberOfLines={1}>{s.name}</Text>
@@ -170,9 +190,31 @@ export default function Calendars() {
                 <Pressable accessibilityLabel={`Sync ${s.name}`} hitSlop={8} onPress={() => sync(s.id)} disabled={!!syncing}>
                   {syncing === s.id ? <ActivityIndicator /> : <Ionicons name="refresh" size={20} color={t.primary} />}
                 </Pressable>
+                {s.type === "ics_url" && (
+                  <Pressable accessibilityLabel={`Replace the link for ${s.name}`} hitSlop={8} onPress={() => { setReplacing(replacing === s.id ? null : s.id); setNewLink(""); }}>
+                    <Ionicons name="link-outline" size={20} color={failing ? t.danger : t.muted} />
+                  </Pressable>
+                )}
                 <Pressable accessibilityLabel={`Remove ${s.name}`} hitSlop={8} onPress={() => remove(s)}>
                   <Ionicons name="trash-outline" size={20} color={t.muted} />
                 </Pressable>
+              </View>
+              {replacing === s.id && (
+                <View style={{ gap: 8, paddingBottom: 12 }}>
+                  <TextInput
+                    placeholder="New https://… or webcal://… link"
+                    placeholderTextColor={t.muted}
+                    value={newLink}
+                    onChangeText={setNewLink}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoFocus
+                    keyboardType="url"
+                    style={[styles.input, { color: t.text, borderColor: t.border }]}
+                  />
+                  <Button title="Replace link" busy={saving} onPress={() => replaceLink(s.id)} />
+                </View>
+              )}
               </View>
             );
           })}
@@ -198,7 +240,7 @@ export default function Calendars() {
             style={[styles.input, { color: t.text, borderColor: t.border }]}
           />
           <Text style={{ color: t.muted, fontSize: 13, lineHeight: 18 }}>
-            Apple, school, sports and work calendars usually offer a "subscribe" or ICS link.
+            Apple, school, sports and work calendars usually offer a &quot;subscribe&quot; or ICS link.
           </Text>
           <View style={{ flexDirection: "row", gap: 10 }}>
             <View style={{ flex: 1 }}><Button title="Cancel" kind="secondary" onPress={() => setAdding(false)} /></View>

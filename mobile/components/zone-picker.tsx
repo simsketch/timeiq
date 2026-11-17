@@ -53,7 +53,7 @@ export function ZonePicker({
 }) {
   const t = useTheme();
   const [query, setQuery] = useState("");
-  const zones = useMemo(allZones, []);
+  const zones = useMemo(() => allZones(), []);
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase().replace(/\s+/g, "_");
     const list = q ? zones.filter((z) => z.toLowerCase().includes(q)) : zones;

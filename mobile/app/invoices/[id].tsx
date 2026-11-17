@@ -273,14 +273,14 @@ export default function InvoiceDetail() {
       {isDraft && missing && missing.entry_count > 0 && (
         <Card style={{ gap: 10, backgroundColor: t.warnBg }}>
           <Text style={{ color: t.warnText, fontSize: 15, lineHeight: 21 }}>
-            {missing.entry_count} unbilled {missing.entry_count === 1 ? "entry" : "entries"} ({parseFloat(missing.total_hours)}h) in this invoice's period{" "}
+            {missing.entry_count} unbilled {missing.entry_count === 1 ? "entry" : "entries"} ({parseFloat(missing.total_hours)}h) in this invoice&apos;s period{" "}
             {missing.entry_count === 1 ? "isn't" : "aren't"} on it yet.
           </Text>
           <Button title="Add to invoice" busy={busy} onPress={() => act(`${base}/refresh`, "POST", undefined, "Hours added to invoice")} />
         </Card>
       )}
       {isDraft && emails.length === 0 && (
-        <Notice tone="warn">This invoice has no billing email, so it can't be sent. Add one to the client and it will appear here.</Notice>
+        <Notice tone="warn">This invoice has no billing email, so it can&apos;t be sent. Add one to the client and it will appear here.</Notice>
       )}
 
       {(isDraft || isSent) && (

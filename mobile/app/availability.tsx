@@ -1,6 +1,7 @@
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ShareAvailability } from "@/components/share-availability";
 import { Button, Card, Notice } from "@/components/ui";
 import { type AvailabilityRule, useApi } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
@@ -123,6 +124,7 @@ export default function Availability() {
       )}
 
       <Button title={dirty ? "Save hours" : "Saved"} onPress={save} busy={saving} disabled={!dirty} />
+      <ShareAvailability />
     </ScrollView>
   );
 }

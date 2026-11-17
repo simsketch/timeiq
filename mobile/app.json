@@ -13,7 +13,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "app.timeiq",
@@ -28,6 +29,7 @@
       "expo-web-browser",
       "@react-native-community/datetimepicker",
       "@clerk/expo",
+      "expo-apple-authentication",
       [
         "expo-splash-screen",
         {
@@ -35,7 +37,7 @@
           "imageWidth": 160,
           "backgroundColor": "#ffffff",
           "dark": {
-            "backgroundColor": "#0b0b0c",
+            "backgroundColor": "#141414",
             "image": "./assets/splash-icon-dark.png"
           }
         }
@@ -43,7 +45,7 @@
       [
         "expo-notifications",
         {
-          "color": "#6e5cf0"
+          "color": "#F2690D"
         }
       ],
       [
@@ -58,7 +60,16 @@
           ]
         }
       ],
-      "expo-image"
+      "expo-image",
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "TimeIQ uses your photos so you can add your logo to your booking page.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

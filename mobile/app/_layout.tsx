@@ -45,6 +45,7 @@ function Routes() {
           <Stack.Screen name="new-meeting" options={{ title: "Find a time", presentation: "modal" }} />
           <Stack.Screen name="meeting/[id]" options={{ title: "Group meeting", headerBackTitle: "Back" }} />
           <Stack.Screen name="time" options={{ title: "Time", headerBackTitle: "Account" }} />
+          <Stack.Screen name="assistant" options={{ title: "Ask TimeIQ", headerBackTitle: "Back" }} />
           <Stack.Screen name="clients" options={{ title: "Clients", headerBackTitle: "Account" }} />
           <Stack.Screen name="invoices/index" options={{ title: "Invoices", headerBackTitle: "Account" }} />
           <Stack.Screen name="invoices/[id]" options={{ title: "Invoice", headerBackTitle: "Invoices" }} />

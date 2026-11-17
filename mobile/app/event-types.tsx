@@ -4,6 +4,7 @@ import { useFocusEffect } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Switch, Text, View } from "react-native";
+import { BookingBrandingCard } from "@/components/booking-branding-card";
 import { Button, Card, Chips, Input, Label, Notice, ToggleRow } from "@/components/ui";
 import { type EventType, useApi } from "@/lib/api";
 import { SITE_URL } from "@/lib/config";
@@ -339,6 +340,8 @@ export default function EventTypes() {
           )}
         </Card>
       )}
+
+      {types && me && <BookingBrandingCard me={me} />}
     </ScrollView>
   );
 }

@@ -2,9 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from "react-native";
-import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { SetupChecklist } from "@/components/setup-checklist";
+import { ShareAvailability } from "@/components/share-availability";
 import { Notice } from "@/components/ui";
 import { type CalItem, WeekCalendar, bookingItems, confirmMove, syncedItems } from "@/components/week-calendar";
 import { ApiError, type BillingStatus, type Booking, type CachedEvent, type EventType, useApi } from "@/lib/api";
@@ -34,6 +34,9 @@ export default function Agenda() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [stats, setStats] = useState<{ upcoming_bookings: number; total_event_types: number } | null>(null);
+  // Calendars whose sync broke, so their events no longer block the booking page.
+  const [broken, setBroken] = useState<string[]>([]);
   const [view, setViewState] = useState<View_>(rememberedView);
   const setView = (v: View_) => {
     rememberedView = v;
@@ -65,6 +68,10 @@ export default function Agenda() {
         api<EventType[]>("/api/event-types"),
       ]);
       api<BillingStatus>("/api/billing/status").then(setBilling).catch(() => undefined);
+      api<typeof stats>("/api/dashboard/stats").then(setStats).catch(() => undefined);
+      api<{ name: string; sync_status: string }[]>("/api/calendars")
+        .then((cals) => setBroken(cals.filter((c) => c.sync_status === "broken").map((c) => c.name)))
+        .catch(() => undefined);
       setBookings([...confirmed, ...pending]);
       setEvents(cached);
       setTypes(Object.fromEntries(eventTypes.map((e) => [String(e.id), e.name])));
@@ -147,6 +154,9 @@ export default function Agenda() {
             );
           })}
         </View>
+        <Pressable accessibilityLabel="Ask the assistant" onPress={() => router.push("/assistant")} hitSlop={8} style={[styles.iconBtn, { borderColor: t.border }]}>
+          <Ionicons name="sparkles-outline" size={20} color={t.text} />
+        </Pressable>
         {bookingLink && (
           <Pressable
             accessibilityLabel="Share your booking link"
@@ -158,6 +168,15 @@ export default function Agenda() {
           </Pressable>
         )}
       </View>
+
+      {broken.length > 0 && (
+        <Pressable accessibilityRole="button" onPress={() => router.push("/calendars")} style={styles.banner}>
+          <Notice tone="error">
+            {broken.length === 1 ? broken[0] : `${broken.length} calendars`} {broken.length === 1 ? "has" : "have"} stopped syncing, so new events there
+            aren&apos;t blocking your booking page. Tap to fix it.
+          </Notice>
+        </Pressable>
+      )}
 
       {view === "calendar" ? (
         <View style={styles.calendar}>
@@ -213,19 +232,28 @@ export default function Agenda() {
       >
         {error && <Notice tone="warn">{error}</Notice>}
         <SetupChecklist />
+        {stats && (
+          <View style={styles.stats}>
+            <Pressable accessibilityRole="button" onPress={() => router.push("/bookings")} style={[styles.stat, { borderColor: t.border, backgroundColor: t.card }]}>
+              <Text style={[styles.statNum, { color: t.text }]}>{stats.upcoming_bookings}</Text>
+              <Text style={{ color: t.muted, fontSize: 13 }}>Upcoming bookings</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={() => router.push("/event-types")} style={[styles.stat, { borderColor: t.border, backgroundColor: t.card }]}>
+              <Text style={[styles.statNum, { color: t.text }]}>{stats.total_event_types}</Text>
+              <Text style={{ color: t.muted, fontSize: 13 }}>Event types</Text>
+            </Pressable>
+          </View>
+        )}
+        <ShareAvailability />
+        {/* Status only, no plans link: App Store rule 3.1.1 forbids pointing to web purchases outside the US. */}
         {billing?.enabled && billing.free_meetings_left != null && (
-          <Pressable
-            accessibilityRole="link"
-            onPress={() => WebBrowser.openBrowserAsync(`${SITE_URL}/pricing`)}
-            style={[styles.free, { borderColor: t.border, backgroundColor: t.card }]}
-          >
+          <View style={[styles.free, { borderColor: t.border, backgroundColor: t.card }]}>
             <Text style={{ color: t.text, fontSize: 14, flex: 1 }}>
               {billing.free_meetings_left > 0
                 ? `${billing.free_meetings_left} of ${billing.free_meetings} free meetings left`
                 : "Free meetings used · booking link paused"}
             </Text>
-            <Text style={{ color: t.primary, fontSize: 14, fontWeight: "600" }}>See plans</Text>
-          </Pressable>
+          </View>
         )}
         {!error && items.length === 0 && (
           <View style={styles.empty}>
@@ -306,6 +334,10 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 },
   month: { fontSize: 14, fontWeight: "600" },
   title: { fontSize: 30, fontWeight: "800", letterSpacing: -0.5 },
+  banner: { paddingHorizontal: 16, paddingBottom: 8 },
+  stats: { flexDirection: "row", gap: 10 },
+  stat: { flex: 1, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: 14, gap: 2 },
+  statNum: { fontSize: 26, fontWeight: "700" },
   pill: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 },
   iconBtn: { borderWidth: 1, borderRadius: 999, width: 38, height: 38, alignItems: "center", justifyContent: "center" },
   week: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 10, paddingVertical: 10 },

@@ -1,0 +1,42 @@
+default_platform(:ios)
+
+# Run from mobile/ after `npx expo prebuild -p ios --clean` (ios/ is generated and gitignored).
+# Uses the team's App Store Connect API key, so no Apple ID login is needed, and lets
+# xcodebuild create the app and share-extension provisioning profiles itself.
+KEY_ID = "3XWAXD7WXH"
+ISSUER_ID = "69a6de7e-d8cf-47e3-e053-5b8c7c11a4d1"
+KEY_PATH = File.expand_path("~/.private_keys/AuthKey_#{KEY_ID}.p8")
+XCODE_AUTH = "-allowProvisioningUpdates -authenticationKeyPath #{KEY_PATH} " \
+  "-authenticationKeyID #{KEY_ID} -authenticationKeyIssuerID #{ISSUER_ID}"
+
+platform :ios do
+  before_all do
+    app_store_connect_api_key(key_id: KEY_ID, issuer_id: ISSUER_ID, key_filepath: KEY_PATH, duration: 1200)
+  end
+
+  # The app and its share extension must carry the same build number; passing it
+  # through xcargs sets it for every target without agvtool prompts.
+  def build_timeiq
+    build_app(
+      workspace: "ios/TimeIQ.xcworkspace",
+      scheme: "TimeIQ",
+      export_method: "app-store",
+      clean: true,
+      output_directory: "./build",
+      output_name: "TimeIQ.ipa",
+      xcargs: "#{XCODE_AUTH} CURRENT_PROJECT_VERSION=#{Time.now.strftime('%Y%m%d%H%M')}"
+    )
+  end
+
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    build_timeiq
+    upload_to_testflight(skip_waiting_for_build_processing: true)
+  end
+
+  desc "Build and upload to App Store Connect (does not submit for review)"
+  lane :release do
+    build_timeiq
+    upload_to_app_store(skip_metadata: true, skip_screenshots: true, submit_for_review: false, precheck_include_in_app_purchases: false)
+  end
+end

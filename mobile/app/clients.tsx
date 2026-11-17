@@ -127,7 +127,7 @@ export default function Clients() {
     return (
       <View style={styles.page}>
         {header}
-        <Notice>Time tracking and invoicing aren't turned on for this account.</Notice>
+        <Notice>Time tracking and invoicing aren&apos;t turned on for this account.</Notice>
       </View>
     );
   }
@@ -210,7 +210,7 @@ export default function Clients() {
         <Card style={styles.toggle}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: t.text, fontSize: 16, fontWeight: "500" }}>Auto-draft monthly invoice</Text>
-            <Text style={[styles.hint, { color: t.muted, marginTop: 2 }]}>On the 1st, last month's unbilled hours become a draft invoice for you to review and send.</Text>
+            <Text style={[styles.hint, { color: t.muted, marginTop: 2 }]}>On the 1st, last month&apos;s unbilled hours become a draft invoice for you to review and send.</Text>
           </View>
           <Switch value={draft.auto_invoice_monthly} onValueChange={(auto_invoice_monthly) => set({ auto_invoice_monthly })} trackColor={{ true: t.primary }} />
         </Card>
