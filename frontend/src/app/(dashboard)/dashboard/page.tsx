@@ -26,6 +26,24 @@ interface Booking {
   event_type_id: number;
 }
 
+interface CalendarEvent {
+  id: number;
+  title: string | null;
+  starts_at: string;
+  is_all_day: boolean;
+  source_name: string | null;
+}
+
+/** One row in "Upcoming meetings": a TimeIQ booking or a synced calendar event. */
+interface UpcomingItem {
+  key: string;
+  title: string;
+  subtitle: string;
+  starts_at: string;
+  all_day: boolean;
+  booking: boolean;
+}
+
 interface Stats {
   upcoming_bookings: number;
   total_event_types: number;
@@ -66,7 +84,7 @@ export default function DashboardPage() {
   const { user } = useUser();
   const { getToken } = useAuth();
   const [stats, setStats] = useState<Stats>({ upcoming_bookings: 0, total_event_types: 0 });
-  const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
+  const [upcoming, setUpcoming] = useState<UpcomingItem[]>([]);
   const [pastBookings, setPastBookings] = useState<Booking[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [money, setMoney] = useState<DashboardMoney | null>(null);
@@ -78,11 +96,13 @@ export default function DashboardPage() {
       try {
         const token = await getToken();
         const headers = { Authorization: `Bearer ${token}` };
-        const [statsData, bookingsData, profileData, moneyData] = await Promise.all([
+        const [statsData, bookingsData, profileData, moneyData, eventsData] = await Promise.all([
           apiFetch<Stats>("/api/dashboard/stats", { headers }),
           apiFetch<Booking[]>("/api/bookings?status=confirmed", { headers }),
           apiFetch<UserProfile>("/api/me", { headers }),
           apiFetch<DashboardMoney>("/api/dashboard/money", { headers }).catch(() => null),
+          // Calendar events are a bonus; a sync problem must not blank the dashboard.
+          apiFetch<CalendarEvent[]>("/api/calendars/cached-events?days=14", { headers }).catch(() => []),
         ]);
         setStats(statsData);
         setMoney(moneyData);
@@ -92,7 +112,21 @@ export default function DashboardPage() {
         const past = bookingsData
           .filter(b => new Date(b.starts_at) < now)
           .reverse(); // most recent past first
-        setUpcomingBookings(upcoming.slice(0, 5));
+        // A booking can also be synced back from the host's calendar; show it once, as the booking.
+        const bookingStarts = new Set(upcoming.map(b => new Date(b.starts_at).getTime()));
+        const items: UpcomingItem[] = [
+          ...upcoming.map(b => ({
+            key: `b${b.id}`, title: b.visitor_name, subtitle: b.visitor_email,
+            starts_at: b.starts_at, all_day: false, booking: true,
+          })),
+          ...eventsData
+            .filter(e => !bookingStarts.has(new Date(e.starts_at).getTime()))
+            .map(e => ({
+              key: `e${e.id}`, title: e.title || "Busy", subtitle: e.source_name || "Calendar",
+              starts_at: e.starts_at, all_day: e.is_all_day, booking: false,
+            })),
+        ].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+        setUpcoming(items.slice(0, 6));
         setPastBookings(past.slice(0, 5));
         setProfile(profileData);
       } catch (error) {
@@ -310,7 +344,7 @@ export default function DashboardPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {upcomingBookings.length === 0 ? (
+          {upcoming.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 mb-4">
                 <Calendar className="h-8 w-8 text-gray-400" />
@@ -327,28 +361,34 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="divide-y">
-              {upcomingBookings.map((booking) => (
+              {upcoming.map((item) => (
                 <div
-                  key={booking.id}
+                  key={item.key}
                   className="flex items-center justify-between py-4 first:pt-0 last:pb-0"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-blue-600 text-sm font-semibold text-white">
-                      {getInitials(booking.visitor_name)}
-                    </div>
+                    {item.booking ? (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-blue-600 text-sm font-semibold text-white">
+                        {getInitials(item.title)}
+                      </div>
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                        <CalendarDays className="h-5 w-5 text-muted-foreground" aria-hidden />
+                      </div>
+                    )}
                     <div className="min-w-0">
-                      <p className="font-medium truncate">{booking.visitor_name}</p>
+                      <p className="font-medium truncate">{item.title}</p>
                       <p className="text-sm text-muted-foreground truncate">
-                        {booking.visitor_email}
+                        {item.subtitle}
                       </p>
                     </div>
                   </div>
                   <div className="text-right shrink-0 ml-4">
                     <p className="text-sm font-medium">
-                      {format(new Date(booking.starts_at), "MMM d, yyyy")}
+                      {format(new Date(item.starts_at), "EEE, MMM d")}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {format(new Date(booking.starts_at), "h:mm a")}
+                      {item.all_day ? "All day" : format(new Date(item.starts_at), "h:mm a")}
                     </p>
                   </div>
                 </div>
