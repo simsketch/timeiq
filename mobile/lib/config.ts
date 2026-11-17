@@ -5,3 +5,5 @@ const extra = (Constants.expoConfig?.extra ?? {}) as { apiUrl?: string; clerkPub
 export const API_URL = process.env.EXPO_PUBLIC_API_URL || extra.apiUrl || "https://api.timeiq.app";
 export const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || extra.clerkPublishableKey || "";
 export const SITE_URL = "https://timeiq.app";
+// Inlined at bundle time; production builds never set it, so screenshot code is dead there.
+export const SCREENSHOT_MODE = process.env.EXPO_PUBLIC_SCREENSHOT_MODE === "1";

@@ -45,3 +45,6 @@ yarn-error.*
 /android
 /vendor/bundle
 /.bundle
+fastlane/README.md
+fastlane/report.xml
+build/
