@@ -43,6 +43,12 @@ platform :ios do
                         submit_for_review: false, precheck_include_in_app_purchases: false)
   end
 
+  desc "Replace the App Store screenshots with fastlane/screenshots (no binary, no submission)"
+  lane :screenshots do
+    upload_to_app_store(app_identifier: "app.timeiq", skip_binary_upload: true, skip_metadata: true, force: true,
+                        overwrite_screenshots: true, submit_for_review: false, precheck_include_in_app_purchases: false)
+  end
+
   desc "Build and upload to App Store Connect (does not submit for review)"
   lane :release do
     build_timeiq
