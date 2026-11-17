@@ -6,13 +6,15 @@ const light = {
   text: "#141414",
   muted: "#62656b",
   border: "#e4e5e7",
-  primary: "#e0540a",
+  // Brand kit: graphite actions, one tangerine accent (brand/README.md).
+  primary: "#141414",
   primaryText: "#ffffff",
+  brand: "#f2690d",
   danger: "#dc2626",
   warnBg: "#fef3c7",
   warnText: "#78350f",
   busy: "#94a3b8",
-  now: "#ef4444",
+  now: "#f2690d",
 };
 
 const dark: typeof light = {
@@ -21,13 +23,14 @@ const dark: typeof light = {
   text: "#f2f2f3",
   muted: "#9c9ea3",
   border: "#2a2a2e",
-  primary: "#ff7a2e",
-  primaryText: "#ffffff",
+  primary: "#f4efe3",
+  primaryText: "#141414",
+  brand: "#f2690d",
   danger: "#f87171",
   warnBg: "#422006",
   warnText: "#fde68a",
   busy: "#64748b",
-  now: "#f87171",
+  now: "#f2690d",
 };
 
 export type Theme = typeof light;
