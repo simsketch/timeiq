@@ -14,9 +14,12 @@ platform :ios do
     app_store_connect_api_key(key_id: KEY_ID, issuer_id: ISSUER_ID, key_filepath: KEY_PATH, duration: 1200)
   end
 
-  # The app and its share extension must carry the same build number; passing it
-  # through xcargs sets it for every target without agvtool prompts.
+  # The app and its share extension must carry the same build number. The extension
+  # reads CURRENT_PROJECT_VERSION from xcargs; prebuild writes a literal "1" into the
+  # app's Info.plist, so that one is set directly.
   def build_timeiq
+    build_num = Time.now.strftime('%Y%m%d%H%M')
+    set_info_plist_value(path: "ios/TimeIQ/Info.plist", key: "CFBundleVersion", value: build_num)
     build_app(
       workspace: "ios/TimeIQ.xcworkspace",
       scheme: "TimeIQ",
@@ -24,7 +27,7 @@ platform :ios do
       clean: true,
       output_directory: "./build",
       output_name: "TimeIQ.ipa",
-      xcargs: "#{XCODE_AUTH} CURRENT_PROJECT_VERSION=#{Time.now.strftime('%Y%m%d%H%M')}"
+      xcargs: "#{XCODE_AUTH} CURRENT_PROJECT_VERSION=#{build_num}"
     )
   end
 
