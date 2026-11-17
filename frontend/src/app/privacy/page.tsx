@@ -7,7 +7,7 @@ export const metadata = {
   description: "What TimeIQ collects, why, and how to remove it.",
 };
 
-const UPDATED = "November 9, 2026";
+const UPDATED = "November 17, 2026";
 const CONTACT = "simsketch@gmail.com";
 
 export default function PrivacyPage() {
@@ -55,11 +55,26 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="Who we share it with">
-            Only the providers needed to operate TimeIQ: Clerk (authentication), Stripe (payments), Resend (transactional email), Google (calendar sync and sign-in, when you choose them), Vercel (hosting), Neon (database), Google Analytics and Meta (analytics and advertising measurement). Each processes data under its own terms. We share booking details with the person you booked with, and invoice details with the client you invoice, because that is the point of those features.
+            Only the providers needed to operate TimeIQ: Clerk (authentication), Stripe (payments), Resend (transactional email), Google (calendar sync and sign-in, when you choose them), Anthropic (the AI features described below), Vercel (hosting), Neon (database), Google Analytics and Meta (analytics and advertising measurement). Each processes data under its own terms. We share booking details with the person you booked with, and invoice details with the client you invoice, because that is the point of those features.
           </Section>
 
           <Section title="Google user data">
             If you connect Google Calendar, TimeIQ requests read access to your calendars to compute availability and, if you use the feature, to suggest time entries. That data is used only to provide those features, is not shared with third parties except as needed to host the service, and is deleted when you disconnect the calendar or delete your account. TimeIQ&apos;s use of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements.
+          </Section>
+
+          <Section title="AI features">
+            TimeIQ uses Anthropic&apos;s Claude models, through Anthropic&apos;s commercial API, for three features: the Ask TimeIQ assistant, reading schedules you forward or paste, and replies to meeting emails. When you use the assistant, it can read your calendar events, including events synced from Google Calendar, to answer your question. Anthropic does not use data sent through its commercial API to train its models. TimeIQ does not use, transfer, or sell Google user data, whether raw, aggregated, or derived, to create, train, or improve any machine learning or AI model, including generalized or foundational models. We send AI providers only the data a request needs.
+          </Section>
+
+          <Section title="How we protect your data">
+            <ul className="list-disc pl-5 space-y-2">
+              <li><strong>Encryption in transit.</strong> All traffic to TimeIQ, and between TimeIQ and its providers, uses HTTPS (TLS 1.2 or later).</li>
+              <li><strong>Encryption at rest.</strong> Our database (Neon) and hosting (Vercel) encrypt stored data with AES-256.</li>
+              <li><strong>Calendar credentials.</strong> Google and Microsoft access tokens stay on our servers. They are never sent to your browser or the mobile app, and they are deleted when you disconnect a calendar or delete your account.</li>
+              <li><strong>Least privilege.</strong> We request read-only calendar access, and our own staff access production data only to resolve a support request or a security issue.</li>
+              <li><strong>Account security.</strong> Sign-in is handled by Clerk. Every request is checked against your session, so each account can see only its own data.</li>
+              <li><strong>Incidents.</strong> If a breach affects your data, we will notify you and the relevant authorities as the law requires.</li>
+            </ul>
           </Section>
 
           <Section title="Retention and deletion">
