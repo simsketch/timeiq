@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance, type TextInputInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApi } from "@/lib/api";
+import { SCREENSHOT_MODE } from "@/lib/config";
+import { screenshotAssistant } from "@/lib/screenshot-fixtures";
 import { useTheme, type Theme } from "@/lib/theme";
 import { useMe } from "@/lib/use-me";
 
@@ -40,7 +42,7 @@ const STEP_LABEL: Record<string, string> = {
 };
 
 // Kept for the app session, so leaving the screen doesn't lose the conversation (the web keeps it per tab).
-const kept: { history: Message[]; steps: Step[][] } = { history: [], steps: [] };
+const kept: { history: Message[]; steps: Step[][] } = SCREENSHOT_MODE ? screenshotAssistant : { history: [], steps: [] };
 
 /** The visible conversation: user text, and each assistant reply with the tools it used. */
 function turnsFrom(history: Message[], stepsByReply: Step[][]): Turn[] {

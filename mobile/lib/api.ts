@@ -1,6 +1,7 @@
 import { useAuth } from "@clerk/expo";
 import { useCallback, useLayoutEffect, useRef } from "react";
-import { API_URL } from "./config";
+import { API_URL, SCREENSHOT_MODE } from "./config";
+import { screenshotResponse } from "./screenshot-fixtures";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -39,6 +40,8 @@ export async function apiRequest<T>(token: string | null, path: string, init: Re
 
 /** A fetcher that signs requests with the Clerk session, creating the TimeIQ
  * account on first use (as the website does). */
+const screenshotApi = async <T,>(path: string, init?: RequestInit): Promise<T> => screenshotResponse(path, init) as T;
+
 export function useApi() {
   const { getToken, userId } = useAuth();
   // @clerk/expo returns a new getToken every render; keeping it out of the deps
@@ -47,7 +50,7 @@ export function useApi() {
   useLayoutEffect(() => {
     getTokenRef.current = getToken;
   });
-  return useCallback(
+  const api = useCallback(
     async <T,>(path: string, init?: RequestInit): Promise<T> => {
       const token = await getTokenRef.current();
       if (token && userId && synced !== userId) {
@@ -58,6 +61,7 @@ export function useApi() {
     },
     [userId]
   );
+  return SCREENSHOT_MODE ? screenshotApi : api;
 }
 
 export interface Me {

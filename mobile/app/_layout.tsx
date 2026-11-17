@@ -5,13 +5,17 @@ import { ShareIntentProvider } from "expo-share-intent";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { CLERK_PUBLISHABLE_KEY } from "@/lib/config";
+import { LogBox } from "react-native";
+import { CLERK_PUBLISHABLE_KEY, SCREENSHOT_MODE } from "@/lib/config";
 import { useTheme } from "@/lib/theme";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
+if (SCREENSHOT_MODE) LogBox.ignoreAllLogs();
 
 function Routes() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const auth = useAuth();
+  const isLoaded = SCREENSHOT_MODE || auth.isLoaded;
+  const isSignedIn = SCREENSHOT_MODE || auth.isSignedIn;
   const t = useTheme();
   useEffect(() => {
     if (isLoaded) SplashScreen.hideAsync().catch(() => undefined);
