@@ -24,7 +24,10 @@ CARD_BORDER = "#e4e5e7"
 PANEL_BG = "#f7f7f8"
 FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
 
-HEROES = {"confirmed", "new-booking", "cancelled", "invoice", "welcome", "reminder"}
+HEROES = {
+    "confirmed", "new-booking", "cancelled", "invoice", "welcome", "reminder",
+    "overdue", "find-time", "week", "calendar", "schedule", "account",
+}  # images: frontend/public/email/hero-*.png, drawn by brand/email_heroes.py
 
 
 def _asset(name: str) -> str:

@@ -392,7 +392,7 @@ def _send_inactive_notice(user: User) -> None:
     )
     mail._init_resend()
     mail._send(
-        {"from": mail.FROM_EMAIL, "to": [user.email], "subject": subject, "html": t.layout("reminder", subject, body)},
+        {"from": mail.FROM_EMAIL, "to": [user.email], "subject": subject, "html": t.layout("account", subject, body)},
         "inactive subscription notice",
     )
 

@@ -662,7 +662,7 @@ def render_overdue_digest(user: User, invoices: list, today: date) -> str:
         + t.details(rows, rows_html=True)
         + t.buttons(t.button("View invoices", f"{_site()}/invoices"))
     )
-    return t.layout("reminder", f"{len(invoices)} overdue invoice(s), {fmt_money(total, currency)} outstanding", body)
+    return t.layout("overdue", f"{len(invoices)} overdue invoice(s), {fmt_money(total, currency)} outstanding", body)
 
 
 def send_overdue_digest(user: User, invoices: list, today: date) -> None:
@@ -713,7 +713,7 @@ def render_calendar_broken(user: User, source) -> str:
         + t.buttons(t.button("Fix it in TimeIQ", f"{_site()}/calendars"))
         + t.p("TimeIQ will keep checking once a day and stop warning you as soon as it syncs again.", muted=True)
     )
-    return t.layout("reminder", f"{source.name} stopped syncing with TimeIQ", body)
+    return t.layout("calendar", f"{source.name} stopped syncing with TimeIQ", body)
 
 
 def send_calendar_broken(user: User, source) -> None:
@@ -771,7 +771,7 @@ def render_schedule_import(user: User, record, rows: list[dict], schedule_name: 
             )
             + t.p("Something wrong? Undo it, then forward the schedule again with a note about what to fix.", muted=True)
         )
-        return subject, t.layout("reminder", subject, body)
+        return subject, t.layout("schedule", subject, body)
     if record.status == "rejected":
         subject = "We couldn't add that schedule"
         message = record.error or "That email couldn't be imported."
@@ -785,7 +785,7 @@ def render_schedule_import(user: User, record, rows: list[dict], schedule_name: 
         subject = "Something went wrong adding that schedule"
         message = "TimeIQ hit an error reading it. Please try again in a few minutes; nothing was added."
     body = t.h1(subject) + t.p(message) + t.buttons(t.button("Open TimeIQ", f"{_site()}/calendars"))
-    return subject, t.layout("reminder", subject, body)
+    return subject, t.layout("schedule", subject, body)
 
 
 def send_schedule_import_reply(user: User, record, rows: list[dict], schedule_name: str | None, to: list[str]) -> None:
@@ -863,7 +863,7 @@ def render_free_meetings(user: User, left: int, free: int) -> str:
         + t.buttons(t.button("Pick a plan", f"{site}/pricing"))
         + t.signoff(MAKER_NAME, MAKER_ROLE)
     )
-    return t.layout("reminder", lead, body)
+    return t.layout("account", lead, body)
 
 
 async def send_free_meetings_notice(user: User, left: int, free: int, key: str) -> None:
@@ -904,7 +904,7 @@ def render_trial_ending(trial_end: datetime, price: str, interval: str, has_acco
         )
         + t.buttons(manage)
     )
-    return t.layout("reminder", f"Your TimeIQ trial ends {when}: {price} per {interval} after that.", body)
+    return t.layout("account", f"Your TimeIQ trial ends {when}: {price} per {interval} after that.", body)
 
 
 async def send_trial_ending(
@@ -1062,7 +1062,7 @@ def render_group_invite(meeting, participant, suggested: list[datetime] | None =
         + picker
         + _timeiq_note()
     )
-    return t.layout("reminder", f"{org} wants to find a time for {meeting.title}", body)
+    return t.layout("find-time", f"{org} wants to find a time for {meeting.title}", body)
 
 
 def send_group_invite(meeting, participant, reminder: bool = False, suggested: list[datetime] | None = None) -> None:
@@ -1411,7 +1411,7 @@ def send_alias_confirmation(email: str, token: str, owner: User) -> None:
     )
     _init_resend()
     _send({"from": FROM_EMAIL, "to": [email], "subject": subject,
-           "html": t.layout("reminder", subject, body)}, "address confirmation")
+           "html": t.layout("account", subject, body)}, "address confirmation")
 
 
 def send_unknown_agent_sender(sender: str) -> None:
@@ -1423,4 +1423,4 @@ def send_unknown_agent_sender(sender: str) -> None:
     _init_resend()
     _send({"from": FROM_EMAIL, "to": [sender], "subject": subject,
            "headers": {"Auto-Submitted": "auto-replied"},
-           "html": t.layout("reminder", subject, body)}, "unknown agent sender")
+           "html": t.layout("account", subject, body)}, "unknown agent sender")

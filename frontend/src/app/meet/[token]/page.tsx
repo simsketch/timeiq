@@ -53,6 +53,11 @@ function GetTimeIQ() {
   );
 }
 
+/** How many people the time works for, counting the viewer's own pick. */
+function fitsLabel(n: number, people: number): string {
+  return n >= people ? "Works for everyone" : `Works for ${n} of ${people}`;
+}
+
 export default function MeetInvitePage() {
   const { token } = useParams<{ token: string }>();
   const { isSignedIn, getToken } = useAuth();
@@ -254,7 +259,7 @@ export default function MeetInvitePage() {
                         <span className="flex items-center gap-2 text-xs">
                           {others > 0 && slot && (
                             <span className={on ? "text-background/70" : "text-muted-foreground"}>
-                              {slot.can_make_it + (on && !slot.mine ? 1 : 0) - (!on && slot.mine ? 1 : 0)} of {m.people} free
+                              {fitsLabel(slot.can_make_it + (on && !slot.mine ? 1 : 0) - (!on && slot.mine ? 1 : 0), m.people)}
                             </span>
                           )}
                           <span
@@ -319,7 +324,7 @@ export default function MeetInvitePage() {
                               <span className="block font-mono tabular-nums">{timeLabel(s.start, zone)}</span>
                               {others > 0 && (
                                 <span className={`block text-[10px] ${on ? "text-background/70" : "text-muted-foreground"}`}>
-                                  {s.can_make_it + (on && !s.mine ? 1 : 0) - (!on && s.mine ? 1 : 0)} of {m.people} free
+                                  {fitsLabel(s.can_make_it + (on && !s.mine ? 1 : 0) - (!on && s.mine ? 1 : 0), m.people)}
                                 </span>
                               )}
                             </button>

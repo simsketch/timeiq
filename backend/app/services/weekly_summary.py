@@ -177,7 +177,7 @@ def render_content(user, content, unsubscribe_url) -> str:
     body += t.buttons(t.button("Open TimeIQ", f"{settings.FRONTEND_URL.rstrip('/')}/bookings"))
     body += t.p("Open time uses your saved availability and latest calendar sync.", muted=True)
     body += f'<p style="font-size:12px;"><a href="{escape(unsubscribe_url, quote=True)}">Unsubscribe from Your week</a></p>'
-    return t.layout("reminder", "Your bookings, open time and billing for the week.", body)
+    return t.layout("week", "Your bookings, open time and billing for the week.", body)
 
 
 async def send_for_user(db, user, now) -> None:
