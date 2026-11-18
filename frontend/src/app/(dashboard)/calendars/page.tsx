@@ -363,6 +363,108 @@ export default function CalendarsPage() {
         )}
       </div>
 
+      {/* Synced events: week calendar by default, list as an option */}
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold">Synced Events</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Events from your connected calendars that block availability
+              {view === "list" ? " (next 14 days)" : ""}
+            </p>
+          </div>
+          <ViewToggle view={view} onChange={setView} />
+        </div>
+        {view === "calendar" ? (
+          <>
+            <WeekCalendar
+              calendars={calendars.map((c) => ({ id: c.id, name: c.name, color: colorFor(c.id) }))}
+              weekStart={weekStart}
+              onWeekChange={setWeekStart}
+              events={weekEvents.map((e) => ({
+                id: e.id,
+                title: e.title || "(No title)",
+                start: new Date(e.starts_at),
+                end: new Date(e.ends_at),
+                allDay: e.is_all_day,
+                color: colorFor(e.calendar_source_id),
+                label: e.source_name ?? undefined,
+                calendarId: e.calendar_source_id,
+              }))}
+              onSelect={setSelected}
+              onRangeChange={onRangeChange}
+              emptyHint="no synced events this week"
+            />
+            {selected && (
+              <Card>
+                <CardContent className="flex items-start justify-between gap-4 py-4">
+                  <div>
+                    <p className="font-semibold">{selected.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selected.allDay
+                        ? `${format(selected.start, "EEEE, MMMM d")} · all day`
+                        : `${format(selected.start, "EEEE, MMMM d · h:mm a")} – ${format(selected.end, "h:mm a")}`}
+                    </p>
+                    {selected.label && (
+                      <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: selected.color }} />
+                        {selected.label}
+                      </p>
+                    )}
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>Close</Button>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        ) : cachedEvents.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              <CalendarDays className="h-8 w-8 mx-auto mb-3 text-gray-300" />
+              No cached events found. Sync your calendars to import events.
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="py-2">
+              <div className="divide-y">
+                {cachedEvents.map((event) => {
+                  const start = new Date(event.starts_at);
+                  const end = new Date(event.ends_at);
+                  return (
+                    <div key={event.id} className="flex items-start justify-between py-3 gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium truncate">
+                          {event.title || "(No title)"}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-sm text-muted-foreground">
+                            {format(start, "EEE, MMM d")}
+                          </span>
+                          {event.is_all_day ? (
+                            <Badge variant="secondary" className="text-xs">All day</Badge>
+                          ) : (
+                            <span className="text-sm text-muted-foreground flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {format(start, "h:mm a")} – {format(end, "h:mm a")}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {event.source_name && (
+                        <Badge variant="outline" className="text-xs shrink-0 mt-0.5">
+                          {event.source_name}
+                        </Badge>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -569,108 +671,6 @@ export default function CalendarsPage() {
               </CardContent>
             </Card>
           ))
-        )}
-      </div>
-
-      {/* Synced events: week calendar by default, list as an option */}
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold">Synced Events</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Events from your connected calendars that block availability
-              {view === "list" ? " (next 14 days)" : ""}
-            </p>
-          </div>
-          <ViewToggle view={view} onChange={setView} />
-        </div>
-        {view === "calendar" ? (
-          <>
-            <WeekCalendar
-              calendars={calendars.map((c) => ({ id: c.id, name: c.name, color: colorFor(c.id) }))}
-              weekStart={weekStart}
-              onWeekChange={setWeekStart}
-              events={weekEvents.map((e) => ({
-                id: e.id,
-                title: e.title || "(No title)",
-                start: new Date(e.starts_at),
-                end: new Date(e.ends_at),
-                allDay: e.is_all_day,
-                color: colorFor(e.calendar_source_id),
-                label: e.source_name ?? undefined,
-                calendarId: e.calendar_source_id,
-              }))}
-              onSelect={setSelected}
-              onRangeChange={onRangeChange}
-              emptyHint="no synced events this week"
-            />
-            {selected && (
-              <Card>
-                <CardContent className="flex items-start justify-between gap-4 py-4">
-                  <div>
-                    <p className="font-semibold">{selected.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {selected.allDay
-                        ? `${format(selected.start, "EEEE, MMMM d")} · all day`
-                        : `${format(selected.start, "EEEE, MMMM d · h:mm a")} – ${format(selected.end, "h:mm a")}`}
-                    </p>
-                    {selected.label && (
-                      <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: selected.color }} />
-                        {selected.label}
-                      </p>
-                    )}
-                  </div>
-                  <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>Close</Button>
-                </CardContent>
-              </Card>
-            )}
-          </>
-        ) : cachedEvents.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              <CalendarDays className="h-8 w-8 mx-auto mb-3 text-gray-300" />
-              No cached events found. Sync your calendars to import events.
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardContent className="py-2">
-              <div className="divide-y">
-                {cachedEvents.map((event) => {
-                  const start = new Date(event.starts_at);
-                  const end = new Date(event.ends_at);
-                  return (
-                    <div key={event.id} className="flex items-start justify-between py-3 gap-4">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium truncate">
-                          {event.title || "(No title)"}
-                        </p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-sm text-muted-foreground">
-                            {format(start, "EEE, MMM d")}
-                          </span>
-                          {event.is_all_day ? (
-                            <Badge variant="secondary" className="text-xs">All day</Badge>
-                          ) : (
-                            <span className="text-sm text-muted-foreground flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {format(start, "h:mm a")} – {format(end, "h:mm a")}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      {event.source_name && (
-                        <Badge variant="outline" className="text-xs shrink-0 mt-0.5">
-                          {event.source_name}
-                        </Badge>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
         )}
       </div>
     </div>
