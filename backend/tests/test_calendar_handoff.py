@@ -52,8 +52,10 @@ async def env(monkeypatch):
         host, path = request.url.host, request.url.path
         if host == "oauth2.googleapis.com":
             return httpx.Response(200, json={"access_token": "g-access", "refresh_token": "g-refresh", "expires_in": 3600})
-        if host == "www.googleapis.com":
-            return httpx.Response(200, json={"items": [{"id": "me@gmail.com", "summary": "Me", "primary": True}]})
+        if host == "openidconnect.googleapis.com":
+            return httpx.Response(200, json={"email": "me@gmail.com"})
+        if host == "www.googleapis.com":  # the first sync's events.list
+            return httpx.Response(200, json={"items": []})
         if host == "login.microsoftonline.com":
             return httpx.Response(200, json={"access_token": "m-access", "refresh_token": "m-refresh", "expires_in": 3600})
         if path == "/v1.0/me":
@@ -131,7 +133,7 @@ async def test_google_from_the_app_connects_only_after_finish(env):
     assert env["calls"] == [] and await sources(env["owner"].id) == []
 
     r = await finish(env, back["handoff"][0], verifier)
-    assert r.status_code == 200 and r.json() == {"connected": True, "name": "Me"}
+    assert r.status_code == 200 and r.json() == {"connected": True, "name": "me@gmail.com"}
     [source] = await sources(env["owner"].id)
     assert source.type == "google" and source.google_refresh_token == "g-refresh"
     # A handoff finishes once.
