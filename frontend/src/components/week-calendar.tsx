@@ -78,7 +78,7 @@ export function ViewToggle({ view, onChange }: { view: CalendarView; onChange: (
 }
 
 /** A small preference kept in localStorage, applied after hydration. */
-function useStoredPref(key: string, fallback: string): [string, (v: string) => void] {
+export function useStoredPref(key: string, fallback: string): [string, (v: string) => void] {
   const [value, setValue] = useState(fallback);
   useEffect(() => {
     try {

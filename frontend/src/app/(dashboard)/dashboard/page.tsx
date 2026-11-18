@@ -12,7 +12,7 @@ import {
 import { apiFetch } from "@/lib/api";
 import { ShareAvailability } from "@/components/share-availability";
 import { format, startOfWeek } from "date-fns";
-import { CalEvent, ViewToggle, WeekCalendar, colorFor, useCalendarView } from "@/components/week-calendar";
+import { CalEvent, ViewToggle, WeekCalendar, colorFor, useCalendarView, useStoredPref } from "@/components/week-calendar";
 import Link from "next/link";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
@@ -35,7 +35,14 @@ interface CalendarEvent {
   starts_at: string;
   ends_at: string;
   is_all_day: boolean;
+  calendar_source_id: string;
   source_name: string | null;
+}
+
+interface CalendarSourceItem {
+  id: string;
+  name: string;
+  is_active: boolean;
 }
 
 /** One row in "Upcoming meetings": a TimeIQ booking or a synced calendar event. */
@@ -95,6 +102,16 @@ export default function DashboardPage() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [range, setRange] = useState<{ start: Date; end: Date } | null>(null);
   const [synced, setSynced] = useState<CalendarEvent[]>([]);
+  const [sources, setSources] = useState<CalendarSourceItem[]>([]);
+  // Hidden calendar ids ("bookings" for TimeIQ bookings), remembered per browser.
+  const [hiddenPref, setHiddenPref] = useStoredPref("timeiq-dashboard-hidden-calendars", "");
+  const hidden = new Set(hiddenPref.split(",").filter(Boolean));
+  function toggleCalendar(id: string) {
+    const next = new Set(hidden);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setHiddenPref([...next].join(","));
+  }
   const onRangeChange = useCallback((start: Date, end: Date) => setRange({ start, end }), []);
 
   // Synced events for whichever week or month the calendar shows.
@@ -126,14 +143,16 @@ export default function DashboardPage() {
       try {
         const token = await getToken();
         const headers = { Authorization: `Bearer ${token}` };
-        const [statsData, bookingsData, profileData, moneyData, eventsData] = await Promise.all([
+        const [statsData, bookingsData, profileData, moneyData, eventsData, sourcesData] = await Promise.all([
           apiFetch<Stats>("/api/dashboard/stats", { headers }),
           apiFetch<Booking[]>("/api/bookings?status=confirmed", { headers }),
           apiFetch<UserProfile>("/api/me", { headers }),
           apiFetch<DashboardMoney>("/api/dashboard/money", { headers }).catch(() => null),
           // Calendar events are a bonus; a sync problem must not blank the dashboard.
           apiFetch<CalendarEvent[]>("/api/calendars/cached-events?days=14", { headers }).catch(() => []),
+          apiFetch<CalendarSourceItem[]>("/api/calendars", { headers }).catch(() => []),
         ]);
+        setSources(sourcesData.filter((c) => c.is_active));
         setStats(statsData);
         setMoney(moneyData);
         setBookings(bookingsData);
@@ -378,21 +397,46 @@ export default function DashboardPage() {
           </div>
         </CardHeader>
         <CardContent>
+          {view === "calendar" && (
+            <div className="mb-4 flex flex-wrap gap-2">
+              {[{ id: "bookings", name: "TimeIQ bookings" }, ...sources].map((c) => {
+                const on = !hidden.has(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="switch"
+                    aria-checked={on}
+                    onClick={() => toggleCalendar(c.id)}
+                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
+                      on ? "bg-white ring-foreground/15" : "ring-foreground/[0.06] text-muted-foreground line-through"
+                    }`}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ background: c.id === "bookings" ? "hsl(var(--aurora-1))" : colorFor(c.id), opacity: on ? 1 : 0.35 }}
+                    />
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           {view === "calendar" ? (
             <WeekCalendar
               weekStart={weekStart}
               onWeekChange={setWeekStart}
               events={[
-                ...synced.map((e) => ({
+                ...synced.filter((e) => !hidden.has(e.calendar_source_id)).map((e) => ({
                   id: `e${e.id}`,
                   title: e.title || "Busy",
                   start: new Date(e.starts_at),
                   end: new Date(e.ends_at),
                   allDay: e.is_all_day,
-                  color: "#94a3b8",
+                  color: colorFor(e.calendar_source_id),
                   label: e.source_name ?? undefined,
                 })),
-                ...bookings.map((b) => ({
+                ...(hidden.has("bookings") ? [] : bookings).map((b) => ({
                   id: `b${b.id}`,
                   title: b.visitor_name,
                   start: new Date(b.starts_at),

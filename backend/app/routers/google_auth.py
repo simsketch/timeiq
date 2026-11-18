@@ -19,6 +19,8 @@ from app.config import settings
 from app.database import get_db
 from app.models.calendar_source import CalendarSource
 from app.models.user import User
+from app.services.calendar_health import classify, record_failure, record_success
+from app.services.calendar_sync import sync_google_source
 
 router = APIRouter(prefix="/api/google", tags=["google-auth"])
 
@@ -221,5 +223,13 @@ async def connect_google(db: AsyncSession, user: User, code: str) -> CalendarSou
     source.failing_since = None
     source.last_sync_error = None
     source.broken_notified_at = None
+    await db.flush()
+    # First sync now, so events show up right after connecting (same as Outlook and ICS).
+    now = datetime.now(timezone.utc)
+    try:
+        await sync_google_source(db, source)
+        record_success(source, now)
+    except Exception as exc:
+        record_failure(source, classify(exc), now)
     await db.flush()
     return source
