@@ -44,7 +44,17 @@ interface CachedEvent {
 
 const SYNCED = "synced-";
 
-function BookingCard({ booking, onCancel }: { booking: Booking; onCancel?: (id: number) => void }) {
+function BookingCard({
+  booking,
+  onCancel,
+  onMove,
+}: {
+  booking: Booking;
+  onCancel?: (id: number) => void;
+  onMove?: (id: string, start: Date) => Promise<void>;
+}) {
+  const [when, setWhen] = useState(() => format(new Date(booking.starts_at), "yyyy-MM-dd'T'HH:mm"));
+  const [saving, setSaving] = useState(false);
   return (
     <Card>
       <CardContent className="py-4">
@@ -85,6 +95,30 @@ function BookingCard({ booking, onCancel }: { booking: Booking; onCancel?: (id: 
               <p className="text-sm mt-1 text-muted-foreground">
                 Note: {booking.visitor_notes}
               </p>
+            )}
+            {onMove && (
+              <form
+                className="mt-3 flex flex-wrap items-center gap-2"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setSaving(true);
+                  await onMove(String(booking.id), new Date(when));
+                  setSaving(false);
+                }}
+              >
+                <label className="text-sm text-muted-foreground" htmlFor={`when-${booking.id}`}>Change time</label>
+                <input
+                  id={`when-${booking.id}`}
+                  type="datetime-local"
+                  required
+                  value={when}
+                  onChange={(e) => setWhen(e.target.value)}
+                  className="rounded-md border px-2 py-1 text-sm"
+                />
+                <Button size="sm" type="submit" disabled={saving || new Date(when).getTime() === new Date(booking.starts_at).getTime()}>
+                  {saving ? "Saving…" : "Save"}
+                </Button>
+              </form>
             )}
           </div>
           {onCancel && (
@@ -169,6 +203,9 @@ export default function BookingsPage() {
 
   useEffect(() => {
     fetchBookings();
+    const linked = new URLSearchParams(window.location.search).get("booking");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (linked) setSelectedId(linked);
   }, []);
 
   async function fetchBookings() {
@@ -252,6 +289,18 @@ export default function BookingsPage() {
 
       <NewBookingDialog open={newOpen} onOpenChange={setNewOpen} start={newStart} zone={newZone} duration={newMinutes} onCreated={fetchBookings} />
 
+      {selectedBooking && (
+        <BookingCard
+          key={`${selectedBooking.id}-${selectedBooking.starts_at}`}
+          booking={selectedBooking}
+          onCancel={
+            ["confirmed", "pending_payment"].includes(selectedBooking.status) && new Date(selectedBooking.starts_at) >= new Date()
+              ? handleCancel
+              : undefined
+          }
+          onMove={selectedBooking.status === "confirmed" && new Date(selectedBooking.starts_at) > new Date() ? moveBooking : undefined}
+        />
+      )}
       {view === "calendar" ? (
         <div className="space-y-4">
           <WeekCalendar
@@ -306,16 +355,6 @@ export default function BookingsPage() {
                 <Button size="sm" variant="ghost" onClick={() => setSelectedId(null)}>Close</Button>
               </CardContent>
             </Card>
-          )}
-          {selectedBooking && (
-            <BookingCard
-              booking={selectedBooking}
-              onCancel={
-                ["confirmed", "pending_payment"].includes(selectedBooking.status) && new Date(selectedBooking.starts_at) >= new Date()
-                  ? handleCancel
-                  : undefined
-              }
-            />
           )}
         </div>
       ) : (

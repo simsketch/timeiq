@@ -444,7 +444,7 @@ export default function DashboardPage() {
                   color: colorFor(String(b.event_type_id)),
                 })),
               ]}
-              onSelect={(ev: CalEvent) => router.push(ev.id.startsWith("b") ? "/bookings" : "/calendars")}
+              onSelect={(ev: CalEvent) => router.push(ev.id.startsWith("b") ? `/bookings?booking=${ev.id.slice(1)}` : "/calendars")}
               onRangeChange={onRangeChange}
               emptyHint="nothing scheduled this week"
             />
