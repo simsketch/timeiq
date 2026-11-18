@@ -184,8 +184,8 @@ function placeDay(events: CalEvent[], day: Date, startHour: number, endHour: num
   return placed;
 }
 
-type Mode = "day" | "week" | "month";
-const MODE_LABEL: Record<Mode, string> = { day: "Day", week: "Week", month: "Month" };
+type Mode = "day" | "3day" | "week" | "month";
+const MODE_LABEL: Record<Mode, string> = { day: "Day", "3day": "3 days", week: "Week", month: "Month" };
 /** Clicking or dragging on the grid picks half hours; dragging an event moves it in quarter hours. */
 const SLOT_PX = HOUR_PX / 2;
 const MOVE_MINUTES = 15;
@@ -253,7 +253,7 @@ export function WeekCalendar({
   const [fullDayPref, setFullDayPref] = useStoredPref("timeiq-cal-24h", "0");
   const fullDay = fullDayPref === "1";
   // Phones start on one day, wider screens on the week; each remembers its own choice.
-  const modes: Mode[] = onRangeChange ? ["day", "week", "month"] : ["day", "week"];
+  const modes: Mode[] = onRangeChange ? ["day", "3day", "week", "month"] : ["day", "week"];
   const [storedMode, setStoredMode] = useStoredPref(`timeiq-cal-mode-${narrow ? "phone" : "wide"}`, "");
   const mode: Mode = (modes as string[]).includes(storedMode) ? (storedMode as Mode) : narrow ? "day" : "week";
   const zones = useMemo(() => Array.from(new Set([baseZone, viewZone, ...allZones])), [baseZone, viewZone, allZones]);
@@ -312,6 +312,7 @@ export function WeekCalendar({
   }
   function step(dir: 1 | -1) {
     if (mode === "day") focus(addDays(focusDay, dir));
+    else if (mode === "3day") focus(addDays(focusDay, 3 * dir));
     else if (mode === "week") focus(addWeeks(focusDay, dir));
     else focus(addMonths(startOfMonth(focusDay), dir));
   }
@@ -321,14 +322,20 @@ export function WeekCalendar({
   // Day and week report the week, so stepping through days doesn't refetch.
   const monthGridStart = startOfWeek(startOfMonth(focusDay), { weekStartsOn: 1 });
   const rangeStart = mode === "month" ? monthGridStart : weekStart;
-  const rangeEnd = addDays(rangeStart, mode === "month" ? 42 : 7);
+  // Three days can run into the next week, so that view fetches two weeks.
+  const rangeEnd = addDays(rangeStart, mode === "month" ? 42 : mode === "3day" ? 14 : 7);
   useEffect(() => {
     onRangeChange?.(calendarInstant(rangeStart, viewZone), calendarInstant(rangeEnd, viewZone));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeStart.getTime(), rangeEnd.getTime(), viewZone]);
 
   const days = useMemo(
-    () => (mode === "day" ? [focusDay] : Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))),
+    () =>
+      mode === "day"
+        ? [focusDay]
+        : mode === "3day"
+          ? [0, 1, 2].map((i) => addDays(focusDay, i))
+          : Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
     [mode, focusDay, weekStart]
   );
   const viewStart = days[0];
@@ -412,6 +419,7 @@ export function WeekCalendar({
       else if (e.key === "ArrowLeft") step(-1);
       else if (e.key === "ArrowRight") step(1);
       else if (key === "d") chooseMode("day");
+      else if (key === "3" && modes.includes("3day")) chooseMode("3day");
       else if (key === "w") chooseMode("week");
       else if (key === "m" && modes.includes("month")) chooseMode("month");
       else if (key === "n" && onNew) onNew();
@@ -427,8 +435,10 @@ export function WeekCalendar({
       ? format(focusDay, "EEEE, MMM d, yyyy")
       : mode === "month"
         ? format(focusDay, "MMMM yyyy")
+        : mode === "3day"
+          ? format(focusDay, "MMM d") + " – " + format(addDays(focusDay, 2), "MMM d, yyyy")
         : format(weekStart, "MMM d") + " – " + format(addDays(weekStart, 6), "MMM d, yyyy");
-  const shortcuts = `Shortcuts: T today · ← → previous/next · D day · W week${modes.includes("month") ? " · M month" : ""}${onNew ? " · N new booking" : ""}`;
+  const shortcuts = `Shortcuts: T today · ← → previous/next · D day${modes.includes("3day") ? " · 3 three days" : ""} · W week${modes.includes("month") ? " · M month" : ""}${onNew ? " · N new booking" : ""}`;
   const columns = { gridTemplateColumns: `52px repeat(${days.length}, minmax(0, 1fr))` };
 
   const detailCalendar = detail?.calendarId ? calendars?.find((c) => c.id === detail.calendarId) : undefined;
