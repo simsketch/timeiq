@@ -59,7 +59,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="Google user data">
-            If you connect Google Calendar, TimeIQ requests read access to your calendars to compute availability and, if you use the feature, to suggest time entries. That data is used only to provide those features, is not shared with third parties except as needed to host the service, and is deleted when you disconnect the calendar or delete your account. TimeIQ&apos;s use of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements.
+            If you connect Google Calendar, TimeIQ requests read-only access to the events on your primary calendar, plus your Google account email address to identify that calendar. TimeIQ cannot create, change, or delete your Google events. It uses them to show your schedule in TimeIQ, compute your availability, suggest time entries, and answer your questions in the Ask TimeIQ assistant. That data is used only to provide those features, is not shared with third parties except as needed to host the service, and is deleted when you disconnect the calendar or delete your account. TimeIQ&apos;s use of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements.
           </Section>
 
           <Section title="AI features">

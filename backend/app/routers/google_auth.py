@@ -26,7 +26,8 @@ router = APIRouter(prefix="/api/google", tags=["google-auth"])
 
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
-SCOPES = "https://www.googleapis.com/auth/calendar.readonly"
+# Least privilege: read events only. "email" names the primary calendar, whose id is the account address.
+SCOPES = "openid email https://www.googleapis.com/auth/calendar.events.readonly"
 
 # OAuth CSRF protection. The state names the user and a nonce, signed so it
 # can't be forged, and the same nonce is set as a cookie in the browser that
@@ -181,23 +182,18 @@ async def connect_google(db: AsyncSession, user: User, code: str) -> CalendarSou
     expires_in = token_data.get("expires_in", 3600)
     expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
 
-    # Fetch the list of calendars to get the primary calendar info
+    # The primary calendar's id is the account's email address.
     async with httpx.AsyncClient(timeout=15.0) as client:
-        cal_resp = await client.get(
-            "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+        info_resp = await client.get(
+            "https://openidconnect.googleapis.com/v1/userinfo",
             headers={"Authorization": f"Bearer {access_token}"},
-            params={"maxResults": "10"},
         )
 
     calendar_name = "Google Calendar"
     calendar_id = "primary"
-    if cal_resp.status_code == 200:
-        cal_data = cal_resp.json()
-        for cal in cal_data.get("items", []):
-            if cal.get("primary"):
-                calendar_name = cal.get("summary", "Google Calendar")
-                calendar_id = cal.get("id", "primary")
-                break
+    email = info_resp.json().get("email") if info_resp.status_code == 200 else None
+    if email:
+        calendar_name = calendar_id = email
 
     # Reconnecting the same Google calendar refreshes its access instead of
     # adding a duplicate; that is also how a revoked connection gets fixed.
