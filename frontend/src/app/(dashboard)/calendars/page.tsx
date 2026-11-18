@@ -587,6 +587,7 @@ export default function CalendarsPage() {
         {view === "calendar" ? (
           <>
             <WeekCalendar
+              calendars={calendars.map((c) => ({ id: c.id, name: c.name, color: colorFor(c.id) }))}
               weekStart={weekStart}
               onWeekChange={setWeekStart}
               events={weekEvents.map((e) => ({
@@ -597,6 +598,7 @@ export default function CalendarsPage() {
                 allDay: e.is_all_day,
                 color: colorFor(e.calendar_source_id),
                 label: e.source_name ?? undefined,
+                calendarId: e.calendar_source_id,
               }))}
               onSelect={setSelected}
               onRangeChange={onRangeChange}

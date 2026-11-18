@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { addDays, addMinutes, addMonths, addWeeks, format, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { CalendarDays, ChevronLeft, ChevronRight, Keyboard, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import Link from "next/link";
 import { calendarDate, calendarInstant } from "@/lib/calendar-time";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +22,19 @@ export interface CalEvent {
   faded?: boolean;
   /** Can be dragged to a new time (needs onEventMove). */
   movable?: boolean;
+  /** Which calendar it belongs to, for the show/hide switches ("bookings" for TimeIQ bookings). */
+  calendarId?: string;
+  /** Extra lines for the detail popup (email, notes, ...). */
+  details?: string[];
+  /** Where the detail popup's edit button goes, if the event can be edited. */
+  href?: string;
+}
+
+/** A calendar the viewer can show or hide. */
+export interface CalendarToggle {
+  id: string;
+  name: string;
+  color: string;
 }
 
 export interface WeeklyHours {
@@ -180,7 +195,8 @@ type Press =
   | { kind: "move"; id: string; day: number; x: number; y: number; colWidth: number; moved: boolean };
 
 export function WeekCalendar({
-  events: sourceEvents,
+  events: allEvents,
+  calendars,
   availableHours = [],
   timezone,
   weekStart,
@@ -193,6 +209,8 @@ export function WeekCalendar({
   emptyHint,
 }: {
   events: CalEvent[];
+  /** Show/hide switches above the grid; the choice is shared by every calendar view. */
+  calendars?: CalendarToggle[];
   availableHours?: WeeklyHours[];
   timezone?: string;
   weekStart: Date;
@@ -239,12 +257,28 @@ export function WeekCalendar({
   const [storedMode, setStoredMode] = useStoredPref(`timeiq-cal-mode-${narrow ? "phone" : "wide"}`, "");
   const mode: Mode = (modes as string[]).includes(storedMode) ? (storedMode as Mode) : narrow ? "day" : "week";
   const zones = useMemo(() => Array.from(new Set([baseZone, viewZone, ...allZones])), [baseZone, viewZone, allZones]);
+  const [hiddenPref, setHiddenPref] = useStoredPref("timeiq-hidden-calendars", "");
+  const hidden = useMemo(() => new Set(hiddenPref.split(",").filter(Boolean)), [hiddenPref]);
+  function toggleCalendar(id: string) {
+    const next = new Set(hidden);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setHiddenPref([...next].join(","));
+  }
+  const sourceEvents = useMemo(
+    () => (calendars ? allEvents.filter((e) => !e.calendarId || !hidden.has(e.calendarId)) : allEvents),
+    [allEvents, calendars, hidden]
+  );
+  const [detail, setDetail] = useState<CalEvent | null>(null);
   const events = useMemo(() => sourceEvents.map((event) => ({
     ...event,
     start: calendarDate(event.start, viewZone),
     end: calendarDate(event.end, viewZone),
   })), [sourceEvents, viewZone]);
   const source = (ev: CalEvent) => sourceEvents.find((event) => event.id === ev.id) ?? ev;
+  // A click selects when the page handles it; otherwise, and on double click, the detail popup opens.
+  const select = (ev: CalEvent) => (onSelect ? onSelect(source(ev)) : setDetail(source(ev)));
+  const openDetail = (ev: CalEvent) => setDetail(source(ev));
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
     // The clock is read after hydration so server and browser render the same grid.
@@ -397,8 +431,62 @@ export function WeekCalendar({
   const shortcuts = `Shortcuts: T today · ← → previous/next · D day · W week${modes.includes("month") ? " · M month" : ""}${onNew ? " · N new booking" : ""}`;
   const columns = { gridTemplateColumns: `52px repeat(${days.length}, minmax(0, 1fr))` };
 
+  const detailCalendar = detail?.calendarId ? calendars?.find((c) => c.id === detail.calendarId) : undefined;
   return (
     <div className="w-full min-w-0 space-y-3">
+      {calendars && calendars.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {calendars.map((c) => {
+            const on = !hidden.has(c.id);
+            return (
+              <button
+                key={c.id}
+                type="button"
+                role="switch"
+                aria-checked={on}
+                onClick={() => toggleCalendar(c.id)}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors",
+                  on ? "bg-background ring-foreground/15" : "text-muted-foreground line-through ring-foreground/[0.06]"
+                )}
+              >
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.color, opacity: on ? 1 : 0.35 }} />
+                {c.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
+        {detail && (
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{detail.title}</DialogTitle>
+              <DialogDescription>
+                {detail.allDay
+                  ? `${format(detail.start, "EEEE, MMMM d, yyyy")} · all day`
+                  : `${format(detail.start, "EEEE, MMMM d, yyyy · h:mm a")} – ${format(detail.end, "h:mm a")}`}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-1 text-sm">
+              {(detailCalendar?.name || detail.label) && (
+                <p className="flex items-center gap-2 text-muted-foreground">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: detail.color }} />
+                  {detailCalendar?.name ?? detail.label}
+                </p>
+              )}
+              {detail.details?.map((line) => <p key={line}>{line}</p>)}
+            </div>
+            {detail.href ? (
+              <Button asChild className="self-start">
+                <Link href={detail.href}>Edit booking</Link>
+              </Button>
+            ) : detail.calendarId !== "bookings" && (
+              <p className="text-xs text-muted-foreground">From your connected calendar. Edit it there; TimeIQ picks up the change on its next sync.</p>
+            )}
+          </DialogContent>
+        )}
+      </Dialog>
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="outline" onClick={goToday}>
           Today
@@ -462,7 +550,8 @@ export function WeekCalendar({
             focus(d);
             chooseMode("day");
           }}
-          onSelect={(ev) => onSelect?.(source(ev))}
+          onSelect={select}
+          onOpen={openDetail}
         />
       ) : (
       <div ref={scroller} className={cn("w-full max-w-full overflow-auto overscroll-contain rounded-xl border", fullDay && "max-h-[min(70vh,680px)]")}>
@@ -508,7 +597,8 @@ export function WeekCalendar({
                     <button
                       key={e.id + d.toISOString()}
                       type="button"
-                      onClick={() => onSelect?.(source(e))}
+                      onClick={() => select(e)}
+                      onDoubleClick={() => openDetail(e)}
                       className={cn("block w-full truncate rounded px-1.5 py-0.5 text-left text-xs font-medium text-white", e.faded && "opacity-50")}
                       style={{ background: e.color }}
                       title={e.title}
@@ -654,7 +744,11 @@ export function WeekCalendar({
                           swallowClick.current = false;
                           return;
                         }
-                        onSelect?.(source(ev));
+                        select(ev);
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        openDetail(ev);
                       }}
                       className={cn(
                         "absolute overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left text-xs leading-tight shadow-sm transition-opacity hover:opacity-90",
@@ -712,6 +806,7 @@ function MonthGrid({
   events,
   onPickDay,
   onSelect,
+  onOpen,
 }: {
   gridStart: Date;
   focusDay: Date;
@@ -719,6 +814,7 @@ function MonthGrid({
   events: CalEvent[];
   onPickDay: (day: Date) => void;
   onSelect: (ev: CalEvent) => void;
+  onOpen: (ev: CalEvent) => void;
 }) {
   const cells = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
   return (
@@ -768,6 +864,10 @@ function MonthGrid({
                   onClick={(x) => {
                     x.stopPropagation();
                     onSelect(e);
+                  }}
+                  onDoubleClick={(x) => {
+                    x.stopPropagation();
+                    onOpen(e);
                   }}
                   className={cn("block w-full truncate rounded px-1 text-left text-[10px] leading-4 sm:text-[11px]", e.faded && "opacity-50")}
                   style={{ background: `color-mix(in srgb, ${e.color} 18%, hsl(var(--background)))` }}

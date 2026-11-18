@@ -152,6 +152,7 @@ export default function BookingsPage() {
   const [newMinutes, setNewMinutes] = useState<number | undefined>(undefined);
   const [range, setRange] = useState<{ start: Date; end: Date } | null>(null);
   const [synced, setSynced] = useState<CachedEvent[]>([]);
+  const [sources, setSources] = useState<{ id: string; name: string; is_active: boolean }[]>([]);
 
   function openNewBooking(start: Date, zone?: string, minutes?: number) {
     setNewStart(start);
@@ -213,12 +214,14 @@ export default function BookingsPage() {
       const token = await getToken();
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [confirmed, completed, cancelled, pending] = await Promise.all([
+      const [confirmed, completed, cancelled, pending, calendarList] = await Promise.all([
         apiFetch<Booking[]>("/api/bookings?status=confirmed", { headers }),
         apiFetch<Booking[]>("/api/bookings?status=completed", { headers }),
         apiFetch<Booking[]>("/api/bookings?status=cancelled", { headers }),
         apiFetch<Booking[]>("/api/bookings?status=pending_payment", { headers }),
+        apiFetch<{ id: string; name: string; is_active: boolean }[]>("/api/calendars", { headers }).catch(() => []),
       ]);
+      setSources(calendarList.filter((c) => c.is_active));
 
       const now = new Date();
       const upcoming = [...confirmed, ...pending].filter(b => new Date(b.starts_at) >= now)
@@ -304,6 +307,10 @@ export default function BookingsPage() {
       {view === "calendar" ? (
         <div className="space-y-4">
           <WeekCalendar
+            calendars={[
+              { id: "bookings", name: "TimeIQ bookings", color: "hsl(var(--aurora-1))" },
+              ...sources.map((c) => ({ id: c.id, name: c.name, color: colorFor(c.id) })),
+            ]}
             weekStart={weekStart}
             onWeekChange={setWeekStart}
             events={[
@@ -313,9 +320,10 @@ export default function BookingsPage() {
                 start: new Date(e.starts_at),
                 end: new Date(e.ends_at),
                 allDay: e.is_all_day,
-                color: "#94a3b8",
+                color: colorFor(e.calendar_source_id),
                 label: e.source_name ?? undefined,
                 faded: true,
+                calendarId: e.calendar_source_id,
               })),
               ...allBookings
                 // A moved booking's earlier slot only clutters the grid.
@@ -329,6 +337,8 @@ export default function BookingsPage() {
                   label: b.status === "cancelled" ? "Cancelled" : b.status === "pending_payment" ? "Waiting for payment" : undefined,
                   faded: b.status === "cancelled",
                   movable: b.status === "confirmed" && new Date(b.starts_at) > now,
+                  calendarId: "bookings",
+                  details: [b.visitor_email, ...(b.visitor_notes ? [`Note: ${b.visitor_notes}`] : [])],
                 })),
             ]}
             onSelect={(ev: CalEvent) => setSelectedId(ev.id)}

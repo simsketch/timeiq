@@ -12,7 +12,7 @@ import {
 import { apiFetch } from "@/lib/api";
 import { ShareAvailability } from "@/components/share-availability";
 import { format, startOfWeek } from "date-fns";
-import { CalEvent, ViewToggle, WeekCalendar, colorFor, useCalendarView, useStoredPref } from "@/components/week-calendar";
+import { CalEvent, ViewToggle, WeekCalendar, colorFor, useCalendarView } from "@/components/week-calendar";
 import Link from "next/link";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
@@ -103,15 +103,6 @@ export default function DashboardPage() {
   const [range, setRange] = useState<{ start: Date; end: Date } | null>(null);
   const [synced, setSynced] = useState<CalendarEvent[]>([]);
   const [sources, setSources] = useState<CalendarSourceItem[]>([]);
-  // Hidden calendar ids ("bookings" for TimeIQ bookings), remembered per browser.
-  const [hiddenPref, setHiddenPref] = useStoredPref("timeiq-dashboard-hidden-calendars", "");
-  const hidden = new Set(hiddenPref.split(",").filter(Boolean));
-  function toggleCalendar(id: string) {
-    const next = new Set(hidden);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setHiddenPref([...next].join(","));
-  }
   const onRangeChange = useCallback((start: Date, end: Date) => setRange({ start, end }), []);
 
   // Synced events for whichever week or month the calendar shows.
@@ -397,37 +388,16 @@ export default function DashboardPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {view === "calendar" && (
-            <div className="mb-4 flex flex-wrap gap-2">
-              {[{ id: "bookings", name: "TimeIQ bookings" }, ...sources].map((c) => {
-                const on = !hidden.has(c.id);
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    role="switch"
-                    aria-checked={on}
-                    onClick={() => toggleCalendar(c.id)}
-                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
-                      on ? "bg-white ring-foreground/15" : "ring-foreground/[0.06] text-muted-foreground line-through"
-                    }`}
-                  >
-                    <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{ background: c.id === "bookings" ? "hsl(var(--aurora-1))" : colorFor(c.id), opacity: on ? 1 : 0.35 }}
-                    />
-                    {c.name}
-                  </button>
-                );
-              })}
-            </div>
-          )}
           {view === "calendar" ? (
             <WeekCalendar
               weekStart={weekStart}
               onWeekChange={setWeekStart}
+              calendars={[
+                { id: "bookings", name: "TimeIQ bookings", color: "hsl(var(--aurora-1))" },
+                ...sources.map((c) => ({ id: c.id, name: c.name, color: colorFor(c.id) })),
+              ]}
               events={[
-                ...synced.filter((e) => !hidden.has(e.calendar_source_id)).map((e) => ({
+                ...synced.map((e) => ({
                   id: `e${e.id}`,
                   title: e.title || "Busy",
                   start: new Date(e.starts_at),
@@ -435,16 +405,19 @@ export default function DashboardPage() {
                   allDay: e.is_all_day,
                   color: colorFor(e.calendar_source_id),
                   label: e.source_name ?? undefined,
+                  calendarId: e.calendar_source_id,
                 })),
-                ...(hidden.has("bookings") ? [] : bookings).map((b) => ({
+                ...bookings.map((b) => ({
                   id: `b${b.id}`,
                   title: b.visitor_name,
                   start: new Date(b.starts_at),
                   end: new Date(b.ends_at),
                   color: colorFor(String(b.event_type_id)),
+                  calendarId: "bookings",
+                  details: [b.visitor_email],
+                  href: `/bookings?booking=${b.id}`,
                 })),
               ]}
-              onSelect={(ev: CalEvent) => router.push(ev.id.startsWith("b") ? `/bookings?booking=${ev.id.slice(1)}` : "/calendars")}
               onRangeChange={onRangeChange}
               emptyHint="nothing scheduled this week"
             />
