@@ -350,6 +350,9 @@ export default function CalendarsPage() {
           <p className="text-muted-foreground mt-2">
             Connect calendars to check availability and prevent double bookings
           </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Calendars sync every hour, and right away when you add one. When someone opens your booking page, any calendar more than 10 minutes out of date syncs first, so they only see times you&apos;re free. Use Sync All to update now.
+          </p>
         </div>
         {calendars.length > 0 && (
           <Button
