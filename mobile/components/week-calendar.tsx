@@ -526,7 +526,7 @@ export function WeekCalendar({
   return (
     <View style={[styles.wrap, gridHeight == null && { flex: 1 }]}>
       {calendars.some((c) => c.id !== "bookings") && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.chips}>
           {calendars.map((c) => {
             const on = !hidden.has(c.id);
             return (
@@ -770,7 +770,7 @@ export function WeekCalendar({
 
 const styles = StyleSheet.create({
   wrap: { gap: 8 },
-  chips: { gap: 8, paddingVertical: 2 },
+  chips: { gap: 8, paddingVertical: 2, alignItems: "center" },
   chip: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, minHeight: 32 },
   chipDot: { width: 10, height: 10, borderRadius: 5 },
   toolbar: { flexDirection: "row", alignItems: "center", gap: 6 },
