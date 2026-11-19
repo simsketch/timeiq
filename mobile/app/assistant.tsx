@@ -1,3 +1,4 @@
+import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -99,6 +100,24 @@ export default function Assistant() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<TextInputInstance>(null);
+  // Speak instead of type, like the website's mic: the running transcript is appended to what's already typed.
+  const [listening, setListening] = useState(false);
+  const spokenBase = useRef("");
+  useSpeechRecognitionEvent("result", (e) => setDraft(spokenBase.current + (e.results[0]?.transcript ?? "")));
+  useSpeechRecognitionEvent("end", () => setListening(false));
+  useSpeechRecognitionEvent("error", (e) => {
+    setListening(false);
+    if (e.error !== "aborted" && e.error !== "no-speech") setError("Couldn't hear that. Try again, or type it.");
+  });
+  async function toggleMic() {
+    if (listening) return ExpoSpeechRecognitionModule.stop();
+    const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!perm.granted) return setError("Turn on microphone and speech recognition for TimeIQ in Settings to speak your question.");
+    spokenBase.current = draft.trim() ? `${draft.trimEnd()} ` : "";
+    setError(null);
+    setListening(true);
+    ExpoSpeechRecognitionModule.start({ lang: "en-US", interimResults: true, continuous: true });
+  }
   const scroll = useRef<ScrollViewInstance>(null);
 
   // Only settled turns: a request still in flight when the screen closes is dropped, not resent.
@@ -109,6 +128,7 @@ export default function Assistant() {
   async function send(text: string) {
     const message = text.trim();
     if (!message || busy) return;
+    if (listening) ExpoSpeechRecognitionModule.stop();
     if (!(await confirmAiConsent())) return;
     const next: Message[] = [...history, { role: "user", content: message }];
     setHistory(next);
@@ -226,6 +246,16 @@ export default function Assistant() {
             accessibilityLabel="Message TimeIQ"
             style={[styles.input, { color: t.text }]}
           />
+          <Pressable
+            onPress={toggleMic}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel={listening ? "Stop listening" : "Speak your question"}
+            accessibilityState={{ selected: listening }}
+            style={[styles.send, { backgroundColor: listening ? "#F2690D" : "transparent", opacity: busy ? 0.35 : 1 }]}
+          >
+            <Ionicons name={listening ? "stop" : "mic-outline"} size={20} color={listening ? "#ffffff" : t.muted} />
+          </Pressable>
           <Pressable
             onPress={() => send(draft)}
             disabled={!draft.trim() || busy}

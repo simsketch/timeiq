@@ -3,7 +3,7 @@
     "name": "TimeIQ",
     "slug": "timeiq",
     "scheme": "timeiq",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -70,7 +70,17 @@
           "microphonePermission": false
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "TimeIQ uses the microphone so you can speak your question to Ask TimeIQ instead of typing it.",
+          "speechRecognitionPermission": "TimeIQ turns what you say into text for Ask TimeIQ. Speech is converted by Apple; TimeIQ only receives the text.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
