@@ -162,6 +162,24 @@ export default function Calendars() {
     >
       {error && <Notice tone="error">{error}</Notice>}
       {!sources && !error && <ActivityIndicator style={{ marginTop: 24 }} />}
+      <Text style={{ color: t.muted, fontSize: 13, lineHeight: 18 }}>
+        Calendars sync every hour, and right away when you add one. When someone opens your booking page, any calendar more than 10 minutes out of date syncs first. Pull down to sync now.
+      </Text>
+      {sources && sources.length > 0 && (
+        <View style={{ gap: 8, }}>
+          <Label>Synced events</Label>
+          <WeekCalendar
+            items={calItems}
+            zone={zone}
+            gridHeight={520}
+            onRangeChange={onRangeChange}
+            onSelect={(it) => router.push({ pathname: "/booking/[id]", params: { id: it.id } })}
+          />
+          <Text style={{ color: t.muted, fontSize: 13, lineHeight: 18 }}>
+            Each calendar has its own color. Tap a name above to show or hide it, or tap an event for its details.
+          </Text>
+        </View>
+      )}
 
       {sources && sources.length === 0 && (
         <Notice>No calendars yet. Connect one so busy times never get booked over.</Notice>
@@ -253,21 +271,6 @@ export default function Calendars() {
 
       <ConnectCalendar onConnected={() => Promise.all([load(), loadEvents()])} />
 
-      {sources && sources.length > 0 && (
-        <View style={{ gap: 8, marginTop: 8 }}>
-          <Label>What your calendars hold</Label>
-          <WeekCalendar
-            items={calItems}
-            zone={zone}
-            gridHeight={520}
-            onRangeChange={onRangeChange}
-            onSelect={(it) => router.push({ pathname: "/booking/[id]", params: { id: it.id } })}
-          />
-          <Text style={{ color: t.muted, fontSize: 13, lineHeight: 18 }}>
-            Synced events are faded; TimeIQ bookings are in color. Tap an event for its details.
-          </Text>
-        </View>
-      )}
     </ScrollView>
   );
 }

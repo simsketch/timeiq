@@ -33,6 +33,10 @@ export interface CalItem {
   faded?: boolean;
   /** Can be held and dragged to a new time (needs onMove). */
   movable?: boolean;
+  /** Which calendar it belongs to, for the show/hide switches: "bookings" or a calendar source id. */
+  calendarId?: string;
+  /** That calendar's name, shown on its switch. */
+  calendarName?: string;
 }
 
 export type CalMode = "day" | "3day" | "week";
@@ -45,6 +49,7 @@ const MODES: { value: CalMode; label: string }[] = [
 
 // Choices last for the app session; the app has no persistent storage.
 const prefs: { mode: CalMode; fullDay: boolean; zone: string | null } = { mode: "3day", fullDay: false, zone: null };
+const hiddenCalendars = new Set<string>();
 
 const HOUR_PX = 48;
 /** Taps and drags on the grid pick half hours; a dragged booking moves in quarter hours. */
@@ -53,7 +58,7 @@ const MOVE_MINUTES = 15;
 const GUTTER = 46;
 const LONG_PRESS_MS = 350;
 const SLOP = 8;
-const SYNCED_COLOR = "#94a3b8";
+const BOOKINGS_COLOR = "#F2690D";
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 /** Bookings as calendar items, colored by event type (as on the website). */
@@ -72,6 +77,8 @@ export function bookingItems(bookings: Booking[], typeNames: Record<string, stri
       label: b.status === "cancelled" ? "Cancelled" : b.status === "pending_payment" ? "Waiting for payment" : typeNames[String(b.event_type_id)],
       faded: b.status === "cancelled",
       movable: b.status === "confirmed" && new Date(b.starts_at) > now,
+      calendarId: "bookings",
+      calendarName: "TimeIQ bookings",
     }));
 }
 
@@ -84,9 +91,11 @@ export function syncedItems(events: CachedEvent[]): CalItem[] {
     start: new Date(e.starts_at),
     end: new Date(e.ends_at),
     allDay: e.is_all_day,
-    color: SYNCED_COLOR,
+    color: colorFor(e.calendar_source_id),
     label: e.source_name ?? undefined,
     faded: true,
+    calendarId: e.calendar_source_id,
+    calendarName: e.source_name ?? "Calendar",
   }));
 }
 
@@ -173,7 +182,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 /** A scrolling Day / 3-day / Week time grid in any IANA zone. Tap an empty half hour
  * to book it, hold and drag to set the length, hold a movable booking and drag to move it. */
 export function WeekCalendar({
-  items,
+  items: allItems,
   zone,
   date,
   onDateChange,
@@ -216,6 +225,18 @@ export function WeekCalendar({
     prefs.fullDay = v;
     setFullDayState(v);
   };
+  // Show/hide per calendar, like the website; the switches list every calendar with items loaded.
+  const [hidden, setHiddenState] = useState(() => new Set(hiddenCalendars));
+  const toggleCalendar = (id: string) => {
+    if (!hiddenCalendars.delete(id)) hiddenCalendars.add(id);
+    setHiddenState(new Set(hiddenCalendars));
+  };
+  const calendars = useMemo(() => {
+    const seen = new Map<string, { name: string; color: string }>();
+    for (const i of allItems) if (i.calendarId && !seen.has(i.calendarId)) seen.set(i.calendarId, { name: i.calendarName ?? "Calendar", color: i.kind === "booking" ? BOOKINGS_COLOR : i.color });
+    return [...seen].map(([id, c]) => ({ id, ...c }));
+  }, [allItems]);
+  const items = useMemo(() => allItems.filter((i) => !i.calendarId || !hidden.has(i.calendarId)), [allItems, hidden]);
   const [pickedZone, setPickedZone] = useState(prefs.zone);
   const viewZone = pickedZone || zone;
   const [zonePicker, setZonePicker] = useState(false);
@@ -504,6 +525,26 @@ export function WeekCalendar({
 
   return (
     <View style={[styles.wrap, gridHeight == null && { flex: 1 }]}>
+      {calendars.some((c) => c.id !== "bookings") && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          {calendars.map((c) => {
+            const on = !hidden.has(c.id);
+            return (
+              <Pressable
+                key={c.id}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: on }}
+                accessibilityLabel={`Show ${c.name}`}
+                onPress={() => toggleCalendar(c.id)}
+                style={[styles.chip, { borderColor: on ? t.border : "transparent", backgroundColor: on ? t.card : "transparent" }]}
+              >
+                <View style={[styles.chipDot, { backgroundColor: c.color, opacity: on ? 1 : 0.35 }]} />
+                <Text style={{ color: on ? t.text : t.muted, fontSize: 13, fontWeight: "500", textDecorationLine: on ? "none" : "line-through" }}>{c.name}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
       <View style={styles.toolbar}>
         <Pressable
           accessibilityRole="button"
@@ -729,6 +770,9 @@ export function WeekCalendar({
 
 const styles = StyleSheet.create({
   wrap: { gap: 8 },
+  chips: { gap: 8, paddingVertical: 2 },
+  chip: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, minHeight: 32 },
+  chipDot: { width: 10, height: 10, borderRadius: 5 },
   toolbar: { flexDirection: "row", alignItems: "center", gap: 6 },
   pill: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   arrow: { width: 30, height: 32, alignItems: "center", justifyContent: "center" },
