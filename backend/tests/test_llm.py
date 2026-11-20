@@ -34,13 +34,12 @@ def test_direct_uses_anthropic_with_bare_ids(direct):
     }
 
 
-def test_gateway_key_or_oidc_token_routes_through_the_gateway(direct, monkeypatch):
-    assert not llm.on_gateway()
+def test_only_an_explicit_key_routes_through_the_gateway(direct, monkeypatch):
     monkeypatch.setenv("VERCEL_OIDC_TOKEN", "oidc")
-    client = llm.client()
-    assert str(client.base_url).rstrip("/") == llm.GATEWAY_URL and client.api_key == "oidc"
+    assert not llm.on_gateway()  # an ambient token never switches providers
     monkeypatch.setattr(settings, "AI_GATEWAY_API_KEY", "gw-key")
-    assert llm.client().api_key == "gw-key"  # the explicit key wins
+    client = llm.client()
+    assert str(client.base_url).rstrip("/") == llm.GATEWAY_URL and client.api_key == "gw-key"
 
 
 def test_gateway_prefixes_models_and_turns_on_zdr(gateway):
@@ -60,6 +59,7 @@ def test_cheap_models_only_on_the_gateway_and_without_claude_params(direct, monk
         "extra_body": {"providerOptions": {"gateway": {
             "zeroDataRetention": True, "models": ["openai/gpt-5-nano", "mistral/ministral-14b"],
         }}},
+        "max_tokens": 8192,
     }
 
 

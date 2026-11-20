@@ -1,10 +1,9 @@
 """One place that picks how LLM calls are made: through Vercel AI Gateway when it's
-configured (AI_GATEWAY_API_KEY, or VERCEL_OIDC_TOKEN on Vercel), otherwise straight
+configured (AI_GATEWAY_API_KEY), otherwise straight
 to Anthropic with ANTHROPIC_API_KEY. The gateway speaks the Anthropic Messages API,
 so every caller keeps using the anthropic SDK."""
 from __future__ import annotations
 
-import os
 from typing import Any
 
 from app.config import settings
@@ -15,7 +14,8 @@ CHEAP_FALLBACKS = ["openai/gpt-5-nano", "mistral/ministral-14b"]
 
 
 def _gateway_key() -> str:
-    return settings.AI_GATEWAY_API_KEY or os.getenv("VERCEL_OIDC_TOKEN", "")
+    # Only an explicit key: an ambient OIDC token must not switch production to a gateway nobody enabled.
+    return settings.AI_GATEWAY_API_KEY or ""
 
 
 def on_gateway() -> bool:
@@ -55,5 +55,6 @@ def extraction_params(claude_model: str) -> dict[str, Any]:
     """model / output_config / extra_body for a structured-extraction call. The cheap
     non-Claude models get no Claude-only params (effort)."""
     if settings.CHEAP_EXTRACTION_MODELS and on_gateway():
-        return {"model": CHEAP_MODEL, "extra_body": extra_body(CHEAP_FALLBACKS)}
+        # Nova Lite and Ministral 8B-class models cap output at 8192 tokens.
+        return {"model": CHEAP_MODEL, "extra_body": extra_body(CHEAP_FALLBACKS), "max_tokens": 8192}
     return {"model": model_id(claude_model), "output_config": {"effort": "low"}, "extra_body": extra_body()}

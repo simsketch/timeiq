@@ -239,8 +239,7 @@ async def extract_events(subject: str, body: str, attachments: list[Attachment],
     from app.services import llm
 
     response = await llm.client().messages.parse(
-        **llm.extraction_params(MODEL),
-        max_tokens=16000,
+        **{"max_tokens": 16000, **llm.extraction_params(MODEL)},
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": content}],
         output_format=Extraction,

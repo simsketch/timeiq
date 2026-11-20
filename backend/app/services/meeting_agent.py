@@ -203,8 +203,7 @@ async def _parse(system: str, text: str, schema):
     from app.services import llm
 
     response = await llm.client().messages.parse(
-        **llm.extraction_params(MODEL),
-        max_tokens=2000,
+        **{**llm.extraction_params(MODEL), "max_tokens": 2000},
         system=system,
         messages=[{"role": "user", "content": text}],
         output_format=schema,
