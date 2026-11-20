@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app.config import settings
 from app.database import async_session
 from app.models.user import User
+from app.models.event_type import starter_event_types
 from app.services.email import send_welcome
 
 logger = logging.getLogger(__name__)
@@ -129,6 +130,8 @@ async def _handle_user_created(data: dict) -> None:
             image_url=image_url,
         )
         db.add(user)
+        await db.flush()
+        db.add_all(starter_event_types(user.id))
         await db.commit()
         logger.info(f"Created user {username} (clerk_id={clerk_id})")
     send_welcome(user)

@@ -89,3 +89,11 @@ class EventType(Base):
     bookings = relationship(
         "Booking", back_populates="event_type", passive_deletes="all"
     )
+
+
+def starter_event_types(user_id: uuid.UUID) -> list[EventType]:
+    """The meeting types every new account starts with, so its booking page works right away."""
+    return [
+        EventType(user_id=user_id, slug="30-minute-meeting", name="30 Minute Meeting", duration_minutes=30, color="#3B82F6"),
+        EventType(user_id=user_id, slug="1-hour-meeting", name="1 Hour Meeting", duration_minutes=60, color="#F2690D"),
+    ]

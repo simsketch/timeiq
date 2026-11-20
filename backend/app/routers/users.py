@@ -26,7 +26,7 @@ from app.auth import get_current_user_unrestricted as get_current_user
 from app.config import settings
 from app.database import get_db
 from app.models.user import User
-from app.models.event_type import EventType
+from app.models.event_type import EventType, starter_event_types
 from app.models.booking import Booking
 from app.services.email import send_welcome
 from app.services.branding import validate_booking_logo
@@ -230,6 +230,8 @@ async def sync_current_user(
         image_url=image_url,
     )
     db.add(user)
+    await db.flush()
+    db.add_all(starter_event_types(user.id))
     await db.flush()
     await db.refresh(user)
     logger.info("Synced user %r (clerk_id=%r)", username, clerk_id)
