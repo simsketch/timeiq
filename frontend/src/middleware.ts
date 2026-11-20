@@ -23,6 +23,7 @@ const isPublicRoute = createRouteMatcher([
   "/privacy",
   "/terms",
   "/support",
+  "/ios",
   "/api(.*)",
 ]);
 
