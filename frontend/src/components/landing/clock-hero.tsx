@@ -164,16 +164,18 @@ export function ClockHero({ headline }: { headline: Headline }) {
       if (!visible) return;
       const p = progress();
       setActive(Math.round(p * FRAMES));
-      if (painted && !shownLive && window.scrollY > 0) {
-        shownLive = true;
-        setLive(true);
-      }
       if (ready && video.duration) {
         target = p * (video.duration - 0.05);
         shown += (target - shown) * 0.2;
         if (Math.abs(target - shown) < 0.004) shown = target;
         if (Math.abs(video.currentTime - shown) > 0.008) video.currentTime = shown;
         if (shown !== target) frame = requestAnimationFrame(step);
+      }
+      // Back at the top with the video on its first frame, the sharper 4K poster takes over again.
+      const wantLive = painted && (window.scrollY > 0 || shown > 0.05);
+      if (wantLive !== shownLive) {
+        shownLive = wantLive;
+        setLive(wantLive);
       }
     };
     const kick = () => {
