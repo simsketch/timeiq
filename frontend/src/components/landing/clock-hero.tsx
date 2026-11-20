@@ -264,8 +264,10 @@ export function ClockHero({ headline }: { headline: Headline }) {
     >
       <div className="ch-stage">
         <picture>
-          <source media={PHONE} srcSet="/clock/poster-portrait.webp" />
-          <img src="/clock/poster.webp" alt="" className="ch-media" aria-hidden fetchPriority="high" />
+          {/* Cut from a 4K still, sharper than the video's own first frame; each screen gets one size. */}
+          <source media={PHONE} sizes="100vw" srcSet="/clock/poster-portrait.webp 990w, /clock/poster-portrait-1320.webp 1320w" />
+          <img src="/clock/poster.webp" srcSet="/clock/poster.webp 1920w, /clock/poster-2880.webp 2880w" sizes="100vw"
+            alt="" className="ch-media" aria-hidden fetchPriority="high" />
         </picture>
         <video ref={videoRef} className="ch-media ch-video" muted playsInline preload="none" aria-hidden />
         <div aria-hidden className="ch-scrim" />
