@@ -12,6 +12,7 @@ Design notes
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from html import escape as esc
 
 from app.config import settings
@@ -28,6 +29,13 @@ HEROES = {
     "confirmed", "new-booking", "cancelled", "invoice", "welcome", "reminder",
     "overdue", "find-time", "week", "calendar", "schedule", "account",
 }  # images: frontend/public/email/hero-*.png, drawn by brand/email_heroes.py
+
+
+@dataclass(frozen=True)
+class Brand:
+    """A white-label host's identity for mail their guests receive."""
+    name: str
+    logo_url: str | None = None  # http(s) only; mail clients block data: images
 
 
 def _asset(name: str) -> str:
@@ -153,12 +161,35 @@ def signoff(name: str, role: str) -> str:
     )
 
 
-def layout(hero: str, preheader: str, body_html: str, footer_note: str | None = None) -> str:
-    """Wrap body_html in the shared shell. `hero` is one of HEROES."""
+def layout(hero: str, preheader: str, body_html: str, footer_note: str | None = None, brand: Brand | None = None) -> str:
+    """Wrap body_html in the shared shell. `hero` is one of HEROES. A `brand`
+    swaps the TimeIQ hero, title and footer for the host's name or logo."""
     assert hero in HEROES, hero
-    hero_url = _asset(f"hero-{hero}.png")
     site = settings.FRONTEND_URL.rstrip("/")
     note = f'<div style="margin-top:8px;">{esc(footer_note)}</div>' if footer_note else ""
+    title = esc(brand.name) if brand else "TimeIQ"
+    if brand is None:
+        header = (
+            f'<tr><td style="border-radius:28px 28px 0 0;overflow:hidden;">\n'
+            f'      <img src="{_asset(f"hero-{hero}.png")}" width="600" alt="TimeIQ" style="display:block;width:100%;height:auto;border-radius:28px 28px 0 0;">\n'
+            f"    </td></tr>"
+        )
+        footer = (
+            f'<a href="{site}" style="color:{MUTED};text-decoration:none;font-weight:600;">TimeIQ</a>\n'
+            f"      &nbsp;·&nbsp; Forward any schedule. Find a time with anyone.\n"
+            f'      &nbsp;·&nbsp; <a href="{site}/privacy" style="color:{MUTED};">Privacy</a>'
+        )
+    else:
+        mark = (
+            f'<img src="{esc(brand.logo_url, quote=True)}" alt="{title}" style="display:block;max-height:64px;max-width:240px;height:auto;">'
+            if brand.logo_url
+            else f'<div style="font-family:{FONT};font-size:28px;line-height:34px;font-weight:700;letter-spacing:-0.02em;color:{INK};">{title}</div>'
+        )
+        header = (
+            f'<tr><td style="background:#ffffff;border:1px solid {CARD_BORDER};border-bottom:0;'
+            f'border-radius:28px 28px 0 0;padding:32px 40px 0;">{mark}</td></tr>'
+        )
+        footer = ""
     return f"""<!DOCTYPE html>
 <html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -166,7 +197,7 @@ def layout(hero: str, preheader: str, body_html: str, footer_note: str | None = 
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light">
 <meta name="supported-color-schemes" content="light">
-<title>TimeIQ</title>
+<title>{title}</title>
 <!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
 <style>
   body {{ margin:0; padding:0; background:{PAGE_BG}; -webkit-font-smoothing:antialiased; }}
@@ -183,16 +214,12 @@ def layout(hero: str, preheader: str, body_html: str, footer_note: str | None = 
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:{PAGE_BG};">
 <tr><td align="center" style="padding:32px 16px;">
   <table role="presentation" class="card" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:600px;">
-    <tr><td style="border-radius:28px 28px 0 0;overflow:hidden;">
-      <img src="{hero_url}" width="600" alt="TimeIQ" style="display:block;width:100%;height:auto;border-radius:28px 28px 0 0;">
-    </td></tr>
+    {header}
     <tr><td class="pad" style="background:#ffffff;border:1px solid {CARD_BORDER};border-top:0;border-radius:0 0 28px 28px;padding:36px 40px 28px;">
       {body_html}
     </td></tr>
     <tr><td style="padding:22px 12px 0;text-align:center;font-family:{FONT};font-size:12px;line-height:18px;color:{MUTED};">
-      <a href="{site}" style="color:{MUTED};text-decoration:none;font-weight:600;">TimeIQ</a>
-      &nbsp;·&nbsp; Forward any schedule. Find a time with anyone.
-      &nbsp;·&nbsp; <a href="{site}/privacy" style="color:{MUTED};">Privacy</a>
+      {footer}
       {note}
     </td></tr>
   </table>

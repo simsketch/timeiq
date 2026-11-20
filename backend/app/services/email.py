@@ -28,6 +28,7 @@ from app.services.ics_generator import generate_booking_ics, ical_uid_for
 logger = logging.getLogger(__name__)
 
 FROM_EMAIL = "TimeIQ <bookings@timeiq.app>"
+SENDER_ADDRESS = "bookings@timeiq.app"
 MAKER_NAME = "Elon"
 MAKER_ROLE = "Maker of TimeIQ"
 MAKER_EMAIL = "simsketch@gmail.com"
@@ -202,6 +203,35 @@ async def retry_outbound_emails(limit: int = 50) -> dict[str, int]:
     return {"sent": sent, "failed": failed}
 
 
+def _white_label(host) -> bool:
+    return bool(getattr(host, "booking_white_label", False))
+
+
+def _host_display(host) -> str:
+    """The host's name made safe for an RFC 5322 display name."""
+    def clean(raw: str | None) -> str:
+        return " ".join(re.sub(r'[\r\n<>"\\]', " ", raw or "").split())[:60].strip()
+    return clean(host.name) or clean((host.email or "").split("@")[0]) or "TimeIQ"
+
+
+def guest_from(host) -> str:
+    """From header for mail a host's guests or clients receive."""
+    name = _host_display(host)
+    if re.search(r'[()<>\[\]:;@,.]', name):
+        name = f'"{name}"'
+    return f"{name} <{SENDER_ADDRESS}>" if _white_label(host) else f"{name} via TimeIQ <{SENDER_ADDRESS}>"
+
+
+def guest_brand(host) -> t.Brand | None:
+    """White-label hosts' guests see the host's brand in place of TimeIQ's."""
+    if not _white_label(host):
+        return None
+    logo = getattr(host, "booking_logo", None)
+    # shortcut: logos are stored as data: URLs, which mail clients block, so this is
+    # always the name today; serve logos at an https URL to show them in email.
+    return t.Brand(_host_display(host), logo if logo and logo.startswith("https://") else None)
+
+
 def _location_row(event_type: EventType) -> tuple[str, str]:
     loc = event_type.location or ""
     if not loc:
@@ -288,9 +318,14 @@ def render_booking_confirmation_visitor(booking: Booking, event_type: EventType,
         )
         + _payment_copy(booking)
         + t.buttons(t.button("Reschedule", reschedule_url, secondary=True), t.button("Cancel booking", cancel_url, secondary=True))
-        + t.p("Reply to this email to ask TimeIQ to reschedule or cancel your booking.", muted=True)
+        + t.p(
+            "Reply to this email to reschedule or cancel."
+            if _white_label(host)
+            else "Reply to this email to ask TimeIQ to reschedule or cancel your booking.",
+            muted=True,
+        )
     )
-    return t.layout("confirmed", f"Confirmed with {host_name}: {_format_datetime(booking.starts_at, tz)}", body)
+    return t.layout("confirmed", f"Confirmed with {host_name}: {_format_datetime(booking.starts_at, tz)}", body, brand=guest_brand(host))
 
 
 def booking_links(booking: Booking) -> tuple[str, str]:
@@ -312,7 +347,7 @@ def render_booking_reminder(booking: Booking, event_type: EventType, host: User,
         ], rows_html=True)
         + t.buttons(t.button("Reschedule", reschedule_url, secondary=True), t.button("Cancel booking", cancel_url, secondary=True))
     )
-    return t.layout("reminder", f"Reminder: {event_type.name} with {other}", body)
+    return t.layout("reminder", f"Reminder: {event_type.name} with {other}", body, brand=None if is_host else guest_brand(host))
 
 
 async def send_booking_reminder(booking: Booking, event_type: EventType, host: User, minutes: int, recipient: str) -> None:
@@ -321,7 +356,7 @@ async def send_booking_reminder(booking: Booking, event_type: EventType, host: U
     _init_resend()
     is_host = recipient == "host"
     payload = {
-        "from": FROM_EMAIL,
+        "from": FROM_EMAIL if is_host else guest_from(host),
         "to": [host.email if is_host else booking.visitor_email],
         "reply_to": booking.visitor_email if is_host else host.email,
         "subject": f"Reminder: {event_type.name} with {booking.visitor_name if is_host else (host.name or host.email)}",
@@ -362,7 +397,7 @@ async def send_booking_confirmation(booking: Booking, event_type: EventType, hos
     version = f"{booking.id}/{booking.ical_sequence or 0}"
     await _send_durable(
         {
-            "from": FROM_EMAIL,
+            "from": guest_from(host),
             "to": [booking.visitor_email],
             **_cc_guests(booking),
             "reply_to": reply_address(booking),
@@ -406,7 +441,7 @@ def render_cancellation_visitor(booking: Booking, event_type: EventType, host: U
         + t.p(f"If you still want to meet, {host_name}'s calendar is open.", muted=True)
         + t.buttons(t.button("Book another time", rebook_url))
     )
-    return t.layout("cancelled", f"Cancelled: {event_type.name} with {host_name}", body)
+    return t.layout("cancelled", f"Cancelled: {event_type.name} with {host_name}", body, brand=guest_brand(host))
 
 
 def render_cancellation_host(booking: Booking, event_type: EventType, host: User) -> str:
@@ -435,7 +470,7 @@ async def send_cancellation_notice(booking: Booking, event_type: EventType, host
     version = f"{booking.id}/{booking.ical_sequence or 0}"
     await _send_durable(
         {
-            "from": FROM_EMAIL,
+            "from": guest_from(host),
             "to": [booking.visitor_email],
             **_cc_guests(booking),
             "reply_to": host.email,
@@ -563,7 +598,8 @@ def render_invoice(
         )
         + t.signoff(sender_name, sender.email)
     )
-    return t.layout(hero, f"{headline}: {amount} due {_fmt_date(invoice.due_date)}", body)
+    brand = guest_brand(sender) if copy_sent_to is None else None
+    return t.layout(hero, f"{headline}: {amount} due {_fmt_date(invoice.due_date)}", body, brand=brand)
 
 
 def send_invoice(
@@ -590,7 +626,7 @@ def send_invoice(
     try:
         resend.Emails.send(with_text(
             {
-                "from": FROM_EMAIL,
+                "from": guest_from(sender),
                 "to": recipients or split_emails(invoice.client_billing_email),
                 **({"bcc": [sender.email]} if copy_sender else {}),
                 "reply_to": sender.email,
