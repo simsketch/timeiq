@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { HeroAsk } from "@/components/landing/hero-ask";
+import { AppStoreBadge } from "@/components/app-store-badge";
 import type { Headline } from "@/components/landing/headlines";
 
 // Scroll-scrubbed hero: one day passes around a floating clock while life
 // blurs by. The copy is server-rendered and readable without JS; the video
-// (public/clock/day.mp4, 7 Tein clips joined still to still) loads on the
+// (public/clock/day.mp4, 1080p; day-portrait.mp4 on phones; 7 LTX clips joined
+// still to still between 8 sharpened keyframes) loads on the
 // first scroll or pointer move, as a blob so seeking never waits on range
 // requests; until then the poster stands in for its first frame. Reduced
 // motion, Save-Data and no-JS keep the poster and the first beat.
@@ -15,7 +17,9 @@ import type { Headline } from "@/components/landing/headlines";
 const FRAMES = 7; // the video holds 8 keyframes, 0..7, evenly spaced
 // Floor colour at each keyframe, sampled from the video; phones fade the
 // video into it under the copy.
-const FLOOR = ["#adb2ba", "#a0a0a5", "#9fa4ac", "#c2b5ae", "#9e9fa4", "#b79d89", "#7c6657", "#726e6e"];
+const FLOOR = ["#b3b8c1", "#919297", "#a2a6ac", "#d2c3b8", "#a3a4a7", "#ba9e88", "#7b6759", "#737274"];
+// Phones (the CSS breakpoint) get a 810x1080 centre crop: half the bytes, same sharpness there.
+const PHONE = "(max-width: 767px)";
 
 type Beat = { time: string; title: string; body: string; dark?: boolean; card: React.ReactNode };
 
@@ -206,7 +210,7 @@ export function ClockHero({ headline }: { headline: Headline }) {
     window.addEventListener("touchend", onTap, { passive: true });
     window.addEventListener("click", onTap);
     const load = () => {
-      fetch("/clock/day.mp4")
+      fetch(window.matchMedia(PHONE).matches ? "/clock/day-portrait.mp4" : "/clock/day.mp4")
         .then((r) => r.blob())
         .then((blob) => {
           if (cancelled) return;
@@ -220,7 +224,7 @@ export function ClockHero({ headline }: { headline: Headline }) {
         })
         .catch(() => {});
     };
-    // The 5 MB video waits for the visitor's first scroll, touch or mouse
+    // The video (8 MB, 4 MB on phones) waits for the visitor's first scroll, touch or mouse
     // move, so it never competes with first paint and bouncers skip it.
     const intents = ["scroll", "pointermove", "touchstart", "keydown"] as const;
     const start = () => {
@@ -259,8 +263,10 @@ export function ClockHero({ headline }: { headline: Headline }) {
       style={{ "--ch-floor": FLOOR[active] } as React.CSSProperties}
     >
       <div className="ch-stage">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/clock/poster.jpg" alt="" className="ch-media" aria-hidden fetchPriority="high" />
+        <picture>
+          <source media={PHONE} srcSet="/clock/poster-portrait.webp" />
+          <img src="/clock/poster.webp" alt="" className="ch-media" aria-hidden fetchPriority="high" />
+        </picture>
         <video ref={videoRef} className="ch-media ch-video" muted playsInline preload="none" aria-hidden />
         <div aria-hidden className="ch-scrim" />
 
@@ -275,6 +281,9 @@ export function ClockHero({ headline }: { headline: Headline }) {
           </p>
           <HeroAsk />
           <p className="mt-4 text-[13px] opacity-55">First 7 meetings free, no card. Then $19 a year. <a href="#try" className="underline underline-offset-2">Try the demo</a></p>
+          <div className="mt-4">
+            <AppStoreBadge placement="hero" className="h-10 w-auto" />
+          </div>
         </div>
 
         {BEATS.map((b, i) => (
