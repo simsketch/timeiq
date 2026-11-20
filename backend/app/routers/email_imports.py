@@ -17,7 +17,7 @@ from app.config import settings
 from app.database import get_db
 from app.models.email_import import EmailImport
 from app.models.user import User
-from app.services import email_import
+from app.services import email_import, llm
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ class UndoResult(BaseModel):
 
 
 def _enabled() -> bool:
-    return bool(settings.RESEND_INBOUND_API_KEY and settings.RESEND_INBOUND_WEBHOOK_SECRET and settings.ANTHROPIC_API_KEY)
+    return bool(settings.RESEND_INBOUND_API_KEY and settings.RESEND_INBOUND_WEBHOOK_SECRET and llm.configured())
 
 
 @router.post("/api/webhooks/inbound-email")

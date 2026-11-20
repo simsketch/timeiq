@@ -17,18 +17,27 @@ import logging
 import secrets
 import time
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from app.config import settings
+from fastapi import HTTPException
+from sqlalchemy import func, select, text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.assistant_turn import AssistantTurn
 from app.models.user import User
+from app.services import billing, llm
 
 logger = logging.getLogger(__name__)
 
 MODEL = "claude-sonnet-5-5"
 MAX_ROUNDS = 8           # tool rounds per message
 TIME_BUDGET = 45.0       # seconds; the serverless function stops at 60
+# Turns per user: per rolling minute, and per rolling 24 hours without / with a plan.
+TURNS_PER_MINUTE = 10
+TURNS_PER_DAY_FREE = 50
+TURNS_PER_DAY_PAID = 200
 # Time tracking and invoicing are owner-only for now (users.invoicing_enabled).
 INVOICING_TOOLS = {
     "list_clients", "log_time", "list_time_entries", "get_hours_and_money",
@@ -81,11 +90,34 @@ free time.
 - If a tool fails, say what went wrong in plain words and what they can do."""
 
 
+async def start_turn(db: AsyncSession, user: User) -> AssistantTurn:
+    """Check the user's limits and reserve a turn (commits). A database lock and count
+    hold across serverless instances, and the reserved row counts in-flight turns too."""
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": f"timeiq-assistant:{user.id}"},
+    )
+    now = datetime.now(timezone.utc)
+    day, minute = (await db.execute(
+        select(
+            func.count(AssistantTurn.id),
+            func.count(AssistantTurn.id).filter(AssistantTurn.created_at > now - timedelta(minutes=1)),
+        ).where(AssistantTurn.user_id == user.id, AssistantTurn.created_at > now - timedelta(days=1))
+    )).one()
+    if day >= (TURNS_PER_DAY_PAID if billing.is_entitled(user) else TURNS_PER_DAY_FREE):
+        raise HTTPException(429, "You've reached today's limit for Ask TimeIQ. It resets within 24 hours.")
+    if minute >= TURNS_PER_MINUTE:
+        raise HTTPException(429, "Slow down a little and try again in a minute.")
+    turn = AssistantTurn(user_id=user.id, created_at=now, model=MODEL)
+    db.add(turn)
+    await db.commit()
+    return turn
+
+
 async def chat(user: User, history: list[dict[str, Any]]) -> dict[str, Any]:
     """Run one turn. `history` is the Anthropic-format message list from earlier turns plus
-    the new user message; returns the updated history, the reply text and the steps taken."""
-    import anthropic  # slow to import; only the assistant needs it
-
+    the new user message; returns the updated history, the reply text, the steps taken and
+    the token usage summed over every model call."""
     from app import mcp_server
 
     zone = ZoneInfo(user.timezone or "UTC")
@@ -95,15 +127,20 @@ async def chat(user: User, history: list[dict[str, Any]]) -> dict[str, Any]:
         for t in await mcp_server.mcp.list_tools()
         if user.invoicing_enabled or t.name not in INVOICING_TOOLS
     ]
+    # Prompt caching: tools render first, so they cache across turns and users; the
+    # system prompt (it has the time in it) caches across this turn's tool rounds.
+    if tools:
+        tools[-1]["cache_control"] = {"type": "ephemeral"}
     system = SYSTEM.format(
         name=user.name or user.username or "the user",
         now=now.strftime("%A %B %-d, %Y, %-I:%M %p"),
         zone=zone.key,
         invoices=", sending invoices" if user.invoicing_enabled else "",
     )
-    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    client = llm.client()
     messages = list(history)
     steps: list[dict[str, Any]] = []
+    usage = {"input_tokens": 0, "output_tokens": 0, "model": llm.model_id(MODEL)}
     started = time.monotonic()
 
     with request_token(user) as token:
@@ -111,9 +148,14 @@ async def chat(user: User, history: list[dict[str, Any]]) -> dict[str, Any]:
         try:
             for _ in range(MAX_ROUNDS):
                 response = await client.messages.create(
-                    model=MODEL, max_tokens=4096, system=system, tools=tools, messages=messages,
-                    output_config={"effort": "low"},
+                    model=llm.model_id(MODEL), max_tokens=4096, tools=tools, messages=messages,
+                    system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+                    output_config={"effort": "low"}, extra_body=llm.extra_body(),
                 )
+                u = response.usage
+                usage["input_tokens"] += (u.input_tokens or 0) + (u.cache_creation_input_tokens or 0) + (u.cache_read_input_tokens or 0)
+                usage["output_tokens"] += u.output_tokens or 0
+                usage["model"] = response.model or usage["model"]
                 messages.append({"role": "assistant", "content": [b.model_dump(exclude_none=True) for b in response.content]})
                 if response.stop_reason != "tool_use":
                     break
@@ -138,7 +180,7 @@ async def chat(user: User, history: list[dict[str, Any]]) -> dict[str, Any]:
     if not reply:
         reply = "Sorry, I lost my train of thought there. Could you ask that again?"
         messages.append({"role": "assistant", "content": [{"type": "text", "text": reply}]}) if messages[-1]["role"] != "assistant" else messages[-1]["content"].append({"type": "text", "text": reply})
-    return {"messages": messages, "reply": reply, "steps": steps}
+    return {"messages": messages, "reply": reply, "steps": steps, "usage": usage}
 
 
 async def _run_tool(mcp_server, name: str, args: dict[str, Any]) -> tuple[bool, str]:

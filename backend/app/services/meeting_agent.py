@@ -200,15 +200,13 @@ Times are in {zone}; if the writer names another time zone, convert."""
 
 
 async def _parse(system: str, text: str, schema):
-    import anthropic  # slow to import; only email handling needs it
+    from app.services import llm
 
-    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = await client.messages.parse(
-        model=MODEL,
+    response = await llm.client().messages.parse(
+        **llm.extraction_params(MODEL),
         max_tokens=2000,
         system=system,
         messages=[{"role": "user", "content": text}],
-        output_config={"effort": "low"},
         output_format=schema,
     )
     if response.stop_reason in ("refusal", "max_tokens") or response.parsed_output is None:

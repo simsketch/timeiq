@@ -16,6 +16,7 @@ from app.models.group_meeting import AgentMessageClaim, GroupMeeting, GroupMeeti
 from app.models.api_token import ApiToken
 from app.models.push_device import PushDevice
 from app.models.calendar_handoff import CalendarHandoff
+from app.models.assistant_turn import AssistantTurn
 from app.models.oauth import OAuthClient, OAuthGrant, OAuthAuthorizationCode, OAuthAccessToken, OAuthRefreshToken
 
 __all__ = [
@@ -45,4 +46,5 @@ __all__ = [
     "OAuthAccessToken",
     "OAuthRefreshToken",
     "CalendarHandoff",
+    "AssistantTurn",
 ]

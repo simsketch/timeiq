@@ -236,15 +236,13 @@ async def extract_events(subject: str, body: str, attachments: list[Attachment],
             f"Email subject: {subject or '(none)'}\n\nEmail body:\n{body or '(empty)'}"
         ),
     })
-    import anthropic  # slow to import; only email handling needs it
+    from app.services import llm
 
-    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
-    response = await client.messages.parse(
-        model=MODEL,
+    response = await llm.client().messages.parse(
+        **llm.extraction_params(MODEL),
         max_tokens=16000,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": content}],
-        output_config={"effort": "low"},
         output_format=Extraction,
     )
     if response.stop_reason in ("refusal", "max_tokens") or response.parsed_output is None:

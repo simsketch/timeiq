@@ -31,6 +31,12 @@ class Settings:
     RESEND_INBOUND_WEBHOOK_SECRET: str = os.getenv("RESEND_INBOUND_WEBHOOK_SECRET", "")
     INBOUND_DOMAIN: str = os.getenv("INBOUND_DOMAIN", "timeiq.app")
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+    # Vercel AI Gateway: when set (or VERCEL_OIDC_TOKEN is), LLM calls go through
+    # the gateway instead of straight to Anthropic. See app/services/llm.py.
+    AI_GATEWAY_API_KEY: str = os.getenv("AI_GATEWAY_API_KEY", "")
+    # On the gateway only: email import and the meeting agent use cheaper
+    # non-Claude models. Off until the app's consent text stops naming only Anthropic.
+    CHEAP_EXTRACTION_MODELS: bool = os.getenv("CHEAP_EXTRACTION_MODELS", "").lower() in ("1", "true", "yes")
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
     GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
     GOOGLE_REDIRECT_URI: str = os.getenv(
