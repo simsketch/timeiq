@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { SetupChecklist } from "@/components/setup-checklist";
 import { ShareAvailability } from "@/components/share-availability";
 import { TipsPrompt } from "@/components/tips-prompt";
-import { Notice, useSplit } from "@/components/ui";
+import { Notice, useFold, useSplit } from "@/components/ui";
 import { type CalItem, WeekCalendar, bookingItems, confirmMove, syncedItems } from "@/components/week-calendar";
 import { ApiError, type BillingStatus, type Booking, type CachedEvent, type EventType, useApi } from "@/lib/api";
 import { SITE_URL } from "@/lib/config";
@@ -33,6 +33,8 @@ export default function Agenda() {
   const zone = me?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   // Wide windows (iPad, an unfolded Duo in landscape) show the list and the calendar side by side.
   const wide = useSplit();
+  // On an unfolded Duo the side pane ends exactly at the fold.
+  const fold = useFold();
   const [selected, setSelected] = useState(() => new Date());
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [events, setEvents] = useState<CachedEvent[]>([]);
@@ -320,7 +322,7 @@ export default function Agenda() {
     <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: t.bg }}>
       {wide ? (
         <View style={styles.split}>
-          <View style={[styles.side, { borderColor: t.border }]}>
+          <View style={[styles.side, { borderColor: t.border }, fold?.x ? { width: fold.x } : null]}>
             {header}
             {banner}
             {list}

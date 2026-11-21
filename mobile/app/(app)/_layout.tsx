@@ -4,6 +4,7 @@ import { type Href, Tabs, useRouter } from "expo-router";
 import { useShareIntentContext } from "expo-share-intent";
 import { useEffect } from "react";
 import { Platform } from "react-native";
+import { useFold } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { pushToken } from "@/lib/push";
 import { useTheme } from "@/lib/theme";
@@ -14,6 +15,7 @@ export default function AppLayout() {
   const api = useApi();
   const router = useRouter();
   const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
+  const fold = useFold();
 
   // Register this phone for booking notifications.
   useEffect(() => {
@@ -48,15 +50,17 @@ export default function AppLayout() {
 
   return (
     <Tabs
-      screenOptions={{
+      screenOptions={({ route }) => ({
         tabBarActiveTintColor: t.primary,
         tabBarInactiveTintColor: t.muted,
-        tabBarStyle: { backgroundColor: t.card, borderTopColor: t.border },
+        // Unfolded Duo held like a book: three tabs left of the fold, two right of it. The root stack already pads by the side insets.
+        tabBarStyle: { backgroundColor: t.card, borderTopColor: t.border, ...(fold?.x && { paddingLeft: 0, paddingRight: 0 }) },
+        tabBarItemStyle: fold?.x && ["index", "bookings", "meetings"].includes(route.name) ? { flex: 0, width: fold.x / 3 } : undefined,
         headerStyle: { backgroundColor: t.bg },
         headerTitleStyle: { color: t.text },
         headerShadowVisible: false,
         sceneStyle: { backgroundColor: t.bg },
-      }}
+      })}
     >
       <Tabs.Screen
         name="index"

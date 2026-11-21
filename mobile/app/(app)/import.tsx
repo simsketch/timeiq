@@ -2,7 +2,7 @@ import * as Clipboard from "expo-clipboard";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { Button, Card, Label, Notice, readable, useSplit } from "@/components/ui";
+import { Button, Card, HINGE, Label, Notice, readable, useFold, useSplit } from "@/components/ui";
 import { confirmAiConsent } from "@/lib/ai-consent";
 import { useApi } from "@/lib/api";
 import { SCREENSHOT_MODE } from "@/lib/config";
@@ -52,6 +52,8 @@ export default function Import() {
   const [shared, clearShared] = useSharedText();
   // Wide windows: paste on the left, the forwarding address and past imports on the right.
   const wide = useSplit();
+  // On an unfolded Duo the left column stops short of the fold and the right one starts past it (page padding 24).
+  const fold = useFold();
   const [text, setText] = useState("");
   const [address, setAddress] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -132,8 +134,8 @@ export default function Import() {
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={[styles.page, wide && styles.pageWide]} keyboardShouldPersistTaps="handled">
         {/* Keyed so a live switch (rotating or unfolding) lays the columns out from scratch; the paste box keeps its text in state. */}
-        <View key={wide ? "cols" : "stack"} style={wide ? styles.cols : styles.stack}>
-        <View style={wide ? styles.col : styles.stack}>
+        <View key={wide ? "cols" : "stack"} style={wide ? [styles.cols, fold?.x ? { gap: HINGE } : null] : styles.stack}>
+        <View style={wide ? [styles.col, fold?.x ? { flex: 0, width: fold.x - 24 - HINGE / 2 } : null] : styles.stack}>
         <Text style={[styles.lead, { color: t.muted }]}>
           Paste a schedule (a team calendar, class times, an email) and the dates land on your TimeIQ calendar. You can also share text to TimeIQ from any app.
         </Text>

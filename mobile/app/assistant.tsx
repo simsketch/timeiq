@@ -4,7 +4,7 @@ import { Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance, type TextInputInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { readable, useWide } from "@/components/ui";
+import { HINGE, readable, useFold, useWide } from "@/components/ui";
 import { confirmAiConsent } from "@/lib/ai-consent";
 import { useApi } from "@/lib/api";
 import { SCREENSHOT_MODE } from "@/lib/config";
@@ -96,6 +96,9 @@ export default function Assistant() {
   const me = useMe();
   const insets = useSafeAreaInsets();
   const wide = useWide();
+  // Unfolded Duo: the conversation on one side of the fold, the starters and the composer on the other
+  // (left and right held like a book, top and bottom held like a laptop).
+  const fold = useFold();
   const [history, setHistory] = useState<Message[]>(kept.history);
   const [steps, setSteps] = useState<Step[][]>(kept.steps);
   const [draft, setDraft] = useState("");
@@ -165,7 +168,7 @@ export default function Assistant() {
   const firstName = me?.name?.split(" ")[0];
 
   const suggestions = (
-    <View style={styles.chips}>
+    <View style={[styles.chips, fold?.below ? styles.column : null]}>
       {SUGGESTIONS.map((s) => (
         <Pressable
           key={s}
@@ -197,8 +200,10 @@ export default function Assistant() {
             ),
         }}
       />
+      <View style={fold?.x ? styles.split : { flex: 1 }}>
       <ScrollView
         ref={scroll}
+        style={fold?.x ? { width: fold.x, flexGrow: 0, borderRightWidth: StyleSheet.hairlineWidth, borderColor: t.border } : undefined}
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
@@ -207,7 +212,7 @@ export default function Assistant() {
           <View style={{ gap: 6 }}>
             <Text style={[styles.title, { color: t.text }]}>What should we schedule{firstName ? `, ${firstName}` : ""}?</Text>
             <Text style={{ color: t.muted, fontSize: 15, lineHeight: 21 }}>Ask about your week, find time with people, or paste a schedule.</Text>
-            {suggestions}
+            {!fold && suggestions}
           </View>
         ) : (
           turns.map((turn, i) =>
@@ -232,7 +237,7 @@ export default function Assistant() {
           )
         )}
         {/* Wide windows have the room to keep the starters on offer after the conversation. */}
-        {wide && !empty && !busy && suggestions}
+        {!fold && wide && !empty && !busy && suggestions}
         {busy && (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <ActivityIndicator color={t.primary} />
@@ -241,7 +246,9 @@ export default function Assistant() {
         )}
       </ScrollView>
 
-      <View style={[styles.composer, { borderTopColor: t.border, paddingBottom: Math.max(insets.bottom, 10) }]}>
+      <View style={fold?.x ? { flex: 1, justifyContent: "flex-end" } : fold?.below ? { height: fold.below + HINGE / 2, paddingTop: HINGE, justifyContent: "space-between" } : undefined}>
+      {fold && !busy && <View style={styles.starters}>{suggestions}</View>}
+      <View style={[styles.composer, { borderTopColor: t.border, paddingBottom: Math.max(insets.bottom, 10) }, fold?.x ? { paddingLeft: HINGE / 2 } : null]}>
         {error && <Text accessibilityRole="alert" style={{ color: t.danger, fontSize: 14, marginBottom: 8 }}>{error}</Text>}
         <View style={[styles.box, { borderColor: t.border, backgroundColor: t.card }]}>
           <TextInput
@@ -275,12 +282,17 @@ export default function Assistant() {
           </Pressable>
         </View>
       </View>
+      </View>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   list: { padding: 16, gap: 18, flexGrow: 1, ...readable, maxWidth: 760 },
+  split: { flex: 1, flexDirection: "row" },
+  starters: { paddingHorizontal: 16, paddingBottom: 12 },
+  column: { flexDirection: "column", alignItems: "flex-start" },
   title: { fontSize: 24, fontWeight: "700", letterSpacing: -0.3 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },
   chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },

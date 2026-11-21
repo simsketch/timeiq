@@ -3,7 +3,7 @@ import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { BookingDetail } from "@/components/booking-detail";
-import { Notice, Segmented, readable, useSplit } from "@/components/ui";
+import { Notice, Segmented, readable, useFold, useSplit } from "@/components/ui";
 import { type Booking, type EventType, useApi } from "@/lib/api";
 import { colorFor, useTheme } from "@/lib/theme";
 import { dayKey, fmt, timeOf } from "@/lib/time";
@@ -20,6 +20,8 @@ export default function Bookings() {
   const [tab, setTab] = useState<Tab>("upcoming");
   // Wide windows show the picked booking (or the first one) beside the list.
   const wide = useSplit();
+  // On an unfolded Duo the side pane ends exactly at the fold.
+  const fold = useFold();
   const [picked, setPicked] = useState<string | null>(null);
   const [all, setAll] = useState<Booking[] | null>(null);
   // When `all` was fetched; "ended" is judged against it (render must stay pure).
@@ -93,7 +95,7 @@ export default function Bookings() {
       />
       {wide ? (
         <View style={styles.split}>
-          <View style={[styles.side, { borderColor: t.border }]}>{list()}</View>
+          <View style={[styles.side, { borderColor: t.border }, fold?.x ? { width: fold.x } : null]}>{list()}</View>
           <View style={{ flex: 1 }}>
             {selectedId ? <BookingDetail key={selectedId} id={selectedId} onDone={load} /> : null}
           </View>

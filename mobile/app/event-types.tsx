@@ -5,7 +5,7 @@ import * as WebBrowser from "expo-web-browser";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import { BookingBrandingCard } from "@/components/booking-branding-card";
-import { Button, Card, Chips, Input, Label, Notice, ToggleRow, readable, useWide } from "@/components/ui";
+import { Button, Card, Chips, HINGE, Input, Label, Notice, ToggleRow, readable, useFold, useWide } from "@/components/ui";
 import { type EventType, useApi } from "@/lib/api";
 import { SITE_URL } from "@/lib/config";
 import { colorFor, type Theme, useTheme } from "@/lib/theme";
@@ -71,6 +71,12 @@ export default function EventTypes() {
   // Wide windows lay the cards out in a grid: 3 columns from 900pt, else 2.
   const wide = useWide();
   const cols = useWindowDimensions().width >= 900 ? 3 : 2;
+  // An unfolded Duo held like a book gets two columns, one each side of the fold (the page pads 24, the grid bleeds 6).
+  const fold = useFold();
+  const cell = (i: number) =>
+    fold?.x
+      ? i % 2 ? { flex: 1, paddingLeft: HINGE / 2 } : { width: fold.x - 18, paddingRight: HINGE / 2 }
+      : { width: `${100 / cols}%` as const };
   const [types, setTypes] = useState<EventType[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -281,10 +287,10 @@ export default function EventTypes() {
       {types?.length === 0 && <Notice>No event types yet. Add one, like a 30-minute intro call, and share its link.</Notice>}
 
       <View style={wide ? styles.grid : styles.stack}>
-      {types?.map((e) => {
+      {types?.map((e, i) => {
         const link = linkFor(e);
         return (
-          <View key={e.id} style={wide ? [styles.cell, { width: `${100 / cols}%` }] : undefined}>
+          <View key={e.id} style={wide ? [styles.cell, cell(i)] : undefined}>
           <Card style={{ gap: 10, opacity: e.is_active ? 1 : 0.6, ...(wide && { flex: 1 }) }}>
             <View style={styles.head}>
               <View style={[styles.dot, { backgroundColor: e.color ?? colorFor(String(e.id)) }]} />
@@ -338,9 +344,9 @@ export default function EventTypes() {
         </View>
       )}
 
-      <View style={wide ? styles.row : styles.stack}>
+      <View style={wide ? [styles.row, fold?.x ? { gap: HINGE } : null] : styles.stack}>
       {connect && (
-        <Card style={{ gap: 10, marginTop: 8, ...(wide && { flex: 1 }) }}>
+        <Card style={{ gap: 10, marginTop: 8, ...(wide && { flex: 1 }), ...(fold?.x && { flex: 0, width: fold.x - 24 - HINGE / 2 }) }}>
           <Label>Payments</Label>
           <Text style={{ color: t.text, fontSize: 15, lineHeight: 21 }}>
             {connect.status === "ready"
@@ -357,7 +363,7 @@ export default function EventTypes() {
         </Card>
       )}
 
-      {types && me && (wide ? <View style={{ flex: 1, marginTop: 8 }}><BookingBrandingCard me={me} /></View> : <BookingBrandingCard me={me} />)}
+      {types && me && (wide ? <View style={{ flex: 1, marginTop: 8, ...(fold?.x && !connect && { flex: 0, width: fold.x - 24 - HINGE / 2 }) }}><BookingBrandingCard me={me} /></View> : <BookingBrandingCard me={me} />)}
       </View>
     </ScrollView>
   );

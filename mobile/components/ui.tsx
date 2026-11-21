@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, TextInput, View, type ViewStyle, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/lib/theme";
 
 export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
@@ -180,6 +181,24 @@ export function useWide(): boolean {
  */
 export function useSplit(): boolean {
   return useWindowDimensions().width >= 840;
+}
+
+/** Clear space kept around the iPhone Duo's fold: panes stop HINGE / 2 short of it on each side. */
+export const HINGE = 32;
+
+/**
+ * Where the unfolded iPhone Duo's inner display (951 x 669pt) folds; null on every other screen.
+ * `x`: a vertical fold (held like a book), in the root stack's content coordinates (it pads by the side insets).
+ * `below`: a horizontal fold (held like a laptop), as the height from the fold to the bottom of the screen.
+ * UIKit's hinge API (UIHinge.h / UIHingeInteraction.h, iOS 27.1) reports the hinge's status and angle but not
+ * where the fold is, so this uses the display's midpoint across its long side, flat or half-open alike.
+ */
+export function useFold(): { x: number; below?: undefined } | { below: number; x?: undefined } | null {
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const [long, short] = [Math.round(Math.max(width, height)), Math.round(Math.min(width, height))];
+  if (long !== 951 || short !== 669) return null;
+  return width > height ? { x: width / 2 - insets.left } : { below: height / 2 };
 }
 
 const inputStyles = StyleSheet.create({

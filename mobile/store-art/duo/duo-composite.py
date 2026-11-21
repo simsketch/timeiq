@@ -129,7 +129,9 @@ def land(cap):
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     jobs = {f"land-{c}": (land, f"{c}-land") for c in ["01_agenda", "02_assistant", "03_availability", "04_calendars", "05_event_types", "06_import"]}
-    jobs.update({"book-03_availability": (book, "03_availability-land"), "laptop-02_assistant": (laptop, "02_assistant-port")})
+    # The app splits its panes at the fold (useFold), so these read cleanly bent like a book.
+    jobs.update({f"book-{c}": (book, f"{c}-land") for c in ["01_agenda", "02_assistant", "03_availability"]})
+    # laptop() needs an inner-portrait capture (DeviceHub's open-portrait posture): jobs["laptop-02_assistant"] = (laptop, "02_assistant-port")
     for name, (fn, cap) in jobs.items():
         fn(cap).save(os.path.join(OUT, f"{name}.png"))
         print("framed", name)

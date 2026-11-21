@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { Button, Card, Label, Notice, readable, useSplit } from "@/components/ui";
+import { Button, Card, Label, Notice, readable, useFold, useSplit } from "@/components/ui";
 import { ConnectCalendar, type Provider, useCalendarConnect } from "@/components/connect-calendar";
 import { WeekCalendar, bookingItems, syncedItems } from "@/components/week-calendar";
 import { type Booking, type CachedEvent, type CalendarSource, type EventType, useApi } from "@/lib/api";
@@ -39,6 +39,8 @@ export default function Calendars() {
   const [newLink, setNewLink] = useState("");
   const router = useRouter();
   const wide = useSplit();
+  // On an unfolded Duo the side pane ends exactly at the fold.
+  const fold = useFold();
   const me = useMe();
   const zone = me?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   // What the synced calendars hold, on a read-only calendar under the list.
@@ -175,7 +177,7 @@ export default function Calendars() {
 
   const controls = (
     <ScrollView
-      style={wide && [styles.side, { borderColor: t.border }]}
+      style={wide && [styles.side, { borderColor: t.border }, fold?.x ? { width: fold.x } : null]}
       contentContainerStyle={styles.page}
       keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={syncing === "all"} onRefresh={() => sync("all")} />}

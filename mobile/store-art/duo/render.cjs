@@ -15,8 +15,8 @@ const OUT = path.join(ART, '..', 'fastlane', 'screenshots', 'en-US');
 const BASE = 'http://127.0.0.1:8766/duo/duo.html';
 // [file name, shots.tsv id, posture, framed device]; landscape 2853x2007, laptop 2007x2853 (App Store Connect Duo sizes).
 const SHOTS = [
-  ['duo-01-calendars', '01_calendars', 'land', 'land-01_agenda'],
-  ['duo-02-chat', '02_chat', 'laptop', 'laptop-02_assistant'],
+  ['duo-01-calendars', '01_calendars', 'book', 'book-01_agenda'],
+  ['duo-02-chat', '02_chat', 'book', 'book-02_assistant'],
   ['duo-03-import', '06_import', 'land', 'land-06_import'],
   ['duo-04-agent', '03_agent', 'land', 'land-04_calendars'],
   ['duo-05-share', '04_share', 'book', 'book-03_availability'],

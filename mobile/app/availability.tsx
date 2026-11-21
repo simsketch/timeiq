@@ -2,7 +2,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { ShareAvailability } from "@/components/share-availability";
-import { Button, Card, Notice, readable, useSplit } from "@/components/ui";
+import { Button, Card, Notice, readable, useFold, useSplit } from "@/components/ui";
 import { type AvailabilityRule, useApi } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { useMe } from "@/lib/use-me";
@@ -25,6 +25,8 @@ const label = (hms: string) =>
 export default function Availability() {
   const t = useTheme();
   const wide = useSplit();
+  // On an unfolded Duo the side pane ends exactly at the fold.
+  const fold = useFold();
   const api = useApi();
   const me = useMe();
   const [rules, setRules] = useState<AvailabilityRule[] | null>(null);
@@ -85,7 +87,7 @@ export default function Availability() {
 
   // Wide windows: the week on the left, the share-your-times panel open on the right.
   const hours = (
-    <ScrollView style={wide && [styles.side, { borderColor: t.border }]} contentContainerStyle={styles.page}>
+    <ScrollView style={wide && [styles.side, { borderColor: t.border }, fold?.x ? { width: fold.x } : null]} contentContainerStyle={styles.page}>
       <Text style={{ color: t.muted, fontSize: 15, lineHeight: 21 }}>
         The hours people can book you, in {(me?.timezone ?? "your time zone").replace(/_/g, " ")}. Busy times on your calendars are left out automatically.
       </Text>
