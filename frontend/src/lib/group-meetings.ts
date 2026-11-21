@@ -73,32 +73,32 @@ export function viewerZone(): string {
   }
 }
 
-export function timeLabel(iso: string, zone: string): string {
-  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: zone })
-    .format(new Date(iso))
-    .replace(":00", "");
+export function timeLabel(iso: string, zone: string, locale = "en"): string {
+  const label = new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit", timeZone: zone }).format(new Date(iso));
+  // "9 AM" reads well in English; elsewhere a bare "9" would be ambiguous.
+  return locale.startsWith("en") ? label.replace(":00", "") : label;
 }
 
-export function dayLabel(iso: string, zone: string): string {
-  return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: zone }).format(
+export function dayLabel(iso: string, zone: string, locale = "en"): string {
+  return new Intl.DateTimeFormat(locale, { weekday: "short", month: "short", day: "numeric", timeZone: zone }).format(
     new Date(iso)
   );
 }
 
-export function whenLabel(iso: string, minutes: number, zone: string): string {
+export function whenLabel(iso: string, minutes: number, zone: string, locale = "en"): string {
   const end = new Date(new Date(iso).getTime() + minutes * 60_000).toISOString();
   const abbr =
-    new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "short" })
+    new Intl.DateTimeFormat(locale, { timeZone: zone, timeZoneName: "short" })
       .formatToParts(new Date(iso))
       .find((p) => p.type === "timeZoneName")?.value ?? "";
-  return `${dayLabel(iso, zone)}, ${timeLabel(iso, zone)}–${timeLabel(end, zone)} ${abbr}`;
+  return `${dayLabel(iso, zone, locale)}, ${timeLabel(iso, zone, locale)}–${timeLabel(end, zone, locale)} ${abbr}`;
 }
 
 /** Slots grouped by calendar day in the given zone, in time order. */
-export function byDay<T extends { start: string }>(slots: T[], zone: string): { day: string; slots: T[] }[] {
+export function byDay<T extends { start: string }>(slots: T[], zone: string, locale = "en"): { day: string; slots: T[] }[] {
   const groups = new Map<string, T[]>();
   for (const s of [...slots].sort((a, b) => a.start.localeCompare(b.start))) {
-    const key = dayLabel(s.start, zone);
+    const key = dayLabel(s.start, zone, locale);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(s);
   }

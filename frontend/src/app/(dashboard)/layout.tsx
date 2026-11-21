@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { ClerkProvider, UserButton } from "@clerk/nextjs";
+import { UserButton } from "@clerk/nextjs";
+import { LocalizedClerkProvider } from "@/i18n/clerk-provider";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { SubscriptionGate } from "@/components/billing/subscription-gate";
@@ -20,7 +21,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <ClerkProvider>
+    <LocalizedClerkProvider>
       <div className="relative min-h-screen md:h-screen md:flex md:overflow-hidden">
         <div className="aurora-bg aurora-bg-soft" aria-hidden />
         <div className="grain" aria-hidden />
@@ -47,6 +48,6 @@ export default async function DashboardLayout({
           </div>
         </main>
       </div>
-    </ClerkProvider>
+    </LocalizedClerkProvider>
   );
 }

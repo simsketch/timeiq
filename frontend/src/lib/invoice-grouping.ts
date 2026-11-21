@@ -137,9 +137,9 @@ export function dayOfWeek(weekStart: string, i: number): string {
 }
 
 /** Grid cell label: "Oct 1" on the 1st or a row's first day, otherwise "2". */
-export function gridDayLabel(iso: string, firstInRow: boolean): string {
+export function gridDayLabel(iso: string, firstInRow: boolean, locale = "en"): string {
   const d = parseDay(iso);
   return d.getDate() === 1 || firstInRow
-    ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    ? d.toLocaleDateString(locale, { month: "short", day: "numeric" })
     : String(d.getDate());
 }

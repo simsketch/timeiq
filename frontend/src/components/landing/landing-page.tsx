@@ -16,6 +16,7 @@ import {
   Phone,
 } from "lucide-react";
 import { LogoIcon } from "@/components/logo";
+import { LanguagePicker } from "@/components/language-picker";
 import { AppStoreBadge } from "@/components/app-store-badge";
 import { PublicPricingCards } from "@/components/billing/pricing-card";
 import { HeaderAuthLinks } from "@/components/landing/header-auth-links";
@@ -696,6 +697,7 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
                 <Phone className="h-3.5 w-3.5" />
                 561.503.9444
               </a>
+              <LanguagePicker />
             </div>
           </div>
         </div>

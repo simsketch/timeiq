@@ -1,4 +1,4 @@
-import { addDays, format, isSameDay, startOfDay } from "date-fns";
+import { addDays, isSameDay, startOfDay } from "date-fns";
 
 /** How far ahead guests can book. The API rejects anything later. */
 export const BOOKING_HORIZON_DAYS = 90;
@@ -44,7 +44,7 @@ export function lastBookableDate(): Date {
  * follow the host's calendar, so for guests far from the host some times land
  * on the day before or after; those carry their own guest-local date.
  */
-export function slotOptions(slots: { start: string }[], pickedDate: Date): SlotOption[] {
+export function slotOptions(slots: { start: string }[], pickedDate: Date, locale = "en"): SlotOption[] {
   const ordered = [...slots].sort(
     (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
   );
@@ -52,17 +52,17 @@ export function slotOptions(slots: { start: string }[], pickedDate: Date): SlotO
     const start = new Date(slot.start);
     return {
       value: slot.start,
-      label: format(start, "h:mm a"),
-      note: isSameDay(start, pickedDate) ? undefined : format(start, "EEE, MMM d"),
+      label: start.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
+      note: isSameDay(start, pickedDate) ? undefined : start.toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" }),
     };
   });
 }
 
 /** "Monday, November 3, 2026" and "9:00 AM" for a slot, in the guest's timezone. */
-export function describeSlot(iso: string) {
+export function describeSlot(iso: string, locale = "en") {
   const start = new Date(iso);
   return {
-    date: format(start, "EEEE, MMMM d, yyyy"),
-    time: format(start, "h:mm a"),
+    date: start.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
+    time: start.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
   };
 }

@@ -220,7 +220,7 @@ export function ImportDialog({ clients, defaultStart, defaultEnd, onImported }: 
                   onChange={(e) => update(i, { checked: e.target.checked })}
                   className="h-4 w-4"
                 />
-                <span className="text-sm">{fmtDate(r.entry_date, "MMM d")}</span>
+                <span className="text-sm">{fmtDate(r.entry_date, undefined, { month: "short", day: "numeric" })}</span>
                 <Input value={r.description} onChange={(e) => update(i, { description: e.target.value })} />
                 <Input
                   type="number"

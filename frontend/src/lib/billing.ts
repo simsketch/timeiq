@@ -70,8 +70,8 @@ export async function openPortal(token: string | null): Promise<string> {
   return url;
 }
 
-export function fmtCents(cents: number, currency = "USD"): string {
-  return new Intl.NumberFormat("en-US", {
+export function fmtCents(cents: number, currency = "USD", locale = "en"): string {
+  return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
     minimumFractionDigits: cents % 100 === 0 ? 0 : 2,

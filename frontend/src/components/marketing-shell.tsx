@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { LogoIcon } from "@/components/logo";
 import { Button } from "@/components/ui/button";
+import { LanguagePicker } from "@/components/language-picker";
 
 /** Header, footer and background shared by the tools and blog pages. */
 export function MarketingShell({ children }: { children: React.ReactNode }) {
@@ -34,6 +35,7 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
             <Link href="/mcp" className="hover:text-foreground">AI assistants</Link>
             <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
             <Link href="/terms" className="hover:text-foreground">Terms</Link>
+            <LanguagePicker />
           </div>
         </div>
       </footer>

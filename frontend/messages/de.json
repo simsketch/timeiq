@@ -1,0 +1,32 @@
+{
+  "common": {
+    "language": "Sprache",
+    "save": "Speichern",
+    "saving": "Wird gespeichert…",
+    "saved": "Gespeichert",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "close": "Schließen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "continue": "Weiter",
+    "confirm": "Bestätigen",
+    "done": "Fertig",
+    "add": "Hinzufügen",
+    "remove": "Entfernen",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "loading": "Wird geladen…",
+    "retry": "Erneut versuchen",
+    "error": "Etwas ist schiefgelaufen",
+    "optional": "Optional",
+    "search": "Suchen",
+    "yes": "Ja",
+    "no": "Nein",
+    "today": "Heute",
+    "signIn": "Anmelden",
+    "signUp": "Registrieren",
+    "signOut": "Abmelden"
+  }
+}
