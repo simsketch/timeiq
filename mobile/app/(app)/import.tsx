@@ -2,7 +2,7 @@ import * as Clipboard from "expo-clipboard";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { Button, Card, Label, Notice, readable, useWide } from "@/components/ui";
+import { Button, Card, Label, Notice, readable, useSplit } from "@/components/ui";
 import { confirmAiConsent } from "@/lib/ai-consent";
 import { useApi } from "@/lib/api";
 import { SCREENSHOT_MODE } from "@/lib/config";
@@ -51,7 +51,7 @@ export default function Import() {
   const zone = me?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const [shared, clearShared] = useSharedText();
   // Wide windows: paste on the left, the forwarding address and past imports on the right.
-  const wide = useWide();
+  const wide = useSplit();
   const [text, setText] = useState("");
   const [address, setAddress] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -131,7 +131,8 @@ export default function Import() {
   return (
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={[styles.page, wide && styles.pageWide]} keyboardShouldPersistTaps="handled">
-        <View style={wide ? styles.cols : styles.stack}>
+        {/* Keyed so a live switch (rotating or unfolding) lays the columns out from scratch; the paste box keeps its text in state. */}
+        <View key={wide ? "cols" : "stack"} style={wide ? styles.cols : styles.stack}>
         <View style={wide ? styles.col : styles.stack}>
         <Text style={[styles.lead, { color: t.muted }]}>
           Paste a schedule (a team calendar, class times, an email) and the dates land on your TimeIQ calendar. You can also share text to TimeIQ from any app.

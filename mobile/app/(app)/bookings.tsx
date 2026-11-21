@@ -3,7 +3,7 @@ import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { BookingDetail } from "@/components/booking-detail";
-import { Notice, Segmented, readable, useWide } from "@/components/ui";
+import { Notice, Segmented, readable, useSplit } from "@/components/ui";
 import { type Booking, type EventType, useApi } from "@/lib/api";
 import { colorFor, useTheme } from "@/lib/theme";
 import { dayKey, fmt, timeOf } from "@/lib/time";
@@ -19,7 +19,7 @@ export default function Bookings() {
   const zone = me?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const [tab, setTab] = useState<Tab>("upcoming");
   // Wide windows show the picked booking (or the first one) beside the list.
-  const wide = useWide();
+  const wide = useSplit();
   const [picked, setPicked] = useState<string | null>(null);
   const [all, setAll] = useState<Booking[] | null>(null);
   // When `all` was fetched; "ended" is judged against it (render must stay pure).

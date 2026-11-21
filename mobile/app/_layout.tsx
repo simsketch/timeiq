@@ -6,6 +6,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { LogBox } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CLERK_PUBLISHABLE_KEY, SCREENSHOT_MODE } from "@/lib/config";
 import { useTheme } from "@/lib/theme";
 
@@ -17,6 +18,8 @@ function Routes() {
   const isLoaded = SCREENSHOT_MODE || auth.isLoaded;
   const isSignedIn = SCREENSHOT_MODE || auth.isSignedIn;
   const t = useTheme();
+  // Side insets are zero on phones and iPad; an unfolded iPhone Duo in landscape puts the status bar on the right.
+  const insets = useSafeAreaInsets();
   useEffect(() => {
     if (isLoaded) SplashScreen.hideAsync().catch(() => undefined);
   }, [isLoaded]);
@@ -29,7 +32,7 @@ function Routes() {
           headerStyle: { backgroundColor: t.bg },
           headerTintColor: t.primary,
           headerTitleStyle: { color: t.text },
-          contentStyle: { backgroundColor: t.bg },
+          contentStyle: { backgroundColor: t.bg, paddingLeft: insets.left, paddingRight: insets.right },
           headerShadowVisible: false,
         }}
       >

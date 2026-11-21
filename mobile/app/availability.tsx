@@ -2,7 +2,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { ShareAvailability } from "@/components/share-availability";
-import { Button, Card, Notice, readable, useWide } from "@/components/ui";
+import { Button, Card, Notice, readable, useSplit } from "@/components/ui";
 import { type AvailabilityRule, useApi } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { useMe } from "@/lib/use-me";
@@ -24,7 +24,7 @@ const label = (hms: string) =>
 
 export default function Availability() {
   const t = useTheme();
-  const wide = useWide();
+  const wide = useSplit();
   const api = useApi();
   const me = useMe();
   const [rules, setRules] = useState<AvailabilityRule[] | null>(null);
@@ -155,9 +155,9 @@ function TimeChip({ text, onPress, active }: { text: string; onPress: () => void
 const styles = StyleSheet.create({
   page: { padding: 16, gap: 14, paddingBottom: 48, ...readable },
   split: { flex: 1, flexDirection: "row" },
-  side: { width: 420, flexGrow: 0, borderRightWidth: StyleSheet.hairlineWidth },
+  side: { width: 420, flexGrow: 0, flexShrink: 0, borderRightWidth: StyleSheet.hairlineWidth },
   day: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 56 },
-  dayName: { width: 40, fontSize: 16, fontWeight: "600" },
+  dayName: { minWidth: 40, fontSize: 16, fontWeight: "600" },
   times: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6 },
   chip: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
 });

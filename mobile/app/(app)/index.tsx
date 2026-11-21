@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { SetupChecklist } from "@/components/setup-checklist";
 import { ShareAvailability } from "@/components/share-availability";
 import { TipsPrompt } from "@/components/tips-prompt";
-import { Notice, useWide } from "@/components/ui";
+import { Notice, useSplit } from "@/components/ui";
 import { type CalItem, WeekCalendar, bookingItems, confirmMove, syncedItems } from "@/components/week-calendar";
 import { ApiError, type BillingStatus, type Booking, type CachedEvent, type EventType, useApi } from "@/lib/api";
 import { SITE_URL } from "@/lib/config";
@@ -31,8 +31,8 @@ export default function Agenda() {
   const router = useRouter();
   const me = useMe();
   const zone = me?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-  // Wide windows (iPad, an unfolded iPhone Duo) show the list and the calendar side by side.
-  const wide = useWide();
+  // Wide windows (iPad, an unfolded Duo in landscape) show the list and the calendar side by side.
+  const wide = useSplit();
   const [selected, setSelected] = useState(() => new Date());
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [events, setEvents] = useState<CachedEvent[]>([]);
