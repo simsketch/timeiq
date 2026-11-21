@@ -1,3 +1,5 @@
+TimeIQ fonctionne désormais sur iPad et iPhone Duo, avec des mises en page pensées pour les grands écrans. Sur le Duo, rien ne tombe sur le pli.
+
 Parlez à Ask TimeIQ : touchez le nouveau bouton micro et dites ce qu'il vous faut, par exemple « trouve une heure avec Sam la semaine prochaine ».
 
-Des agendas plus fluides et de petites améliorations partout.
+Des calendriers plus fluides et de petites corrections.

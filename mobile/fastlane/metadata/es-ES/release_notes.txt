@@ -1,3 +1,5 @@
-Habla con Ask TimeIQ: toca el nuevo botón del micrófono y di lo que necesitas, por ejemplo "busca una hora con Sam la próxima semana".
+TimeIQ ya funciona en iPad y iPhone Duo, con diseños pensados para pantallas más grandes. En el Duo, nada queda sobre el pliegue.
 
-Calendarios más fluidos y pequeñas mejoras en toda la app.
+Habla con Ask TimeIQ: toca el nuevo botón del micrófono y di lo que necesitas, como "busca una hora con Sam la próxima semana".
+
+Calendarios más fluidos y pequeñas mejoras.

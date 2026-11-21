@@ -1,3 +1,5 @@
+TimeIQ now runs on iPad and iPhone Duo, with layouts made for the bigger screens. On the Duo, nothing sits on the fold.
+
 Talk to Ask TimeIQ: tap the new microphone button and say what you need, like "find an hour with Sam next week."
 
 Smoother calendars and small fixes throughout.
