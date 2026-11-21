@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, TextInput, View, type ViewStyle } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, TextInput, View, type ViewStyle, useWindowDimensions } from "react-native";
 import { useTheme } from "@/lib/theme";
 
 export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
@@ -160,6 +160,18 @@ export function ToggleRow({ title, detail, value, onChange, disabled }: { title:
       <Switch value={value} onValueChange={onChange} disabled={disabled} trackColor={{ true: t.primary }} accessibilityLabel={title} />
     </View>
   );
+}
+
+/** Caps content at a readable width and centres it (iPad); phones are narrower, so it changes nothing there. */
+export const readable = { width: "100%", maxWidth: 720, alignSelf: "center" } as const;
+
+/**
+ * True when the window is wide enough for side-by-side panes: iPad, and the inner display of an
+ * unfolded iPhone Duo (669pt portrait). Phones, the Duo's cover display included, stay under 640.
+ * Read from the live window, so rotating, folding and Split View re-lay out at once.
+ */
+export function useWide(): boolean {
+  return useWindowDimensions().width >= 640;
 }
 
 const inputStyles = StyleSheet.create({

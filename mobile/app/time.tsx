@@ -15,7 +15,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Button, Card, Label, Notice } from "@/components/ui";
+import { Button, Card, Label, Notice, readable } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import {
   type Client,
@@ -771,7 +771,7 @@ function DayField({ value, onChange }: { value: string; onChange: (iso: string) 
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 16, gap: 12, paddingBottom: 48 },
+  page: { padding: 16, gap: 12, paddingBottom: 48, ...readable },
   input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
   pill: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
   weekNav: { flexDirection: "row", alignItems: "center", gap: 8 },

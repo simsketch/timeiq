@@ -2,7 +2,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { ShareAvailability } from "@/components/share-availability";
-import { Button, Card, Notice } from "@/components/ui";
+import { Button, Card, Notice, readable, useWide } from "@/components/ui";
 import { type AvailabilityRule, useApi } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { useMe } from "@/lib/use-me";
@@ -24,6 +24,7 @@ const label = (hms: string) =>
 
 export default function Availability() {
   const t = useTheme();
+  const wide = useWide();
   const api = useApi();
   const me = useMe();
   const [rules, setRules] = useState<AvailabilityRule[] | null>(null);
@@ -47,6 +48,7 @@ export default function Availability() {
   }, [api]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount; state is set after the request
     load();
   }, [load]);
 
@@ -81,8 +83,9 @@ export default function Availability() {
 
   const editingRule = editing && rules.find((r) => r.day_of_week === editing.day);
 
-  return (
-    <ScrollView contentContainerStyle={styles.page}>
+  // Wide windows: the week on the left, the share-your-times panel open on the right.
+  const hours = (
+    <ScrollView style={wide && [styles.side, { borderColor: t.border }]} contentContainerStyle={styles.page}>
       <Text style={{ color: t.muted, fontSize: 15, lineHeight: 21 }}>
         The hours people can book you, in {(me?.timezone ?? "your time zone").replace(/_/g, " ")}. Busy times on your calendars are left out automatically.
       </Text>
@@ -124,8 +127,19 @@ export default function Availability() {
       )}
 
       <Button title={dirty ? "Save hours" : "Saved"} onPress={save} busy={saving} disabled={!dirty} />
-      <ShareAvailability />
+      {!wide && <ShareAvailability />}
     </ScrollView>
+  );
+
+  return wide ? (
+    <View style={styles.split}>
+      {hours}
+      <ScrollView contentContainerStyle={styles.page}>
+        <ShareAvailability inline />
+      </ScrollView>
+    </View>
+  ) : (
+    hours
   );
 }
 
@@ -139,7 +153,9 @@ function TimeChip({ text, onPress, active }: { text: string; onPress: () => void
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 16, gap: 14, paddingBottom: 48 },
+  page: { padding: 16, gap: 14, paddingBottom: 48, ...readable },
+  split: { flex: 1, flexDirection: "row" },
+  side: { width: 420, flexGrow: 0, borderRightWidth: StyleSheet.hairlineWidth },
   day: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 56 },
   dayName: { width: 40, fontSize: 16, fontWeight: "600" },
   times: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6 },

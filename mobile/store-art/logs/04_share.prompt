@@ -1,0 +1,19 @@
+Create one tall iPhone App Store screenshot, portrait, aspect ratio exactly 1320:2868.
+
+Image 1 is a LAYOUT AND STYLE REFERENCE from a different app. Copy its composition and polish only: logo top-left, a small rounded tag pill, a huge bold sans-serif headline where one word is in a handwritten script on a painted brush stroke, a short subtitle, an outlined App Store pill, a tilted realistic iPhone 17 Pro Max in the lower two thirds, floating UI cards overlapping the phone edge with a short handwritten arrow note, soft realistic shadows and depth. Do not copy its colors, logo, text or screen.
+
+Image 2 is the REAL app screen. Place it inside the phone exactly as given: same layout, text, numbers and colors. Do not redraw, invent or translate any UI.
+
+Image 3 is the TimeIQ wordmark. Use it as the logo in the top-left, unchanged, cream on the dark background.
+
+Brand: background is a deep graphite gradient (#141414 to #2A2622) with a subtle warm tangerine glow behind the phone. Headline and subtitle in warm cream #F4EFE3. The single accent color is tangerine #F2690D: use it for the brush stroke under the script word and for small accents. No blue, purple or violet anywhere.
+
+Text, spelled exactly:
+- Tag pill (tangerine fill, graphite text, uppercase): "ONE TAP"
+- Headline: "“When are you free?”" followed by the word "Answered." in tangerine-underlined handwritten script on the brush stroke
+- Subtitle: "Send your open times in one tap, in any time zone."
+- App Store pill: Apple logo, "APP STORE" over "PRODUCTIVITY"
+
+Props: From the phone, a message bubble flies out reading "Tue 9:30 AM – 3:00 PM · Wed 9:30 AM – 3:00 PM" toward two small round world-clock faces labeled "New York" and "London" floating at the right, joined by a thin dotted arc over a faint globe. A tiny tap-ripple sits on the phone's Share availability button. A handwritten arrow note reads "sent!".. Any text on props must be spelled correctly and stay short. No other text, no watermarks, no extra logos.
+
+Save the final image file as ./raw/04_share.png and print the path. Create no other files.

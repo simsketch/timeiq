@@ -7,7 +7,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import * as WebBrowser from "expo-web-browser";
 import { Alert, ScrollView, Share, StyleSheet, Text, View } from "react-native";
-import { Button, Card, Label, Row } from "@/components/ui";
+import { Button, Card, Label, Row, readable } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { SITE_URL } from "@/lib/config";
 import { pushToken } from "@/lib/push";
@@ -124,7 +124,7 @@ export default function Account() {
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 16, gap: 14, paddingBottom: 48 },
+  page: { padding: 16, gap: 14, paddingBottom: 48, ...readable },
   profile: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 8 },
   avatar: { width: 64, height: 64, borderRadius: 32 },
   name: { fontSize: 22, fontWeight: "700" },

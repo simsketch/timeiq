@@ -2,9 +2,11 @@ import * as Clipboard from "expo-clipboard";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { Button, Card, Label, Notice } from "@/components/ui";
+import { Button, Card, Label, Notice, readable, useWide } from "@/components/ui";
 import { confirmAiConsent } from "@/lib/ai-consent";
 import { useApi } from "@/lib/api";
+import { SCREENSHOT_MODE } from "@/lib/config";
+import { screenshotImport } from "@/lib/screenshot-fixtures";
 import { useSharedText } from "@/lib/shared-text";
 import { useTheme } from "@/lib/theme";
 import { fmt, timeOf } from "@/lib/time";
@@ -48,16 +50,20 @@ export default function Import() {
   const me = useMe();
   const zone = me?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const [shared, clearShared] = useSharedText();
+  // Wide windows: paste on the left, the forwarding address and past imports on the right.
+  const wide = useWide();
   const [text, setText] = useState("");
   const [address, setAddress] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<ImportResult | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(SCREENSHOT_MODE ? screenshotImport : null);
   const [error, setError] = useState<string | null>(null);
   const [undone, setUndone] = useState(false);
   const [history, setHistory] = useState<PastImport[]>([]);
 
   useEffect(() => {
     if (!shared) return;
+    // Text shared from another app arrives from outside React, so it is copied in here once.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setText(shared);
     setResult(null);
     clearShared();
@@ -124,7 +130,9 @@ export default function Import() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.page, wide && styles.pageWide]} keyboardShouldPersistTaps="handled">
+        <View style={wide ? styles.cols : styles.stack}>
+        <View style={wide ? styles.col : styles.stack}>
         <Text style={[styles.lead, { color: t.muted }]}>
           Paste a schedule (a team calendar, class times, an email) and the dates land on your TimeIQ calendar. You can also share text to TimeIQ from any app.
         </Text>
@@ -165,6 +173,8 @@ export default function Import() {
             {!undone && result.events.length > 0 && <Button title="Undo" kind="secondary" onPress={undo} busy={busy} />}
           </Card>
         )}
+        </View>
+        <View style={wide ? styles.col : styles.stack}>
         {address && (
           <Card>
             <Label>Or forward it</Label>
@@ -221,13 +231,19 @@ export default function Import() {
             </Card>
           </View>
         )}
+        </View>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 16, gap: 14, paddingBottom: 48 },
+  page: { padding: 16, gap: 14, paddingBottom: 48, ...readable },
+  pageWide: { maxWidth: 1160, padding: 24 },
+  stack: { gap: 14 },
+  cols: { flexDirection: "row", alignItems: "flex-start", gap: 24 },
+  col: { flex: 1, gap: 14 },
   lead: { fontSize: 15, lineHeight: 21 },
   box: { minHeight: 160, borderWidth: 1, borderRadius: 14, padding: 14, fontSize: 16, textAlignVertical: "top" },
   row: { flexDirection: "row", gap: 10 },

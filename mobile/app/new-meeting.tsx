@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { DateField } from "@/components/date-time-field";
-import { Button, Chips, Input, Label, ToggleRow } from "@/components/ui";
+import { Button, Chips, Input, Label, ToggleRow, readable } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { type MeetingDetail, splitEmails } from "@/lib/group-meetings";
 import { useTheme } from "@/lib/theme";
@@ -95,7 +95,7 @@ export default function NewMeeting() {
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 16, gap: 18, paddingBottom: 48 },
+  page: { padding: 16, gap: 18, paddingBottom: 48, ...readable },
   hint: { fontSize: 13, lineHeight: 18, marginTop: 6 },
   dates: { flexDirection: "row", gap: 12 },
 });

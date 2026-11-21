@@ -3,7 +3,7 @@ import * as Clipboard from "expo-clipboard";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Button, Card, Notice } from "@/components/ui";
+import { Button, Card, Notice, readable } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { type MeetingSummary, whenLabel } from "@/lib/group-meetings";
 import { useTheme } from "@/lib/theme";
@@ -123,7 +123,7 @@ export default function Meetings() {
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 16, gap: 12, paddingBottom: 48 },
+  page: { padding: 16, gap: 12, paddingBottom: 48, ...readable },
   item: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 14 },
   badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   copy: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 36 },
