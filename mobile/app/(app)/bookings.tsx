@@ -95,7 +95,7 @@ export default function Bookings() {
       />
       {wide ? (
         <View style={styles.split}>
-          <View style={[styles.side, { borderColor: t.border }, fold?.x ? { width: fold.x } : null]}>{list()}</View>
+          <View style={[styles.side, { borderColor: t.border }, fold?.x ? { width: fold.x, flexShrink: 0 } : null]}>{list()}</View>
           <View style={{ flex: 1 }}>
             {selectedId ? <BookingDetail key={selectedId} id={selectedId} onDone={load} /> : null}
           </View>

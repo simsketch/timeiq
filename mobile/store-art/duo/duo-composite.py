@@ -131,7 +131,8 @@ if __name__ == "__main__":
     jobs = {f"land-{c}": (land, f"{c}-land") for c in ["01_agenda", "02_assistant", "03_availability", "04_calendars", "05_event_types", "06_import"]}
     # The app splits its panes at the fold (useFold), so these read cleanly bent like a book.
     jobs.update({f"book-{c}": (book, f"{c}-land") for c in ["01_agenda", "02_assistant", "03_availability"]})
-    # laptop() needs an inner-portrait capture (DeviceHub's open-portrait posture): jobs["laptop-02_assistant"] = (laptop, "02_assistant-port")
+    # Ask TimeIQ held like a laptop: messages above the fold, starters and composer below it.
+    jobs["laptop-02_assistant"] = (laptop, "02_assistant-port")
     for name, (fn, cap) in jobs.items():
         fn(cap).save(os.path.join(OUT, f"{name}.png"))
         print("framed", name)

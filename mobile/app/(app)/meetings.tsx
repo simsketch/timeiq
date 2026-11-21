@@ -2,8 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Button, Card, Notice, readable } from "@/components/ui";
+import { ActivityIndicator, Platform, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Button, Card, FoldSplit, Notice, readable } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { type MeetingSummary, whenLabel } from "@/lib/group-meetings";
 import { useTheme } from "@/lib/theme";
@@ -57,10 +57,10 @@ export default function Meetings() {
           ),
         }}
       />
-      <ScrollView
+      <FoldSplit
         contentContainerStyle={styles.page}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
-      >
+        first={<>
         <Text style={{ color: t.muted, fontSize: 15, lineHeight: 21 }}>
           Find a time with several people. Everyone gets a link to tick the times that work, and you book the best one.
         </Text>
@@ -85,7 +85,8 @@ export default function Meetings() {
             </Pressable>
           </Card>
         )}
-
+        </>}
+        second={<>
         {error && <Notice tone="error">{error}</Notice>}
         {!meetings && !error && <ActivityIndicator style={{ marginTop: 24 }} />}
         {meetings?.length === 0 && (
@@ -117,7 +118,8 @@ export default function Meetings() {
         })}
 
         {meetings && <Button title="Find a time" icon={<Ionicons name="people-outline" size={19} color={t.primaryText} />} onPress={() => router.push("/new-meeting")} />}
-      </ScrollView>
+        </>}
+      />
     </>
   );
 }

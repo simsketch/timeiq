@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, TextInput, View, type ViewStyle, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, type ScrollViewProps, StyleSheet, Switch, Text, TextInput, View, type ViewStyle, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/lib/theme";
 
@@ -199,6 +199,30 @@ export function useFold(): { x: number; below?: undefined } | { below: number; x
   const [long, short] = [Math.round(Math.max(width, height)), Math.round(Math.min(width, height))];
   if (long !== 951 || short !== 669) return null;
   return width > height ? { x: width / 2 - insets.left } : { below: height / 2 };
+}
+
+/**
+ * A scrolling page whose content splits into two panes at an unfolded Duo's fold (held like a book).
+ * Everywhere else it is one ScrollView with `first` then `second`, exactly as before.
+ */
+export function FoldSplit({ first, second, ...props }: ScrollViewProps & { first: React.ReactNode; second: React.ReactNode }) {
+  const t = useTheme();
+  const fold = useFold();
+  if (!fold?.x)
+    return (
+      <ScrollView {...props}>
+        {first}
+        {second}
+      </ScrollView>
+    );
+  return (
+    <View style={{ flex: 1, flexDirection: "row" }}>
+      <ScrollView {...props} style={{ width: fold.x, flexGrow: 0, flexShrink: 0, borderRightWidth: StyleSheet.hairlineWidth, borderColor: t.border }}>
+        {first}
+      </ScrollView>
+      <ScrollView {...props}>{second}</ScrollView>
+    </View>
+  );
 }
 
 const inputStyles = StyleSheet.create({

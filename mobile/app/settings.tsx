@@ -6,8 +6,8 @@ import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Button, Card, Input, Label, readable, Row, ToggleRow } from "@/components/ui";
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Button, Card, FoldSplit, Input, Label, readable, Row, ToggleRow } from "@/components/ui";
 import { ZonePicker } from "@/components/zone-picker";
 import { type BillingStatus, type Me, useApi } from "@/lib/api";
 import { API_URL, SITE_URL } from "@/lib/config";
@@ -135,7 +135,10 @@ export default function Settings() {
   const scene = me.booking_scene ?? "soft-watches";
 
   return (
-    <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
+    <FoldSplit
+      contentContainerStyle={styles.page}
+      keyboardShouldPersistTaps="handled"
+      first={<>
       <Label>Profile</Label>
       <Card style={{ gap: 14 }}>
         <View>
@@ -205,7 +208,8 @@ export default function Settings() {
           );
         })}
       </View>
-
+      </>}
+      second={<>
       <Label>Calendar subscription</Label>
       <Card style={{ gap: 12 }}>
         <Text style={{ color: t.muted, fontSize: 14, lineHeight: 20 }}>
@@ -281,7 +285,8 @@ export default function Settings() {
           if (zone !== me.timezone) await patch({ timezone: zone }, "Time zone not changed");
         }}
       />
-    </ScrollView>
+      </>}
+    />
   );
 }
 

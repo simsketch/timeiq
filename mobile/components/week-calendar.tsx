@@ -15,6 +15,7 @@ import {
 import { Segmented, useWide } from "@/components/ui";
 import { ZonePicker, zoneLabel } from "@/components/zone-picker";
 import { ApiError, type Booking, type CachedEvent, useApi } from "@/lib/api";
+import { SCREENSHOT_MODE } from "@/lib/config";
 import { colorFor, useTheme } from "@/lib/theme";
 import { dayKey, fmt, timeOf, wallMinutes, wallParts, zoneDayStart, zoneTime } from "@/lib/time";
 
@@ -249,8 +250,10 @@ export function WeekCalendar({
     setOwnDate(d);
     onDateChange?.(d);
   };
-  const [now, setNow] = useState(() => new Date());
+  // Store screenshots pin the now line to the status bar's 9:41.
+  const [now, setNow] = useState(() => (SCREENSHOT_MODE ? zoneTime(new Date(), viewZone, 0, 9 * 60 + 41) : new Date()));
   useEffect(() => {
+    if (SCREENSHOT_MODE) return;
     const timer = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(timer);
   }, []);

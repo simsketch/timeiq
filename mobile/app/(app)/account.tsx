@@ -6,8 +6,8 @@ import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import * as WebBrowser from "expo-web-browser";
-import { Alert, ScrollView, Share, StyleSheet, Text, View } from "react-native";
-import { Button, Card, Label, Row, readable } from "@/components/ui";
+import { Alert, Share, StyleSheet, Text, View } from "react-native";
+import { Button, Card, FoldSplit, Label, Row, readable } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { SITE_URL } from "@/lib/config";
 import { pushToken } from "@/lib/push";
@@ -61,7 +61,9 @@ export default function Account() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.page}>
+    <FoldSplit
+      contentContainerStyle={styles.page}
+      first={<>
       <View style={styles.profile}>
         {user?.imageUrl ? <Image source={{ uri: user.imageUrl }} style={styles.avatar} /> : <Ionicons name="person-circle" size={64} color={t.muted} />}
         <View style={{ flex: 1 }}>
@@ -103,7 +105,8 @@ export default function Account() {
         <Row icon="calendar-outline" title="Calendars" detail="Connect and sync the calendars that block your times" onPress={() => router.push("/calendars")} />
         <Row icon="settings-outline" title="Settings" detail="Profile, time zone, notifications, booking page, billing, AI assistants" onPress={() => router.push("/settings")} />
       </Card>
-
+      </>}
+      second={<>
       {me?.invoicing_enabled && (
         <Card style={{ paddingVertical: 6 }}>
           <Row icon="stopwatch-outline" title="Time" detail="Your timesheet" onPress={() => router.push("/time")} />
@@ -119,7 +122,8 @@ export default function Account() {
 
       <Button title="Sign out" kind="secondary" busy={busy === "out"} onPress={async () => { setBusy("out"); await leave(); setBusy(null); }} />
       <Button title="Delete account" kind="danger" busy={busy === "delete"} onPress={confirmDelete} />
-    </ScrollView>
+      </>}
+    />
   );
 }
 

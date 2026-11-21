@@ -322,7 +322,7 @@ export default function Agenda() {
     <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: t.bg }}>
       {wide ? (
         <View style={styles.split}>
-          <View style={[styles.side, { borderColor: t.border }, fold?.x ? { width: fold.x } : null]}>
+          <View style={[styles.side, { borderColor: t.border }, fold?.x ? { width: fold.x, flexShrink: 0 } : null]}>
             {header}
             {banner}
             {list}

@@ -203,7 +203,7 @@ export default function Assistant() {
       <View style={fold?.x ? styles.split : { flex: 1 }}>
       <ScrollView
         ref={scroll}
-        style={fold?.x ? { width: fold.x, flexGrow: 0, borderRightWidth: StyleSheet.hairlineWidth, borderColor: t.border } : undefined}
+        style={fold?.x ? { width: fold.x, flexGrow: 0, flexShrink: 0, borderRightWidth: StyleSheet.hairlineWidth, borderColor: t.border } : undefined}
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
