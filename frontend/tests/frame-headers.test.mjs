@@ -14,7 +14,7 @@ function loadModule(path, mockRequire = require) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true },
   }).outputText;
   const compiled = { exports: {} };
-  vm.runInNewContext(source, { module: compiled, exports: compiled.exports, require: mockRequire });
+  vm.runInNewContext(source, { module: compiled, exports: compiled.exports, require: mockRequire, process });
   return compiled.exports;
 }
 
