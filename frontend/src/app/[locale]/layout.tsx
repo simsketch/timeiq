@@ -5,8 +5,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { AttributionCapture } from "@/components/attribution-capture";
 import { SiteAnalytics } from "@/components/site-analytics";
 import { ClientMessages } from "@/i18n/client-messages";
-import { getLocale } from "next-intl/server";
-import "./globals.css";
+import { notFound } from "next/navigation";
+import { LOCALES, isLocale } from "@/i18n/locales";
+import "../globals.css";
 
 const SITE = "https://timeiq.app";
 const DESCRIPTION =
@@ -46,13 +47,22 @@ export const metadata: Metadata = {
   },
 };
 
+// Middleware rewrites every page to /<locale>/..., so each locale prerenders and caches separately.
+export function generateStaticParams() {
+  return Object.keys(LOCALES).map((locale) => ({ locale }));
+}
+
 export default async function RootLayout({
   children,
+  params,
 }: Readonly<{
   children: React.ReactNode;
+  params: Promise<{ locale: string }>;
 }>) {
+  const { locale } = await params;
+  if (!isLocale(locale)) notFound();
   return (
-    <html lang={await getLocale()} className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang={locale} className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body className="font-sans antialiased">
         <ClientMessages namespaces={["shell"]}>
           {children}

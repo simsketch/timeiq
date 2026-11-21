@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { useTranslations } from "next-intl";
@@ -99,9 +100,9 @@ export function SubscriptionGate({
               strong: (chunks) => <span className="font-medium text-foreground tabular-nums">{chunks}</span>,
             })}
           </span>
-          <a href="/pricing" className="font-medium text-foreground underline underline-offset-4 hover:no-underline">
+          <Link href="/pricing" className="font-medium text-foreground underline underline-offset-4 hover:no-underline">
             {t("seePlans")}
-          </a>
+          </Link>
         </div>
       )}
       {children}

@@ -167,7 +167,7 @@ test("booking identity prefers a brand logo and falls back to a photo or initial
 
 test("white-label booking metadata uses the host's title and logo instead of TimeIQ branding", async () => {
   for (const enabled of [false, true]) {
-    const { generateMetadata } = load("app/book/[username]/layout.tsx", {
+    const { generateMetadata } = load("app/[locale]/book/[username]/layout.tsx", {
       "@/lib/public-booking-profile": { getPublicBookingProfile: async () => ({ name: "Acme Studio", booking_white_label: enabled, booking_logo: "data:image/png;base64,logo" }) },
       "@/i18n/client-messages": { ClientMessages: ({ children }) => children },
     });
@@ -472,7 +472,7 @@ test("daylight-saving days still align busy events with the wall-clock grid", ()
 test("admin analytics shows counts, refreshes, and keeps private data out of error states", async () => {
   const calls = [];
   let fail = false;
-  const page = harness("app/(dashboard)/admin/page.tsx", "default", {}, {
+  const page = harness("app/[locale]/(dashboard)/admin/page.tsx", "default", {}, {
     effects: true,
     modules: {
       "@clerk/nextjs": { useAuth: () => ({ isLoaded: true, userId: "owner", getToken: async () => "owner-token" }) },
@@ -578,7 +578,7 @@ function visibleText(tree) {
 }
 
 test("signup leads with the AI agent, keeps recognized ad angles, and preserves Clerk routing", async () => {
-  const page = load("app/(auth)/sign-up/[[...sign-up]]/page.tsx", {
+  const page = load("app/[locale]/(auth)/sign-up/[[...sign-up]]/page.tsx", {
     "@clerk/nextjs": { SignUp: "SignUp" },
     "@/components/landing/headlines": load("components/landing/headlines.ts"),
   }).default;
@@ -609,7 +609,7 @@ test("signup leads with the AI agent, keeps recognized ad angles, and preserves 
 });
 
 test("signup header sign-in preserves only an explicit string redirect destination", async () => {
-  const page = load("app/(auth)/sign-up/[[...sign-up]]/page.tsx", {
+  const page = load("app/[locale]/(auth)/sign-up/[[...sign-up]]/page.tsx", {
     "@clerk/nextjs": { SignUp: "SignUp" },
     "@/components/landing/headlines": load("components/landing/headlines.ts"),
   }).default;
