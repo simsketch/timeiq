@@ -174,6 +174,14 @@ export function useWide(): boolean {
   return useWindowDimensions().width >= 640;
 }
 
+/**
+ * True when there is room for a list and a detail side by side (840pt and up): iPad, and an unfolded
+ * iPhone Duo held in landscape. The Duo's inner display in portrait (669pt) keeps a single column.
+ */
+export function useSplit(): boolean {
+  return useWindowDimensions().width >= 840;
+}
+
 const inputStyles = StyleSheet.create({
   input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
   segments: { flexDirection: "row", borderRadius: 11, padding: 3, gap: 3 },
