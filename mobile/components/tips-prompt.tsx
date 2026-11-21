@@ -41,7 +41,7 @@ export function TipsPrompt() {
     <Card style={{ gap: 12 }}>
       <Text style={{ color: t.text, fontSize: 17, fontWeight: "700" }}>Get a quick tip each day for your first week?</Text>
       <Text style={{ color: t.muted, fontSize: 14, lineHeight: 20 }}>
-        We&apos;ll send a few tips about TimeIQ features. Turn them off anytime in Account.
+        We&apos;ll send a few tips about TimeIQ features. Turn them off anytime in Settings.
       </Text>
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
