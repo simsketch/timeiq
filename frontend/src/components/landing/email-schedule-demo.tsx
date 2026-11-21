@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, FileText, Image as ImageIcon, Loader2, Mail, RotateCcw, Send, Undo2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { MiniWeek } from "./mini-week";
 import { DEMO_CALENDARS, MERGE_EVENTS, clock, dayDate, type DemoEvent } from "./demo-week";
 import { useDemoAutoplay } from "./use-demo-autoplay";
@@ -78,6 +79,8 @@ const AUTOPLAY: ({ send: number } | { pick: number } | "undo" | "reset")[] = [
 
 /** Hero demo: send a schedule to TimeIQ and watch it land on the calendar. */
 export function EmailScheduleDemo() {
+  const t = useTranslations("landing.demo");
+  const locale = useLocale();
   const [sampleKey, setSampleKey] = useState(SAMPLES[0].key);
   const [phase, setPhase] = useState<Phase>("ready");
   const [added, setAdded] = useState<Record<string, DemoEvent[]>>({});
@@ -156,18 +159,18 @@ export function EmailScheduleDemo() {
     <div ref={ref} className="glass glass-chroma rounded-[1.75rem] p-5 sm:p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="text-xs font-medium text-muted-foreground">
-          Try it, no sign-up
+          {t("email.tryIt")}
         </div>
         <button
           type="button"
           onClick={reset}
           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          <RotateCcw className="h-3 w-3" /> Reset
+          <RotateCcw className="h-3 w-3" /> {t("reset")}
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-1.5 mb-3" role="radiogroup" aria-label="Sample schedule">
+      <div className="flex flex-wrap gap-1.5 mb-3" role="radiogroup" aria-label={t("email.samples")}>
         {SAMPLES.map((s) => (
           <button
             key={s.key}
@@ -182,7 +185,7 @@ export function EmailScheduleDemo() {
             }`}
           >
             {added[s.key] && <CheckCircle2 className="h-3 w-3" />}
-            {s.chip}
+            {t(`email.${s.key}.chip` as Parameters<typeof t>[0])}
           </button>
         ))}
       </div>
@@ -196,14 +199,14 @@ export function EmailScheduleDemo() {
           } ${phase === "reading" ? "invisible" : ""}`}
         >
           <div className="flex items-center justify-between gap-2 text-[11px] font-mono text-muted-foreground">
-            <span className="truncate">To: agent@timeiq.app</span>
-            <span className="shrink-0">From: {sample.from}</span>
+            <span className="truncate">{t("email.to", { email: "agent@timeiq.app" })}</span>
+            <span className="shrink-0">{t("email.from", { name: sample.key === "dance" ? t("email.you") : sample.from })}</span>
           </div>
-          <div className="mt-1 font-medium truncate">{sample.subject}</div>
+          <div className="mt-1 font-medium truncate">{t(`email.${sample.key}.subject` as Parameters<typeof t>[0])}</div>
           <div className="mt-2 flex items-center justify-between gap-3">
             <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
               <Icon className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{sample.attachment}</span>
+              <span className="truncate">{sample.kind === "email" ? t("email.pasted") : sample.attachment}</span>
             </span>
             <button
               type="button"
@@ -211,14 +214,14 @@ export function EmailScheduleDemo() {
               onClick={() => send(sample)}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[linear-gradient(135deg,hsl(var(--aurora-1)),hsl(var(--aurora-5)))] px-3 py-1.5 text-xs font-semibold text-white shadow-md shadow-[hsl(var(--aurora-1))]/25 transition-transform hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:hover:translate-y-0"
             >
-              {alreadySent ? "Added" : <><Send className="h-3 w-3" /> Send to TimeIQ</>}
+              {alreadySent ? t("email.added") : <><Send className="h-3 w-3" /> {t("email.send")}</>}
             </button>
           </div>
         </div>
         {phase === "reading" && (
           <div className="absolute inset-0 flex items-center justify-center gap-2 rounded-xl border border-dashed border-[hsl(var(--aurora-1))]/40 bg-[hsl(var(--aurora-1))]/[0.04] text-sm text-[hsl(var(--aurora-1))] demo-fade">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Reading the schedule…
+            {t("email.reading")}
           </div>
         )}
       </div>
@@ -226,10 +229,10 @@ export function EmailScheduleDemo() {
       <div className="rounded-xl bg-white/60 p-2.5 sm:p-3 ring-1 ring-foreground/[0.05]">
         <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
           <span className="inline-flex items-center gap-1">
-            <span className="h-2 w-2 rounded-sm" style={{ background: "hsl(220 6% 70%)" }} /> Your week
+            <span className="h-2 w-2 rounded-sm" style={{ background: "hsl(220 6% 70%)" }} /> {t("yourWeek")}
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="h-2 w-2 rounded-sm" style={{ background: KIDS }} /> From email
+            <span className="h-2 w-2 rounded-sm" style={{ background: KIDS }} /> {t("email.fromEmail")}
           </span>
         </div>
         <MiniWeek days={7} from={8} to={21} events={events} fresh={fresh} hourHeight={17} reserveAllDay />
@@ -242,21 +245,22 @@ export function EmailScheduleDemo() {
             <div className="flex items-center justify-between gap-2">
               <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-800">
                 <CheckCircle2 className="h-4 w-4" />
-                Reply: added {lastSample.events.length} events
+                {t("email.reply", { count: lastSample.events.length })}
               </span>
               <button
                 type="button"
                 onClick={undo}
                 className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-emerald-900 hover:bg-emerald-600/10"
               >
-                <Undo2 className="h-3 w-3" /> Undo
+                <Undo2 className="h-3 w-3" /> {t("email.undo")}
               </button>
             </div>
             <div className="mt-1 space-y-0.5 font-mono text-[11px] text-emerald-900/75 tabular-nums">
               {lastSample.events.slice(0, 3).map((e) => (
                 <div key={e.id} className="truncate">
-                  {dayDate(e.day)} · {e.title}
-                  {e.allDay ? " (all day)" : `, ${clock(e.start)}`}
+                  {e.allDay
+                    ? t("email.lineAllDay", { day: dayDate(e.day, locale), title: t(`events.${e.id}` as Parameters<typeof t>[0]) })
+                    : t("email.line", { day: dayDate(e.day, locale), title: t(`events.${e.id}` as Parameters<typeof t>[0]), time: clock(e.start, locale) })}
                 </div>
               ))}
             </div>
@@ -264,12 +268,12 @@ export function EmailScheduleDemo() {
         )}
         {phase === "undone" && (
           <div className="demo-pop rounded-xl border border-foreground/[0.08] bg-white/70 px-3.5 py-2.5 text-sm text-muted-foreground">
-            Removed those events. Nothing else on your calendar changed. Pick another sample to try again.
+            {t("email.undone")}
           </div>
         )}
         {phase === "ready" && Object.keys(added).length === 0 && (
           <div className="px-1 pt-2 text-xs text-muted-foreground">
-            Pick a sample, hit Send, and watch it land on the week. The real thing replies within a minute.
+            {t("email.hint")}
           </div>
         )}
       </div>

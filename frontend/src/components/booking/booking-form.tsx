@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,8 +62,9 @@ export function BookingForm({
   collectUrl = false,
   requireUrl = false,
   defaultValues,
-  submitLabel = "Confirm booking",
+  submitLabel,
 }: BookingFormProps) {
+  const t = useTranslations("booking.form");
   const [formData, setFormData] = useState<BookingFormData>({
     name: defaultValues?.name || "",
     email: defaultValues?.email || "",
@@ -80,22 +82,22 @@ export function BookingForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid sm:grid-cols-2 gap-4">
-        <Field label="Name" required>
+        <Field label={t("name")} required>
           <Input
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Your name"
+            placeholder={t("namePlaceholder")}
             required
             className={fieldClass}
           />
         </Field>
 
-        <Field label="Email" required>
+        <Field label={t("email")} required>
           <Input
             type="email"
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            placeholder="you@example.com"
+            placeholder={t("emailPlaceholder")}
             required
             className={fieldClass}
           />
@@ -105,7 +107,7 @@ export function BookingForm({
       {(collectPhone || collectCompany) && (
         <div className="grid sm:grid-cols-2 gap-4">
           {collectPhone && (
-            <Field label="Phone" required={requirePhone}>
+            <Field label={t("phone")} required={requirePhone}>
               <Input
                 type="tel"
                 value={formData.phone}
@@ -120,13 +122,13 @@ export function BookingForm({
           )}
 
           {collectCompany && (
-            <Field label="Company" required={requireCompany}>
+            <Field label={t("company")} required={requireCompany}>
               <Input
                 value={formData.company}
                 onChange={(e) =>
                   setFormData({ ...formData, company: e.target.value })
                 }
-                placeholder="Your company"
+                placeholder={t("companyPlaceholder")}
                 required={requireCompany}
                 className={fieldClass}
               />
@@ -136,7 +138,7 @@ export function BookingForm({
       )}
 
       {collectUrl && (
-        <Field label="Website / LinkedIn" required={requireUrl}>
+        <Field label={t("website")} required={requireUrl}>
           <Input
             type="url"
             value={formData.url}
@@ -148,11 +150,11 @@ export function BookingForm({
         </Field>
       )}
 
-      <Field label="Notes">
+      <Field label={t("notes")}>
         <Textarea
           value={formData.notes}
           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-          placeholder="Anything we should know ahead of time?"
+          placeholder={t("notesPlaceholder")}
           rows={3}
           className="rounded-xl border-foreground/10 bg-background/60 backdrop-blur-md placeholder:text-muted-foreground/60 focus-visible:ring-foreground/20 focus-visible:border-foreground/20 transition-colors resize-none"
         />
@@ -162,10 +164,10 @@ export function BookingForm({
         type="submit"
         variant="aurora"
         size="lg"
-        className="w-full mt-6"
+        className="w-full mt-6 h-auto min-h-11 whitespace-normal text-balance"
         disabled={loading}
       >
-        {loading ? "Booking…" : submitLabel}
+        {loading ? t("submitting") : submitLabel ?? t("submit")}
         {!loading && <ArrowRight className="h-4 w-4" />}
       </Button>
     </form>

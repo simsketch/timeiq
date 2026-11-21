@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
+import { useTranslations } from "next-intl";
 import { ArrowRight, CalendarDays, Check, Link2, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
@@ -11,9 +12,7 @@ import { cn } from "@/lib/utils";
 const DISMISS_KEY = "timeiq.onboarding.dismissed";
 
 interface Step {
-  key: string;
-  title: string;
-  desc: string;
+  key: "eventType" | "calendar" | "booking";
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   done: boolean;
@@ -25,6 +24,7 @@ interface Step {
  * user dismisses it.
  */
 export function OnboardingChecklist() {
+  const t = useTranslations("onboarding");
   const { getToken } = useAuth();
   const [steps, setSteps] = useState<Step[] | null>(null);
   const [dismissed, setDismissed] = useState(true);
@@ -47,25 +47,19 @@ export function OnboardingChecklist() {
         setDismissed(wasDismissed);
         setSteps([
           {
-            key: "event-type",
-            title: "Create an event type",
-            desc: "A 30-minute intro call is a good first one. Your booking link goes live with it.",
+            key: "eventType",
             href: "/event-types",
             icon: Link2,
             done: eventTypes.length > 0,
           },
           {
             key: "calendar",
-            title: "Connect your calendar",
-            desc: "Google or any ICS feed, so bookings only land in free slots.",
             href: "/calendars",
             icon: CalendarDays,
             done: calendars.length > 0,
           },
           {
             key: "booking",
-            title: "Get your first booking",
-            desc: "Share your booking link, or add a meeting yourself from Bookings.",
             href: "/bookings",
             icon: Users,
             done: bookings.length > 0,
@@ -93,7 +87,7 @@ export function OnboardingChecklist() {
     <div className="glass glass-chroma rounded-[1.5rem] p-6 sm:p-7 relative">
       <button
         type="button"
-        aria-label="Dismiss setup checklist"
+        aria-label={t("dismiss")}
         onClick={dismiss}
         className="absolute top-4 right-4 h-8 w-8 inline-flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-foreground/5"
       >
@@ -102,13 +96,13 @@ export function OnboardingChecklist() {
       <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
         <div>
           <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-2">
-            Getting set up · {doneCount} of {steps.length}
+            {t("progress", { done: doneCount, total: steps.length })}
           </div>
-          <h2 className="font-display text-2xl tracking-[-0.02em]">Three steps to your first booking.</h2>
+          <h2 className="font-display text-2xl tracking-[-0.02em] text-balance">{t("heading")}</h2>
         </div>
         <Button asChild>
           <Link href={next.href}>
-            {next.title}
+            {t(`${next.key}.title`)}
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
@@ -138,8 +132,8 @@ export function OnboardingChecklist() {
                 {s.done ? <Check className="h-4 w-4" /> : i + 1}
               </div>
               <div className="min-w-0">
-                <div className={cn("font-semibold text-sm", s.done && "line-through")}>{s.title}</div>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{s.desc}</p>
+                <div className={cn("font-semibold text-sm", s.done && "line-through")}>{t(`${s.key}.title`)}</div>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{t(`${s.key}.desc`)}</p>
               </div>
             </Link>
           </li>

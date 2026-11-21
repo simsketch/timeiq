@@ -1,5 +1,7 @@
 "use client";
 
+import { useLocale } from "next-intl";
+
 /** Small building blocks shared by the calculators. */
 
 export function NumberField({
@@ -80,10 +82,14 @@ export function Panel({ children }: { children: React.ReactNode }) {
   return <div className="glass glass-chroma rounded-[1.5rem] p-6 sm:p-8">{children}</div>;
 }
 
-export const money = (n: number, digits = 0) =>
-  Number.isFinite(n)
-    ? n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: digits, maximumFractionDigits: digits })
-    : "—";
-
-export const num = (n: number, digits = 0) =>
-  Number.isFinite(n) ? n.toLocaleString("en-US", { maximumFractionDigits: digits }) : "—";
+/** USD and plain-number formatters in the visitor's language (the calculators' inputs are in dollars). */
+export function useNumbers() {
+  const locale = useLocale();
+  return {
+    money: (n: number, digits = 0) =>
+      Number.isFinite(n)
+        ? n.toLocaleString(locale, { style: "currency", currency: "USD", minimumFractionDigits: digits, maximumFractionDigits: digits })
+        : "—",
+    num: (n: number, digits = 0) => (Number.isFinite(n) ? n.toLocaleString(locale, { maximumFractionDigits: digits }) : "—"),
+  };
+}

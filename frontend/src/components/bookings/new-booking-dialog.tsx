@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useLocale, useTranslations } from "next-intl";
 import { addMinutes, format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -46,6 +47,8 @@ export function NewBookingDialog({
   duration?: number;
   onCreated: () => void;
 }) {
+  const t = useTranslations("bookings.new");
+  const locale = useLocale();
   const { getToken } = useAuth();
   const { toast } = useToast();
   const [eventTypes, setEventTypes] = useState<EventTypeOption[] | null>(null);
@@ -92,7 +95,7 @@ export function NewBookingDialog({
     })();
   }, [open, eventTypes, getToken]);
 
-  const eventType = eventTypes?.find((t) => String(t.id) === eventTypeId);
+  const eventType = eventTypes?.find((et) => String(et.id) === eventTypeId);
   const wallStart = date && time ? new Date(`${date}T${time}`) : null;
   const startsAt = wallStart && calendarInstant(wallStart, fieldZone);
   // Blank means the event type's length.
@@ -103,7 +106,7 @@ export function NewBookingDialog({
     if (!startsAt || !eventType) return;
     const badGuest = guestList.find((g) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(g));
     if (badGuest) {
-      toast({ title: "Check the guest list", description: `${badGuest} isn't an email address.`, variant: "destructive" });
+      toast({ title: t("checkGuests"), description: t("notAnEmail", { value: badGuest }), variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -124,13 +127,13 @@ export function NewBookingDialog({
           allow_conflict: allowConflict,
         }),
       });
-      toast({ title: "Booked", description: `Invite sent to ${[email.trim(), ...guestList].join(", ")}` });
+      toast({ title: t("booked"), description: t("inviteSent", { to: [email.trim(), ...guestList].join(", ") }) });
       onOpenChange(false);
       onCreated();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "The booking didn't save. Try again.";
+      const message = error instanceof Error ? error.message : t("saveFailed");
       if (message.startsWith("This time overlaps")) setConflict(message);
-      else toast({ title: "Error", description: message, variant: "destructive" });
+      else toast({ title: t("error"), description: message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -146,47 +149,47 @@ export function NewBookingDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle>New booking</DialogTitle>
-            <DialogDescription>Your guest gets a confirmation email with a calendar invite.</DialogDescription>
+            <DialogTitle>{t("title")}</DialogTitle>
+            <DialogDescription>{t("description")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {eventTypes && eventTypes.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Create an event type first. It sets the meeting length and location.
+                {t("needEventType")}
               </p>
             ) : (
               <div className="space-y-2">
-                <Label>Event type</Label>
+                <Label>{t("eventType")}</Label>
                 <Select value={eventTypeId} onValueChange={setEventTypeId}>
-                  <SelectTrigger aria-label="Event type">
-                    <SelectValue placeholder={eventTypes ? "Event type" : "Loading…"} />
+                  <SelectTrigger aria-label={t("eventType")}>
+                    <SelectValue placeholder={eventTypes ? t("eventType") : t("loading")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {eventTypes?.map((t) => (
-                      <SelectItem key={t.id} value={String(t.id)}>
-                        {t.name} · {t.duration} min{t.is_active ? "" : " (hidden)"}
+                    {eventTypes?.map((et) => (
+                      <SelectItem key={et.id} value={String(et.id)}>
+                        {et.is_active ? t("option", { name: et.name, minutes: et.duration }) : t("optionHidden", { name: et.name, minutes: et.duration })}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {eventType && (
                   <p className="text-xs text-muted-foreground">
-                    {eventType.location ? `Where: ${eventType.location}` : "No location or meeting link set on this event type."}
+                    {eventType.location ? t("where", { location: eventType.location }) : t("noLocation")}
                   </p>
                 )}
               </div>
             )}
             <div className="grid grid-cols-[1fr_1fr_5.5rem] gap-3">
               <div className="space-y-2">
-                <Label htmlFor="nb-date">Date</Label>
+                <Label htmlFor="nb-date">{t("date")}</Label>
                 <Input id="nb-date" type="date" value={date} onChange={(e) => { setDate(e.target.value); setConflict(null); }} required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="nb-time">Time</Label>
+                <Label htmlFor="nb-time">{t("time")}</Label>
                 <Input id="nb-time" type="time" step={300} value={time} onChange={(e) => { setTime(e.target.value); setConflict(null); }} required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="nb-length">Minutes</Label>
+                <Label htmlFor="nb-length">{t("minutes")}</Label>
                 <Input
                   id="nb-length"
                   type="number"
@@ -202,19 +205,24 @@ export function NewBookingDialog({
             </div>
             {wallStart && eventType && (
               <p className="-mt-2 text-xs text-muted-foreground">
-                {format(wallStart, "EEE, MMM d · h:mm a")} – {format(addMinutes(wallStart, minutes), "h:mm a")} · {fieldZone.replace(/_/g, " ")}
+                {t("summary", {
+                  day: wallStart.toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" }),
+                  start: wallStart.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
+                  end: addMinutes(wallStart, minutes).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
+                  zone: fieldZone.replace(/_/g, " "),
+                })}
               </p>
             )}
             <div className="space-y-2">
-              <Label htmlFor="nb-name">Guest name</Label>
+              <Label htmlFor="nb-name">{t("guestName")}</Label>
               <Input id="nb-name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={255} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="nb-email">Guest email</Label>
+              <Label htmlFor="nb-email">{t("guestEmail")}</Label>
               <Input id="nb-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="nb-guests">Other guests (optional)</Label>
+              <Label htmlFor="nb-guests">{t("otherGuests")}</Label>
               <Input
                 id="nb-guests"
                 value={guests}
@@ -222,10 +230,10 @@ export function NewBookingDialog({
                 placeholder="bea@example.com, cy@example.com"
                 aria-describedby="nb-guests-hint"
               />
-              <p id="nb-guests-hint" className="text-xs text-muted-foreground">They&apos;re on the invite and copied on the confirmation.</p>
+              <p id="nb-guests-hint" className="text-xs text-muted-foreground">{t("otherGuestsHint")}</p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="nb-notes">Note (optional)</Label>
+              <Label htmlFor="nb-notes">{t("note")}</Label>
               <Textarea id="nb-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
             </div>
             {conflict && (
@@ -237,11 +245,11 @@ export function NewBookingDialog({
           <DialogFooter>
             {conflict ? (
               <Button type="button" disabled={saving} onClick={() => submit(true)}>
-                {saving ? "Booking…" : "Book anyway"}
+                {saving ? t("booking") : t("bookAnyway")}
               </Button>
             ) : (
               <Button type="submit" disabled={saving || !eventType}>
-                {saving ? "Booking…" : "Book and send invite"}
+                {saving ? t("booking") : t("bookAndSend")}
               </Button>
             )}
           </DialogFooter>

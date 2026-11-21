@@ -1,0 +1,394 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useAuth, useUser, useClerk } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/components/ui/use-toast";
+import { apiFetch } from "@/lib/api";
+import { CreditCard, Download, Trash2 } from "lucide-react";
+import { API_BASE } from "@/lib/invoicing";
+import Link from "next/link";
+import { BillingStatus, fetchBillingStatus, openPortal } from "@/lib/billing";
+import { ClockLoader } from "@/components/ui/clock-loader";
+import { ApiTokensCard } from "@/components/api-tokens-card";
+import { LanguagePicker } from "@/components/language-picker";
+
+interface UserSettings {
+  name: string;
+  timezone: string;
+  weekly_hours_target: number;
+  weekly_summary_enabled: boolean;
+  invoicing_enabled?: boolean;
+}
+
+const TIMEZONES = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Phoenix",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+  "Europe/London",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Asia/Tokyo",
+  "Asia/Shanghai",
+  "Asia/Dubai",
+  "Australia/Sydney",
+  "UTC",
+];
+
+export default function SettingsPage() {
+  const { getToken } = useAuth();
+  const { user } = useUser();
+  const { signOut } = useClerk();
+  const router = useRouter();
+  const { toast } = useToast();
+  const t = useTranslations("settings");
+  const tc = useTranslations("common");
+  const locale = useLocale();
+  const [exporting, setExporting] = useState(false);
+  const [deleteText, setDeleteText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  async function exportData() {
+    setExporting(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/api/me/export`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(t("exportFailed"));
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = res.headers.get("content-disposition")?.match(/filename="([^"]+)"/)?.[1] ?? "timeiq-export.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast({ title: t("exportFailed"), description: error.message, variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function deleteAccount() {
+    if (deleteText !== "DELETE") return;
+    if (!confirm(t("deleteConfirm"))) return;
+    setDeleting(true);
+    try {
+      const token = await getToken();
+      await apiFetch("/api/me", { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      await signOut();
+      router.push("/");
+    } catch (error: any) {
+      toast({ title: t("deleteFailed"), description: error.message, variant: "destructive" });
+      setDeleting(false);
+    }
+  }
+  const [settings, setSettings] = useState<UserSettings>({
+    name: "",
+    timezone: "America/New_York",
+    weekly_hours_target: 40,
+    weekly_summary_enabled: true,
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [portalBusy, setPortalBusy] = useState(false);
+
+  async function fetchBilling() {
+    try {
+      const token = await getToken();
+      setBilling(await fetchBillingStatus(token));
+    } catch (error) {
+      console.error("Failed to fetch billing status:", error);
+    }
+  }
+
+  async function manageBilling() {
+    setPortalBusy(true);
+    try {
+      const token = await getToken();
+      window.location.href = await openPortal(token);
+    } catch (error: any) {
+      toast({ title: tc("error"), description: error.message, variant: "destructive" });
+      setPortalBusy(false);
+    }
+  }
+
+  async function fetchSettings() {
+    try {
+      const token = await getToken();
+      const data = await apiFetch<UserSettings>("/api/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setSettings(data);
+    } catch (error) {
+      console.error("Failed to fetch settings:", error);
+      // Set defaults
+      setSettings({
+        name: user?.fullName || "",
+        timezone: "America/New_York",
+        weekly_hours_target: 40,
+        weekly_summary_enabled: true,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const token = await getToken();
+      await apiFetch("/api/me", {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: settings.name, timezone: settings.timezone, weekly_hours_target: settings.weekly_hours_target, weekly_summary_enabled: settings.weekly_summary_enabled }),
+      });
+      toast({ title: t("saved") });
+    } catch (error: any) {
+      toast({
+        title: tc("error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("connect")) router.replace(`/event-types?${params.toString()}#payments`);
+    // Every setState in these fetches runs after their first await; the rule can't see that.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchSettings();
+    fetchBilling();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <ClockLoader size="lg" label={t("loading")} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
+        <p className="text-muted-foreground mt-2">
+          {t("subtitle")}
+        </p>
+      </div>
+
+      <p className="text-sm text-muted-foreground">
+        {t.rich("elsewhere", {
+          booking: (chunks) => <Link href="/event-types" className="underline underline-offset-4">{chunks}</Link>,
+          calendars: (chunks) => <Link href="/calendars#subscription" className="underline underline-offset-4">{chunks}</Link>,
+        })}
+      </p>
+
+      <form onSubmit={handleSave} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("profile")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="name">{t("displayName")}</Label>
+              <Input
+                id="name"
+                value={settings.name}
+                onChange={(e) =>
+                  setSettings({ ...settings, name: e.target.value })
+                }
+                placeholder={t("displayNamePlaceholder")}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {t("displayNameHelp")}
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="timezone">{t("timezone")}</Label>
+              <Select
+                value={settings.timezone}
+                onValueChange={(value) =>
+                  setSettings({ ...settings, timezone: value })
+                }
+              >
+                <SelectTrigger id="timezone">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIMEZONES.map((tz) => (
+                    <SelectItem key={tz} value={tz}>
+                      {tz}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {settings.invoicing_enabled && (
+        <div className="space-y-2 max-w-xs">
+          <Label htmlFor="weekly_hours_target">{t("weeklyTarget")}</Label>
+          <Input
+            id="weekly_hours_target"
+            type="number"
+            min={0}
+            max={168}
+            value={settings.weekly_hours_target}
+            onChange={(e) => setSettings({ ...settings, weekly_hours_target: Number(e.target.value) })}
+          />
+          <p className="text-xs text-muted-foreground">{t("weeklyTargetHelp")}</p>
+        </div>
+        )}
+
+        <div className="flex items-center justify-between gap-4 max-w-md">
+          <div className="space-y-1">
+            <Label htmlFor="weekly_summary_enabled">{t("weekEmail")}</Label>
+            <p className="text-xs text-muted-foreground">{t("weekEmailHelp")}</p>
+          </div>
+          <Switch
+            id="weekly_summary_enabled"
+            checked={settings.weekly_summary_enabled}
+            onCheckedChange={(value) => setSettings({ ...settings, weekly_summary_enabled: value })}
+          />
+        </div>
+
+        <Button type="submit" disabled={saving}>
+          {saving ? tc("saving") : t("save")}
+        </Button>
+      </form>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("language")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <LanguagePicker />
+          <p className="text-xs text-muted-foreground">{t("languageHelp")}</p>
+        </CardContent>
+      </Card>
+
+      <ApiTokensCard />
+
+      {billing?.enabled && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("billing")}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="text-sm space-y-1">
+                <p>
+                  <span className="text-muted-foreground">{t("plan.label")}</span>{" "}
+                  <span className="font-medium">
+                    {billing.status === "complimentary"
+                      ? t("plan.complimentary")
+                      : billing.plan
+                      ? t.has(`plan.${billing.plan}`) ? t(`plan.${billing.plan}`) : billing.plan
+                      : t("plan.none")}
+                  </span>
+                </p>
+                <p>
+                  <span className="text-muted-foreground">{t("statusLabel")}</span>{" "}
+                  <span className="font-medium">
+                    {t.has(`status.${billing.status}` as Parameters<typeof t>[0]) ? t(`status.${billing.status}` as Parameters<typeof t>[0]) : billing.status.replace("_", " ")}
+                  </span>
+                </p>
+                {billing.current_period_end && (
+                  <p>
+                    <span className="text-muted-foreground">
+                      {billing.status === "canceled"
+                        ? t("accessUntil")
+                        : billing.status === "trialing"
+                        ? t("trialEnds")
+                        : t("renews")}
+                    </span>{" "}
+                    <span className="font-medium">
+                      {new Date(billing.current_period_end).toLocaleDateString(locale, {
+                        year: "numeric", month: "long", day: "numeric",
+                      })}
+                    </span>
+                  </p>
+                )}
+              </div>
+              {billing.has_customer ? (
+                <Button variant="outline" onClick={manageBilling} disabled={portalBusy}>
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  {portalBusy ? t("opening") : t("manageBilling")}
+                </Button>
+              ) : billing.status !== "complimentary" ? (
+                <Button asChild>
+                  <Link href="/pricing">{t("subscribe")}</Link>
+                </Button>
+              ) : null}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t("billingHelp")}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("data")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground max-w-md">
+              {t("dataHelp")}
+            </p>
+            <Button variant="outline" onClick={exportData} disabled={exporting}>
+              <Download className="h-4 w-4 mr-2" />
+              {exporting ? t("preparing") : t("export")}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-destructive/30">
+        <CardHeader>
+          <CardTitle className="text-destructive">{t("deleteTitle")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground max-w-md">
+            {t("deleteHelp")}
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="delete-confirm">{t("deleteType")}</Label>
+              <Input id="delete-confirm" value={deleteText} onChange={(e) => setDeleteText(e.target.value)} className="w-48" />
+            </div>
+            <Button variant="destructive" onClick={deleteAccount} disabled={deleting || deleteText !== "DELETE"}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              {deleting ? t("deleting") : t("deleteButton")}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

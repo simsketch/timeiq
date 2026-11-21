@@ -11,7 +11,7 @@ const require = createRequire(import.meta.url);
 
 function loadModule(path, mockRequire = require) {
   const source = ts.transpileModule(readFileSync(new URL(path, import.meta.url), "utf8"), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS },
+    compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true },
   }).outputText;
   const compiled = { exports: {} };
   vm.runInNewContext(source, { module: compiled, exports: compiled.exports, require: mockRequire });
@@ -82,4 +82,21 @@ test("consent stays unframeable with an embed flag", async () => {
   assert.equal(headers.get("Content-Security-Policy"), "frame-ancestors 'none'");
   assert.equal(headers.get("X-Frame-Options"), "DENY");
   assert.equal(calls.protected, 1);
+});
+
+test("pages rewrite to a per-locale internal path; the address bar and route handlers stay put", async () => {
+  const rewrite = async (path, headers = {}) => {
+    const result = await middleware().run(new NextRequest(`https://timeiq.example${path}`, { headers }), {});
+    const target = result.headers.get("x-middleware-rewrite");
+    return target && new URL(target).pathname + new URL(target).search;
+  };
+  assert.equal(await rewrite("/"), "/en");
+  assert.equal(await rewrite("/", { "accept-language": "en-US,de;q=0.5" }), "/en");
+  assert.equal(await rewrite("/", { "accept-language": "de-CH,de;q=0.9" }), "/de");
+  assert.equal(await rewrite("/", { cookie: "NEXT_LOCALE=fr", "accept-language": "de" }), "/fr");
+  assert.equal(await rewrite("/", { cookie: "NEXT_LOCALE=xx", "accept-language": "es" }), "/es");
+  assert.equal(await rewrite("/?utm_content=free-meetings", { "accept-language": "es" }), "/es/lp/free-meetings?utm_content=free-meetings");
+  assert.equal(await rewrite("/pricing", { cookie: "NEXT_LOCALE=de" }), "/de/pricing");
+  assert.equal(await rewrite("/book/host/call?embed=1", { cookie: "NEXT_LOCALE=de" }), "/de/book/host/call?embed=1");
+  for (const path of ["/api/health", "/ios", "/robots.txt", "/sitemap.xml"]) assert.equal(await rewrite(path), null, path);
 });

@@ -5,11 +5,13 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
+import { useTranslations } from "next-intl";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { LogoIcon } from "@/components/logo";
 import { cn } from "@/lib/utils";
 
 export function MobileNav() {
+  const t = useTranslations("nav");
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const [openedOn, setOpenedOn] = useState(pathname);
@@ -43,7 +45,7 @@ export function MobileNav() {
           <UserButton afterSignOutUrl="/" />
           <button
             type="button"
-            aria-label="Open navigation"
+            aria-label={t("openNavigation")}
             onClick={() => setOpen(true)}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-foreground/10 bg-background/60 text-foreground/80 hover:text-foreground hover:border-foreground/20 transition"
           >
@@ -74,7 +76,7 @@ export function MobileNav() {
           <Sidebar onNavigate={() => setOpen(false)} />
           <button
             type="button"
-            aria-label="Close navigation"
+            aria-label={t("closeNavigation")}
             onClick={() => setOpen(false)}
             className="absolute top-5 right-5 z-20 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-white/80 hover:text-white hover:bg-white/20 transition"
           >

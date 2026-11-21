@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useMessages, useTranslations } from "next-intl";
 
 // Tiq, a claymation octopus who swims back and forth in the footer's lane.
 // Drag him anywhere; drop him outside the lane and he floats there until his
@@ -16,24 +17,12 @@ const POSES: Pose[] = ["juggle", "swim", "point", "wave", "cheer"];
 const src = (p: Pose) => `/octo/${p}.webp`;
 const EDGE = 8; // keep him and his speech bubble this far inside the edges
 
-const LINES = [
-  "Eight arms and I still use one calendar.",
-  "An octopus has three hearts. All of them hate double-booking.",
-  "Tip: forward a team schedule to your TimeIQ address and it lands on your calendar.",
-  "Your booking link checks every calendar before anyone grabs a slot.",
-  "Cc me on the email thread and I'll find a time everyone can make.",
-  "Meetings that could have been an email? I read the email.",
-  "Octopuses can taste with their arms. Your free time tastes great.",
-  "Blub. That's octopus for \"see you at 3\".",
-  "I sync your calendars before every booking. Old events, begone.",
-  "Group meetings: everyone picks times, I find the overlap.",
-  "Fun fact: I'm boneless, and so is a good schedule.",
-  "Drag me anywhere. I'm a great swimmer.",
-];
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi));
 
 export function OctoSwimmer() {
+  const t = useTranslations("landing.octo");
+  const lines = useMessages().landing.octo.lines as Record<string, string>;
   const [where, setWhere] = useState<Where>("lane");
   // Only ever mounted in the browser (the loader imports it after load), so document is safe here.
   const [lane] = useState<HTMLElement | null>(() => document.getElementById("tiq-lane"));
@@ -53,9 +42,9 @@ export function OctoSwimmer() {
   const lineBag = useRef<string[]>([]);
 
   const nextLine = useCallback(() => {
-    if (lineBag.current.length === 0) lineBag.current = [...LINES].sort(() => Math.random() - 0.5);
+    if (lineBag.current.length === 0) lineBag.current = Object.values(lines).sort(() => Math.random() - 0.5);
     return lineBag.current.pop()!;
-  }, []);
+  }, [lines]);
 
   const size = () => (window.innerWidth < 768 ? 84 : 120);
 
@@ -316,7 +305,7 @@ export function OctoSwimmer() {
             }}
             onPointerEnter={() => (hovering.current = true)}
             onPointerLeave={() => (hovering.current = false)}
-            aria-label="Tiq the octopus. Press for a tip, or drag him anywhere."
+            aria-label={t("label")}
             className="block w-full cursor-grab touch-none select-none rounded-full active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- decorative sprite swapped every few seconds */}
@@ -335,7 +324,7 @@ export function OctoSwimmer() {
           <button
             type="button"
             onClick={sendHome}
-            aria-label="Send the octopus back to the footer"
+            aria-label={t("sendHome")}
             className="absolute -right-1 top-0 grid h-7 w-7 place-items-center rounded-full border border-foreground/10 bg-background text-sm text-muted-foreground shadow hover:text-foreground"
           >
             ×

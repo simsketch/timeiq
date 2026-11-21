@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { CalendarPicker } from "@/components/booking/calendar-picker";
 import { TimeSlots } from "@/components/booking/time-slots";
 import { BookingForm, BookingFormData } from "@/components/booking/booking-form";
@@ -13,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { LogoIcon } from "@/components/logo";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { describeSlot, guestTimeZone, timeZoneLabel } from "@/lib/booking-time";
-import { bookingPrice, REFUND_POLICY } from "@/lib/booking-payments";
+import { bookingPrice } from "@/lib/booking-payments";
 
 interface EventType {
   price_cents: number | null;
@@ -45,6 +46,9 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
   const params = useParams();
   const username = params.username as string;
   const eventSlug = params.eventSlug as string;
+  const t = useTranslations("booking");
+  const tc = useTranslations("common");
+  const locale = useLocale();
 
   const [eventType, setEventType] = useState<EventType | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -150,7 +154,7 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
       const selectedSlotObj = availableSlots.find((slot) => slot.start === selectedSlot);
 
       if (!selectedSlotObj) {
-        throw new Error("That time is no longer listed. Pick another time.");
+        throw new Error(t("slotGone"));
       }
 
       const booking = await apiFetch<{ status: string; checkout_url: string | null }>(`/api/public/${username}/${eventSlug}/book`, {
@@ -176,7 +180,7 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
       }
       setBookingConfirmed(true);
     } catch (e: any) {
-      alert(`Booking failed: ${e.message}`);
+      alert(t("bookingFailed", { message: e.message }));
       // The time may have just been taken; show what is still open.
       fetchAvailableSlots(selectedDate, { quiet: true });
     } finally {
@@ -185,7 +189,7 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
   }
 
   if (loading) {
-    return <ClockLoader fullscreen size="lg" label="Preparing your booking" />;
+    return <ClockLoader fullscreen size="lg" label={t("preparing")} />;
   }
 
   if (error || !eventType) {
@@ -194,14 +198,14 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
         <div className="aurora-bg aurora-bg-soft" aria-hidden />
         <div className="grain" aria-hidden />
         <div className="relative glass rounded-[1.5rem] p-10 text-center max-w-md">
-          <h1 className="text-3xl font-display mb-3">Booking unavailable</h1>
+          <h1 className="text-3xl font-display mb-3">{t("unavailableTitle")}</h1>
           <p className="text-muted-foreground mb-6 text-sm">
-            {error || "This event is unavailable. Choose another event or contact the host."}
+            {error || t("unavailableBody")}
           </p>
           <Link href={`/book/${username}${embed ? "?embed=1" : ""}`}>
             <Button variant="glass">
               <ArrowLeft className="h-4 w-4" />
-              Back to profile
+              {t("backToProfile")}
             </Button>
           </Link>
         </div>
@@ -213,10 +217,10 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
     return (
       <main className="min-h-screen flex items-center justify-center px-6 py-8">
         <div className="glass rounded-[1.5rem] p-8 text-center max-w-md space-y-4">
-          <h1 className="text-2xl font-display">Complete your payment</h1>
-          <p className="text-sm text-muted-foreground">Your time is held while you check out. Open the secure payment page in a new tab to finish booking.</p>
+          <h1 className="text-2xl font-display">{t("checkoutTitle")}</h1>
+          <p className="text-sm text-muted-foreground">{t("checkoutBody")}</p>
           <Button asChild>
-            <a href={checkoutUrl} target="_blank" rel="noopener noreferrer">Continue to payment</a>
+            <a href={checkoutUrl} target="_blank" rel="noopener noreferrer">{t("continueToPayment")}</a>
           </Button>
         </div>
       </main>
@@ -224,7 +228,7 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
   }
 
   if (bookingConfirmed && selectedSlot) {
-    const booked = describeSlot(selectedSlot);
+    const booked = describeSlot(selectedSlot, locale);
     return (
       <div className="relative min-h-screen overflow-hidden flex items-center justify-center px-6">
         <div className="aurora-bg aurora-bg-soft" aria-hidden />
@@ -253,10 +257,10 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
             </div>
 
             <div className="text-[10px] font-mono uppercase tracking-[0.25em] text-muted-foreground/80 mb-2">
-              Booking confirmed
+              {t("confirmedEyebrow")}
             </div>
-            <h2 className="font-display text-4xl tracking-[-0.025em] mb-6">
-              You&apos;re all set.
+            <h2 className="font-display text-4xl tracking-[-0.025em] mb-6 text-balance">
+              {t("confirmedTitle")}
             </h2>
 
             <div className="space-y-2 mb-7">
@@ -281,7 +285,7 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
                       className="inline-flex items-center gap-1.5 text-foreground/80 hover:text-foreground transition-colors underline underline-offset-4 decoration-foreground/20"
                     >
                       <ExternalLink className="h-3 w-3" />
-                      Join meeting
+                      {t("joinMeeting")}
                     </a>
                   ) : (
                     <span className="inline-flex items-center gap-1.5">
@@ -294,13 +298,13 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
             </div>
 
             <p className="text-xs text-muted-foreground mb-7">
-              A confirmation email with a calendar invite is on its way.
+              {t("confirmationEmail")}
             </p>
 
             <Link href={`/book/${username}${embed ? "?embed=1" : ""}`}>
               <Button variant="glass" className="w-full">
                 <ArrowLeft className="h-4 w-4" />
-                Back to profile
+                {t("backToProfile")}
               </Button>
             </Link>
           </div>
@@ -320,14 +324,14 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8 font-mono uppercase tracking-[0.15em] text-[11px]"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Back
+          {tc("back")}
         </Link>
 
         {/* Event header */}
         <div className="mb-10 reveal reveal-1">
           {eventType.booking_logo && (
             // eslint-disable-next-line @next/next/no-img-element -- validated PNG data URL
-            <img src={eventType.booking_logo} alt={`${eventType.host_name || username} logo`} className="mb-6 max-h-24 max-w-60 object-contain" />
+            <img src={eventType.booking_logo} alt={t("logoAlt", { name: eventType.host_name || username })} className="mb-6 max-h-24 max-w-60 object-contain" />
           )}
           <div className="flex items-center gap-2 mb-4">
             <span
@@ -335,7 +339,7 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
               style={{ backgroundColor: eventType.color }}
             />
             <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-muted-foreground/80">
-              With {eventType.host_name || username}
+              {t("withHost", { name: eventType.host_name || username })}
             </span>
           </div>
 
@@ -347,10 +351,10 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
             <div className="inline-flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5" />
               <span className="font-mono tabular-nums">
-                {eventType.duration_minutes} minutes
+                {t("minutes", { count: eventType.duration_minutes })}
               </span>
             </div>
-            {eventType.price_cents != null && <span>{bookingPrice(eventType.price_cents, eventType.currency)}</span>}
+            {eventType.price_cents != null && <span>{bookingPrice(eventType.price_cents, eventType.currency, locale)}</span>}
             {eventType.location && (
               <div className="inline-flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5" />
@@ -378,7 +382,7 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
               {eventType.description}
             </p>
           )}
-          {eventType.price_cents != null && <p className="mt-4 text-sm text-muted-foreground">{REFUND_POLICY}</p>}
+          {eventType.price_cents != null && <p className="mt-4 text-sm text-muted-foreground">{t("refundPolicy")}</p>}
         </div>
 
         {/* Booking grid */}
@@ -386,7 +390,7 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
           <div className="glass rounded-[1.5rem] p-6 lg:p-7">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
-                Pick a date
+                {t("pickDate")}
               </h3>
               <Calendar className="h-3.5 w-3.5 text-muted-foreground/70" />
             </div>
@@ -402,24 +406,24 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
                 <div className="glass rounded-[1.5rem] p-6 lg:p-7">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
-                      Available times
+                      {t("availableTimes")}
                     </h3>
                     <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
                   </div>
                   <p className="text-lg font-display mb-1">
-                    {format(selectedDate, "EEEE, MMMM d")}
+                    {selectedDate.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" })}
                   </p>
                   {slotsError ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <p className="text-sm text-muted-foreground mb-3">
-                        Times for this date didn&apos;t load.
+                        {t("slotsFailed")}
                       </p>
                       <Button
                         variant="glass"
                         size="sm"
                         onClick={() => fetchAvailableSlots(selectedDate)}
                       >
-                        Try again
+                        {tc("retry")}
                       </Button>
                     </div>
                   ) : (
@@ -437,15 +441,15 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
                   <div className="glass rounded-[1.5rem] p-6 lg:p-7 reveal reveal-1">
                     <div className="flex items-center justify-between mb-5">
                       <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
-                        Your details
+                        {t("yourDetails")}
                       </h3>
                       <span className="text-[10px] font-mono text-muted-foreground/80 tabular-nums">
-                        {format(new Date(selectedSlot), "MMM d")} ·{" "}
-                        {format(new Date(selectedSlot), "h:mm a")}
+                        {new Date(selectedSlot).toLocaleDateString(locale, { month: "short", day: "numeric" })} ·{" "}
+                        {new Date(selectedSlot).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" })}
                       </span>
                     </div>
                     <BookingForm
-                      submitLabel={eventType.price_cents != null ? `Continue to payment · ${bookingPrice(eventType.price_cents, eventType.currency)}` : "Confirm booking"}
+                      submitLabel={eventType.price_cents != null ? t("continueToPaymentPrice", { price: bookingPrice(eventType.price_cents, eventType.currency, locale) }) : t("confirmBooking")}
                       onSubmit={handleBooking}
                       loading={bookingLoading}
                       collectPhone={eventType.collect_phone}
@@ -460,7 +464,7 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
               </>
             ) : (
               <div className="glass rounded-[1.5rem] py-16 text-center text-muted-foreground text-sm">
-                Select a date to see available times
+                {t("selectDatePrompt")}
               </div>
             )}
           </div>
@@ -470,23 +474,26 @@ export default function BookingFlow({ embed = false }: { embed?: boolean }) {
         {!embed && !eventType.booking_white_label && <div className="flex items-center justify-center gap-2 mt-16 pt-10 border-t border-foreground/5">
           <LogoIcon className="w-4 h-4" />
           <span className="text-xs text-muted-foreground">
-            Powered by{" "}
-            <Link
-              href="/?utm_source=booking_page&utm_medium=powered_by"
-              className="font-medium text-foreground/80 hover:text-foreground transition-colors"
-            >
-              TimeIQ
-            </Link>
-            , a{" "}
-            <a
-              href="https://yoyocode.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-foreground/80 hover:text-foreground transition-colors"
-            >
-              Yoyo Code
-            </a>{" "}
-            creation
+            {t.rich("poweredBy", {
+              timeiq: (chunks) => (
+                <Link
+                  href="/?utm_source=booking_page&utm_medium=powered_by"
+                  className="font-medium text-foreground/80 hover:text-foreground transition-colors"
+                >
+                  {chunks}
+                </Link>
+              ),
+              yoyo: (chunks) => (
+                <a
+                  href="https://yoyocode.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-foreground/80 hover:text-foreground transition-colors"
+                >
+                  {chunks}
+                </a>
+              ),
+            })}
           </span>
         </div>}
       </div>

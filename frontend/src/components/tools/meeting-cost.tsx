@@ -1,10 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { NumberField, Panel, Result, money, num } from "./ui";
+import { useTranslations } from "next-intl";
+import { NumberField, Panel, Result, useNumbers } from "./ui";
 
 /** What a recurring meeting costs in salary time. */
 export function MeetingCostCalculator() {
+  const t = useTranslations("tools.meetingCost");
+  const u = useTranslations("tools.units");
+  const { money, num } = useNumbers();
   const [people, setPeople] = useState(6);
   const [salary, setSalary] = useState(85000);
   const [minutes, setMinutes] = useState(60);
@@ -19,17 +23,17 @@ export function MeetingCostCalculator() {
   return (
     <Panel>
       <div className="grid gap-4 sm:grid-cols-2">
-        <NumberField label="People in the meeting" value={people} onChange={setPeople} />
-        <NumberField label="Average salary" prefix="$" value={salary} onChange={setSalary} step={1000} />
-        <NumberField label="Length" suffix="minutes" value={minutes} onChange={setMinutes} step={5} />
-        <NumberField label="Times per week" value={perWeek} onChange={setPerWeek} step={0.5} hint="0.5 for every other week" />
-        <NumberField label="Benefits and overhead" suffix="% on top of salary" value={overhead} onChange={setOverhead} hint="25–40% is typical for US employers" />
+        <NumberField label={t("people")} value={people} onChange={setPeople} />
+        <NumberField label={t("salary")} prefix="$" value={salary} onChange={setSalary} step={1000} />
+        <NumberField label={t("length")} suffix={u("minutes")} value={minutes} onChange={setMinutes} step={5} />
+        <NumberField label={t("perWeek")} value={perWeek} onChange={setPerWeek} step={0.5} hint={t("perWeekHint")} />
+        <NumberField label={t("overhead")} suffix={u("percentOnSalary")} value={overhead} onChange={setOverhead} hint={t("overheadHint")} />
       </div>
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        <Result big label="Cost per meeting" value={money(perMeeting)} />
-        <Result big label="Cost per year" value={money(yearly)} />
-        <Result label="People-hours per year" value={num(hoursYear)} />
-        <Result label="Cutting it to 30 min saves" value={minutes > 30 ? money(yearly * (1 - 30 / minutes)) + "/yr" : "—"} />
+        <Result big label={t("perMeeting")} value={money(perMeeting)} />
+        <Result big label={t("perYear")} value={money(yearly)} />
+        <Result label={t("peopleHours")} value={num(hoursYear)} />
+        <Result label={t("savings")} value={minutes > 30 ? u("perYearSuffix", { amount: money(yearly * (1 - 30 / minutes)) }) : "—"} />
       </div>
     </Panel>
   );

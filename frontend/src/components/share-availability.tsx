@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useLocale, useTranslations } from "next-intl";
 import { Check, Copy, Download, ImageIcon, Plus, RefreshCw, Share2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -13,6 +14,7 @@ import {
   AvailabilitySummary,
   IMAGE_THEMES,
   type AvailabilityImageTheme,
+  type ShareCopy,
   COMMON_ZONES,
   buildText,
   drawImage,
@@ -43,6 +45,24 @@ function saveZones(zones: string[]) {
 
 /** "Share availability": your open times as paste-ready text or an image. */
 export function ShareAvailability() {
+  const t = useTranslations("availability.share");
+  const tc = useTranslations("common");
+  const locale = useLocale();
+  const copy = useMemo<ShareCopy>(() => ({
+    fullyBooked: t("text.fullyBooked"),
+    intro: (zones) => t("text.intro", { zones }),
+    noOpenings: (day) => t("text.noOpenings", { day }),
+    orBook: t("text.orBook"),
+    imageTitle: t("text.imageTitle"),
+    imageZones: (zones) => t("text.imageZones", { zones }),
+    imageNoOpenings: t("text.imageNoOpenings"),
+    imageBook: (url) => t("text.imageBook", { url }),
+  }), [t]);
+  const themeLabel = (key: AvailabilityImageTheme) => (t.has(`themes.${key}` as Parameters<typeof t>[0]) ? t(`themes.${key}` as Parameters<typeof t>[0]) : IMAGE_THEMES[key].label);
+  const zoneName = (label: string) => {
+    const key = `zoneNames.${label.replace(/\s+/g, "")}`;
+    return t.has(key as Parameters<typeof t>[0]) ? t(key as Parameters<typeof t>[0]) : label;
+  };
   const { getToken } = useAuth();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -92,13 +112,13 @@ export function ShareAvailability() {
 
   const bookingUrl = summary ? `${typeof window !== "undefined" ? window.location.origin : "https://timeiq.app"}/book/${summary.username}` : "";
   const text = useMemo(
-    () => (summary && zones.length ? buildText(summary, zones, bookingUrl, includeEmpty) : ""),
-    [summary, zones, bookingUrl, includeEmpty]
+    () => (summary && zones.length ? buildText(summary, zones, bookingUrl, includeEmpty, copy, locale) : ""),
+    [summary, zones, bookingUrl, includeEmpty, copy, locale]
   );
 
   useEffect(() => {
-    if (summary && zones.length && canvasRef.current) drawImage(canvasRef.current, summary, zones, bookingUrl, imageTheme);
-  }, [summary, zones, bookingUrl, imageTheme]);
+    if (summary && zones.length && canvasRef.current) drawImage(canvasRef.current, summary, zones, bookingUrl, imageTheme, copy, locale);
+  }, [summary, zones, bookingUrl, imageTheme, copy, locale]);
 
   function updateZones(next: string[]) {
     setZones(next);
@@ -108,7 +128,7 @@ export function ShareAvailability() {
   function addZone(zone: string) {
     if (!zone || zones.includes(zone)) return;
     if (!isValidZone(zone)) {
-      toast({ title: "Unknown time zone", description: "Use a name like Europe/Paris or America/Chicago.", variant: "destructive" });
+      toast({ title: t("unknownZone"), description: t("unknownZoneHint"), variant: "destructive" });
       return;
     }
     updateZones([...zones, zone]);
@@ -127,7 +147,7 @@ export function ShareAvailability() {
 
   function pngBlob(): Promise<Blob> {
     return new Promise((resolve, reject) =>
-      canvasRef.current?.toBlob((b) => (b ? resolve(b) : reject(new Error("Could not draw the image"))), "image/png")
+      canvasRef.current?.toBlob((b) => (b ? resolve(b) : reject(new Error(t("drawFailed")))), "image/png")
     );
   }
 
@@ -136,7 +156,7 @@ export function ShareAvailability() {
       await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob() })]);
       flash("image");
     } catch {
-      toast({ title: "Couldn't copy the image", description: "Your browser blocked it. Use Download instead." });
+      toast({ title: t("copyImageFailed"), description: t("copyImageFailedHint") });
     }
   }
 
@@ -156,23 +176,23 @@ export function ShareAvailability() {
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="shrink-0">
           <Share2 className="mr-2 h-4 w-4" />
-          Share availability
+          {t("button")}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Share your availability</DialogTitle>
+          <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>
-            Your open times from every connected calendar, inside your working hours. Copy it as text or as an image.
+            {t("description")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground mr-1">Next</span>
+            <span className="text-sm text-muted-foreground mr-1">{t("next")}</span>
             {RANGES.map((n) => (
               <Button key={n} size="sm" aria-pressed={range === n} variant={range === n ? "default" : "outline"} onClick={() => { setRange(n); setLoadError(null); }}>
-                {n} {n === 1 ? "day" : "days"}
+                {n} {t("days", { count: n })}
               </Button>
             ))}
             <Button size="sm" aria-pressed={range === "custom"} variant={range === "custom" ? "default" : "outline"} onClick={() => {
@@ -182,36 +202,36 @@ export function ShareAvailability() {
               }
               setRange("custom"); setLoadError(null);
             }}>
-              Custom
+              {t("custom")}
             </Button>
             {range === "custom" && (
               <div className="flex w-full flex-wrap items-end gap-3">
                 <label className="space-y-1 text-sm">
-                  <span className="block">Start date</span>
+                  <span className="block">{t("startDate")}</span>
                   <input type="date" value={startDate} aria-invalid={!validRange} className="h-9 rounded-md border bg-background px-2 text-sm" onChange={(e) => { setStartDate(e.target.value); setLoadError(null); }} />
                 </label>
                 <label className="space-y-1 text-sm">
-                  <span className="block">End date</span>
+                  <span className="block">{t("endDate")}</span>
                   <input type="date" value={endDate} min={startDate || undefined} aria-invalid={!validRange} className="h-9 rounded-md border bg-background px-2 text-sm" onChange={(e) => { setEndDate(e.target.value); setLoadError(null); }} />
                 </label>
-                <p className="text-xs text-muted-foreground">Up to 31 days, including both dates, within the next 90 days.</p>
+                <p className="text-xs text-muted-foreground">{t("customHint")}</p>
               </div>
             )}
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium">Time zones</p>
+            <p className="text-sm font-medium">{t("timeZones")}</p>
             <div className="flex flex-wrap items-center gap-2">
               {zones.map((z, i) => (
                 <span key={z} className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm">
                   <span className="font-medium">{zoneAbbr(z)}</span>
                   <span className="text-muted-foreground">{z.replace(/_/g, " ")}</span>
                   {i === 0 ? (
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">main</span>
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{t("main")}</span>
                   ) : (
                     <button
                       type="button"
-                      aria-label={`Remove ${z}`}
+                      aria-label={t("removeZone", { zone: z })}
                       className="text-muted-foreground hover:text-foreground"
                       onClick={() => updateZones(zones.filter((x) => x !== z))}
                     >
@@ -226,18 +246,18 @@ export function ShareAvailability() {
                 className="h-9 rounded-md border bg-background px-2 text-sm"
                 value=""
                 onChange={(e) => addZone(e.target.value)}
-                aria-label="Add a time zone"
+                aria-label={t("addZone")}
               >
-                <option value="">Add a time zone…</option>
+                <option value="">{t("addZoneOption")}</option>
                 {addable.map((z) => (
                   <option key={z.zone} value={z.zone}>
-                    {z.label} ({zoneAbbr(z.zone)})
+                    {zoneName(z.label)} ({zoneAbbr(z.zone)})
                   </option>
                 ))}
               </select>
               <input
                 className="h-9 w-48 rounded-md border bg-background px-2 text-sm"
-                placeholder="Other, e.g. Europe/Paris"
+                placeholder={t("otherZone")}
                 value={customZone}
                 onChange={(e) => setCustomZone(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addZone(customZone.trim())}
@@ -249,26 +269,26 @@ export function ShareAvailability() {
           </div>
 
           {!validRange ? (
-            <p role="alert" className="text-sm text-destructive">Choose a start and end date spanning 1 to 31 days, including both dates.</p>
+            <p role="alert" className="text-sm text-destructive">{t("invalidRange")}</p>
           ) : loadError ? (
             <div className="rounded-lg border p-4 text-sm" role="alert">
               <p className="mb-3">{loadError}</p>
               <Button size="sm" variant="outline" onClick={() => { setLoadError(null); setAttempt((n) => n + 1); }}>
-                <RefreshCw className="mr-2 h-3.5 w-3.5" /> Try again
+                <RefreshCw className="mr-2 h-3.5 w-3.5" /> {tc("retry")}
               </Button>
             </div>
           ) : !summary ? (
             <div className="flex justify-center py-10">
-              <ClockLoader label="Checking your calendars" />
+              <ClockLoader label={t("checking")} />
             </div>
           ) : (
             <>
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium">As text</p>
+                  <p className="text-sm font-medium">{t("asText")}</p>
                   <label className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Switch checked={includeEmpty} onCheckedChange={setIncludeEmpty} />
-                    Show days with no openings
+                    {t("showEmpty")}
                   </label>
                 </div>
                 <textarea
@@ -279,29 +299,29 @@ export function ShareAvailability() {
                 />
                 <Button size="sm" onClick={copyText}>
                   {copied === "text" ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
-                  {copied === "text" ? "Copied" : "Copy text"}
+                  {copied === "text" ? tc("copied") : t("copyText")}
                 </Button>
               </div>
 
               <div className="space-y-2">
-                <p className="text-sm font-medium">As an image</p>
+                <p className="text-sm font-medium">{t("asImage")}</p>
                 <fieldset className="flex flex-wrap gap-2">
-                  <legend className="mb-2 text-sm text-muted-foreground">Image theme</legend>
+                  <legend className="mb-2 text-sm text-muted-foreground">{t("imageTheme")}</legend>
                   {(Object.keys(IMAGE_THEMES) as AvailabilityImageTheme[]).map((key) => (
                     <Button key={key} size="sm" variant={imageTheme === key ? "default" : "outline"} aria-pressed={imageTheme === key} onClick={() => setImageTheme(key)}>
                       <span aria-hidden="true" className="h-3 w-3 rounded-full border" style={{ backgroundColor: IMAGE_THEMES[key].openingBorder }} />
-                      {IMAGE_THEMES[key].label}
+                      {themeLabel(key)}
                     </Button>
                   ))}
                 </fieldset>
-                <canvas ref={canvasRef} aria-label={`Availability image, ${IMAGE_THEMES[imageTheme].label} theme`} className="w-full rounded-md border" />
+                <canvas ref={canvasRef} aria-label={t("imageLabel", { theme: themeLabel(imageTheme) })} className="w-full rounded-md border" />
                 <div className="flex gap-2">
                   <Button size="sm" onClick={copyImage}>
                     {copied === "image" ? <Check className="mr-2 h-4 w-4" /> : <ImageIcon className="mr-2 h-4 w-4" />}
-                    {copied === "image" ? "Copied" : "Copy image"}
+                    {copied === "image" ? tc("copied") : t("copyImage")}
                   </Button>
                   <Button size="sm" variant="outline" onClick={downloadImage}>
-                    <Download className="mr-2 h-4 w-4" /> Download
+                    <Download className="mr-2 h-4 w-4" /> {t("download")}
                   </Button>
                 </div>
               </div>

@@ -6,7 +6,6 @@
 export const DEMO_ZONE = "America/New_York";
 /** Monday of the demo week. US clocks fell back on Nov 1, so every day is EST. */
 export const DEMO_MONDAY = "2026-11-02";
-export const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export const WORK_START = 9;
 export const WORK_END = 17;
 
@@ -89,12 +88,18 @@ export function slotsFor(day: number, busy: DemoEvent[]): number[] {
   return slots;
 }
 
-export function clock(h: number): string {
+/** "5:30 PM" or "9 AM" in English, the locale's own clock elsewhere ("17:30"). */
+export function clock(h: number, locale = "en"): string {
   const hh = Math.floor(h);
   const mm = Math.round((h - hh) * 60);
-  const suffix = hh >= 12 ? "PM" : "AM";
-  const h12 = ((hh + 11) % 12) + 1;
-  return mm ? `${h12}:${String(mm).padStart(2, "0")} ${suffix}` : `${h12} ${suffix}`;
+  const english = locale.startsWith("en");
+  return new Intl.DateTimeFormat(locale, mm || !english ? { hour: "numeric", minute: "2-digit" } : { hour: "numeric" })
+    .format(new Date(2026, 10, 2, hh, mm));
+}
+
+/** Short weekday name of a demo day, e.g. "Mon" or "lun.". */
+export function dayLabel(day: number, locale = "en"): string {
+  return new Intl.DateTimeFormat(locale, { weekday: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2026, 10, 2 + day, 12)));
 }
 
 /** ISO timestamp for a demo day and hour, in EST. */
@@ -104,8 +109,8 @@ export function demoIso(day: number, hour: number): string {
   return d.toISOString();
 }
 
-export function dayDate(day: number): string {
+export function dayDate(day: number, locale = "en"): string {
   const d = new Date(`${DEMO_MONDAY}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + day);
-  return `${DAY_LABELS[day]} ${d.getUTCDate()}`;
+  return `${dayLabel(day, locale)} ${d.getUTCDate()}`;
 }

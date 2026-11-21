@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
+import { useTranslations } from "next-intl";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { PricingCard } from "@/components/billing/pricing-card";
 import { BillingStatus, fetchBillingStatus } from "@/lib/billing";
@@ -19,6 +21,7 @@ export function SubscriptionGate({
   children: React.ReactNode;
   exemptPaths?: string[];
 }) {
+  const t = useTranslations("gate");
   const { isLoaded, getToken, userId } = useAuth();
   const pathname = usePathname() ?? "";
   const exempt = exemptPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -60,7 +63,7 @@ export function SubscriptionGate({
   if (status === null) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
-        <ClockLoader size="lg" label="Loading" />
+        <ClockLoader size="lg" label={t("loading")} />
       </div>
     );
   }
@@ -71,15 +74,13 @@ export function SubscriptionGate({
       <div className="space-y-8 py-6">
         <div className="text-center max-w-xl mx-auto">
           <div className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-4">
-            {lapsed ? "Subscription ended" : `${status.free_meetings} free meetings booked`}
+            {lapsed ? t("ended") : t("freeBooked", { count: status.free_meetings })}
           </div>
           <h1 className="text-4xl lg:text-5xl leading-[1.02] tracking-[-0.025em] text-balance">
-            <span className="font-display">{lapsed ? "Pick up where you left off." : "Keep your link open."}</span>
+            <span className="font-display">{lapsed ? t("lapsedHeading") : t("heading")}</span>
           </h1>
           <p className="text-muted-foreground mt-4 text-pretty">
-            {lapsed
-              ? "Your bookings, time, and invoices are all still here. Renew to keep going."
-              : "People are booking you through TimeIQ. Your booking link is paused for new bookings until you pick a plan. Every meeting already booked stays on your calendar."}
+            {lapsed ? t("lapsedBody") : t("body")}
           </p>
         </div>
         <PricingCard />
@@ -93,14 +94,15 @@ export function SubscriptionGate({
       {left !== null && left > 0 && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border border-foreground/[0.08] bg-background/60 px-4 py-3 text-sm">
           <span className="text-muted-foreground">
-            <span className="font-medium text-foreground tabular-nums">
-              {left} of {status !== "error" && status !== null ? status.free_meetings : 7}
-            </span>{" "}
-            free meetings left. After that your booking link pauses until you pick a plan.
+            {t.rich("left", {
+              left,
+              total: status !== "error" && status !== null ? status.free_meetings : 7,
+              strong: (chunks) => <span className="font-medium text-foreground tabular-nums">{chunks}</span>,
+            })}
           </span>
-          <a href="/pricing" className="font-medium text-foreground underline underline-offset-4 hover:no-underline">
-            See plans
-          </a>
+          <Link href="/pricing" className="font-medium text-foreground underline underline-offset-4 hover:no-underline">
+            {t("seePlans")}
+          </Link>
         </div>
       )}
       {children}

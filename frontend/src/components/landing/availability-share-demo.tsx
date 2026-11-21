@@ -2,16 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, ImageIcon, Type } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { buildText, drawImage, type AvailabilitySummary } from "@/lib/availability-share";
 import { DEMO_MONDAY, DEMO_ZONE, MERGE_EVENTS, WORK_END, WORK_START, demoIso, freeWindows } from "./demo-week";
 import { useDemoAutoplay } from "./use-demo-autoplay";
 
 const EXTRA_ZONES = [
-  { zone: "America/Los_Angeles", label: "Pacific" },
-  { zone: "America/Chicago", label: "Central" },
-  { zone: "Europe/London", label: "London" },
-  { zone: "Asia/Tokyo", label: "Tokyo" },
-];
+  { zone: "America/Los_Angeles", key: "pacific" },
+  { zone: "America/Chicago", key: "central" },
+  { zone: "Europe/London", key: "london" },
+  { zone: "Asia/Tokyo", key: "tokyo" },
+] as const;
 const BOOKING_URL = "https://timeiq.app/book/you";
 const MAX_EXTRA = 2;
 
@@ -50,6 +51,7 @@ const SUMMARY = demoSummary();
 
 /** Pick time zones, flip between text and picture, and copy the real output. */
 export function AvailabilityShareDemo() {
+  const t = useTranslations("landing.demo.share");
   const summary = SUMMARY;
   const [extra, setExtra] = useState<string[]>(["America/Los_Angeles"]);
   const [view, setView] = useState<"text" | "image">("image");
@@ -104,7 +106,7 @@ export function AvailabilityShareDemo() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="rounded-full bg-foreground text-background px-3 py-1.5 text-xs font-medium">
-            Eastern (you)
+            {t("eastern")}
           </span>
           {EXTRA_ZONES.map((z) => {
             const active = extra.includes(z.zone);
@@ -121,16 +123,16 @@ export function AvailabilityShareDemo() {
                 }`}
               >
                 {active ? "✓ " : "+ "}
-                {z.label}
+                {t(`zones.${z.key}`)}
               </button>
             );
           })}
         </div>
-        <div className="flex rounded-lg bg-foreground/[0.05] p-0.5" role="tablist" aria-label="Format">
+        <div className="flex rounded-lg bg-foreground/[0.05] p-0.5" role="tablist" aria-label={t("format")}>
           {(
             [
-              ["text", "Text", Type],
-              ["image", "Picture", ImageIcon],
+              ["text", t("text"), Type],
+              ["image", t("picture"), ImageIcon],
             ] as const
           ).map(([key, label, Icon]) => (
             <button
@@ -160,7 +162,7 @@ export function AvailabilityShareDemo() {
             {text}
           </pre>
         ) : (
-          <canvas ref={canvasRef} className="block h-auto w-full" aria-label="Weekly availability picture" />
+          <canvas ref={canvasRef} className="block h-auto w-full" aria-label={t("pictureLabel")} />
         )}
         <button
           type="button"
@@ -168,11 +170,11 @@ export function AvailabilityShareDemo() {
           className="absolute top-2.5 right-2.5 inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background shadow-md transition-transform hover:-translate-y-0.5 active:scale-95"
         >
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-          {copied ? "Copied" : view === "text" ? "Copy text" : "Copy picture"}
+          {copied ? t("copied") : view === "text" ? t("copyText") : t("copyPicture")}
         </button>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        This is the real output, built by the same code as the dashboard, from a sample week. Paste it anywhere.
+        {t("note")}
       </p>
     </div>
   );

@@ -2,22 +2,18 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ArrowUp, Mic, Square } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { hasSessionCookie } from "@/lib/session-cookie";
 import { listen, savePendingAsk, speechRecognizer, type Recognizer } from "@/lib/speech";
 
 // The homepage's ask box. Nothing is sent from here: the request rides through
 // sign-up (or straight to the dashboard when signed in) and Ask TimeIQ answers it there.
-const EXAMPLES = [
-  "Find 30 minutes with sam@acme.com next week",
-  "When am I free Thursday afternoon?",
-  "Set up a call with Priya, Dev and Marco, mornings only",
-  "Add soccer practice: Saturdays 9am at Lincoln Park until December",
-  "What does my week look like?",
-];
 const noop = () => () => {};
-const CHIPS = ["What does my week look like?", "Find 30 min with a client next week", "Add my kid's soccer schedule"];
 
 export function HeroAsk() {
+  const t = useTranslations("landing.ask");
+  const EXAMPLES = (["e1", "e2", "e3", "e4", "e5"] as const).map((k) => t(`examples.${k}`));
+  const CHIPS = (["c1", "c2", "c3"] as const).map((k) => t(`chips.${k}`));
   const [text, setText] = useState("");
   const [placeholder, setPlaceholder] = useState(EXAMPLES[0]);
   const [listening, setListening] = useState(false);
@@ -46,6 +42,8 @@ export function HeroAsk() {
     };
     t = setTimeout(tick, 2600);
     return () => clearTimeout(t);
+    // EXAMPLES follows the locale, which only changes on a full refresh.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, listening]);
 
   function go(request: string) {
@@ -72,18 +70,18 @@ export function HeroAsk() {
           ref={box}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder={listening ? "Listening…" : placeholder}
-          aria-label="Ask TimeIQ to schedule something"
+          placeholder={listening ? t("listening") : placeholder}
+          aria-label={t("label")}
           enterKeyHint="send"
           className="h-11 min-w-0 flex-1 bg-transparent text-[15px] text-[#141414] outline-none placeholder:text-black/45"
         />
         {canListen && (
-          <button type="button" onClick={toggleMic} aria-label={listening ? "Stop listening" : "Say it instead"} aria-pressed={listening}
+          <button type="button" onClick={toggleMic} aria-label={listening ? t("stop") : t("speak")} aria-pressed={listening}
             className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition ${listening ? "bg-[#f2690d] text-white" : "text-black/55 hover:bg-black/5 hover:text-black"}`}>
             {listening ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-5 w-5" />}
           </button>
         )}
-        <button type="submit" aria-label="Ask TimeIQ" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#141414] text-white transition hover:bg-black">
+        <button type="submit" aria-label={t("submit")} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#141414] text-white transition hover:bg-black">
           <ArrowUp className="h-5 w-5" />
         </button>
       </form>

@@ -1,5 +1,3 @@
-import { format as formatDate } from "date-fns";
-
 export interface Client {
   id: string;
   name: string;
@@ -134,10 +132,10 @@ export interface PublicInvoice {
   lines: InvoiceLine[];
 }
 
-export function fmtMoney(amount: string | number, currency: string): string {
+export function fmtMoney(amount: string | number, currency: string, locale = "en"): string {
   const n = typeof amount === "string" ? parseFloat(amount) : amount;
   try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(n);
+    return new Intl.NumberFormat(locale, { style: "currency", currency }).format(n);
   } catch {
     return `${currency} ${n.toFixed(2)}`;
   }
@@ -149,22 +147,18 @@ export function fmtHours(hours: string | number): string {
 }
 
 /** Format a yyyy-MM-dd date string without timezone shift. */
-export function fmtDate(iso: string, pattern = "MMM d, yyyy"): string {
+export function fmtDate(
+  iso: string,
+  locale = "en",
+  options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" },
+): string {
   const [y, m, d] = iso.split("-").map(Number);
-  const dt = new Date(y, m - 1, d);
-  return formatDate(dt, pattern);
+  return new Date(y, m - 1, d).toLocaleDateString(locale, options);
 }
 
 
 export function authHeaders(token: string | null): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
 }
-
-export const STATUS_LABEL: Record<InvoiceStatus, string> = {
-  draft: "Draft",
-  sent: "Sent",
-  paid: "Paid",
-  void: "Void",
-};
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";

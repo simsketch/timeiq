@@ -1,0 +1,57 @@
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import { UserButton } from "@clerk/nextjs";
+import { LocalizedClerkProvider } from "@/i18n/clerk-provider";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages } from "next-intl/server";
+import { Sidebar } from "@/components/dashboard/sidebar";
+import { MobileNav } from "@/components/dashboard/mobile-nav";
+import { SubscriptionGate } from "@/components/billing/subscription-gate";
+import { CalendarHealthBanner } from "@/components/dashboard/calendar-health-banner";
+import { UNGATED_PATHS } from "@/lib/api";
+import { SignupPixel } from "@/components/signup-pixel";
+
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { userId } = await auth();
+
+  if (!userId) {
+    redirect("/sign-in");
+  }
+
+  return (
+    <LocalizedClerkProvider>
+      <NextIntlClientProvider messages={await getMessages()}>
+        <div className="relative min-h-screen md:h-screen md:flex md:overflow-hidden">
+          <div className="aurora-bg aurora-bg-soft" aria-hidden />
+          <div className="grain" aria-hidden />
+
+          <SignupPixel />
+          <MobileNav />
+
+          <aside className="hidden md:flex md:w-72 md:flex-col md:fixed md:inset-y-0 z-30 p-3">
+            <Sidebar />
+            <div className="absolute bottom-7 left-7 z-40">
+              <UserButton afterSignOutUrl="/" />
+            </div>
+          </aside>
+
+          <main className="relative min-w-0 flex-1 md:pl-72">
+            <div className="md:h-full md:overflow-y-auto">
+              <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-10 py-6 md:py-10">
+                <CalendarHealthBanner />
+                {/* Settings stays reachable when unpaid: billing, export and account deletion live there. */}
+                <SubscriptionGate exemptPaths={UNGATED_PATHS}>
+                  {children}
+                </SubscriptionGate>
+              </div>
+            </div>
+          </main>
+        </div>
+      </NextIntlClientProvider>
+    </LocalizedClerkProvider>
+  );
+}

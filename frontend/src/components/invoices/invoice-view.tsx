@@ -1,11 +1,12 @@
+import { useLocale, useTranslations } from "next-intl";
 import { InvoiceLine, fmtDate, fmtMoney } from "@/lib/invoicing";
 import {
-  fmtSpan,
   groupTimeLines,
   invoiceTotals,
   splitLines,
   weeklyBreakdown,
   dayOfWeek,
+  fmtSpan,
   gridDayLabel,
 } from "@/lib/invoice-grouping";
 
@@ -29,17 +30,22 @@ export interface InvoiceViewData {
   lines: InvoiceLine[];
 }
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
+// Jan 4, 2026 was a Sunday; the grid starts its weeks on Sunday.
+const DAYS = [0, 1, 2, 3, 4, 5, 6];
+const weekdayName = (i: number, locale: string) => new Date(2026, 0, 4 + i).toLocaleDateString(locale, { weekday: "short" });
 /** 8 -> "8", 7.5 -> "7.5", 0 -> blank, so the grid reads at a glance. */
-const fmtDayHours = (h: number) => (h ? String(Math.round(h * 100) / 100) : "");
+const fmtDayHours = (h: number, locale: string) => (h ? h.toLocaleString(locale, { maximumFractionDigits: 2 }) : "");
 
 export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
   const grouped = groupTimeLines(invoice.lines);
   const weeks = weeklyBreakdown(invoice.lines);
   const { expenseLines } = splitLines(invoice.lines);
   const sums = invoiceTotals(invoice.lines);
-  const money = (n: number) => fmtMoney(n, invoice.currency);
+  const t = useTranslations("invoiceView");
+  const locale = useLocale();
+  const money = (n: number) => fmtMoney(n, invoice.currency, locale);
+  const num = (n: number) => n.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const date = (iso: string) => fmtDate(iso, locale);
   return (
     <div className="rounded-2xl border bg-background p-6 sm:p-10 space-y-8">
       <div className="flex flex-wrap justify-between gap-6">
@@ -48,16 +54,16 @@ export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
           <p className="text-sm text-muted-foreground">{invoice.sender_email}</p>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold tracking-tight">INVOICE</p>
+          <p className="text-2xl font-bold tracking-tight uppercase">{t("title")}</p>
           <p className="font-mono">{invoice.number}</p>
-          <p className="text-sm text-muted-foreground">Issued {fmtDate(invoice.issue_date)}</p>
-          <p className="text-sm text-muted-foreground">Due {fmtDate(invoice.due_date)}</p>
+          <p className="text-sm text-muted-foreground">{t("issued", { date: date(invoice.issue_date) })}</p>
+          <p className="text-sm text-muted-foreground">{t("due", { date: date(invoice.due_date) })}</p>
         </div>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-6 text-sm">
         <div>
-          <p className="text-xs font-semibold text-muted-foreground mb-1">BILL TO</p>
+          <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">{t("billTo")}</p>
           <p className="font-medium">{invoice.client_name}</p>
           {invoice.client_contact_name && <p>{invoice.client_contact_name}</p>}
           {invoice.client_address && <p className="whitespace-pre-line">{invoice.client_address}</p>}
@@ -66,38 +72,37 @@ export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
           )}
         </div>
         <div>
-          <p className="text-xs font-semibold text-muted-foreground mb-1">PERIOD</p>
+          <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">{t("period")}</p>
           <p>
-            {fmtDate(invoice.period_start)} to {fmtDate(invoice.period_end)}
+            {t("periodRange", { start: date(invoice.period_start), end: date(invoice.period_end) })}
           </p>
         </div>
       </div>
 
       {invoice.show_weekly_breakdown !== false && weeks.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-muted-foreground">HOURS</p>
+          <p className="text-xs font-semibold uppercase text-muted-foreground">{t("hours")}</p>
           <p className="text-xs text-muted-foreground mb-2">
-            Hours logged each day, billed in the services below. Shaded days fall
-            outside the billing period.
+            {t("hoursHelp")}
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-xs text-muted-foreground">
-                  <th className="py-2 pr-3 font-semibold text-left">Week</th>
+                  <th className="py-2 pr-3 font-semibold text-left">{t("week")}</th>
                   {DAYS.map((d) => (
                     <th key={d} className="py-2 px-1 font-semibold text-right w-12">
-                      {d}
+                      {weekdayName(d, locale)}
                     </th>
                   ))}
-                  <th className="py-2 pl-3 font-semibold text-right">Total</th>
+                  <th className="py-2 pl-3 font-semibold text-right">{t("total")}</th>
                 </tr>
               </thead>
               <tbody>
                 {weeks.map((w) => (
                   <tr key={w.weekStart} className="border-b border-border/60">
                     <td className="py-2 pr-3 whitespace-nowrap">
-                      {fmtSpan(w.weekStart, w.weekEnd)}
+                      {fmtSpan(w.weekStart, w.weekEnd, locale)}
                     </td>
                     {w.days.map((h, i) => {
                       const day = dayOfWeek(w.weekStart, i);
@@ -105,30 +110,30 @@ export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
                       return (
                         <td
                           key={i}
-                          title={outside ? "Outside the billing period" : undefined}
+                          title={outside ? t("outsidePeriod") : undefined}
                           className={`py-1.5 px-1 text-right tabular-nums align-top ${outside ? "bg-muted/60" : ""}`}
                         >
                           <div
                             className={`text-[10px] leading-tight ${outside ? "text-muted-foreground/50" : "text-muted-foreground"}`}
                           >
-                            {gridDayLabel(day, i === 0)}
+                            {gridDayLabel(day, i === 0, locale)}
                           </div>
-                          <div className="leading-tight">{fmtDayHours(h)}</div>
+                          <div className="leading-tight">{fmtDayHours(h, locale)}</div>
                         </td>
                       );
                     })}
-                    <td className="py-2 pl-3 text-right tabular-nums">{w.hours.toFixed(2)}</td>
+                    <td className="py-2 pl-3 text-right tabular-nums">{num(w.hours)}</td>
                   </tr>
                 ))}
                 <tr className="font-semibold">
-                  <td className="py-2 pr-3">Total</td>
+                  <td className="py-2 pr-3">{t("total")}</td>
                   {DAYS.map((d, i) => (
                     <td key={d} className="py-2 px-1 text-right tabular-nums">
-                      {fmtDayHours(weeks.reduce((s, w) => s + w.days[i], 0))}
+                      {fmtDayHours(weeks.reduce((s, w) => s + w.days[i], 0), locale)}
                     </td>
                   ))}
                   <td className="py-2 pl-3 text-right tabular-nums">
-                    {weeks.reduce((s, w) => s + w.hours, 0).toFixed(2)}
+                    {num(weeks.reduce((s, w) => s + w.hours, 0))}
                   </td>
                 </tr>
               </tbody>
@@ -139,16 +144,16 @@ export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
 
       {grouped.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-muted-foreground mb-2">SERVICES</p>
+          <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">{t("services")}</p>
           <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-xs text-muted-foreground">
-                <th className="py-2 pr-3 font-semibold">Description</th>
-                <th className="py-2 pr-3 font-semibold">Dates</th>
-                <th className="py-2 pr-3 font-semibold text-right">Hours</th>
-                <th className="py-2 pr-3 font-semibold text-right">Rate</th>
-                <th className="py-2 font-semibold text-right">Amount</th>
+                <th className="py-2 pr-3 font-semibold">{t("description")}</th>
+                <th className="py-2 pr-3 font-semibold">{t("dates")}</th>
+                <th className="py-2 pr-3 font-semibold text-right">{t("hoursColumn")}</th>
+                <th className="py-2 pr-3 font-semibold text-right">{t("rate")}</th>
+                <th className="py-2 font-semibold text-right">{t("amount")}</th>
               </tr>
             </thead>
             <tbody>
@@ -156,20 +161,20 @@ export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
                 <tr key={`${g.description}-${g.rate}`} className="border-b border-border/60">
                   <td className="py-2 pr-3">{g.description}</td>
                   <td className="py-2 pr-3 whitespace-nowrap text-muted-foreground">
-                    {fmtSpan(g.firstDate, g.lastDate)}
+                    {fmtSpan(g.firstDate, g.lastDate, locale)}
                   </td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{g.hours.toFixed(2)}</td>
-                  <td className="py-2 pr-3 text-right tabular-nums">{g.rate.toFixed(2)}</td>
-                  <td className="py-2 text-right tabular-nums">{g.amount.toFixed(2)}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{num(g.hours)}</td>
+                  <td className="py-2 pr-3 text-right tabular-nums">{num(g.rate)}</td>
+                  <td className="py-2 text-right tabular-nums">{num(g.amount)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="font-semibold">
                 <td className="py-3 pr-3" colSpan={2}>
-                  Services subtotal
+                  {t("servicesSubtotal")}
                 </td>
-                <td className="py-3 pr-3 text-right tabular-nums">{sums.hours.toFixed(2)}</td>
+                <td className="py-3 pr-3 text-right tabular-nums">{num(sums.hours)}</td>
                 <td />
                 <td className="py-3 text-right tabular-nums">{money(sums.timeAmount)}</td>
               </tr>
@@ -181,14 +186,14 @@ export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
 
       {expenseLines.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-muted-foreground mb-2">EXPENSES</p>
+          <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">{t("expenses")}</p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="py-2 pr-3 font-semibold">Expense</th>
-                  <th className="py-2 pr-3 font-semibold">Date</th>
-                  <th className="py-2 font-semibold text-right">Amount</th>
+                  <th className="py-2 pr-3 font-semibold">{t("expense")}</th>
+                  <th className="py-2 pr-3 font-semibold">{t("date")}</th>
+                  <th className="py-2 font-semibold text-right">{t("amount")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -196,10 +201,10 @@ export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
                   <tr key={e.id} className="border-b border-border/60">
                     <td className="py-2 pr-3">{e.description}</td>
                     <td className="py-2 pr-3 whitespace-nowrap text-muted-foreground">
-                      {fmtDate(e.line_date)}
+                      {date(e.line_date)}
                     </td>
                     <td className="py-2 text-right tabular-nums">
-                      {parseFloat(e.amount).toFixed(2)}
+                      {num(parseFloat(e.amount))}
                     </td>
                   </tr>
                 ))}
@@ -207,7 +212,7 @@ export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
               <tfoot>
                 <tr className="font-semibold">
                   <td className="py-3 pr-3" colSpan={2}>
-                    Expenses subtotal
+                    {t("expensesSubtotal")}
                   </td>
                   <td className="py-3 text-right tabular-nums">{money(sums.expenseAmount)}</td>
                 </tr>
@@ -218,15 +223,15 @@ export function InvoiceView({ invoice }: { invoice: InvoiceViewData }) {
       )}
 
       <div className="flex items-center justify-between border-t-2 border-foreground pt-4">
-        <span className="font-semibold tracking-tight">TOTAL DUE</span>
+        <span className="font-semibold tracking-tight uppercase">{t("totalDue")}</span>
         <span className="text-xl font-bold tabular-nums">
-          {fmtMoney(invoice.subtotal, invoice.currency)}
+          {fmtMoney(invoice.subtotal, invoice.currency, locale)}
         </span>
       </div>
 
       {invoice.notes && (
         <div className="text-sm">
-          <p className="text-xs font-semibold text-muted-foreground mb-1">NOTES</p>
+          <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">{t("notes")}</p>
           <p className="whitespace-pre-line">{invoice.notes}</p>
         </div>
       )}

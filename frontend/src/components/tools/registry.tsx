@@ -5,26 +5,22 @@ import { HourlySalaryCalculator } from "./hourly-salary";
 import { MeetingCostCalculator } from "./meeting-cost";
 import { TimezoneOverlapCalculator } from "./timezone-overlap";
 
+/**
+ * Name, title (page <title> and H1), description (meta and card blurb) and CTA live in
+ * messages under tools.items.<key>.
+ */
 export interface Tool {
   slug: string;
-  name: string;
-  /** Page <title> and H1. */
-  title: string;
-  /** Meta description and card blurb. */
-  description: string;
+  key: "hourlyToSalary" | "freelanceRate" | "meetingCost" | "timeZoneOverlap" | "bookingCapacity";
   Calculator: ComponentType;
-  /** Explainer under the calculator (also what search engines read). */
+  /** Explainer under the calculator (also what search engines read). English only: long-form SEO copy. */
   body: ReactNode;
-  cta: { heading: string; body: string };
 }
 
 export const TOOLS: Tool[] = [
   {
     slug: "hourly-to-salary",
-    name: "Hourly to salary",
-    title: "Hourly to salary calculator",
-    description:
-      "Turn an hourly rate into yearly, monthly, weekly and daily pay, for full-time or part-time hours. Works the other way too: salary to hourly.",
+    key: "hourlyToSalary",
     Calculator: HourlySalaryCalculator,
     body: (
       <>
@@ -50,17 +46,10 @@ export const TOOLS: Tool[] = [
         </p>
       </>
     ),
-    cta: {
-      heading: "Your hours are worth protecting.",
-      body: "TimeIQ merges every calendar you use into one booking link, so clients only book when you're really free, and nobody books over your other commitments.",
-    },
   },
   {
     slug: "freelance-rate",
-    name: "Freelance rate",
-    title: "Freelance hourly rate calculator",
-    description:
-      "Work out the hourly rate you need as a freelancer or consultant, after taxes, expenses, time off and the hours you can't bill.",
+    key: "freelanceRate",
     Calculator: FreelanceRateCalculator,
     body: (
       <>
@@ -78,17 +67,10 @@ export const TOOLS: Tool[] = [
         </ul>
       </>
     ),
-    cta: {
-      heading: "Stop spending billable time on scheduling.",
-      body: "Share one link that checks all your calendars. Clients pick a time that's really free, and you get back the hours lost to email tag.",
-    },
   },
   {
     slug: "meeting-cost",
-    name: "Meeting cost",
-    title: "Meeting cost calculator",
-    description:
-      "See what a recurring meeting costs your team per meeting and per year, based on attendees, salaries, length and how often it runs.",
+    key: "meetingCost",
     Calculator: MeetingCostCalculator,
     body: (
       <>
@@ -106,17 +88,10 @@ export const TOOLS: Tool[] = [
         </ul>
       </>
     ),
-    cta: {
-      heading: "Make the meetings you keep count.",
-      body: "TimeIQ adds buffers between meetings, caps bookings per day, and asks your own intake questions up front, so every meeting starts with context.",
-    },
   },
   {
     slug: "time-zone-overlap",
-    name: "Time zone overlap",
-    title: "Time zone overlap calculator",
-    description:
-      "Find the working hours that New York, Los Angeles, London or any other time zones share, and the best time to schedule a meeting across them.",
+    key: "timeZoneOverlap",
     Calculator: TimezoneOverlapCalculator,
     body: (
       <>
@@ -137,17 +112,10 @@ export const TOOLS: Tool[] = [
         </p>
       </>
     ),
-    cta: {
-      heading: "Share your free time in their time zone.",
-      body: "TimeIQ turns your calendars into a list of open times, shown in your zone and theirs (EST / PST), ready to paste into a message. Or send your booking link and they pick.",
-    },
   },
   {
     slug: "booking-capacity",
-    name: "Booking capacity",
-    title: "How many meetings fit in my week? Booking capacity calculator",
-    description:
-      "Work out how many calls or sessions fit in your week once buffers and your other commitments are counted, and what paid sessions add up to.",
+    key: "bookingCapacity",
     Calculator: BookingCapacityCalculator,
     body: (
       <>
@@ -164,10 +132,6 @@ export const TOOLS: Tool[] = [
         </p>
       </>
     ),
-    cta: {
-      heading: "Only offer the hours you really have.",
-      body: "TimeIQ checks Google, Outlook, iCloud and any calendar link before showing a time, adds your buffers, and enforces your daily cap. Forward it the kids' sports schedule and those hours block too.",
-    },
   },
 ];
 

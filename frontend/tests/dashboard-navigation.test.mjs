@@ -7,6 +7,14 @@ import ts from "typescript";
 
 const require = createRequire(import.meta.url);
 
+// Components render with the real English messages, so assertions read the shipped copy.
+const { createTranslator } = require("use-intl");
+const enMessages = JSON.parse(readFileSync(new URL("../messages/en.json", import.meta.url), "utf8"));
+const intl = {
+  useTranslations: (namespace) => createTranslator({ locale: "en", messages: enMessages, namespace }),
+  useLocale: () => "en",
+};
+
 function load(path, overrides = {}, globals = {}) {
   const compiled = { exports: {} };
   const source = ts.transpileModule(readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8"), {
@@ -16,6 +24,8 @@ function load(path, overrides = {}, globals = {}) {
     module: compiled, exports: compiled.exports, Date, Error, Intl, URL, URLSearchParams,
     require(name) {
       if (name in overrides) return overrides[name];
+      if (name === "next-intl") return intl;
+      if (name === "next-intl/server") return { getTranslations: async (namespace) => intl.useTranslations(namespace), getLocale: async () => "en" };
       if (name === "@/lib/signup-attribution") return load("lib/signup-attribution.ts");
       if (name === "@/lib/analytics-url") return load("lib/analytics-url.ts");
       if (name === "@/lib/calendar-time") return load("lib/calendar-time.ts");
@@ -157,8 +167,9 @@ test("booking identity prefers a brand logo and falls back to a photo or initial
 
 test("white-label booking metadata uses the host's title and logo instead of TimeIQ branding", async () => {
   for (const enabled of [false, true]) {
-    const { generateMetadata } = load("app/book/[username]/layout.tsx", {
+    const { generateMetadata } = load("app/[locale]/book/[username]/layout.tsx", {
       "@/lib/public-booking-profile": { getPublicBookingProfile: async () => ({ name: "Acme Studio", booking_white_label: enabled, booking_logo: "data:image/png;base64,logo" }) },
+      "@/i18n/client-messages": { ClientMessages: ({ children }) => children },
     });
     const metadata = await generateMetadata({ params: Promise.resolve({ username: "acme" }) });
     if (enabled) {
@@ -235,7 +246,7 @@ test("chat keeps reset disabled until the reply completes and preserves tool his
   });
   const message = (text) => find(chat.render(), (n) => n.type === "textarea").props.onChange({ target: { value: text } });
   const submit = () => find(chat.render(), (n) => n.type === "form").props.onSubmit({ preventDefault() {} });
-  const reset = () => find(chat.render(), (n) => n.type === "button" && n.props.children?.includes?.(" New chat"));
+  const reset = () => find(chat.render(), (n) => n.type === "button" && n.props.children?.includes?.("New chat"));
   message("When am I free?");
   submit();
   await new Promise(setImmediate);
@@ -461,7 +472,7 @@ test("daylight-saving days still align busy events with the wall-clock grid", ()
 test("admin analytics shows counts, refreshes, and keeps private data out of error states", async () => {
   const calls = [];
   let fail = false;
-  const page = harness("app/(dashboard)/admin/page.tsx", "default", {}, {
+  const page = harness("app/[locale]/(dashboard)/admin/page.tsx", "default", {}, {
     effects: true,
     modules: {
       "@clerk/nextjs": { useAuth: () => ({ isLoaded: true, userId: "owner", getToken: async () => "owner-token" }) },
@@ -567,7 +578,7 @@ function visibleText(tree) {
 }
 
 test("signup leads with the AI agent, keeps recognized ad angles, and preserves Clerk routing", async () => {
-  const page = load("app/(auth)/sign-up/[[...sign-up]]/page.tsx", {
+  const page = load("app/[locale]/(auth)/sign-up/[[...sign-up]]/page.tsx", {
     "@clerk/nextjs": { SignUp: "SignUp" },
     "@/components/landing/headlines": load("components/landing/headlines.ts"),
   }).default;
@@ -598,7 +609,7 @@ test("signup leads with the AI agent, keeps recognized ad angles, and preserves 
 });
 
 test("signup header sign-in preserves only an explicit string redirect destination", async () => {
-  const page = load("app/(auth)/sign-up/[[...sign-up]]/page.tsx", {
+  const page = load("app/[locale]/(auth)/sign-up/[[...sign-up]]/page.tsx", {
     "@clerk/nextjs": { SignUp: "SignUp" },
     "@/components/landing/headlines": load("components/landing/headlines.ts"),
   }).default;
