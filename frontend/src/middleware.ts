@@ -55,9 +55,15 @@ function localized(request: NextRequest, pathname = request.nextUrl.pathname) {
   return NextResponse.rewrite(url);
 }
 
+const isAuthPage = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
+
 const withClerk = clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {
     await auth.protect();
+  } else if (isAuthPage(request) && (await auth()).userId) {
+    // Already signed in: go where they were headed. Same-site paths only, so this can't redirect off TimeIQ.
+    const target = new URL(request.nextUrl.searchParams.get("redirect_url") || "/dashboard", request.url);
+    return NextResponse.redirect(target.origin === request.nextUrl.origin ? target : new URL("/dashboard", request.url));
   }
   if (isUnlocalized(request.nextUrl.pathname)) return;
   const response = localized(request);
