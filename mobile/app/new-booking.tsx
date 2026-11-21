@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { DateTimeField } from "@/components/date-time-field";
-import { Button, Label, Notice } from "@/components/ui";
+import { Button, Label, Notice, readable } from "@/components/ui";
 import { ApiError, type EventType, useApi } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { fmt, nextHalfHour, timeOf } from "@/lib/time";
@@ -152,7 +152,7 @@ export default function NewBooking() {
 }
 
 const styles = StyleSheet.create({
-  form: { padding: 20, gap: 18, paddingBottom: 48 },
+  form: { padding: 20, gap: 18, paddingBottom: 48, ...readable },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
   hint: { fontSize: 13, marginTop: 6 },

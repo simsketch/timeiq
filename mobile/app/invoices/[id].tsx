@@ -5,7 +5,7 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-rou
 import * as WebBrowser from "expo-web-browser";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from "react-native";
-import { Button, Card, Label, Notice } from "@/components/ui";
+import { Button, Card, Label, Notice, readable } from "@/components/ui";
 import { getPref, setPref } from "@/lib/prefs";
 import { useApi } from "@/lib/api";
 import { API_URL, SITE_URL } from "@/lib/config";
@@ -579,7 +579,7 @@ function DayField({ value, onChange }: { value: string; onChange: (iso: string) 
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
-  page: { padding: 16, gap: 12, paddingBottom: 48 },
+  page: { padding: 16, gap: 12, paddingBottom: 48, ...readable },
   input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
   h2: { fontSize: 18, fontWeight: "700" },
   line: { flexDirection: "row", alignItems: "center", gap: 10 },

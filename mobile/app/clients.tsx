@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Stack, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
-import { Button, Card, Label, Notice } from "@/components/ui";
+import { Button, Card, Label, Notice, readable } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { type Client, errorText, fmtHours, fmtMoney, looksLikeEmail, splitEmails } from "@/lib/invoicing";
 import { useTheme } from "@/lib/theme";
@@ -263,7 +263,7 @@ export default function Clients() {
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 16, gap: 12, paddingBottom: 48 },
+  page: { padding: 16, gap: 12, paddingBottom: 48, ...readable },
   input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
   three: { flexDirection: "row", gap: 10 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },

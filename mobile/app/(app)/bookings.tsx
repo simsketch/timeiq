@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Notice, Segmented } from "@/components/ui";
+import { BookingDetail } from "@/components/booking-detail";
+import { Notice, Segmented, readable, useWide } from "@/components/ui";
 import { type Booking, type EventType, useApi } from "@/lib/api";
 import { colorFor, useTheme } from "@/lib/theme";
 import { dayKey, fmt, timeOf } from "@/lib/time";
@@ -17,7 +18,12 @@ export default function Bookings() {
   const me = useMe();
   const zone = me?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   const [tab, setTab] = useState<Tab>("upcoming");
+  // Wide windows show the picked booking (or the first one) beside the list.
+  const wide = useWide();
+  const [picked, setPicked] = useState<string | null>(null);
   const [all, setAll] = useState<Booking[] | null>(null);
+  // When `all` was fetched; "ended" is judged against it (render must stay pure).
+  const [now, setNow] = useState(0);
   const [types, setTypes] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -26,6 +32,7 @@ export default function Bookings() {
     try {
       const [bookings, ets] = await Promise.all([api<Booking[]>("/api/bookings"), api<EventType[]>("/api/event-types")]);
       setAll(bookings);
+      setNow(Date.now());
       setTypes(Object.fromEntries(ets.map((e) => [String(e.id), e.name])));
       setError(null);
     } catch (e) {
@@ -39,7 +46,6 @@ export default function Bookings() {
     }, [load])
   );
 
-  const now = Date.now();
   const shown = useMemo(() => {
     if (!all) return [];
     // A move cancels the old booking and creates a new one; hide the old half.
@@ -65,6 +71,8 @@ export default function Bookings() {
     return out;
   }, [shown, zone]);
 
+  const selectedId = wide ? (shown.some((b) => b.id === picked) ? picked : shown[0]?.id ?? null) : null;
+
   const empty: Record<Tab, string> = {
     upcoming: "No upcoming bookings. Share your booking link, or tap + to book someone yourself.",
     pending: "Nothing waiting on payment.",
@@ -83,6 +91,21 @@ export default function Bookings() {
           ),
         }}
       />
+      {wide ? (
+        <View style={styles.split}>
+          <View style={[styles.side, { borderColor: t.border }]}>{list()}</View>
+          <View style={{ flex: 1 }}>
+            {selectedId ? <BookingDetail key={selectedId} id={selectedId} onDone={load} /> : null}
+          </View>
+        </View>
+      ) : (
+        list()
+      )}
+    </>
+  );
+
+  function list() {
+    return (
       <ScrollView
         contentContainerStyle={styles.page}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
@@ -111,8 +134,13 @@ export default function Bookings() {
               return (
                 <Pressable
                   key={b.id}
-                  onPress={() => router.push({ pathname: "/booking/[id]", params: { id: b.id } })}
-                  style={({ pressed }) => [styles.item, { backgroundColor: t.card, borderColor: t.border, opacity: pressed ? 0.7 : 1 }]}
+                  accessibilityState={wide ? { selected: b.id === selectedId } : undefined}
+                  onPress={() => (wide ? setPicked(b.id) : router.push({ pathname: "/booking/[id]", params: { id: b.id } }))}
+                  style={({ pressed }) => [
+                    styles.item,
+                    { backgroundColor: t.card, borderColor: t.border, opacity: pressed ? 0.7 : 1 },
+                    b.id === selectedId && { borderColor: t.primary, borderWidth: 2, padding: 13 },
+                  ]}
                 >
                   <View style={[styles.bar, { backgroundColor: colorFor(b.event_type_id) }]} />
                   <View style={{ flex: 1 }}>
@@ -124,19 +152,21 @@ export default function Bookings() {
                       {b.price_cents ? ` · ${(b.price_cents / 100).toLocaleString("en-US", { style: "currency", currency: b.currency.toUpperCase() })}` : ""}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={t.muted} />
+                  {!wide && <Ionicons name="chevron-forward" size={18} color={t.muted} />}
                 </Pressable>
               );
             })}
           </View>
         ))}
       </ScrollView>
-    </>
-  );
+    );
+  }
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 16, gap: 14, paddingBottom: 48 },
+  page: { padding: 16, gap: 14, paddingBottom: 48, ...readable },
+  split: { flex: 1, flexDirection: "row" },
+  side: { width: 400, borderRightWidth: StyleSheet.hairlineWidth },
   day: { fontSize: 13, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.4 },
   item: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 14 },
   bar: { width: 4, alignSelf: "stretch", borderRadius: 2 },

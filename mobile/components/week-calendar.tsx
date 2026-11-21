@@ -12,7 +12,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { Segmented } from "@/components/ui";
+import { Segmented, useWide } from "@/components/ui";
 import { ZonePicker, zoneLabel } from "@/components/zone-picker";
 import { ApiError, type Booking, type CachedEvent, useApi } from "@/lib/api";
 import { colorFor, useTheme } from "@/lib/theme";
@@ -48,12 +48,12 @@ const MODES: { value: CalMode; label: string }[] = [
 ];
 
 // Choices last for the app session; the app has no persistent storage.
-const prefs: { mode: CalMode; fullDay: boolean; zone: string | null } = { mode: "3day", fullDay: false, zone: null };
+// mode stays null until picked, so it follows the window: a week when wide, 3 days on a phone.
+const prefs: { mode: CalMode | null; fullDay: boolean; zone: string | null } = { mode: null, fullDay: false, zone: null };
 const hiddenCalendars = new Set<string>();
 
 const HOUR_PX = 48;
-/** Taps and drags on the grid pick half hours; a dragged booking moves in quarter hours. */
-const SLOT_PX = HOUR_PX / 2;
+/** Taps and drags on the grid pick half hours (slotPx); a dragged booking moves in quarter hours. */
 const MOVE_MINUTES = 15;
 const GUTTER = 46;
 const LONG_PRESS_MS = 350;
@@ -215,7 +215,9 @@ export function WeekCalendar({
   hint?: string;
 }) {
   const t = useTheme();
-  const [mode, setModeState] = useState<CalMode>(prefs.mode);
+  const wide = useWide();
+  const [picked, setModeState] = useState<CalMode | null>(prefs.mode);
+  const mode: CalMode = picked ?? (wide ? "week" : "3day");
   const setMode = (m: CalMode) => {
     prefs.mode = m;
     setModeState(m);
@@ -306,8 +308,12 @@ export function WeekCalendar({
   }
   const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
   const slotCount = hours.length * 2;
+  // When wide, hours stretch to fill the frame instead of leaving it half empty; phones keep the fixed height.
+  const [viewH, setViewH] = useState(0);
+  const hourPx = wide ? Math.max(HOUR_PX, Math.floor((viewH - 8) / hours.length)) : HOUR_PX;
+  const slotPx = hourPx / 2;
   const nowVisible = nowCol >= 0 && nowMin >= startHour * 60 && nowMin < endHour * 60;
-  const nowTop = ((nowMin - startHour * 60) / 60) * HOUR_PX;
+  const nowTop = ((nowMin - startHour * 60) / 60) * hourPx;
 
   // Lay out each column's timed items side by side where they overlap; synced
   // events first so bookings draw over them.
@@ -333,15 +339,15 @@ export function WeekCalendar({
         const used = new Set(cluster.filter((p) => p.e > s).map((p) => p.col));
         let col = 0;
         while (used.has(col)) col++;
-        const top = ((s - lo) / 60) * HOUR_PX;
-        cluster.push({ item: it, top, height: Math.max(((e - s) / 60) * HOUR_PX, 18), col, cols: 1, e });
+        const top = ((s - lo) / 60) * hourPx;
+        cluster.push({ item: it, top, height: Math.max(((e - s) / 60) * hourPx, 18), col, cols: 1, e });
         clusterEnd = Math.max(clusterEnd, e);
       }
       if (cluster.length) flush();
       return out.sort((a, b) => Number(b.item.kind === "synced") - Number(a.item.kind === "synced"));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timed, days, ends, startHour, endHour, viewZone]);
+  }, [timed, days, ends, startHour, endHour, viewZone, hourPx]);
 
   const allDayFor = useMemo(() => {
     const isos = days.map((d) => isoDate(d, viewZone));
@@ -360,7 +366,7 @@ export function WeekCalendar({
   const scroller = useRef<ScrollViewInstance>(null);
   useEffect(() => {
     const firstHour = fullDay ? 7 : startHour;
-    const y = nowCol >= 0 ? Math.max(0, nowMin / 60 - startHour - 2) * HOUR_PX : (firstHour - startHour) * HOUR_PX;
+    const y = nowCol >= 0 ? Math.max(0, nowMin / 60 - startHour - 2) * hourPx : (firstHour - startHour) * hourPx;
     const frame = requestAnimationFrame(() => scroller.current?.scrollTo({ y, animated: false }));
     return () => cancelAnimationFrame(frame);
     // Only when the days, mode, range or zone change, not every minute.
@@ -417,7 +423,7 @@ export function WeekCalendar({
     onResponderGrant: (e: GestureResponderEvent) => {
       const { locationX: x, locationY: y, pageX, pageY } = e.nativeEvent;
       const c = clamp(Math.floor(x / colW), 0, days.length - 1);
-      const slot = clamp(Math.floor(y / SLOT_PX), 0, slotCount - 1);
+      const slot = clamp(Math.floor(y / slotPx), 0, slotCount - 1);
       const p: Press = { x, y, px: pageX, py: pageY, c, slot, hit: hitTest(c, x - c * colW, y), timer: null, active: null, moved: false, b: slot, dCol: 0, dMin: 0 };
       p.timer = setTimeout(() => {
         const cur = press.current;
@@ -448,13 +454,13 @@ export function WeekCalendar({
         return;
       }
       if (p.active === "create") {
-        const b = clamp(Math.floor((p.y + dy) / SLOT_PX), 0, slotCount - 1);
+        const b = clamp(Math.floor((p.y + dy) / slotPx), 0, slotCount - 1);
         if (b !== p.b) {
           p.b = b;
           setDrag({ kind: "create", c: p.c, a: p.slot, b });
         }
       } else {
-        const dMin = Math.round(((dy / HOUR_PX) * 60) / MOVE_MINUTES) * MOVE_MINUTES;
+        const dMin = Math.round(((dy / hourPx) * 60) / MOVE_MINUTES) * MOVE_MINUTES;
         const dCol = clamp(Math.round(dx / colW), -p.c, days.length - 1 - p.c);
         if (dMin !== p.dMin || dCol !== p.dCol) {
           p.dMin = dMin;
@@ -642,13 +648,13 @@ export function WeekCalendar({
           </View>
         )}
 
-        <ScrollView ref={scroller} scrollEnabled={scrollEnabled} refreshControl={refreshControl} nestedScrollEnabled style={{ flex: 1 }}>
-          <View style={{ flexDirection: "row", height: hours.length * HOUR_PX + 8, paddingTop: 0 }}>
+        <ScrollView ref={scroller} scrollEnabled={scrollEnabled} refreshControl={refreshControl} nestedScrollEnabled style={{ flex: 1 }} onLayout={(e) => setViewH(e.nativeEvent.layout.height)}>
+          <View style={{ flexDirection: "row", height: hours.length * hourPx + 8, paddingTop: 0 }}>
             <View style={{ width: GUTTER }}>
               {hours.map((h, i) =>
                 // The first label would sit on the frame's edge; one under the now tag is hidden by it.
-                i === 0 || (nowVisible && Math.abs(nowTop - i * HOUR_PX) < 14) ? null : (
-                  <Text key={h} style={[styles.hour, { color: t.muted, top: i * HOUR_PX - 7 }]}>{hourLabel(h)}</Text>
+                i === 0 || (nowVisible && Math.abs(nowTop - i * hourPx) < 14) ? null : (
+                  <Text key={h} style={[styles.hour, { color: t.muted, top: i * hourPx - 7 }]}>{hourLabel(h)}</Text>
                 )
               )}
               {nowVisible && (
@@ -670,7 +676,7 @@ export function WeekCalendar({
                 <View style={[styles.todayTint, { left: nowCol * colW, width: colW, backgroundColor: t.primary }]} />
               )}
               {hours.map((h, i) => (
-                <View key={h} style={[styles.hourLine, { top: i * HOUR_PX, borderColor: t.border }]} />
+                <View key={h} style={[styles.hourLine, { top: i * hourPx, borderColor: t.border }]} />
               ))}
               {days.map((d, c) => (
                 <View key={c} style={[styles.colLine, { left: c * colW, borderColor: t.border }]} />
@@ -709,7 +715,7 @@ export function WeekCalendar({
                             shadowRadius: 8,
                             shadowOffset: { width: 0, height: 3 },
                             elevation: 6,
-                            transform: [{ translateX: moving.dCol * colW }, { translateY: (moving.dMin / 60) * HOUR_PX }],
+                            transform: [{ translateX: moving.dCol * colW }, { translateY: (moving.dMin / 60) * hourPx }],
                           },
                         ]}
                       >
@@ -732,7 +738,7 @@ export function WeekCalendar({
                 const lo = Math.min(drag.a, drag.b);
                 const hi = Math.max(drag.a, drag.b) + 1;
                 return (
-                  <View style={[styles.draft, { top: lo * SLOT_PX, height: (hi - lo) * SLOT_PX, left: drag.c * colW + 2, width: colW - 4, borderColor: t.primary, backgroundColor: t.primary + "26" }]}>
+                  <View style={[styles.draft, { top: lo * slotPx, height: (hi - lo) * slotPx, left: drag.c * colW + 2, width: colW - 4, borderColor: t.primary, backgroundColor: t.primary + "26" }]}>
                     <Text style={{ color: t.primary, fontSize: narrow ? 9 : 12, fontWeight: "700" }} numberOfLines={2}>
                       {timeOf(slotStart(drag.c, lo), viewZone)} – {timeOf(slotStart(drag.c, hi), viewZone)}
                     </Text>

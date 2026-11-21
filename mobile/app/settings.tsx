@@ -7,7 +7,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Button, Card, Input, Label, Row, ToggleRow } from "@/components/ui";
+import { Button, Card, Input, Label, Row, ToggleRow, readable } from "@/components/ui";
 import { ZonePicker } from "@/components/zone-picker";
 import { type BillingStatus, type Me, useApi } from "@/lib/api";
 import { API_URL, SITE_URL } from "@/lib/config";
@@ -280,7 +280,7 @@ export default function Settings() {
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 16, gap: 10, paddingBottom: 48 },
+  page: { padding: 16, gap: 10, paddingBottom: 48, ...readable },
   field: { fontSize: 15, fontWeight: "600", marginBottom: 6 },
   hint: { fontSize: 13, lineHeight: 18, marginTop: 6 },
   prefixRow: { flexDirection: "row", alignItems: "center", gap: 6 },

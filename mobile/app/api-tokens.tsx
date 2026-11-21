@@ -3,7 +3,7 @@ import * as Clipboard from "expo-clipboard";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Button, Card, Input, Label, Notice } from "@/components/ui";
+import { Button, Card, Input, Label, Notice, readable } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { API_URL } from "@/lib/config";
 import { useTheme } from "@/lib/theme";
@@ -154,7 +154,7 @@ export default function ApiTokens() {
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 16, gap: 10, paddingBottom: 48 },
+  page: { padding: 16, gap: 10, paddingBottom: 48, ...readable },
   item: { flexDirection: "row", alignItems: "center", gap: 14 },
   copyRow: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 36 },
 });

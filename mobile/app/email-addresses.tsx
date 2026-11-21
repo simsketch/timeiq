@@ -1,7 +1,7 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Button, Card, Input, Label, Notice } from "@/components/ui";
+import { Button, Card, Input, Label, Notice, readable } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { useMe } from "@/lib/use-me";
@@ -109,6 +109,6 @@ export default function EmailAddresses() {
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 16, gap: 14, paddingBottom: 48 },
+  page: { padding: 16, gap: 14, paddingBottom: 48, ...readable },
   item: { flexDirection: "row", alignItems: "center", gap: 14 },
 });

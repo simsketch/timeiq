@@ -5,7 +5,7 @@ import { Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { SetupChecklist } from "@/components/setup-checklist";
 import { ShareAvailability } from "@/components/share-availability";
-import { Notice } from "@/components/ui";
+import { Notice, useWide } from "@/components/ui";
 import { type CalItem, WeekCalendar, bookingItems, confirmMove, syncedItems } from "@/components/week-calendar";
 import { ApiError, type BillingStatus, type Booking, type CachedEvent, type EventType, useApi } from "@/lib/api";
 import { SITE_URL } from "@/lib/config";
@@ -27,6 +27,8 @@ export default function Agenda() {
   const router = useRouter();
   const me = useMe();
   const zone = me?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // Wide windows (iPad, an unfolded iPhone Duo) show the list and the calendar side by side.
+  const wide = useWide();
   const [selected, setSelected] = useState(() => new Date());
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [events, setEvents] = useState<CachedEvent[]>([]);
@@ -39,9 +41,12 @@ export default function Agenda() {
   const [broken, setBroken] = useState<string[]>([]);
   const [view, setViewState] = useState<View_>(rememberedView);
   const setView = (v: View_) => {
+    // Module-level on purpose: the chosen view survives the tab remounting.
+    // eslint-disable-next-line react-hooks/globals
     rememberedView = v;
     setViewState(v);
   };
+  const calendarShown = wide || view === "calendar";
   // The instants the calendar shows, so its synced events load with it.
   const [calRange, setCalRange] = useState<{ start: number; end: number } | null>(null);
   const onRangeChange = useCallback(
@@ -57,7 +62,7 @@ export default function Agenda() {
 
   const load = useCallback(async () => {
     try {
-      const range = view === "calendar" && calRange ? calRange : null;
+      const range = calendarShown && calRange ? calRange : null;
       const start = range ? new Date(range.start) : weekDays[0];
       const end = range ? new Date(range.end) : zoneDayStart(weekDays[6], zone, 1);
       const q = `start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`;
@@ -83,7 +88,7 @@ export default function Agenda() {
           : e instanceof Error ? e.message : "Couldn't load your agenda."
       );
     }
-  }, [api, weekDays, zone, view, calRange]);
+  }, [api, weekDays, zone, calendarShown, calRange]);
 
   useFocusEffect(
     useCallback(() => {
@@ -122,20 +127,20 @@ export default function Agenda() {
   const today = dayKey(new Date(), zone);
   const bookingLink = me ? `${SITE_URL}/book/${me.username}` : null;
 
-  return (
-    <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: t.bg }}>
+  const header = (
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.month, { color: t.muted }]}>{fmt(selected, zone, { month: "long", year: "numeric" })}</Text>
           <Text style={[styles.title, { color: t.text }]}>
-            {view === "calendar" ? "Calendar" : key === today ? "Today" : fmt(selected, zone, { weekday: "long", month: "short", day: "numeric" })}
+            {!wide && view === "calendar" ? "Calendar" : key === today ? "Today" : fmt(selected, zone, { weekday: "long", month: "short", day: "numeric" })}
           </Text>
         </View>
-        {view === "list" && key !== today && (
+        {(wide || view === "list") && key !== today && (
           <Pressable onPress={() => setSelected(new Date())} hitSlop={8} style={[styles.pill, { borderColor: t.border }]}>
             <Text style={{ color: t.text, fontWeight: "600" }}>Today</Text>
           </Pressable>
         )}
+        {!wide && (
         <View style={[styles.viewToggle, { borderColor: t.border }]} accessibilityRole="radiogroup" accessibilityLabel="View">
           {(["list", "calendar"] as const).map((v) => {
             const on = view === v;
@@ -154,6 +159,7 @@ export default function Agenda() {
             );
           })}
         </View>
+        )}
         <Pressable accessibilityLabel="Ask the assistant" onPress={() => router.push("/assistant")} hitSlop={8} style={[styles.iconBtn, { borderColor: t.border }]}>
           <Ionicons name="sparkles-outline" size={20} color={t.text} />
         </Pressable>
@@ -168,18 +174,19 @@ export default function Agenda() {
           </Pressable>
         )}
       </View>
+  );
 
-      {broken.length > 0 && (
+  const banner = broken.length > 0 && (
         <Pressable accessibilityRole="button" onPress={() => router.push("/calendars")} style={styles.banner}>
           <Notice tone="error">
             {broken.length === 1 ? broken[0] : `${broken.length} calendars`} {broken.length === 1 ? "has" : "have"} stopped syncing, so new events there
             aren&apos;t blocking your booking page. Tap to fix it.
           </Notice>
         </Pressable>
-      )}
+  );
 
-      {view === "calendar" ? (
-        <View style={styles.calendar}>
+  const calendar = (
+        <View style={[styles.calendar, wide && styles.calendarWide]}>
           {error && <Notice tone="warn">{error}</Notice>}
           <WeekCalendar
             items={calItems}
@@ -197,7 +204,9 @@ export default function Agenda() {
             hint="Nothing here yet. Tap a time to book it, or hold and drag to pick a length."
           />
         </View>
-      ) : (
+  );
+
+  const list = (
       <>
       <View style={styles.week}>
         <Pressable accessibilityLabel="Previous week" onPress={() => setSelected(zoneDayStart(selected, zone, -7))} hitSlop={6}>
@@ -302,6 +311,25 @@ export default function Agenda() {
         })}
       </ScrollView>
       </>
+  );
+
+  return (
+    <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: t.bg }}>
+      {wide ? (
+        <View style={styles.split}>
+          <View style={[styles.side, { borderColor: t.border }]}>
+            {header}
+            {banner}
+            {list}
+          </View>
+          {calendar}
+        </View>
+      ) : (
+        <>
+          {header}
+          {banner}
+          {view === "calendar" ? calendar : list}
+        </>
       )}
 
       <Pressable
@@ -328,6 +356,9 @@ function isoDay(key: string): string {
 
 const styles = StyleSheet.create({
   calendar: { flex: 1, paddingHorizontal: 12, paddingTop: 6, paddingBottom: 12, gap: 8 },
+  calendarWide: { paddingHorizontal: 16, paddingTop: 12 },
+  split: { flex: 1, flexDirection: "row" },
+  side: { width: 380, borderRightWidth: StyleSheet.hairlineWidth },
   viewToggle: { flexDirection: "row", borderWidth: 1, borderRadius: 999, padding: 2 },
   viewBtn: { width: 34, height: 32, borderRadius: 999, alignItems: "center", justifyContent: "center" },
   free: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },

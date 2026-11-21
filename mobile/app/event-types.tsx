@@ -3,9 +3,9 @@ import * as Clipboard from "expo-clipboard";
 import { useFocusEffect } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import { BookingBrandingCard } from "@/components/booking-branding-card";
-import { Button, Card, Chips, Input, Label, Notice, ToggleRow } from "@/components/ui";
+import { Button, Card, Chips, Input, Label, Notice, ToggleRow, readable, useWide } from "@/components/ui";
 import { type EventType, useApi } from "@/lib/api";
 import { SITE_URL } from "@/lib/config";
 import { colorFor, type Theme, useTheme } from "@/lib/theme";
@@ -68,6 +68,9 @@ export default function EventTypes() {
   const t = useTheme();
   const api = useApi();
   const me = useMe();
+  // Wide windows lay the cards out in a grid: 3 columns from 900pt, else 2.
+  const wide = useWide();
+  const cols = useWindowDimensions().width >= 900 ? 3 : 2;
   const [types, setTypes] = useState<EventType[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -272,15 +275,17 @@ export default function EventTypes() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.page}>
+    <ScrollView contentContainerStyle={[styles.page, wide && styles.pageWide]}>
       {error && <Notice tone="error">{error}</Notice>}
       {!types && !error && <ActivityIndicator style={{ marginTop: 24 }} />}
       {types?.length === 0 && <Notice>No event types yet. Add one, like a 30-minute intro call, and share its link.</Notice>}
 
+      <View style={wide ? styles.grid : styles.stack}>
       {types?.map((e) => {
         const link = linkFor(e);
         return (
-          <Card key={e.id} style={{ gap: 10, opacity: e.is_active ? 1 : 0.6 }}>
+          <View key={e.id} style={wide ? [styles.cell, { width: `${100 / cols}%` }] : undefined}>
+          <Card style={{ gap: 10, opacity: e.is_active ? 1 : 0.6, ...(wide && { flex: 1 }) }}>
             <View style={styles.head}>
               <View style={[styles.dot, { backgroundColor: e.color ?? colorFor(String(e.id)) }]} />
               <Pressable style={{ flex: 1 }} onPress={() => setDraft(draftOf(e))}>
@@ -292,6 +297,12 @@ export default function EventTypes() {
               </Pressable>
               <Switch value={e.is_active} onValueChange={(v) => setActive(e, v)} trackColor={{ true: t.primary }} accessibilityLabel={`${e.name} bookable`} />
             </View>
+            {wide && (
+              <View style={styles.more}>
+                {!!e.description && <Text style={{ color: t.text, fontSize: 15, lineHeight: 21 }} numberOfLines={3}>{e.description}</Text>}
+                {link && <Text style={{ color: t.muted, fontSize: 13 }} numberOfLines={1}>{link.replace(/^https?:\/\//, "")}</Text>}
+              </View>
+            )}
             {link && e.is_active && (
               <View style={styles.actions}>
                 <Pressable style={styles.action} onPress={() => Share.share({ message: link, url: link })}>
@@ -316,15 +327,20 @@ export default function EventTypes() {
               </View>
             )}
           </Card>
+          </View>
         );
       })}
+      </View>
 
       {types && (
+        <View style={wide && { alignSelf: "flex-start", minWidth: 260 }}>
         <Button title="New event type" icon={<Ionicons name="add" size={20} color={t.primaryText} />} onPress={() => setDraft(draftOf())} />
+        </View>
       )}
 
+      <View style={wide ? styles.row : styles.stack}>
       {connect && (
-        <Card style={{ gap: 10, marginTop: 8 }}>
+        <Card style={{ gap: 10, marginTop: 8, ...(wide && { flex: 1 }) }}>
           <Label>Payments</Label>
           <Text style={{ color: t.text, fontSize: 15, lineHeight: 21 }}>
             {connect.status === "ready"
@@ -341,13 +357,20 @@ export default function EventTypes() {
         </Card>
       )}
 
-      {types && me && <BookingBrandingCard me={me} />}
+      {types && me && (wide ? <View style={{ flex: 1, marginTop: 8 }}><BookingBrandingCard me={me} /></View> : <BookingBrandingCard me={me} />)}
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 16, gap: 12, paddingBottom: 48 },
+  page: { padding: 16, gap: 12, paddingBottom: 48, ...readable },
+  pageWide: { maxWidth: 1160, padding: 24 },
+  grid: { flexDirection: "row", flexWrap: "wrap", margin: -6 },
+  cell: { padding: 6 },
+  stack: { gap: 12 },
+  more: { flex: 1, gap: 6, paddingLeft: 22 },
+  row: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   head: { flexDirection: "row", alignItems: "center", gap: 12 },
   dot: { width: 10, height: 10, borderRadius: 5 },
   actions: { flexDirection: "row", gap: 20, paddingLeft: 22 },

@@ -102,11 +102,15 @@ export function buildText(summary: AvailabilitySummary, zones: string[], booking
 
 const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-/** "Share availability": a button that opens a sheet with your open times as paste-ready text. */
-export function ShareAvailability() {
+/**
+ * "Share availability": a button that opens a sheet with your open times as paste-ready text.
+ * `inline` shows the sheet's contents in place instead (the Availability screen on wide windows).
+ */
+export function ShareAvailability({ inline = false }: { inline?: boolean }) {
   const t = useTheme();
   const api = useApi();
-  const [open, setOpen] = useState(false);
+  const [sheetOpen, setOpen] = useState(false);
+  const open = inline || sheetOpen;
   const [range, setRange] = useState<number | "custom">(7);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -180,18 +184,8 @@ export function ShareAvailability() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  return (
-    <>
-      <Button title="Share availability" kind="secondary" icon={<Ionicons name="share-outline" size={18} color={t.text} />} onPress={() => setOpen(true)} />
-      <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={["top", "bottom"]}>
-          <View style={styles.head}>
-            <Text style={{ color: t.text, fontSize: 18, fontWeight: "700", flex: 1 }}>Share your availability</Text>
-            <Pressable onPress={() => setOpen(false)} hitSlop={10} accessibilityRole="button">
-              <Text style={{ color: t.primary, fontSize: 16, fontWeight: "600" }}>Done</Text>
-            </Pressable>
-          </View>
-          <ScrollView contentContainerStyle={styles.body}>
+  const body = (
+          <>
             <Text style={{ color: t.muted, fontSize: 15, lineHeight: 21 }}>
               Your open times from every connected calendar, inside your working hours, ready to paste.
             </Text>
@@ -276,8 +270,10 @@ export function ShareAvailability() {
                 </View>
               </>
             )}
-          </ScrollView>
-        </SafeAreaView>
+          </>
+  );
+
+  const picker = (
         <ZonePicker
           visible={picking}
           current=""
@@ -288,6 +284,31 @@ export function ShareAvailability() {
             setPicking(false);
           }}
         />
+  );
+
+  if (inline)
+    return (
+      <View style={styles.inline}>
+        <Text style={{ color: t.text, fontSize: 20, fontWeight: "700" }}>Share your availability</Text>
+        {body}
+        {picker}
+      </View>
+    );
+
+  return (
+    <>
+      <Button title="Share availability" kind="secondary" icon={<Ionicons name="share-outline" size={18} color={t.text} />} onPress={() => setOpen(true)} />
+      <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={["top", "bottom"]}>
+          <View style={styles.head}>
+            <Text style={{ color: t.text, fontSize: 18, fontWeight: "700", flex: 1 }}>Share your availability</Text>
+            <Pressable onPress={() => setOpen(false)} hitSlop={10} accessibilityRole="button">
+              <Text style={{ color: t.primary, fontSize: 16, fontWeight: "600" }}>Done</Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={styles.body}>{body}</ScrollView>
+        </SafeAreaView>
+        {picker}
       </Modal>
     </>
   );
@@ -296,6 +317,7 @@ export function ShareAvailability() {
 const styles = StyleSheet.create({
   head: { flexDirection: "row", alignItems: "center", padding: 16 },
   body: { padding: 16, gap: 16, paddingBottom: 48 },
+  inline: { gap: 16 },
   dateRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   zone: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 50 },
   actions: { flexDirection: "row", gap: 10 },

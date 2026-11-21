@@ -3,7 +3,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Button, Card, Label, Notice } from "@/components/ui";
+import { Button, Card, Label, Notice, readable } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import {
   type Client,
@@ -79,6 +79,7 @@ export default function Invoices() {
       cancelled = true;
     };
     // previewKey carries every field of the draft the request uses.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, previewKey]);
 
   function start() {
@@ -270,7 +271,7 @@ function DayField({ value, onChange }: { value: string; onChange: (iso: string) 
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 16, gap: 12, paddingBottom: 48 },
+  page: { padding: 16, gap: 12, paddingBottom: 48, ...readable },
   input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, maxWidth: "100%" },

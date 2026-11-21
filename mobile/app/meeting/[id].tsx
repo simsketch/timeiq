@@ -3,7 +3,7 @@ import * as Clipboard from "expo-clipboard";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
-import { Button, Card, Input, Label, Notice } from "@/components/ui";
+import { Button, Card, Input, Label, Notice, readable } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { type MeetingDetail, personLabel, whenLabel } from "@/lib/group-meetings";
 import { useTheme } from "@/lib/theme";
@@ -259,7 +259,7 @@ export default function Meeting() {
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 16, gap: 14, paddingBottom: 48 },
+  page: { padding: 16, gap: 14, paddingBottom: 48, ...readable },
   slot: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14, borderWidth: 1, padding: 14 },
   answers: { flexDirection: "row", gap: 4, marginTop: 4, flexWrap: "wrap" },
   person: { flexDirection: "row", alignItems: "center", gap: 12 },

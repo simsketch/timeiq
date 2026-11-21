@@ -50,12 +50,28 @@ const events: CachedEvent[] = [0, 1, 2, 3, 4].flatMap((d) => [
   event(`standup${d}`, "cal_google", "Work", "Team standup", at(d, 9, 30), at(d, 9, 45)),
   event(`pickup${d}`, "cal_school", "Lincoln Elementary", "School pickup", at(d, 15, 15), at(d, 15, 45)),
 ]).concat([
-  event("soccer1", "cal_google", "Family", "Soccer practice", at(1, 17, 30), at(1, 18, 30)),
-  event("soccer3", "cal_google", "Family", "Soccer practice", at(3, 17, 30), at(3, 18, 30)),
   event("dentist", "cal_google", "Family", "Dentist", at(2, 8), at(2, 8, 45)),
   event("lunch", "cal_google", "Work", "Lunch with Dana", at(today, 12, 30), at(today, 13, 15)),
-  event("game", "cal_school", "Lincoln Elementary", "Soccer game", at(5, 10), at(5, 11, 30)),
-]);
+  // The 8 games and practices from the "Spring soccer schedule.pdf" import below: this week, next, and the one after.
+]).concat([1, 3, 5, 8, 10, 12, 15, 17].map((d) =>
+  d % 7 === 5
+    ? event(`riverside${d}`, "cal_email", "From email", d === 5 ? "Riverside FC vs Lakeview" : "Riverside FC vs Northgate", at(d, 10), at(d, 11, 30))
+    : event(`riverside${d}`, "cal_email", "From email", "Riverside FC practice", at(d, 17, 30), at(d, 18, 45))
+));
+
+/** The Import screen's "Added 8 events" card for the same schedule. */
+export const screenshotImport = {
+  id: "imp_soccer",
+  status: "imported",
+  name: "Spring soccer schedule",
+  events: events
+    .filter((e) => e.calendar_source_id === "cal_email")
+    .map((e) => ({ title: e.title ?? "", starts_at: e.starts_at, ends_at: e.ends_at, is_all_day: false })),
+};
+
+const imports = [
+  { id: "imp_soccer", sender: "coach@riverside-fc.org", subject: "Spring soccer schedule.pdf", status: "imported", event_count: 8, error: null, created_at: ago(190) },
+];
 
 const calendars: CalendarSource[] = [
   { id: "cal_google", type: "google", name: "maya@chenstudio.co", ics_url: null, is_active: true, last_synced_at: ago(3), sync_status: "ok", last_sync_error: null },
@@ -105,7 +121,7 @@ export function screenshotResponse(path: string, init?: RequestInit): unknown {
     case "/api/availability-rules": return rules;
     case "/api/availability/summary": return summary(Number(params.get("days")) || 7);
     case "/api/me/feed": return { url: "https://api.timeiq.app/feed/maya.ics", webcal_url: "webcal://api.timeiq.app/feed/maya.ics", obfuscate: false };
-    case "/api/email-imports": return { address: "maya@in.timeiq.app", agent_address: "maya@in.timeiq.app", enabled: true, imports: [] };
+    case "/api/email-imports": return { address: "maya@in.timeiq.app", agent_address: "maya@in.timeiq.app", account_email: me.email, enabled: true, imports };
     case "/api/connect/status": return { enabled: false, status: "off", charges_enabled: false, payouts_enabled: false };
     case "/api/google/status":
     case "/api/microsoft/status": return { enabled: true };

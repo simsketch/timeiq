@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { Button, Card, Label, Notice } from "@/components/ui";
+import { Button, Card, Label, Notice, readable, useWide } from "@/components/ui";
 import { ConnectCalendar, type Provider, useCalendarConnect } from "@/components/connect-calendar";
 import { WeekCalendar, bookingItems, syncedItems } from "@/components/week-calendar";
 import { type Booking, type CachedEvent, type CalendarSource, type EventType, useApi } from "@/lib/api";
@@ -38,6 +38,7 @@ export default function Calendars() {
   const [replacing, setReplacing] = useState<string | null>(null);
   const [newLink, setNewLink] = useState("");
   const router = useRouter();
+  const wide = useWide();
   const me = useMe();
   const zone = me?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   // What the synced calendars hold, on a read-only calendar under the list.
@@ -67,6 +68,7 @@ export default function Calendars() {
     }
   }, [api, range]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount; state is set after the request
     loadEvents();
   }, [loadEvents]);
   const calItems = useMemo(() => [...syncedItems(events), ...bookingItems(bookings, types)], [events, bookings, types]);
@@ -154,8 +156,26 @@ export default function Calendars() {
     }
   }
 
-  return (
+  // Wide windows: calendars and their controls on the left, the synced week filling the right.
+  const synced = sources && sources.length > 0 && (
+        <View style={wide ? styles.calPane : { gap: 8 }}>
+          {!wide && <Label>Synced events</Label>}
+          <WeekCalendar
+            items={calItems}
+            zone={zone}
+            gridHeight={wide ? undefined : 520}
+            onRangeChange={onRangeChange}
+            onSelect={(it) => router.push({ pathname: "/booking/[id]", params: { id: it.id } })}
+          />
+          <Text style={{ color: t.muted, fontSize: 13, lineHeight: 18 }}>
+            Each calendar has its own color. Tap a name above to show or hide it, or tap an event for its details.
+          </Text>
+        </View>
+  );
+
+  const controls = (
     <ScrollView
+      style={wide && [styles.side, { borderColor: t.border }]}
       contentContainerStyle={styles.page}
       keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl refreshing={syncing === "all"} onRefresh={() => sync("all")} />}
@@ -165,21 +185,7 @@ export default function Calendars() {
       <Text style={{ color: t.muted, fontSize: 13, lineHeight: 18 }}>
         Calendars sync every hour, and right away when you add one. When someone opens your booking page, any calendar more than 10 minutes out of date syncs first. Pull down to sync now.
       </Text>
-      {sources && sources.length > 0 && (
-        <View style={{ gap: 8, }}>
-          <Label>Synced events</Label>
-          <WeekCalendar
-            items={calItems}
-            zone={zone}
-            gridHeight={520}
-            onRangeChange={onRangeChange}
-            onSelect={(it) => router.push({ pathname: "/booking/[id]", params: { id: it.id } })}
-          />
-          <Text style={{ color: t.muted, fontSize: 13, lineHeight: 18 }}>
-            Each calendar has its own color. Tap a name above to show or hide it, or tap an event for its details.
-          </Text>
-        </View>
-      )}
+      {!wide && synced}
 
       {sources && sources.length === 0 && (
         <Notice>No calendars yet. Connect one so busy times never get booked over.</Notice>
@@ -273,10 +279,22 @@ export default function Calendars() {
 
     </ScrollView>
   );
+
+  return wide ? (
+    <View style={styles.split}>
+      {controls}
+      {synced}
+    </View>
+  ) : (
+    controls
+  );
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 16, gap: 14, paddingBottom: 48 },
+  page: { padding: 16, gap: 14, paddingBottom: 48, ...readable },
+  split: { flex: 1, flexDirection: "row" },
+  side: { width: 380, flexGrow: 0, borderRightWidth: StyleSheet.hairlineWidth },
+  calPane: { flex: 1, padding: 16, paddingBottom: 32, gap: 8 },
   source: { flexDirection: "row", alignItems: "center", gap: 14, minHeight: 60, paddingVertical: 8 },
   input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
 });

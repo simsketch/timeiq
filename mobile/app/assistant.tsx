@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance, type TextInputInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { readable, useWide } from "@/components/ui";
 import { confirmAiConsent } from "@/lib/ai-consent";
 import { useApi } from "@/lib/api";
 import { SCREENSHOT_MODE } from "@/lib/config";
@@ -94,6 +95,7 @@ export default function Assistant() {
   const api = useApi();
   const me = useMe();
   const insets = useSafeAreaInsets();
+  const wide = useWide();
   const [history, setHistory] = useState<Message[]>(kept.history);
   const [steps, setSteps] = useState<Step[][]>(kept.steps);
   const [draft, setDraft] = useState("");
@@ -162,6 +164,21 @@ export default function Assistant() {
   const empty = turns.length === 0;
   const firstName = me?.name?.split(" ")[0];
 
+  const suggestions = (
+    <View style={styles.chips}>
+      {SUGGESTIONS.map((s) => (
+        <Pressable
+          key={s}
+          accessibilityRole="button"
+          onPress={() => (s.startsWith("Add a schedule") ? (setDraft("Add this schedule to my calendar:\n"), input.current?.focus()) : send(s))}
+          style={({ pressed }) => [styles.chip, { borderColor: t.border, backgroundColor: t.card, opacity: pressed ? 0.7 : 1 }]}
+        >
+          <Text style={{ color: t.text, fontSize: 14 }}>{s}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -190,18 +207,7 @@ export default function Assistant() {
           <View style={{ gap: 6 }}>
             <Text style={[styles.title, { color: t.text }]}>What should we schedule{firstName ? `, ${firstName}` : ""}?</Text>
             <Text style={{ color: t.muted, fontSize: 15, lineHeight: 21 }}>Ask about your week, find time with people, or paste a schedule.</Text>
-            <View style={styles.chips}>
-              {SUGGESTIONS.map((s) => (
-                <Pressable
-                  key={s}
-                  accessibilityRole="button"
-                  onPress={() => (s.startsWith("Add a schedule") ? (setDraft("Add this schedule to my calendar:\n"), input.current?.focus()) : send(s))}
-                  style={({ pressed }) => [styles.chip, { borderColor: t.border, backgroundColor: t.card, opacity: pressed ? 0.7 : 1 }]}
-                >
-                  <Text style={{ color: t.text, fontSize: 14 }}>{s}</Text>
-                </Pressable>
-              ))}
-            </View>
+            {suggestions}
           </View>
         ) : (
           turns.map((turn, i) =>
@@ -225,6 +231,8 @@ export default function Assistant() {
             ),
           )
         )}
+        {/* Wide windows have the room to keep the starters on offer after the conversation. */}
+        {wide && !empty && !busy && suggestions}
         {busy && (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <ActivityIndicator color={t.primary} />
@@ -272,7 +280,7 @@ export default function Assistant() {
 }
 
 const styles = StyleSheet.create({
-  list: { padding: 16, gap: 18, flexGrow: 1 },
+  list: { padding: 16, gap: 18, flexGrow: 1, ...readable, maxWidth: 760 },
   title: { fontSize: 24, fontWeight: "700", letterSpacing: -0.3 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },
   chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
@@ -280,7 +288,7 @@ const styles = StyleSheet.create({
   bubble: { alignSelf: "flex-end", maxWidth: "85%", borderRadius: 18, borderBottomRightRadius: 6, paddingHorizontal: 14, paddingVertical: 10 },
   reply: { fontSize: 16, lineHeight: 23 },
   composer: { paddingHorizontal: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
-  box: { flexDirection: "row", alignItems: "flex-end", gap: 8, borderWidth: 1, borderRadius: 22, paddingLeft: 14, paddingRight: 5, paddingVertical: 5 },
+  box: { flexDirection: "row", alignItems: "flex-end", gap: 8, borderWidth: 1, borderRadius: 22, paddingLeft: 14, paddingRight: 5, paddingVertical: 5, ...readable, maxWidth: 760 },
   input: { flex: 1, maxHeight: 140, minHeight: 36, fontSize: 16, paddingTop: 8, paddingBottom: 8 },
   send: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
 });
