@@ -1,0 +1,19 @@
+Create one tall iPhone App Store screenshot, portrait, aspect ratio exactly 1320:2868.
+
+Image 1 is a LAYOUT AND STYLE REFERENCE from a different app. Copy its composition and polish only: a small rounded tag pill, a huge bold sans-serif headline where one word is in a handwritten script on a painted brush stroke, a short subtitle, an outlined App Store pill, a tilted realistic iPhone 17 Pro Max in the lower two thirds, floating UI cards overlapping the phone edge with a short handwritten arrow note, soft realistic shadows and depth. Do not copy its colors, logo, text or screen.
+
+Image 2 is the REAL app screen. Place it inside the device screen exactly as given: same layout, text, numbers and colors. Do not redraw, invent or translate any UI.
+
+Leave the top band of the canvas (the top 7% of its height) completely empty background with no logo, text or shapes: the logo is added there afterwards. Start the tag pill below that band.
+
+Brand: background is a deep graphite gradient (#141414 to #2A2622) with a subtle warm tangerine glow behind the phone. Headline and subtitle in warm cream #F4EFE3. The single accent color is tangerine #F2690D: use it for the brush stroke under the script word and for small accents. No blue, purple or violet anywhere.
+
+Text, spelled exactly:
+- Tag pill (tangerine fill, graphite text, uppercase): "YOUR WHOLE LIFE"
+- Headline: "Every calendar." followed by the word "One view." in tangerine-underlined handwritten script on the brush stroke
+- Subtitle: "Work, family and school merged into one day. No more double-booking."
+- App Store pill: Apple logo, "APP STORE" over "PRODUCTIVITY"
+
+Props: Behind and to the left of the phone, three translucent glassy calendar sheets fan out and flow into the phone like streams merging, each with a colored edge and a short label: "Google · Work" (blue-green), "Outlook · Family" (pink), "School ICS" (amber). A small floating card reads "0 conflicts ✓". A handwritten arrow note reads "all in one".. Any text on props must be spelled correctly and stay short. No other text, no watermarks, no extra logos.
+
+Save the final image file as ./raw/01_calendars.png and print the path. Create no other files.

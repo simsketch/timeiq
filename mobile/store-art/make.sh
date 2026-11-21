@@ -2,16 +2,26 @@
 # usage: make.sh <shot-id>  — renders raw/<id>.png with Codex's image tool from shots.tsv
 # inputs: style-ref.png (KidCash layout to match), captures/<id>.png (real screen), wordmark.png
 cd "${0:A:h}"
+# DEVICE=ipad renders the iPad 13" set from captures-ipad/ into raw-ipad/
+if [[ $DEVICE == ipad ]]; then
+  SIZE="2064:2752"; DEV="tall iPad App Store screenshot"; FRAME="a realistic iPad Pro 13-inch, upright or slightly tilted, in the lower two thirds"
+  REF=style-ref-ipad.png; CAPDIR=captures-ipad; OUT=raw-ipad
+else
+  SIZE="1320:2868"; DEV="tall iPhone App Store screenshot"; FRAME="a tilted realistic iPhone 17 Pro Max in the lower two thirds"
+  REF=style-ref.png; CAPDIR=captures; OUT=raw
+fi
+mkdir -p $OUT logs
 IFS=$'\t' read -r id cap tag head word sub props < <(grep "^$1	" shots.tsv)
 [[ -n $id ]] || { echo "no shot $1"; exit 1; }
-cat > logs/$id.prompt <<P
-Create one tall iPhone App Store screenshot, portrait, aspect ratio exactly 1320:2868.
+[[ -f $CAPDIR/$cap.png ]] || cap=${cap%_calendar}  # iPad has one import capture
+cat > logs/${DEVICE:-iphone}-$id.prompt <<P
+Create one $DEV, portrait, aspect ratio exactly $SIZE.
 
-Image 1 is a LAYOUT AND STYLE REFERENCE from a different app. Copy its composition and polish only: logo top-left, a small rounded tag pill, a huge bold sans-serif headline where one word is in a handwritten script on a painted brush stroke, a short subtitle, an outlined App Store pill, a tilted realistic iPhone 17 Pro Max in the lower two thirds, floating UI cards overlapping the phone edge with a short handwritten arrow note, soft realistic shadows and depth. Do not copy its colors, logo, text or screen.
+Image 1 is a LAYOUT AND STYLE REFERENCE from a different app. Copy its composition and polish only: a small rounded tag pill, a huge bold sans-serif headline where one word is in a handwritten script on a painted brush stroke, a short subtitle, an outlined App Store pill, $FRAME, floating UI cards overlapping the phone edge with a short handwritten arrow note, soft realistic shadows and depth. Do not copy its colors, logo, text or screen.
 
-Image 2 is the REAL app screen. Place it inside the phone exactly as given: same layout, text, numbers and colors. Do not redraw, invent or translate any UI.
+Image 2 is the REAL app screen. Place it inside the device screen exactly as given: same layout, text, numbers and colors. Do not redraw, invent or translate any UI.
 
-Image 3 is the TimeIQ wordmark. Use it as the logo in the top-left, pixel-for-pixel unchanged: it reads "timeiQ." with a CAPITAL Q and a tangerine dot. Cream on the dark background.
+Leave the top band of the canvas (the top 7% of its height) completely empty background with no logo, text or shapes: the logo is added there afterwards. Start the tag pill below that band.
 
 Brand: background is a deep graphite gradient (#141414 to #2A2622) with a subtle warm tangerine glow behind the phone. Headline and subtitle in warm cream #F4EFE3. The single accent color is tangerine #F2690D: use it for the brush stroke under the script word and for small accents. No blue, purple or violet anywhere.
 
@@ -23,8 +33,13 @@ Text, spelled exactly:
 
 Props: $props. Any text on props must be spelled correctly and stay short. No other text, no watermarks, no extra logos.
 
-Save the final image file as ./raw/$id.png and print the path. Create no other files.
+Save the final image file as ./$OUT/$id.png and print the path. Create no other files.
 P
 timeout 900 codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -C . \
-  -i style-ref.png -i captures/$cap.png -i wordmark.png - < logs/$id.prompt > logs/$id.log 2>&1
-[[ -f raw/$id.png ]] && echo "ok $id $(sips -g pixelWidth -g pixelHeight raw/$id.png | tail -2 | tr -d '\n')" || { echo "FAIL $id"; tail -5 logs/$id.log; }
+  -i $REF -i $CAPDIR/$cap.png - < logs/${DEVICE:-iphone}-$id.prompt > logs/${DEVICE:-iphone}-$id.log 2>&1
+[[ -f $OUT/$id.png ]] && echo "ok $id $(sips -g pixelWidth -g pixelHeight $OUT/$id.png | tail -2 | tr -d '\n')" || { echo "FAIL $id"; tail -5 logs/${DEVICE:-iphone}-$id.log; }
+# Stamp the website lockup at a fixed size and spot, so every shot in the set matches.
+if [[ -f $OUT/$id.png ]]; then
+  W=$(sips -g pixelWidth $OUT/$id.png | tail -1 | awk '{print $2}'); H=$(( W * 76 / 1000 )); X=$(( W * 61 / 1000 )); Y=$(( W * 50 / 1000 ))
+  magick $OUT/$id.png \( lockup.png -resize x$H \) -geometry +$X+$Y -composite $OUT/$id.png
+fi

@@ -1,7 +1,7 @@
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Button, Card, Label, Notice, readable, useWide } from "@/components/ui";
 import { confirmAiConsent } from "@/lib/ai-consent";
 import { useApi } from "@/lib/api";
@@ -129,7 +129,7 @@ export default function Import() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={[styles.page, wide && styles.pageWide]} keyboardShouldPersistTaps="handled">
         <View style={wide ? styles.cols : styles.stack}>
         <View style={wide ? styles.col : styles.stack}>

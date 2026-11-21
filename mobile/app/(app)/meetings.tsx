@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button, Card, Notice, readable } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { type MeetingSummary, whenLabel } from "@/lib/group-meetings";
@@ -80,7 +80,7 @@ export default function Meetings() {
               }}
               style={styles.copy}
             >
-              <Text style={{ color: t.text, fontFamily: "Menlo", fontSize: 13, flex: 1 }} selectable>{agent}</Text>
+              <Text style={{ color: t.text, fontFamily: Platform.select({ ios: "Menlo", default: "monospace" }), fontSize: 13, flex: 1 }} selectable>{agent}</Text>
               <Ionicons name={copied ? "checkmark" : "copy-outline"} size={18} color={t.primary} />
             </Pressable>
           </Card>

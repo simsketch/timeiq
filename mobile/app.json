@@ -18,10 +18,22 @@
     },
     "android": {
       "package": "app.timeiq",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#141414"
-      }
+      },
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.CAMERA"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -45,7 +57,8 @@
       [
         "expo-notifications",
         {
-          "color": "#F2690D"
+          "color": "#F2690D",
+          "icon": "./assets/notification-icon.png"
         }
       ],
       [
@@ -67,10 +80,11 @@
         {
           "photosPermission": "TimeIQ uses your photos so you can add your logo to your booking page.",
           "cameraPermission": false,
-          "microphonePermission": false
+          "microphonePermission": "TimeIQ uses the microphone so you can speak your question to Ask TimeIQ instead of typing it."
         }
       ],
       "expo-status-bar",
+      "./plugins/with-android-accent",
       [
         "expo-speech-recognition",
         {

@@ -6,8 +6,8 @@ import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Button, Card, Input, Label, Row, ToggleRow, readable } from "@/components/ui";
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Button, Card, Input, Label, readable, Row, ToggleRow } from "@/components/ui";
 import { ZonePicker } from "@/components/zone-picker";
 import { type BillingStatus, type Me, useApi } from "@/lib/api";
 import { API_URL, SITE_URL } from "@/lib/config";
@@ -213,7 +213,7 @@ export default function Settings() {
         </Text>
         {feed ? (
           <>
-            <Text style={{ color: t.text, fontFamily: "Menlo", fontSize: 12 }} selectable numberOfLines={2}>{feed.url}</Text>
+            <Text style={{ color: t.text, fontFamily: Platform.select({ ios: "Menlo", default: "monospace" }), fontSize: 12 }} selectable numberOfLines={2}>{feed.url}</Text>
             <View style={styles.buttons}>
               <View style={{ flex: 1 }}>
                 <Button title="Add to Calendar" onPress={() => Linking.openURL(feed.webcal_url).catch(() => Alert.alert("No calendar app", "Copy the link and add it as a subscription instead."))} />

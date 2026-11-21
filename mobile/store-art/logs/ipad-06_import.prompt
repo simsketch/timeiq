@@ -1,0 +1,19 @@
+Create one tall iPad App Store screenshot, portrait, aspect ratio exactly 2064:2752.
+
+Image 1 is a LAYOUT AND STYLE REFERENCE from a different app. Copy its composition and polish only: a small rounded tag pill, a huge bold sans-serif headline where one word is in a handwritten script on a painted brush stroke, a short subtitle, an outlined App Store pill, a realistic iPad Pro 13-inch, upright or slightly tilted, in the lower two thirds, floating UI cards overlapping the phone edge with a short handwritten arrow note, soft realistic shadows and depth. Do not copy its colors, logo, text or screen.
+
+Image 2 is the REAL app screen. Place it inside the device screen exactly as given: same layout, text, numbers and colors. Do not redraw, invent or translate any UI.
+
+Leave the top band of the canvas (the top 7% of its height) completely empty background with no logo, text or shapes: the logo is added there afterwards. Start the tag pill below that band.
+
+Brand: background is a deep graphite gradient (#141414 to #2A2622) with a subtle warm tangerine glow behind the phone. Headline and subtitle in warm cream #F4EFE3. The single accent color is tangerine #F2690D: use it for the brush stroke under the script word and for small accents. No blue, purple or violet anywhere.
+
+Text, spelled exactly:
+- Tag pill (tangerine fill, graphite text, uppercase): "SCHEDULE IMPORT"
+- Headline: "Forward the PDF." followed by the word "Done." in tangerine-underlined handwritten script on the brush stroke
+- Subtitle: "Email the soccer schedule to TimeIQ. Every game lands on your calendar and your time is blocked."
+- App Store pill: Apple logo, "APP STORE" over "PRODUCTIVITY"
+
+Props: A forwarded email envelope opens beside the phone and a realistic paper PDF page flies out of it toward the screen, titled "Riverside FC · Spring Schedule" listing exactly "Sat Nov 21 · 10:00 AM", "Sat Nov 28 · 10:00 AM" and "Sat Dec 5 · 10:00 AM". A small soccer ball rests near the bottom corner. A floating card on the phone edge reads "8 events added ✓" with a tangerine dot, and a handwritten arrow note reads "game on!".. Any text on props must be spelled correctly and stay short. No other text, no watermarks, no extra logos.
+
+Save the final image file as ./raw-ipad/06_import.png and print the path. Create no other files.
