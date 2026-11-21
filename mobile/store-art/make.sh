@@ -5,10 +5,10 @@ cd "${0:A:h}"
 # DEVICE=ipad renders the iPad 13" set from captures-ipad/ into raw-ipad/
 if [[ $DEVICE == ipad ]]; then
   SIZE="2064:2752"; DEV="tall iPad App Store screenshot"; FRAME="a realistic iPad Pro 13-inch, upright or slightly tilted, in the lower two thirds"
-  REF=style-ref-ipad.png; CAPDIR=captures-ipad; OUT=raw-ipad
+  REF=style-ref-ipad.png; BAND=11; CAPDIR=captures-ipad; OUT=raw-ipad
 else
   SIZE="1320:2868"; DEV="tall iPhone App Store screenshot"; FRAME="a tilted realistic iPhone 17 Pro Max in the lower two thirds"
-  REF=style-ref.png; CAPDIR=captures; OUT=raw
+  REF=style-ref.png; BAND=7; CAPDIR=captures; OUT=raw
 fi
 mkdir -p $OUT logs
 IFS=$'\t' read -r id cap tag head word sub props < <(grep "^$1	" shots.tsv)
@@ -21,7 +21,7 @@ Image 1 is a LAYOUT AND STYLE REFERENCE from a different app. Copy its compositi
 
 Image 2 is the REAL app screen. Place it inside the device screen exactly as given: same layout, text, numbers and colors. Do not redraw, invent or translate any UI.
 
-Leave the top band of the canvas (the top 7% of its height) completely empty background with no logo, text or shapes: the logo is added there afterwards. Start the tag pill below that band.
+Leave the top band of the canvas (the top ${BAND}% of its height) completely empty background with no logo, text or shapes: the logo is added there afterwards. Start the tag pill below that band.
 
 Brand: background is a deep graphite gradient (#141414 to #2A2622) with a subtle warm tangerine glow behind the phone. Headline and subtitle in warm cream #F4EFE3. The single accent color is tangerine #F2690D: use it for the brush stroke under the script word and for small accents. No blue, purple or violet anywhere.
 
