@@ -1,0 +1,104 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- TimeIQ iPhone Duo (APP_IPHONE_DUO) screenshots in the approved iPhone/iPad treatment.
+     duo.html?id=<shots.tsv id>&kind=land|book|laptop&dev=<framed/ name>
+     Copy comes from ../shots.tsv (exact spelling); devices from framed/ (duo-composite.py).
+     The lockup is NOT drawn here: render.cjs stamps lockup.png afterwards, like make.sh. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kaushan+Script&display=block" rel="stylesheet">
+<style>
+  @font-face { font-family: 'Geist'; src: url(fonts/Geist-Variable.woff2) format('woff2'); font-weight: 100 900; font-display: block; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { overflow: hidden; background: #141414; }
+  body { font-family: 'Geist', sans-serif; color: #F4EFE3; }
+  .canvas { position: relative; overflow: hidden;
+    background: radial-gradient(ellipse 45% 55% at var(--gx) var(--gy), rgba(242,105,13,.42) 0%, rgba(242,105,13,.12) 45%, transparent 75%),
+                linear-gradient(165deg, #1b1a19 0%, #141414 35%, #1f1b18 70%, #2A2622 100%); }
+  .text { position: absolute; z-index: 2; }
+  .tag { display: inline-block; background: #F2690D; color: #1a1612; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    border-radius: 999px; font-size: 44px; padding: 10px 36px; }
+  .headline { font-weight: 800; letter-spacing: -.025em; line-height: 1.02; margin-top: 30px; font-size: 128px; }
+  .hand { font-family: 'Kaushan Script', cursive; font-weight: 400; letter-spacing: 0; display: inline-block; position: relative;
+    font-size: 1.12em; line-height: 1.05; padding: 0 .1em 0 0; white-space: nowrap; z-index: 0; }
+  .hand::after { content: ''; position: absolute; left: -.08em; right: -.2em; bottom: -.02em; height: .21em; z-index: -1;
+    background: linear-gradient(90deg, rgba(242,105,13,0) 0%, #F2690D 9%, #F47A1F 60%, #F2690D 90%, rgba(242,105,13,0) 100%);
+    border-radius: 40% 60% 50% 50% / 60% 50% 50% 40%; transform: rotate(-2deg) skewX(-14deg); }
+  .sub { font-weight: 500; line-height: 1.3; margin-top: 40px; font-size: 52px; color: #F4EFE3; }
+  .badge { display: inline-flex; align-items: center; gap: 26px; margin-top: 48px; border: 4px solid #F2690D; border-radius: 26px; padding: 18px 40px 18px 32px;
+    background: rgba(20,16,12,.5); font-weight: 600; font-size: 38px; letter-spacing: .04em; line-height: 1.2; }
+  .badge svg { width: 62px; height: 74px; fill: #F4EFE3; flex: none; }
+
+  .device { position: absolute; display: block; z-index: 1; }
+  .k-land .device { filter: drop-shadow(0 60px 80px rgba(0,0,0,.6)); }
+
+  /* floating cards, like the iPhone set's props */
+  .props { position: absolute; z-index: 3; display: flex; flex-direction: column; align-items: flex-end; gap: 26px; }
+  .card { background: #F4EFE3; color: #1a1612; border-radius: 34px; padding: 26px 40px; font-weight: 700; font-size: 54px; line-height: 1.15;
+    box-shadow: 0 30px 60px rgba(0,0,0,.5), 0 0 0 4px rgba(242,105,13,.9); white-space: nowrap; }
+  .card small { display: block; font-weight: 500; font-size: 34px; color: #4a423a; margin-top: 6px; }
+  .card .ok { color: #F2690D; }
+  .card .dot { display: inline-block; width: 26px; height: 26px; border-radius: 50%; background: #F2690D; margin-right: 18px; vertical-align: 6px; }
+  .card big { display: block; font-size: 92px; font-weight: 800; color: #F2690D; letter-spacing: -.02em; line-height: 1.05; }
+  .note { font-family: 'Kaushan Script', cursive; font-size: 72px; color: #F4EFE3; display: flex; align-items: flex-end; gap: 10px; margin-right: 30px; }
+  .note svg { width: 110px; height: 110px; stroke: #F4EFE3; fill: none; stroke-width: 5; stroke-linecap: round; }
+
+  /* landscape 2853x2007: text left below the lockup band, device right */
+  .k-land, .k-book { width: 2853px; height: 2007px; --gx: 66%; --gy: 58%; }
+  .k-land .text, .k-book .text { left: 150px; top: 330px; width: 730px; }
+  .k-land .sub, .k-book .sub { font-size: 48px; }
+  .k-land .device { width: 1870px; right: 50px; top: 330px; }
+  .k-book .device { width: 1830px; right: 50px; top: 260px; }
+  .k-land .props, .k-book .props { right: 90px; bottom: 120px; }
+
+  /* portrait 2007x2853 (laptop): text on top, device below */
+  .k-laptop { width: 2007px; height: 2853px; --gx: 50%; --gy: 72%; }
+  .k-laptop .text { left: 150px; right: 150px; top: 320px; }
+  .k-laptop .device { width: 1820px; left: 50%; transform: translateX(-50%); top: 1120px; }
+  .k-laptop .props { right: 150px; top: 930px; flex-direction: row-reverse; align-items: center; }
+  .k-laptop .headline { font-size: 150px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const id = q.get('id'), kind = q.get('kind') || 'land', dev = q.get('dev');
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const check = '<span class="ok">✓</span>';
+  const arrow = '<svg viewBox="0 0 100 100"><path d="M20 90 C 30 55, 55 35, 80 22"/><path d="M58 18 L82 20 L74 42"/></svg>';
+  // Short card text taken from each shot's props in shots.tsv.
+  const PROPS = {
+    '01_calendars': ['<div class="card">0 conflicts ' + check + '</div>', 'all in one'],
+    '02_chat': ['<div class="card">Invite sent ' + check + '</div>', "that's it"],
+    '06_import': ['<div class="card"><span class="dot"></span>8 events added ' + check + '</div>', 'game on!'],
+    '03_agent': ['<div class="card"><span class="dot"></span>Booked ' + check + '<small>Sam Okafor · Wed 10:00 AM</small></div>', 'handled'],
+    '04_share': ['<div class="card">Tue 9:30 AM – 3:00 PM<br>Wed 9:30 AM – 3:00 PM</div>', 'sent!'],
+    '05_paid': ['<div class="card">Paid ' + check + '<big>$150.00</big><small>Strategy session · 60 min</small></div>', '2 AM payday'],
+  };
+  const apple = '<svg viewBox="0 0 170 200"><path d="M150 155c-6 13-9 19-17 31-11 17-27 38-46 38-17 0-21-11-44-11s-28 11-45 11c-19 0-34-19-45-36C-19 142-21 99-7 76c10-17 26-27 41-27 15 0 25 10 37 10 12 0 19-10 37-10 13 0 28 7 38 20-34 18-28 66 4 86zM96 36c7-9 12-21 10-34-11 1-24 8-32 17-7 8-13 21-11 33 12 1 25-7 33-16z" transform="translate(20,-10)"/></svg>';
+  fetch('../shots.tsv').then((r) => r.text()).then((tsv) => {
+    const row = tsv.split('\n').map((l) => l.split('\t')).find((c) => c[0] === id);
+    if (!row) throw new Error('no shot ' + id);
+    const [, , tag, head, script, sub] = row;
+    const [card, note] = PROPS[id];
+    document.getElementById('root').innerHTML = `<div class="canvas k-${kind}">
+      <div class="text"><div class="tag">${esc(tag)}</div>
+        <div class="headline">${esc(head)} <span class="hand">${esc(script)}</span></div>
+        <div class="sub">${esc(sub)}</div>
+        <div class="badge">${apple}<span>APP STORE<br>PRODUCTIVITY</span></div></div>
+      <img class="device" src="framed/${dev}.png" alt="">
+      <div class="props">${card}<div class="note">${arrow}<span>${esc(note)}</span></div></div></div>`;
+    // Shrink the headline until the text block fits its column and stays clear of the device (portrait).
+    const fit = () => {
+      const t = document.querySelector('.text'), hd = t.querySelector('.headline');
+      const limit = kind === 'laptop' ? 1110 : 2007 - 110;
+      let fs = parseFloat(getComputedStyle(hd).fontSize);
+      for (let k = 0; k < 60 && (t.getBoundingClientRect().bottom > limit || hd.scrollWidth > t.clientWidth + 2); k++) { fs *= 0.96; hd.style.fontSize = fs + 'px'; }
+    };
+    Promise.all([...document.images].map((im) => im.decode().catch(() => {}))).then(() => document.fonts.ready).then(() => { fit(); document.body.dataset.ready = '1'; });
+  });
+</script>
+</body>
+</html>
