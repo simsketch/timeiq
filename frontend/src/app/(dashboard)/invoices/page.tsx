@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 import { Plus } from "lucide-react";
@@ -49,14 +50,17 @@ const monthRange = (monthsAgo: number) => {
 };
 
 const PERIOD_PRESETS = [
-  { label: "This month", monthsAgo: 0 },
-  { label: "Last month", monthsAgo: 1 },
-];
+  { label: "thisMonth", monthsAgo: 0 },
+  { label: "lastMonth", monthsAgo: 1 },
+] as const;
 
 export default function InvoicesPage() {
   const { getToken } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const t = useTranslations("invoices");
+  const tc = useTranslations("common");
+  const locale = useLocale();
   const [invoices, setInvoices] = useState<InvoiceSummary[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,11 +81,11 @@ export default function InvoicesPage() {
       setClients(c);
       setForm((f) => (f.client_id || c.length === 0 ? f : { ...f, client_id: c[0].id }));
     } catch (e: any) {
-      toast({ title: "Failed to load", description: e.message, variant: "destructive" });
+      toast({ title: t("loadFailed"), description: e.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [getToken, toast]);
+  }, [getToken, toast, t]);
 
   useEffect(() => {
     // Every setState in load() runs after its first await; the rule can't see that.
@@ -125,11 +129,11 @@ export default function InvoicesPage() {
         headers: authHeaders(token),
         body: JSON.stringify(form),
       });
-      toast({ title: `Created ${inv.number}` });
+      toast({ title: t("created", { number: inv.number }) });
       setOpen(false);
       router.push(`/invoices/${inv.id}`);
     } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+      toast({ title: tc("error"), description: e.message, variant: "destructive" });
     } finally {
       setCreating(false);
     }
@@ -138,7 +142,7 @@ export default function InvoicesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
-        <ClockLoader size="lg" label="Loading invoices" />
+        <ClockLoader size="lg" label={t("loading")} />
       </div>
     );
   }
@@ -147,30 +151,28 @@ export default function InvoicesPage() {
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>
-          <p className="text-muted-foreground mt-2">Bill unbilled time for a period.</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
+          <p className="text-muted-foreground mt-2">{t("subtitle")}</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button disabled={clients.length === 0}>
               <Plus className="h-4 w-4 mr-2" />
-              New invoice
+              {t("new")}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
             <form onSubmit={create}>
               <DialogHeader>
-                <DialogTitle>New invoice</DialogTitle>
-                <DialogDescription>
-                  Pulls every unbilled entry for the client in this period.
-                </DialogDescription>
+                <DialogTitle>{t("new")}</DialogTitle>
+                <DialogDescription>{t("newDescription")}</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Client</Label>
+                  <Label>{t("client")}</Label>
                   <Select value={form.client_id} onValueChange={(v) => setForm({ ...form, client_id: v })}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Client" />
+                      <SelectValue placeholder={t("client")} />
                     </SelectTrigger>
                     <SelectContent>
                       {clients.map((c) => (
@@ -181,7 +183,7 @@ export default function InvoicesPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="inline-flex rounded-lg border p-0.5" role="group" aria-label="Period">
+                <div className="inline-flex rounded-lg border p-0.5" role="group" aria-label={t("period")}>
                   {PERIOD_PRESETS.map(({ label, monthsAgo }) => {
                     const range = monthRange(monthsAgo);
                     const active =
@@ -197,14 +199,14 @@ export default function InvoicesPage() {
                           active ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
                         )}
                       >
-                        {label}
+                        {t(label)}
                       </button>
                     );
                   })}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label>From</Label>
+                    <Label>{t("from")}</Label>
                     <Input
                       type="date"
                       required
@@ -213,7 +215,7 @@ export default function InvoicesPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>To</Label>
+                    <Label>{t("to")}</Label>
                     <Input
                       type="date"
                       required
@@ -225,22 +227,25 @@ export default function InvoicesPage() {
                 <div className="rounded-lg border bg-muted/40 p-3 text-sm">
                   {preview ? (
                     preview.entry_count === 0 ? (
-                      <span className="text-muted-foreground">No unbilled entries in this period.</span>
+                      <span className="text-muted-foreground">{t("noUnbilled")}</span>
                     ) : (
                       <span>
-                        <strong>{preview.entry_count}</strong> entr{preview.entry_count === 1 ? "y" : "ies"} ·{" "}
-                        {fmtHours(preview.total_hours)} ·{" "}
-                        <strong>{fmtMoney(preview.subtotal, preview.currency)}</strong>
+                        {t.rich("previewSummary", {
+                          count: preview.entry_count,
+                          hours: fmtHours(preview.total_hours),
+                          amount: fmtMoney(preview.subtotal, preview.currency, locale),
+                          strong: (chunks) => <strong>{chunks}</strong>,
+                        })}
                       </span>
                     )
                   ) : (
-                    <span className="text-muted-foreground">Select a client and period.</span>
+                    <span className="text-muted-foreground">{t("selectClientPeriod")}</span>
                   )}
                 </div>
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={creating || !preview || preview.entry_count === 0}>
-                  Create draft
+                  {t("createDraft")}
                 </Button>
               </DialogFooter>
             </form>
@@ -250,7 +255,7 @@ export default function InvoicesPage() {
 
       {invoices.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">No invoices yet.</CardContent>
+          <CardContent className="py-12 text-center text-muted-foreground">{t("empty")}</CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
@@ -264,10 +269,10 @@ export default function InvoicesPage() {
                 <span className="font-mono font-semibold w-24">{inv.number}</span>
                 <span className="flex-1 min-w-[10rem]">{inv.client_name}</span>
                 <span className="text-sm text-muted-foreground">
-                  {fmtDate(inv.period_start)} – {fmtDate(inv.period_end)}
+                  {t("periodRange", { start: fmtDate(inv.period_start, locale), end: fmtDate(inv.period_end, locale) })}
                 </span>
                 <span className="font-medium tabular-nums w-28 text-right">
-                  {fmtMoney(inv.subtotal, inv.currency)}
+                  {fmtMoney(inv.subtotal, inv.currency, locale)}
                 </span>
                 <StatusBadge status={inv.status} />
               </CardContent>

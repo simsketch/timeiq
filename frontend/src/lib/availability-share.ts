@@ -9,6 +9,29 @@ export const IMAGE_THEMES = {
 } as const;
 export type AvailabilityImageTheme = keyof typeof IMAGE_THEMES;
 
+/** The words in the shared text and image, so they can follow the UI language. */
+export interface ShareCopy {
+  fullyBooked: string;
+  intro: (zones: string) => string;
+  noOpenings: (day: string) => string;
+  orBook: string;
+  imageTitle: string;
+  imageZones: (zones: string) => string;
+  imageNoOpenings: string;
+  imageBook: (url: string) => string;
+}
+
+export const ENGLISH_SHARE_COPY: ShareCopy = {
+  fullyBooked: "I'm fully booked for this stretch. Here's my booking link for later dates:",
+  intro: (zones) => `Here's when I'm free (times in ${zones}):`,
+  noOpenings: (day) => `${day}: no openings`,
+  orBook: "Or grab a time directly:",
+  imageTitle: "When I'm free",
+  imageZones: (zones) => `Each opening shows ${zones}.`,
+  imageNoOpenings: "No openings",
+  imageBook: (url) => `Book a time: ${url}`,
+};
+
 export interface FreeWindow {
   start: string;
   end: string;
@@ -66,20 +89,20 @@ export function zoneAbbr(zone: string, at: Date = new Date()): string {
   return part?.value ?? zone;
 }
 
-function timeRange(start: Date, end: Date, zone: string): string {
-  const fmt = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: zone });
-  return fmt
-    .formatRange(start, end)
-    .replace(/[\u202f\u2009]/g, " ")
-    .replace(/:00(?=\s|–|$)/g, "")
+// "9–10 AM" reads well in English; elsewhere dropping ":00" would leave a bare, ambiguous "9".
+const trimHours = (s: string, locale: string, pattern: RegExp) => (locale.startsWith("en") ? s.replace(pattern, "") : s);
+
+function timeRange(start: Date, end: Date, zone: string, locale = "en"): string {
+  const fmt = new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit", timeZone: zone });
+  return trimHours(fmt.formatRange(start, end).replace(/[\u202f\u2009]/g, " "), locale, /:00(?=\s|–|$)/g)
     .replace(/\s*–\s*/, "–");
 }
 
 /** Like timeRange, but a block ending at midnight reads "11 PM–12 AM" with no dates. */
-function blockRange(start: Date, end: Date, zone: string): string {
-  if (dayKey(start, zone) === dayKey(end, zone)) return timeRange(start, end, zone);
-  const fmt = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: zone });
-  const one = (d: Date) => fmt.format(d).replace(/[\u202f\u2009]/g, " ").replace(/:00(?=\s|$)/, "");
+function blockRange(start: Date, end: Date, zone: string, locale = "en"): string {
+  if (dayKey(start, zone) === dayKey(end, zone)) return timeRange(start, end, zone, locale);
+  const fmt = new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit", timeZone: zone });
+  const one = (d: Date) => trimHours(fmt.format(d).replace(/[\u202f\u2009]/g, " "), locale, /:00(?=\s|$)/);
   return `${one(start)}–${one(end)}`;
 }
 
@@ -88,9 +111,9 @@ function dayKey(d: Date, zone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 }
 
-function dayLabel(key: string): string {
+function dayLabel(key: string, locale = "en"): string {
   const [y, m, d] = key.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }).format(
+  return new Intl.DateTimeFormat(locale, { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }).format(
     new Date(Date.UTC(y, m - 1, d, 12))
   );
 }
@@ -131,13 +154,13 @@ function nextDayKey(key: string): string {
  * With `splitAtMidnight`, a window that runs past midnight in the primary zone is cut
  * there and the rest lands on the following day, so a grid can draw every hour of it.
  */
-export function groupByDay(summary: AvailabilitySummary, primary: string, splitAtMidnight = false): DayGroup[] {
+export function groupByDay(summary: AvailabilitySummary, primary: string, splitAtMidnight = false, locale = "en"): DayGroup[] {
   const groups = new Map<string, DayGroup>();
   if (primary === summary.timezone) {
-    for (const d of summary.days) groups.set(d.date, { key: d.date, label: dayLabel(d.date), windows: [] });
+    for (const d of summary.days) groups.set(d.date, { key: d.date, label: dayLabel(d.date, locale), windows: [] });
   }
   const put = (key: string, start: Date, end: Date) => {
-    if (!groups.has(key)) groups.set(key, { key, label: dayLabel(key), windows: [] });
+    if (!groups.has(key)) groups.set(key, { key, label: dayLabel(key, locale), windows: [] });
     groups.get(key)!.windows.push({ start, end });
   };
   for (const d of summary.days) {
@@ -162,31 +185,33 @@ export function buildText(
   summary: AvailabilitySummary,
   zones: string[],
   bookingUrl: string,
-  includeEmptyDays: boolean
+  includeEmptyDays: boolean,
+  copy: ShareCopy = ENGLISH_SHARE_COPY,
+  locale = "en",
 ): string {
   const [primary, ...others] = zones;
-  const groups = groupByDay(summary, primary).filter((g) => includeEmptyDays || g.windows.length);
+  const groups = groupByDay(summary, primary, false, locale).filter((g) => includeEmptyDays || g.windows.length);
   // Name zones as of the first opening, so a week after a clock change says EST, not EDT.
   const ref = groups.find((g) => g.windows.length)?.windows[0].start ?? new Date();
   const abbrs = zones.map((z) => zoneAbbr(z, ref)).join(" / ");
   const lines: string[] = [];
   if (!groups.length) {
-    lines.push("I'm fully booked for this stretch. Here's my booking link for later dates:");
+    lines.push(copy.fullyBooked);
   } else {
-    lines.push(`Here's when I'm free (times in ${abbrs}):`, "");
+    lines.push(copy.intro(abbrs), "");
     for (const g of groups) {
       if (!g.windows.length) {
-        lines.push(`${g.label}: no openings`);
+        lines.push(copy.noOpenings(g.label));
         continue;
       }
       lines.push(g.label);
       for (const w of g.windows) {
-        const parts = [`${timeRange(w.start, w.end, primary)} ${zoneAbbr(primary, w.start)}`];
-        for (const z of others) parts.push(`${timeRange(w.start, w.end, z)} ${zoneAbbr(z, w.start)}`);
+        const parts = [`${timeRange(w.start, w.end, primary, locale)} ${zoneAbbr(primary, w.start)}`];
+        for (const z of others) parts.push(`${timeRange(w.start, w.end, z, locale)} ${zoneAbbr(z, w.start)}`);
         lines.push(`  ${parts.join("  ·  ")}`);
       }
     }
-    lines.push("", "Or grab a time directly:");
+    lines.push("", copy.orBook);
   }
   lines.push(bookingUrl);
   return lines.join("\n");
@@ -199,7 +224,8 @@ function hourIn(d: Date, zone: string): number {
   return h + m / 60;
 }
 
-function hourLabel(h: number): string {
+function hourLabel(h: number, locale = "en"): string {
+  if (!locale.startsWith("en")) return new Date(2000, 0, 1, h % 24).toLocaleTimeString(locale, { hour: "numeric" });
   const hh = ((h + 11) % 12) + 1;
   return `${hh} ${h < 12 || h === 24 ? "AM" : "PM"}`;
 }
@@ -210,11 +236,13 @@ export function drawImage(
   summary: AvailabilitySummary,
   zones: string[],
   bookingUrl: string,
-  theme: AvailabilityImageTheme = "classic"
+  theme: AvailabilityImageTheme = "classic",
+  copy: ShareCopy = ENGLISH_SHARE_COPY,
+  locale = "en",
 ): HTMLCanvasElement {
   const palette = IMAGE_THEMES[theme];
   const [primary] = zones;
-  const groups = groupByDay(summary, primary, true);
+  const groups = groupByDay(summary, primary, true, locale);
   const weeks = Array.from({ length: Math.max(1, Math.ceil(groups.length / 7)) }, (_, i) => groups.slice(i * 7, i * 7 + 7));
 
   // Vertical range: the span of working hours and openings, in the primary zone.
@@ -259,10 +287,10 @@ export function drawImage(
 
   ctx.fillStyle = palette.text;
   ctx.font = font(700, 26);
-  ctx.fillText("When I'm free", left, 48);
+  ctx.fillText(copy.imageTitle, left, 48);
   ctx.fillStyle = palette.muted;
   ctx.font = font(400, 15);
-  ctx.fillText(`Each opening shows ${zones.map((z) => z.replace(/_/g, " ")).join(" / ")}.`, left, 74, W - left - 24);
+  ctx.fillText(copy.imageZones(zones.map((z) => z.replace(/_/g, " ")).join(" / ")), left, 74, W - left - 24);
 
   weeks.forEach((week, weekIndex) => {
     const gridTop = top + weekIndex * (weekH + weekGap);
@@ -289,7 +317,7 @@ export function drawImage(
       ctx.lineTo(W - 24, y);
       ctx.stroke();
       ctx.fillStyle = palette.muted;
-      ctx.fillText(hourLabel(h), 8, y + 4);
+      ctx.fillText(hourLabel(h, locale), 8, y + 4);
     }
 
     week.forEach((g, i) => {
@@ -311,21 +339,21 @@ export function drawImage(
         zones.forEach((zone, index) => {
           // A converted time can fall on another date; name it instead of implying the column's date.
           const localDay = dayKey(w.start, zone);
-          const date = localDay === g.key ? "" : `${dayLabel(localDay)}: `;
-          ctx.fillText(`${zoneAbbr(zone, w.start)} ${date}${blockRange(w.start, w.end, zone)}`, x + 8, y1 + 18 + index * 16, colW - 20);
+          const date = localDay === g.key ? "" : `${dayLabel(localDay, locale)}: `;
+          ctx.fillText(`${zoneAbbr(zone, w.start)} ${date}${blockRange(w.start, w.end, zone, locale)}`, x + 8, y1 + 18 + index * 16, colW - 20);
         });
       }
       if (!g.windows.length) {
         ctx.fillStyle = palette.muted;
         ctx.font = font(400, 12);
-        ctx.fillText("No openings", x + 4, gridTop + 22, colW - 16);
+        ctx.fillText(copy.imageNoOpenings, x + 4, gridTop + 22, colW - 16);
       }
     });
   });
 
   ctx.fillStyle = palette.muted;
   ctx.font = font(500, 14);
-  ctx.fillText(`Book a time: ${bookingUrl.replace(/^https?:\/\//, "")}`, left, H - 28);
+  ctx.fillText(copy.imageBook(bookingUrl.replace(/^https?:\/\//, "")), left, H - 28);
   ctx.textAlign = "right";
   ctx.fillStyle = palette.muted;
   ctx.font = font(400, 12);

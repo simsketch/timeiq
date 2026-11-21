@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Clock,
@@ -29,43 +30,49 @@ import { OctoLoader } from "@/components/landing/octo/octo-loader";
 import { HeroScroll } from "@/components/landing/hero-scroll";
 import { ClockHero } from "@/components/landing/clock-hero";
 
-export function LandingPage({ headline, hero = "clock" }: { headline: Headline; hero?: "panel" | "clock" }) {
+export function LandingPage({ headline: source, hero = "clock" }: { headline: Headline; hero?: "panel" | "clock" }) {
+  const t = useTranslations("landing");
+  const shell = useTranslations("shell");
+  const th = useTranslations("headlines");
+  // Variant ids stay English for ad tracking; only the words shown are translated.
+  const headline = { ...source, lead: th(`${source.id}.lead` as Parameters<typeof th>[0]), accent: th(`${source.id}.accent` as Parameters<typeof th>[0]) };
   return (
     <div className="relative min-h-screen overflow-x-clip">
 
       {/* Dark text over the clock hero; light text over dark glass after scrolling. */}
       <header className={`landing-nav ${hero === "clock" ? "landing-nav--clock" : ""} sticky top-0 z-50`}>
         <div aria-hidden="true" className="landing-nav-bar absolute inset-x-0 top-0 h-full bg-[#050505]/70 backdrop-blur-xl border-b border-white/[0.06]" />
-        <div className="relative container mx-auto px-6 lg:px-10 py-4 flex items-center justify-between">
+        <div className="relative container mx-auto px-4 sm:px-6 lg:px-10 py-4 flex items-center justify-between gap-2">
           <Link href="/" className="flex items-center gap-2.5 group">
             <LogoIcon />
-            <span className="text-xl font-semibold tracking-tight text-inherit">
+            <span className="text-lg sm:text-xl font-semibold tracking-tight text-inherit">
               TimeIQ
             </span>
           </Link>
-          <nav className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-6 text-[15px]">
+          <nav className="hidden lg:flex absolute left-1/2 -translate-x-1/2 items-center gap-6 whitespace-nowrap text-[15px]">
             <a href="#how" className="hover:opacity-70 transition-opacity">
-              How it works
+              {t("nav.how")}
             </a>
             <a href="#features" className="hover:opacity-70 transition-opacity">
-              Features
+              {t("nav.features")}
             </a>
             <a href="#pricing" className="hover:opacity-70 transition-opacity">
-              Pricing
+              {shell("pricing")}
             </a>
-            <Link href="/tools" className="hover:opacity-70 transition-opacity">
-              Free tools
+            {/* Longer translations need the room at lg; both links are in the footer too. */}
+            <Link href="/tools" className="hidden xl:inline hover:opacity-70 transition-opacity">
+              {shell("freeTools")}
             </Link>
-            <Link href="/blog" className="hover:opacity-70 transition-opacity">
-              Blog
+            <Link href="/blog" className="hidden xl:inline hover:opacity-70 transition-opacity">
+              {shell("blog")}
             </Link>
           </nav>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <a
               href={GITHUB_URL}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="TimeIQ on GitHub"
+              aria-label={t("nav.github")}
               className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm hover:opacity-70 transition-opacity"
             >
               <GitHubIcon className="h-4 w-4" />
@@ -214,27 +221,28 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
             <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
               <div className="lg:col-span-6">
                 <div className="text-sm font-medium text-[#b34409] mb-5">
-                  Forward it
+                  {t("forward.eyebrow")}
                 </div>
                 <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
-                  <span>Send the schedule.</span>{" "}
-                  <em className="text-[hsl(var(--brand))]">It&apos;s on your calendar.</em>
+                  <span>{t("forward.title")}</span>{" "}
+                  <em className="text-[hsl(var(--brand))]">{t("forward.accent")}</em>
                 </h2>
                 <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
-                  Pick a sample and hit Send. TimeIQ reads PDFs, screenshots and
-                  plain email, puts every practice and game on your week, and
-                  tells you what clashes.
+                  {t("forward.body")}
                 </p>
                 <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-muted-foreground">
                   <span>
-                    Built by{" "}
-                    <a href="https://yoyocode.com" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground hover:text-foreground/80">
-                      Yoyo Code
-                    </a>
+                    {t.rich("forward.builtBy", {
+                      link: (chunks) => (
+                        <a href="https://yoyocode.com" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground hover:text-foreground/80">
+                          {chunks}
+                        </a>
+                      ),
+                    })}
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <Shield className="h-3.5 w-3.5" />
-                    Stripe checkout
+                    {t("forward.stripe")}
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <Calendar className="h-3.5 w-3.5" />
@@ -242,7 +250,7 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
                   </span>
                   <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors">
                     <GitHubIcon className="h-3.5 w-3.5" />
-                    Open source
+                    {t("openSource.eyebrow")}
                   </a>
                 </div>
               </div>
@@ -263,31 +271,25 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
             <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
               <div className="lg:col-span-5">
                 <div className="text-sm font-medium text-[hsl(24_95%_62%)] mb-5">
-                  Claude, ChatGPT and Cursor
+                  {t("assistants.eyebrow")}
                 </div>
                 <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
-                  <span>Ask your AI.</span>{" "}
-                  <em className="text-[hsl(24_95%_62%)]">It knows your calendar.</em>
+                  <span>{t("assistants.title")}</span>{" "}
+                  <em className="text-[hsl(24_95%_62%)]">{t("assistants.accent")}</em>
                 </h2>
                 <p className="mt-5 text-lg text-white/70 leading-relaxed text-pretty">
-                  Connect TimeIQ to Claude, ChatGPT or Cursor and ask in plain words. It checks every calendar you
-                  use before it answers, finds a time with other people and adds schedules for you. Anything
-                  that emails someone waits for your OK.
+                  {t("assistants.body")}
                 </p>
                 <ul className="mt-6 space-y-2 text-sm text-white/85">
-                  {[
-                    "Paste one link and click Allow, no setup",
-                    "Sees your availability across every calendar",
-                    "Disconnect anytime from Settings",
-                  ].map((t) => (
-                    <li key={t} className="flex items-start gap-2">
+                  {[t("assistants.point1"), t("assistants.point2"), t("assistants.point3")].map((line) => (
+                    <li key={line} className="flex items-start gap-2">
                       <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(24_95%_62%)]" />
-                      {t}
+                      {line}
                     </li>
                   ))}
                 </ul>
                 <Link href="/mcp" className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium underline underline-offset-4 hover:text-[hsl(24_95%_62%)]">
-                  How to connect your assistant
+                  {t("assistants.howTo")}
                   <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
                 </Link>
               </div>
@@ -306,26 +308,20 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
             <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
               <div className="lg:col-span-5">
                 <div className="text-sm font-medium text-[#b34409] mb-5">
-                  Cc TimeIQ
+                  {t("cc.eyebrow")}
                 </div>
                 <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
-                  <span>Cc TimeIQ.</span>{" "}
-                  <em className="text-[hsl(var(--brand))]">It finds the time.</em>
+                  <span>{t("cc.title")}</span>{" "}
+                  <em className="text-[hsl(var(--brand))]">{t("cc.accent")}</em>
                 </h2>
                 <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
-                  Cc agent@timeiq.app from your own email on any thread about meeting up. It replies to everyone with three times you&apos;re
-                  free, reads their answers in plain English, and books it when you say so. When a recruiter&apos;s or
-                  client&apos;s assistant offers times, it picks one you&apos;re free for and holds it.
+                  {t("cc.body")}
                 </p>
                 <ul className="mt-6 space-y-2 text-sm text-foreground/80">
-                  {[
-                    "Three suggestions, not a wall of slots, plus “pick a different time”",
-                    "Replies like “Tuesday after 2 works” just work",
-                    "Checks every calendar first, so it never double-books you",
-                  ].map((t) => (
-                    <li key={t} className="flex items-start gap-2">
+                  {[t("cc.point1"), t("cc.point2"), t("cc.point3")].map((line) => (
+                    <li key={line} className="flex items-start gap-2">
                       <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--brand))]" />
-                      {t}
+                      {line}
                     </li>
                   ))}
                 </ul>
@@ -344,16 +340,14 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
           <div className="container mx-auto px-6 lg:px-10">
             <div className="max-w-2xl mb-12">
               <div className="text-sm font-medium text-[#b34409] mb-5">
-                Every calendar you use
+                {t("calendars.eyebrow")}
               </div>
               <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
-                <span>All your calendars.</span>{" "}
-                <em className="text-[hsl(var(--brand))]">One booking link.</em>
+                <span>{t("calendars.title")}</span>{" "}
+                <em className="text-[hsl(var(--brand))]">{t("calendars.accent")}</em>
               </h2>
               <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
-                A booking page only protects the calendars it can see. TimeIQ checks work, personal, family and
-                every schedule you email in, and re-checks right before anyone books. Switch calendars on below and
-                watch the clashes disappear.
+                {t("calendars.body")}
               </p>
             </div>
             <LazyDemo name="merge" />
@@ -368,26 +362,20 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
             <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
               <div className="lg:col-span-5">
                 <div className="text-sm font-medium text-[#b34409] mb-5">
-                  Share availability
+                  {t("share.eyebrow")}
                 </div>
                 <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
-                  <span>&ldquo;When are you free?&rdquo;</span>{" "}
-                  <em className="text-[hsl(var(--brand))]">One click.</em>
+                  <span>{t("share.title")}</span>{" "}
+                  <em className="text-[hsl(var(--brand))]">{t("share.accent")}</em>
                 </h2>
                 <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
-                  TimeIQ turns every connected calendar into your open times for the week ahead. Add the other
-                  person&apos;s time zone and each slot shows both, like EST and PST. Copy it as text for an email or
-                  as a picture for a group chat, with your booking link at the bottom.
+                  {t("share.body")}
                 </p>
                 <ul className="mt-6 space-y-2 text-sm text-foreground/80">
-                  {[
-                    "Your time zone first, up to two more beside it",
-                    "Skips meetings, buffers and anything you emailed in",
-                    "Text or picture, ready to paste",
-                  ].map((t) => (
-                    <li key={t} className="flex items-start gap-2">
+                  {[t("share.point1"), t("share.point2"), t("share.point3")].map((line) => (
+                    <li key={line} className="flex items-start gap-2">
                       <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-[hsl(var(--brand))]" />
-                      {t}
+                      {line}
                     </li>
                   ))}
                 </ul>
@@ -406,11 +394,11 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
           <div className="container mx-auto px-6 lg:px-10">
             <div className="max-w-2xl mb-20">
               <div className="text-sm font-medium text-[#b34409] mb-5">
-                How it works
+                {t("nav.how")}
               </div>
               <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
-                <span>Share one link.</span>{" "}
-                <em className="text-[hsl(var(--brand))]">TimeIQ does the rest.</em>
+                <span>{t("how.title")}</span>{" "}
+                <em className="text-[hsl(var(--brand))]">{t("how.accent")}</em>
               </h2>
             </div>
 
@@ -418,24 +406,24 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
               {[
                 {
                   step: "01",
-                  title: "Share your link",
+                  title: t("how.step1Title"),
                   icon: Link2,
                   color: "var(--aurora-1)",
-                  desc: "Set your hours once and send your page to anyone, or paste your open times into a chat.",
+                  desc: t("how.step1Body"),
                 },
                 {
                   step: "02",
-                  title: "They pick a time",
+                  title: t("how.step2Title"),
                   icon: Clock,
                   color: "var(--aurora-2)",
-                  desc: "Guests see only the times every one of your calendars says you're free, in their own time zone.",
+                  desc: t("how.step2Body"),
                 },
                 {
                   step: "03",
-                  title: "You're booked",
+                  title: t("how.step3Title"),
                   icon: CheckCircle2,
                   color: "var(--aurora-4)",
-                  desc: "Both of you get the invite and a calendar event, and a push lands on your phone.",
+                  desc: t("how.step3Body"),
                 },
               ].map((item, i) => (
                 <div
@@ -461,67 +449,67 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
             <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between mb-16 gap-6">
               <div className="max-w-2xl">
                 <div className="text-sm font-medium text-[#b34409] mb-5">
-                  Features
+                  {t("nav.features")}
                 </div>
                 <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
-                  <span>Built for a full calendar.</span>{" "}
+                  <span>{t("features.title")}</span>{" "}
                   <em className="text-[hsl(var(--brand))]">
-                    Work, kids, clients.
+                    {t("features.accent")}
                   </em>
                 </h2>
               </div>
             </div>
 
             <div className="grid grid-cols-6 auto-rows-[minmax(180px,auto)] gap-5">
-              {/* Feature 1 — wide */}
+              {/* Feature 1, wide */}
               <FeatureCard
                 className="col-span-6 lg:col-span-4"
                 icon={Calendar}
                 color="var(--aurora-1)"
-                label="Calendar sync"
-                title="Every calendar, one view."
-                description="Google, Outlook, iCloud and any calendar link, merged into one view. Synced hourly and re-checked before every booking, so nobody books over your other life."
+                label={t("features.sync.label")}
+                title={t("features.sync.title")}
+                description={t("features.sync.body")}
                 large
               />
               <FeatureCard
                 className="col-span-6 md:col-span-3 lg:col-span-2"
                 icon={Globe}
                 color="var(--aurora-2)"
-                label="Timezone smart"
-                title="Their time zone, automatically."
-                description="Guests see every open time in their own zone, and so do you."
+                label={t("features.zone.label")}
+                title={t("features.zone.title")}
+                description={t("features.zone.body")}
               />
               <FeatureCard
                 className="col-span-6 md:col-span-3 lg:col-span-2"
                 icon={Zap}
                 color="var(--aurora-3)"
-                label="Instant"
-                title="A ping when someone books."
-                description="An email and a push to your phone the moment a time is taken."
+                label={t("features.instant.label")}
+                title={t("features.instant.title")}
+                description={t("features.instant.body")}
               />
               <FeatureCard
                 className="col-span-6 md:col-span-3 lg:col-span-2"
                 icon={Shield}
                 color="var(--aurora-5)"
-                label="Buffer times"
-                title="Buffers between meetings."
-                description="Padding before and after, so the day never runs back-to-back."
+                label={t("features.buffers.label")}
+                title={t("features.buffers.title")}
+                description={t("features.buffers.body")}
               />
               <FeatureCard
                 className="col-span-6 lg:col-span-2"
                 icon={Mail}
                 color="var(--aurora-4)"
-                label="Email"
-                title="Invites that keep up."
-                description="Confirmations, reminders and calendar invites for everyone, updated when a meeting moves."
+                label={t("features.email.label")}
+                title={t("features.email.title")}
+                description={t("features.email.body")}
               />
               <FeatureCard
                 className="col-span-6"
                 icon={Users}
                 color="var(--aurora-1)"
-                label="Event types"
-                title="A page for each kind of meeting."
-                description="Intro calls, office hours, paid sessions: each gets its own length, buffers, questions and price."
+                label={t("features.types.label")}
+                title={t("features.types.title")}
+                description={t("features.types.body")}
                 large
               />
             </div>
@@ -535,32 +523,25 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
           <div className="container mx-auto px-6 lg:px-10">
             <div className="glass rounded-[1.5rem] p-8 lg:p-12 max-w-5xl mx-auto grid gap-10 md:grid-cols-[1.1fr_1fr] md:items-center">
               <div>
-                <div className="text-sm font-medium text-[hsl(var(--brand))] mb-4">Open source</div>
+                <div className="text-sm font-medium text-[hsl(var(--brand))] mb-4">{t("openSource.eyebrow")}</div>
                 <h2 className="font-serif font-normal text-4xl lg:text-5xl leading-[1.05] tracking-[-0.01em] text-balance">
-                  <span>Every line is public.</span>{" "}
-                  <em className="text-[hsl(var(--brand))]">Check it yourself.</em>
+                  <span>{t("openSource.title")}</span>{" "}
+                  <em className="text-[hsl(var(--brand))]">{t("openSource.accent")}</em>
                 </h2>
                 <p className="text-base text-muted-foreground mt-5 text-pretty">
-                  TimeIQ is open source under the AGPL&#8209;3.0. Read exactly how your
-                  calendars and email are handled, or run your own copy on your servers.
+                  {t("openSource.body")}
                 </p>
                 <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="inline-block mt-7">
                   <Button variant="glass" size="lg">
                     <GitHubIcon className="h-4 w-4" />
-                    View the code on GitHub
+                    {t("openSource.viewCode")}
                   </Button>
                 </a>
               </div>
               <div>
-                <div className="text-sm font-medium text-foreground/80 mb-4">Running it yourself means you</div>
+                <div className="text-sm font-medium text-foreground/80 mb-4">{t("openSource.selfHostIntro")}</div>
                 <ul className="space-y-3 text-sm">
-                  {[
-                    "Deploy the Next.js frontend and FastAPI backend",
-                    "Provision Postgres, Clerk auth and Resend email",
-                    "Schedule the calendar sync and reminder jobs",
-                    "Apply updates, migrations and security patches",
-                    "Keep changes you serve to others open under the AGPL",
-                  ].map((item) => (
+                  {(["deploy", "provision", "schedule", "update", "share"] as const).map((key) => t(`openSource.selfHost.${key}`)).map((item) => (
                     <li key={item} className="flex items-start gap-2.5 text-muted-foreground">
                       <Server className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground/70" />
                       {item}
@@ -579,29 +560,30 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
           <div className="container mx-auto px-6 lg:px-10">
             <div className="text-center max-w-2xl mx-auto mb-12">
               <div className="text-sm font-medium text-[#b34409] mb-5">
-                Pricing
+                {shell("pricing")}
               </div>
               <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-balance">
-                <span>Free to start.</span>{" "}
+                <span>{t("pricing.title")}</span>{" "}
                 <em className="text-[hsl(var(--brand))]">
-                  Stupid cheap after.
+                  {t("pricing.accent")}
                 </em>
               </h2>
               <p className="text-lg text-muted-foreground mt-6 text-pretty">
-                Your first 7 meetings are free. After that, the first 100
-                subscribers lock in $19 a year for life, and everyone after pays $29.
+                {t("pricing.body")}
               </p>
               <p className="text-sm text-muted-foreground mt-3">
-                Prefer to run it yourself?{" "}
-                <a
-                  href={GITHUB_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-foreground/85 underline-offset-4 hover:underline"
-                >
-                  The code is on GitHub
-                </a>
-                .
+                {t.rich("pricing.selfHost", {
+                  link: (chunks) => (
+                    <a
+                      href={GITHUB_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-foreground/85 underline-offset-4 hover:underline"
+                    >
+                      {chunks}
+                    </a>
+                  ),
+                })}
               </p>
             </div>
             <PublicPricingCards headline={headline.id} />
@@ -616,16 +598,15 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
             <div className="rounded-[2rem] lg:rounded-[2.5rem] bg-[hsl(var(--brand))] p-12 lg:p-20 text-center">
               <div className="max-w-3xl mx-auto">
                 <h2 className="font-serif font-normal text-5xl lg:text-7xl leading-[1.02] tracking-[-0.01em] text-[hsl(var(--brand-ink))] text-balance">
-                  Try vibe scheduling.{" "}
-                  <em className="text-[hsl(var(--brand-ink))]">The first 7 meetings are on us.</em>
+                  {t("cta.title")}{" "}
+                  <em className="text-[hsl(var(--brand-ink))]">{t("cta.accent")}</em>
                 </h2>
                 <p className="text-lg text-[hsl(var(--brand-ink))] mt-7 mb-10 leading-relaxed text-pretty">
-                  Connect your calendars, share your link and forward the next
-                  schedule that lands in your inbox. No card needed to start.
+                  {t("cta.body")}
                 </p>
                 <Link href="/sign-up">
                   <Button size="xl" className="bg-white text-[hsl(var(--brand-ink))] hover:bg-white/90">
-                    Start free
+                    {shell("startFree")}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
@@ -649,16 +630,18 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
               <LogoIcon className="w-6 h-6" />
               <span className="font-semibold tracking-tight">TimeIQ</span>
               <span className="text-sm text-muted-foreground">
-                , another{" "}
-                <a
-                  href="https://yoyocode.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-foreground/80 hover:text-foreground underline-offset-4 hover:underline transition-colors"
-                >
-                  Yoyo Code
-                </a>{" "}
-                creation
+                {t.rich("footer.creation", {
+                  link: (chunks) => (
+                    <a
+                      href="https://yoyocode.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-foreground/80 hover:text-foreground underline-offset-4 hover:underline transition-colors"
+                    >
+                      {chunks}
+                    </a>
+                  ),
+                })}
               </span>
               <span className="text-muted-foreground text-sm font-mono tabular-nums">
                 · &copy; 2026
@@ -676,19 +659,19 @@ export function LandingPage({ headline, hero = "clock" }: { headline: Headline; 
                 AGPL-3.0
               </a>
               <Link href="/tools" className="hover:text-foreground transition-colors">
-                Free tools
+                {shell("freeTools")}
               </Link>
               <Link href="/blog" className="hover:text-foreground transition-colors">
-                Blog
+                {shell("blog")}
               </Link>
               <Link href="/mcp" className="hover:text-foreground transition-colors">
-                AI assistants
+                {shell("assistants")}
               </Link>
               <Link href="/privacy" className="hover:text-foreground transition-colors">
-                Privacy
+                {shell("privacy")}
               </Link>
               <Link href="/terms" className="hover:text-foreground transition-colors">
-                Terms
+                {shell("terms")}
               </Link>
               <a
                 href="tel:+15615039444"

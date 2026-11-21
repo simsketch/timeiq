@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useTranslations } from "next-intl";
 import { Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { apiFetch } from "@/lib/api";
@@ -29,6 +30,7 @@ export function TaskCombobox({
   taken: Set<string>;
 }) {
   const { getToken } = useAuth();
+  const t = useTranslations("time.taskPicker");
   const [tasks, setTasks] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -96,7 +98,7 @@ export function TaskCombobox({
         role="combobox"
         aria-expanded={show}
         aria-controls={id ? `${id}-list` : undefined}
-        placeholder={tasks.length ? "Pick a task or type a new one" : "Platform support"}
+        placeholder={tasks.length ? t("pickOrType") : t("example")}
         value={value}
         onChange={(e) => {
           onChange(e.target.value);
@@ -154,7 +156,7 @@ export function TaskCombobox({
                 {norm(name) === norm(value) ? (
                   <Check className="h-4 w-4 shrink-0" />
                 ) : onSheet ? (
-                  <span className="shrink-0 text-xs text-muted-foreground">on sheet</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{t("onSheet")}</span>
                 ) : null}
               </li>
             );

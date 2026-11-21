@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { fetchBillingStatus, startCheckout, startGuestCheckout } from "@/lib/billing";
@@ -10,6 +11,7 @@ import { fetchBillingStatus, startCheckout, startGuestCheckout } from "@/lib/bil
 /** Hands off to Stripe Checkout. Signed-out visitors pay first and create their account after. */
 export default function CheckoutRedirectPage() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
+  const t = useTranslations("billing");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,10 +31,10 @@ export default function CheckoutRedirectPage() {
         }
         window.location.href = await startCheckout(token);
       } catch (e: any) {
-        setError(e.message || "Could not start checkout");
+        setError(e.message || t("checkoutFailed"));
       }
     })();
-  }, [isLoaded, isSignedIn, getToken]);
+  }, [isLoaded, isSignedIn, getToken, t]);
 
   return (
     <div className="relative min-h-screen flex items-center justify-center">
@@ -42,12 +44,12 @@ export default function CheckoutRedirectPage() {
           <>
             <p className="text-muted-foreground">{error}</p>
             <div className="flex gap-2 justify-center">
-              <Button asChild variant="outline"><Link href="/pricing">Back to pricing</Link></Button>
-              <Button asChild><Link href="/dashboard">Go to dashboard</Link></Button>
+              <Button asChild variant="outline"><Link href="/pricing">{t("backToPricing")}</Link></Button>
+              <Button asChild><Link href="/dashboard">{t("goDashboard")}</Link></Button>
             </div>
           </>
         ) : (
-          <ClockLoader size="lg" label="Opening secure checkout" />
+          <ClockLoader size="lg" label={t("opening")} />
         )}
       </div>
     </div>

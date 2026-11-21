@@ -1,6 +1,7 @@
 "use client";
 
-import { DAY_LABELS, dayDate, clock, type DemoEvent } from "./demo-week";
+import { useLocale, useTranslations } from "next-intl";
+import { dayLabel, dayDate, clock, type DemoEvent } from "./demo-week";
 
 interface Props {
   days: number;
@@ -18,6 +19,10 @@ interface Props {
 
 /** A compact, read-only week grid for the homepage demos. */
 export function MiniWeek({ days, from, to, events, fresh, free = [], hourHeight = 22, reserveAllDay = false }: Props) {
+  const locale = useLocale();
+  const t = useTranslations("landing.demo");
+  // Sample events are translated by id; anything else keeps its own title.
+  const title = (e: DemoEvent) => (t.has(`events.${e.id}` as Parameters<typeof t>[0]) ? t(`events.${e.id}` as Parameters<typeof t>[0]) : e.title);
   const hours = Array.from({ length: to - from }, (_, i) => from + i);
   const height = (to - from) * hourHeight;
   const pos = (start: number, end: number) => ({
@@ -35,13 +40,13 @@ export function MiniWeek({ days, from, to, events, fresh, free = [], hourHeight 
         <div />
         {Array.from({ length: days }, (_, d) => (
           <div key={d} className="pb-1.5 text-center font-mono uppercase tracking-wider text-muted-foreground">
-            <span className="hidden sm:inline">{dayDate(d)}</span>
-            <span className="sm:hidden">{DAY_LABELS[d].slice(0, 2)}</span>
+            <span className="hidden sm:inline">{dayDate(d, locale)}</span>
+            <span className="sm:hidden">{dayLabel(d, locale).slice(0, 2)}</span>
           </div>
         ))}
         {(reserveAllDay || allDay.length > 0) && (
           <>
-            <div className="pr-1 text-right font-mono text-muted-foreground/70 leading-5">all</div>
+            <div className="pr-1 text-right font-mono text-muted-foreground/70 leading-5">{t("allDay")}</div>
             {Array.from({ length: days }, (_, d) => (
               <div key={d} className="px-0.5 pb-1 min-h-5">
                 {allDay
@@ -52,7 +57,7 @@ export function MiniWeek({ days, from, to, events, fresh, free = [], hourHeight 
                       className={`truncate rounded px-1 leading-5 text-white font-medium ${fresh?.has(e.id) ? "demo-drop" : ""}`}
                       style={{ background: e.color, ...delay(e.id) }}
                     >
-                      {e.title}
+                      {title(e)}
                     </div>
                   ))}
               </div>
@@ -68,7 +73,7 @@ export function MiniWeek({ days, from, to, events, fresh, free = [], hourHeight 
               className="absolute right-1 -translate-y-1/2 font-mono text-muted-foreground/70 tabular-nums"
               style={{ top: `${(i / (to - from)) * 100}%` }}
             >
-              {i === 0 ? "" : clock(h).replace(":00", "").replace(" ", "")}
+              {i === 0 ? "" : clock(h, locale).replace(":00", "").replace(" ", "")}
             </div>
           ))}
         </div>
@@ -96,13 +101,13 @@ export function MiniWeek({ days, from, to, events, fresh, free = [], hourHeight 
               .map((e) => (
                 <div
                   key={e.id}
-                  title={`${e.title} · ${clock(e.start)}–${clock(e.end)}`}
+                  title={`${title(e)} · ${clock(e.start, locale)}–${clock(e.end, locale)}`}
                   className={`absolute inset-x-0.5 overflow-hidden rounded px-1 py-0.5 leading-tight text-white font-medium shadow-sm ${
                     fresh?.has(e.id) ? "demo-drop" : ""
                   }`}
                   style={{ ...pos(e.start, e.end), background: e.color, ...delay(e.id) }}
                 >
-                  <span className="line-clamp-2">{e.title}</span>
+                  <span className="line-clamp-2">{title(e)}</span>
                 </div>
               ))}
           </div>

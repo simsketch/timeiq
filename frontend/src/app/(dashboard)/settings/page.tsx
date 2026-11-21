@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth, useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,9 +21,10 @@ import { apiFetch } from "@/lib/api";
 import { CreditCard, Download, Trash2 } from "lucide-react";
 import { API_BASE } from "@/lib/invoicing";
 import Link from "next/link";
-import { BillingStatus, PLAN_LABEL, fetchBillingStatus, openPortal } from "@/lib/billing";
+import { BillingStatus, fetchBillingStatus, openPortal } from "@/lib/billing";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { ApiTokensCard } from "@/components/api-tokens-card";
+import { LanguagePicker } from "@/components/language-picker";
 
 interface UserSettings {
   name: string;
@@ -56,6 +58,9 @@ export default function SettingsPage() {
   const { signOut } = useClerk();
   const router = useRouter();
   const { toast } = useToast();
+  const t = useTranslations("settings");
+  const tc = useTranslations("common");
+  const locale = useLocale();
   const [exporting, setExporting] = useState(false);
   const [deleteText, setDeleteText] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -65,7 +70,7 @@ export default function SettingsPage() {
     try {
       const token = await getToken();
       const res = await fetch(`${API_BASE}/api/me/export`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error("Export failed");
+      if (!res.ok) throw new Error(t("exportFailed"));
       const url = URL.createObjectURL(await res.blob());
       const a = document.createElement("a");
       a.href = url;
@@ -73,7 +78,7 @@ export default function SettingsPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (error: any) {
-      toast({ title: "Export failed", description: error.message, variant: "destructive" });
+      toast({ title: t("exportFailed"), description: error.message, variant: "destructive" });
     } finally {
       setExporting(false);
     }
@@ -81,7 +86,7 @@ export default function SettingsPage() {
 
   async function deleteAccount() {
     if (deleteText !== "DELETE") return;
-    if (!confirm("This permanently deletes your account, bookings, time entries, clients, and invoices. Continue?")) return;
+    if (!confirm(t("deleteConfirm"))) return;
     setDeleting(true);
     try {
       const token = await getToken();
@@ -89,7 +94,7 @@ export default function SettingsPage() {
       await signOut();
       router.push("/");
     } catch (error: any) {
-      toast({ title: "Could not delete account", description: error.message, variant: "destructive" });
+      toast({ title: t("deleteFailed"), description: error.message, variant: "destructive" });
       setDeleting(false);
     }
   }
@@ -119,7 +124,7 @@ export default function SettingsPage() {
       const token = await getToken();
       window.location.href = await openPortal(token);
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: tc("error"), description: error.message, variant: "destructive" });
       setPortalBusy(false);
     }
   }
@@ -155,10 +160,10 @@ export default function SettingsPage() {
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: settings.name, timezone: settings.timezone, weekly_hours_target: settings.weekly_hours_target, weekly_summary_enabled: settings.weekly_summary_enabled }),
       });
-      toast({ title: "Settings updated successfully" });
+      toast({ title: t("saved") });
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: tc("error"),
         description: error.message,
         variant: "destructive",
       });
@@ -179,7 +184,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
-        <ClockLoader size="lg" label="Loading settings" />
+        <ClockLoader size="lg" label={t("loading")} />
       </div>
     );
   }
@@ -187,49 +192,49 @@ export default function SettingsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
         <p className="text-muted-foreground mt-2">
-          Manage your account preferences.
+          {t("subtitle")}
         </p>
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Your booking link, page look, payments and website widget are on the{" "}
-        <Link href="/event-types" className="underline underline-offset-4">Booking page</Link>.
-        {" "}Find your calendar subscription on{" "}
-        <Link href="/calendars#subscription" className="underline underline-offset-4">Calendars</Link>.
+        {t.rich("elsewhere", {
+          booking: (chunks) => <Link href="/event-types" className="underline underline-offset-4">{chunks}</Link>,
+          calendars: (chunks) => <Link href="/calendars#subscription" className="underline underline-offset-4">{chunks}</Link>,
+        })}
       </p>
 
       <form onSubmit={handleSave} className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Profile</CardTitle>
+            <CardTitle>{t("profile")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="name">Display name</Label>
+              <Label htmlFor="name">{t("displayName")}</Label>
               <Input
                 id="name"
                 value={settings.name}
                 onChange={(e) =>
                   setSettings({ ...settings, name: e.target.value })
                 }
-                placeholder="Your full name"
+                placeholder={t("displayNamePlaceholder")}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                This is the name shown to guests in emails and calendar invites
+                {t("displayNameHelp")}
               </p>
             </div>
 
             <div>
-              <Label htmlFor="timezone">Timezone</Label>
+              <Label htmlFor="timezone">{t("timezone")}</Label>
               <Select
                 value={settings.timezone}
                 onValueChange={(value) =>
                   setSettings({ ...settings, timezone: value })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id="timezone">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -246,7 +251,7 @@ export default function SettingsPage() {
 
         {settings.invoicing_enabled && (
         <div className="space-y-2 max-w-xs">
-          <Label htmlFor="weekly_hours_target">Weekly hours target</Label>
+          <Label htmlFor="weekly_hours_target">{t("weeklyTarget")}</Label>
           <Input
             id="weekly_hours_target"
             type="number"
@@ -255,14 +260,14 @@ export default function SettingsPage() {
             value={settings.weekly_hours_target}
             onChange={(e) => setSettings({ ...settings, weekly_hours_target: Number(e.target.value) })}
           />
-          <p className="text-xs text-muted-foreground">Shown on the timesheet as progress for the week.</p>
+          <p className="text-xs text-muted-foreground">{t("weeklyTargetHelp")}</p>
         </div>
         )}
 
         <div className="flex items-center justify-between gap-4 max-w-md">
           <div className="space-y-1">
-            <Label htmlFor="weekly_summary_enabled">Your week email</Label>
-            <p className="text-xs text-muted-foreground">Your bookings and open time every Monday around 7 am in your timezone.</p>
+            <Label htmlFor="weekly_summary_enabled">{t("weekEmail")}</Label>
+            <p className="text-xs text-muted-foreground">{t("weekEmailHelp")}</p>
           </div>
           <Switch
             id="weekly_summary_enabled"
@@ -272,45 +277,57 @@ export default function SettingsPage() {
         </div>
 
         <Button type="submit" disabled={saving}>
-          {saving ? "Saving..." : "Save settings"}
+          {saving ? tc("saving") : t("save")}
         </Button>
       </form>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("language")}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <LanguagePicker />
+          <p className="text-xs text-muted-foreground">{t("languageHelp")}</p>
+        </CardContent>
+      </Card>
 
       <ApiTokensCard />
 
       {billing?.enabled && (
         <Card>
           <CardHeader>
-            <CardTitle>Billing</CardTitle>
+            <CardTitle>{t("billing")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="text-sm space-y-1">
                 <p>
-                  <span className="text-muted-foreground">Plan:</span>{" "}
+                  <span className="text-muted-foreground">{t("plan.label")}</span>{" "}
                   <span className="font-medium">
                     {billing.status === "complimentary"
-                      ? "Complimentary"
+                      ? t("plan.complimentary")
                       : billing.plan
-                      ? PLAN_LABEL[billing.plan]
-                      : "None"}
+                      ? t.has(`plan.${billing.plan}`) ? t(`plan.${billing.plan}`) : billing.plan
+                      : t("plan.none")}
                   </span>
                 </p>
                 <p>
-                  <span className="text-muted-foreground">Status:</span>{" "}
-                  <span className="font-medium capitalize">{billing.status.replace("_", " ")}</span>
+                  <span className="text-muted-foreground">{t("statusLabel")}</span>{" "}
+                  <span className="font-medium">
+                    {t.has(`status.${billing.status}` as Parameters<typeof t>[0]) ? t(`status.${billing.status}` as Parameters<typeof t>[0]) : billing.status.replace("_", " ")}
+                  </span>
                 </p>
                 {billing.current_period_end && (
                   <p>
                     <span className="text-muted-foreground">
                       {billing.status === "canceled"
-                        ? "Access until:"
+                        ? t("accessUntil")
                         : billing.status === "trialing"
-                        ? "Trial ends (first charge):"
-                        : "Renews:"}
+                        ? t("trialEnds")
+                        : t("renews")}
                     </span>{" "}
                     <span className="font-medium">
-                      {new Date(billing.current_period_end).toLocaleDateString(undefined, {
+                      {new Date(billing.current_period_end).toLocaleDateString(locale, {
                         year: "numeric", month: "long", day: "numeric",
                       })}
                     </span>
@@ -320,16 +337,16 @@ export default function SettingsPage() {
               {billing.has_customer ? (
                 <Button variant="outline" onClick={manageBilling} disabled={portalBusy}>
                   <CreditCard className="h-4 w-4 mr-2" />
-                  {portalBusy ? "Opening…" : "Manage billing"}
+                  {portalBusy ? t("opening") : t("manageBilling")}
                 </Button>
               ) : billing.status !== "complimentary" ? (
                 <Button asChild>
-                  <Link href="/pricing">Subscribe</Link>
+                  <Link href="/pricing">{t("subscribe")}</Link>
                 </Button>
               ) : null}
             </div>
             <p className="text-xs text-muted-foreground">
-              Invoices, payment method, and cancellation are handled in the Stripe billing portal.
+              {t("billingHelp")}
             </p>
           </CardContent>
         </Card>
@@ -337,16 +354,16 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Your data</CardTitle>
+          <CardTitle>{t("data")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground max-w-md">
-              Download everything you have created as a zip of CSV files, including your bookings.
+              {t("dataHelp")}
             </p>
             <Button variant="outline" onClick={exportData} disabled={exporting}>
               <Download className="h-4 w-4 mr-2" />
-              {exporting ? "Preparing…" : "Export data"}
+              {exporting ? t("preparing") : t("export")}
             </Button>
           </div>
         </CardContent>
@@ -354,20 +371,20 @@ export default function SettingsPage() {
 
       <Card className="border-destructive/30">
         <CardHeader>
-          <CardTitle className="text-destructive">Delete account</CardTitle>
+          <CardTitle className="text-destructive">{t("deleteTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground max-w-md">
-            Removes your sign-in, cancels any subscription, and permanently deletes your bookings, time entries, clients, and invoices. Export first if you want a copy.
+            {t("deleteHelp")}
           </p>
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-2">
-              <Label htmlFor="delete-confirm">Type DELETE to confirm</Label>
+              <Label htmlFor="delete-confirm">{t("deleteType")}</Label>
               <Input id="delete-confirm" value={deleteText} onChange={(e) => setDeleteText(e.target.value)} className="w-48" />
             </div>
             <Button variant="destructive" onClick={deleteAccount} disabled={deleting || deleteText !== "DELETE"}>
               <Trash2 className="h-4 w-4 mr-2" />
-              {deleting ? "Deleting…" : "Delete my account"}
+              {deleting ? t("deleting") : t("deleteButton")}
             </Button>
           </div>
         </CardContent>

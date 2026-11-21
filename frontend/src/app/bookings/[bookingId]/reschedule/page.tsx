@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { CalendarPicker } from "@/components/booking/calendar-picker";
 import { TimeSlots } from "@/components/booking/time-slots";
 import { BookingForm, BookingFormData } from "@/components/booking/booking-form";
@@ -57,6 +58,10 @@ export default function ReschedulePage() {
   const searchParams = useSearchParams();
   const bookingId = params.bookingId as string;
   const token = searchParams.get("token");
+  const t = useTranslations("manageBooking");
+  const tb = useTranslations("booking");
+  const tc = useTranslations("common");
+  const locale = useLocale();
 
   const [booking, setBooking] = useState<BookingDetails | null>(null);
   const [eventType, setEventType] = useState<EventType | null>(null);
@@ -142,7 +147,7 @@ export default function ReschedulePage() {
     try {
       // The selection is the slot's ISO start, so what was picked is what gets booked.
       const selectedSlotObj = availableSlots.find((slot) => slot.start === selectedSlot);
-      if (!selectedSlotObj) throw new Error("That time is no longer listed. Pick another time.");
+      if (!selectedSlotObj) throw new Error(tb("slotGone"));
 
       await apiFetch(
         `/api/public/bookings/${bookingId}/reschedule?token=${encodeURIComponent(token)}`,
@@ -162,7 +167,7 @@ export default function ReschedulePage() {
       );
       setRescheduled(true);
     } catch (e: any) {
-      alert(`Reschedule failed: ${e.message}`);
+      alert(t("reschedule.failed", { message: e.message }));
       fetchAvailableSlots(selectedDate);
     } finally {
       setBookingLoading(false);
@@ -170,17 +175,16 @@ export default function ReschedulePage() {
   }
 
   if (loading) {
-    return <ClockLoader fullscreen size="lg" label="Loading booking" />;
+    return <ClockLoader fullscreen size="lg" label={t("loading")} />;
   }
 
   if (!token) {
     return (
       <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center px-4">
         <div className="text-center max-w-md">
-          <h1 className="text-2xl font-bold mb-2">Invalid Link</h1>
+          <h1 className="text-2xl font-bold mb-2">{t("invalidLinkTitle")}</h1>
           <p className="text-muted-foreground mb-4">
-            This reschedule link is incomplete. Open the Reschedule link in your confirmation
-            email again, or copy the whole address into your browser.
+            {t("reschedule.invalidLinkBody")}
           </p>
         </div>
       </div>
@@ -191,10 +195,9 @@ export default function ReschedulePage() {
     return (
       <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center px-4">
         <div className="text-center max-w-md">
-          <h1 className="text-2xl font-bold mb-2">Booking Not Found</h1>
+          <h1 className="text-2xl font-bold mb-2">{t("notFoundTitle")}</h1>
           <p className="text-muted-foreground mb-4">
-            This booking doesn&apos;t exist or the link is invalid. If you rescheduled before,
-            use the link in your most recent confirmation email.
+            {t("notFoundBody")}
           </p>
         </div>
       </div>
@@ -205,9 +208,9 @@ export default function ReschedulePage() {
     return (
       <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Cannot Reschedule</h1>
+          <h1 className="text-2xl font-bold mb-2">{t("reschedule.cannotTitle")}</h1>
           <p className="text-muted-foreground mb-4">
-            This booking has already been cancelled or rescheduled.
+            {t("reschedule.cannotBody")}
           </p>
         </div>
       </div>
@@ -215,7 +218,7 @@ export default function ReschedulePage() {
   }
 
   if (rescheduled && selectedSlot) {
-    const booked = describeSlot(selectedSlot);
+    const booked = describeSlot(selectedSlot, locale);
     return (
       <div className="min-h-screen bg-[#f5f5f7] relative overflow-hidden flex items-center justify-center">
         <div className="absolute top-1/4 left-1/3 w-[400px] h-[400px] bg-green-200/30 rounded-full blur-3xl" />
@@ -223,7 +226,7 @@ export default function ReschedulePage() {
           <div className="w-16 h-16 bg-green-500/10 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-5">
             <CheckCircle2 className="h-8 w-8 text-green-600" />
           </div>
-          <h2 className="text-2xl font-bold tracking-tight mb-6">Rescheduled!</h2>
+          <h2 className="text-2xl font-bold tracking-tight mb-6">{t("reschedule.doneTitle")}</h2>
           <div className="space-y-1 mb-6">
             <p className="font-medium">{booking.event_type_name}</p>
             <p className="text-sm text-muted-foreground">{booked.date}</p>
@@ -233,12 +236,12 @@ export default function ReschedulePage() {
             </p>
           </div>
           <p className="text-sm text-muted-foreground mb-6">
-            A new confirmation email has been sent to your email address.
+            {t("reschedule.doneBody")}
           </p>
           <Link href={`/book/${booking.username}`}>
             <Button variant="outline" className="w-full">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Profile
+              {tb("backToProfile")}
             </Button>
           </Link>
         </div>
@@ -255,38 +258,43 @@ export default function ReschedulePage() {
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <RefreshCw className="h-5 w-5 text-blue-500" />
-            <h1 className="text-3xl font-bold tracking-tight">Reschedule</h1>
+            <h1 className="text-3xl font-bold tracking-tight">{t("reschedule.title")}</h1>
           </div>
           <div className="flex items-center gap-4 text-muted-foreground flex-wrap">
             <div className="flex items-center gap-1.5">
               <Clock className="h-4 w-4" />
-              <span>{booking.duration_minutes} minutes</span>
+              <span>{t("minutes", { count: booking.duration_minutes })}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Calendar className="h-4 w-4" />
               <span>
-                Currently: {format(new Date(booking.starts_at), "MMM d, yyyy 'at' h:mm a")}
+                {t("reschedule.currently", {
+                  date: new Date(booking.starts_at).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" }),
+                  time: new Date(booking.starts_at).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
+                })}
               </span>
             </div>
           </div>
           <p className="mt-2 text-muted-foreground">
-            Pick a new time for your {booking.event_type_name} with{" "}
-            {booking.username}.
+            {t("reschedule.intro", { name: booking.event_type_name, host: booking.username })}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            No time works?{" "}
-            <Link
-              href={`/bookings/${bookingId}/cancel?token=${encodeURIComponent(token)}`}
-              className="underline underline-offset-4 hover:text-foreground"
-            >
-              Cancel this booking
-            </Link>
+            {t.rich("reschedule.noTimeWorks", {
+              link: (chunks) => (
+                <Link
+                  href={`/bookings/${bookingId}/cancel?token=${encodeURIComponent(token)}`}
+                  className="underline underline-offset-4 hover:text-foreground"
+                >
+                  {chunks}
+                </Link>
+              ),
+            })}
           </p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
           <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-black/[0.03] p-6">
-            <h3 className="text-lg font-semibold tracking-tight mb-4">Select a New Date</h3>
+            <h3 className="text-lg font-semibold tracking-tight mb-4">{t("reschedule.pickDate")}</h3>
             <CalendarPicker
               selectedDate={selectedDate}
               onDateSelect={selectDate}
@@ -297,21 +305,21 @@ export default function ReschedulePage() {
             {selectedDate ? (
               <>
                 <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-black/[0.03] p-6">
-                  <h3 className="text-lg font-semibold tracking-tight mb-1">Available Times</h3>
+                  <h3 className="text-lg font-semibold tracking-tight mb-1">{tb("availableTimes")}</h3>
                   <p className="text-sm text-muted-foreground mb-1">
-                    {format(selectedDate, "EEEE, MMMM d, yyyy")}
+                    {selectedDate.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
                   </p>
                   {slotsError ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
                       <p className="text-sm text-muted-foreground mb-3">
-                        Times for this date didn&apos;t load.
+                        {tb("slotsFailed")}
                       </p>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => fetchAvailableSlots(selectedDate)}
                       >
-                        Try again
+                        {tc("retry")}
                       </Button>
                     </div>
                   ) : (
@@ -327,7 +335,7 @@ export default function ReschedulePage() {
 
                 {selectedSlot && (
                   <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-black/[0.03] p-6">
-                    <h3 className="text-lg font-semibold tracking-tight mb-4">Confirm Details</h3>
+                    <h3 className="text-lg font-semibold tracking-tight mb-4">{t("reschedule.confirmDetails")}</h3>
                     <BookingForm
                       onSubmit={handleReschedule}
                       loading={bookingLoading}
@@ -345,14 +353,14 @@ export default function ReschedulePage() {
                         company: booking.visitor_company || "",
                         url: booking.visitor_url || "",
                       }}
-                      submitLabel="Confirm Reschedule"
+                      submitLabel={t("reschedule.submit")}
                     />
                   </div>
                 )}
               </>
             ) : (
               <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-black/[0.03] py-12 text-center text-muted-foreground">
-                Select a date to see available times
+                {tb("selectDatePrompt")}
               </div>
             )}
           </div>

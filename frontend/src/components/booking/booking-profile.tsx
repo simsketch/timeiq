@@ -2,6 +2,7 @@
 
 import { useState, type CSSProperties } from "react";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { ArrowUpRight, MapPin } from "lucide-react";
 import { LogoIcon } from "@/components/logo";
 import { BookingScene } from "./booking-scene";
@@ -59,6 +60,9 @@ export function BookingProfile({ profile, embed = false }: { profile: PublicProf
   const [hovered, setHovered] = useState<MeetingType | null>(null);
   const [focused, setFocused] = useState<MeetingType | null>(null);
   const [avatarFailed, setAvatarFailed] = useState(false);
+  const t = useTranslations("booking.profile");
+  const tb = useTranslations("booking");
+  const locale = useLocale();
   const active = hovered || focused;
   const scene = sceneFor(profile?.booking_scene);
   // A host can choose no scene: the page is just their profile, centered.
@@ -69,19 +73,19 @@ export function BookingProfile({ profile, embed = false }: { profile: PublicProf
   return (
     <main className={`${styles.page} ${noScene ? styles.noScene : ""} ${embed ? styles.embed : ""}`}>
       {embed ? null : noScene ? (
-        !profile?.booking_white_label && <Link href="/" className={styles.wordmark} aria-label="TimeIQ home">
+        !profile?.booking_white_label && <Link href="/" className={styles.wordmark} aria-label={t("home")}>
           <LogoIcon className="h-6 w-6" />
           <span className="font-display">TimeIQ</span>
         </Link>
       ) : (
       <div data-scene={scene.id} className={`${styles.art} ${scene.ink === "light" ? styles.inkLight : ""}`}>
         <BookingScene active={active} sceneId={scene.id} />
-        {!profile?.booking_white_label && <Link href="/" className={styles.wordmark} aria-label="TimeIQ home">
+        {!profile?.booking_white_label && <Link href="/" className={styles.wordmark} aria-label={t("home")}>
           <LogoIcon className="h-6 w-6" />
           <span className="font-display">TimeIQ</span>
         </Link>}
         <div className={styles.artCaption} aria-hidden="true">
-          <span>A little time, made yours.</span>
+          <span>{t("caption")}</span>
           <span className={styles.captionLine} />
         </div>
       </div>
@@ -94,7 +98,7 @@ export function BookingProfile({ profile, embed = false }: { profile: PublicProf
               <header className={styles.header}>
                 {profile.booking_logo ? (
                   // eslint-disable-next-line @next/next/no-img-element -- validated PNG data URL
-                  <img src={profile.booking_logo} alt={`${name} logo`} className={styles.brandLogo} />
+                  <img src={profile.booking_logo} alt={tb("logoAlt", { name })} className={styles.brandLogo} />
                 ) : <div className={styles.avatar}>
                   {profile.image_url && !avatarFailed ? (
                     // Remote profile images can come from any connected identity provider.
@@ -102,13 +106,13 @@ export function BookingProfile({ profile, embed = false }: { profile: PublicProf
                     <img src={profile.image_url} alt="" width="64" height="64" onError={() => setAvatarFailed(true)} />
                   ) : <span>{initials}</span>}
                 </div>}
-                <h1 className="font-display">Book time with <span>{name}</span></h1>
-                <p>Pick a meeting to see open times.</p>
+                <h1 className="font-display">{t.rich("title", { name, em: (chunks) => <span>{chunks}</span> })}</h1>
+                <p>{t("subtitle")}</p>
               </header>
 
-              <div className={styles.meetings} aria-label="Meeting types">
+              <div className={styles.meetings} aria-label={t("meetingTypes")}>
                 {profile.event_types.length === 0 ? (
-                  <p className={styles.empty}>No meeting types are available right now. Check back soon.</p>
+                  <p className={styles.empty}>{t("empty")}</p>
                 ) : profile.event_types.map((meeting) => (
                   <Link
                     key={meeting.id}
@@ -123,8 +127,8 @@ export function BookingProfile({ profile, embed = false }: { profile: PublicProf
                     <div className={styles.meetingText}>
                       <h2 className="font-display">{meeting.name}</h2>
                       <div className={styles.meta}>
-                        <span><DurationGlyph minutes={meeting.duration_minutes} />{meeting.duration_minutes} min</span>
-                        {meeting.price_cents != null && <span>{bookingPrice(meeting.price_cents, meeting.currency || "usd")}</span>}
+                        <span><DurationGlyph minutes={meeting.duration_minutes} />{t("durationShort", { count: meeting.duration_minutes })}</span>
+                        {meeting.price_cents != null && <span>{bookingPrice(meeting.price_cents, meeting.currency || "usd", locale)}</span>}
                         {meeting.location && <span><MapPin size={14} aria-hidden /><span className={styles.location}>{locationLabel(meeting.location)}</span></span>}
                       </div>
                       {meeting.description?.trim() && <p className={styles.description}>{meeting.description}</p>}
@@ -136,16 +140,16 @@ export function BookingProfile({ profile, embed = false }: { profile: PublicProf
             </>
           ) : (
             <header className={styles.header}>
-              <h1 className="font-display">Page not found.</h1>
-              <p>The booking page you&apos;re looking for doesn&apos;t exist.</p>
-              <Link className={styles.homeLink} href="/">Back to TimeIQ</Link>
+              <h1 className="font-display">{t("notFoundTitle")}</h1>
+              <p>{t("notFoundBody")}</p>
+              <Link className={styles.homeLink} href="/">{t("backHome")}</Link>
             </header>
           )}
         </div>
 
         {!embed && !profile?.booking_white_label && <footer className={styles.footer}>
           <LogoIcon className="h-4 w-4 shrink-0" />
-          <p>Powered by <Link href="/?utm_source=booking_page&utm_medium=powered_by">TimeIQ</Link>, a <a href="https://yoyocode.com" target="_blank" rel="noopener noreferrer">Yoyo Code</a> creation</p>
+          <p>{tb.rich("poweredBy", { timeiq: (chunks) => <Link href="/?utm_source=booking_page&utm_medium=powered_by">{chunks}</Link>, yoyo: (chunks) => <a href="https://yoyocode.com" target="_blank" rel="noopener noreferrer">{chunks}</a> })}</p>
         </footer>}
       </div>
     </main>

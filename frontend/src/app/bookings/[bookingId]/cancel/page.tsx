@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { format } from "date-fns";
+import { useLocale, useTranslations } from "next-intl";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ClockLoader } from "@/components/ui/clock-loader";
@@ -41,6 +41,8 @@ export default function CancelBookingPage() {
   const searchParams = useSearchParams();
   const bookingId = params.bookingId as string;
   const token = searchParams.get("token");
+  const t = useTranslations("manageBooking");
+  const locale = useLocale();
 
   const [booking, setBooking] = useState<BookingDetails | null>(null);
   const [loading, setLoading] = useState(Boolean(token));
@@ -90,36 +92,34 @@ export default function CancelBookingPage() {
   }
 
   if (loading) {
-    return <ClockLoader fullscreen size="lg" label="Loading booking" />;
+    return <ClockLoader fullscreen size="lg" label={t("loading")} />;
   }
 
   if (!token) {
     return (
-      <Notice title="Invalid Link">
-        This cancellation link is incomplete. Open the Cancel link in your confirmation email
-        again, or copy the whole address into your browser.
+      <Notice title={t("invalidLinkTitle")}>
+        {t("cancel.invalidLinkBody")}
       </Notice>
     );
   }
 
   if (notFound || !booking) {
     return (
-      <Notice title="Link Expired or Invalid">
-        We couldn&apos;t find a booking for this link. If you rescheduled, use the link in your
-        most recent confirmation email.
+      <Notice title={t("notFoundTitle")}>
+        {t("notFoundBody")}
       </Notice>
     );
   }
 
   const start = new Date(booking.starts_at);
-  const eventName = booking.event_type_name || "Your booking";
+  const eventName = booking.event_type_name || t("yourBooking");
   const when = (
     <div className="space-y-1">
       <p className="font-medium">{eventName}</p>
-      <p className="text-sm text-muted-foreground">{format(start, "EEEE, MMMM d, yyyy")}</p>
+      <p className="text-sm text-muted-foreground">{start.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</p>
       <p className="text-sm text-muted-foreground">
-        {format(start, "h:mm a")}
-        {booking.duration_minutes ? ` · ${booking.duration_minutes} minutes` : ""}
+        {start.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" })}
+        {booking.duration_minutes ? ` · ${t("minutes", { count: booking.duration_minutes })}` : ""}
       </p>
       <p className="text-xs text-muted-foreground">{timeZoneLabel(start)}</p>
     </div>
@@ -133,16 +133,16 @@ export default function CancelBookingPage() {
           <div className="w-16 h-16 bg-green-500/10 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-5">
             <CheckCircle2 className="h-8 w-8 text-green-600" />
           </div>
-          <h2 className="text-2xl font-bold tracking-tight mb-6">Booking cancelled</h2>
+          <h2 className="text-2xl font-bold tracking-tight mb-6">{t("cancel.doneTitle")}</h2>
           <div className="mb-6">{when}</div>
-          {booking.price_cents != null && <p className="text-sm mb-4">{booking.refund_status === "succeeded" ? "A full refund was issued to your original payment method." : booking.refund_status === "pending" ? "A full refund was requested. Stripe is processing it." : "Your cancellation was within 24 hours of the start, so the payment will not be refunded."}</p>}
+          {booking.price_cents != null && <p className="text-sm mb-4">{booking.refund_status === "succeeded" ? t("cancel.refunded") : booking.refund_status === "pending" ? t("cancel.refundPending") : t("cancel.noRefund")}</p>}
           <p className="text-sm text-muted-foreground mb-6">
-            The host has been told, and a confirmation is on its way to your email.
+            {t("cancel.hostNotified")}
           </p>
           {booking.username && (
             <Link href={`/book/${booking.username}`}>
               <Button variant="outline" className="w-full">
-                Book another time
+                {t("bookAnother")}
               </Button>
             </Link>
           )}
@@ -153,18 +153,20 @@ export default function CancelBookingPage() {
 
   if (["cancelled", "expired", "rescheduled"].includes(booking.status)) {
     return (
-      <Notice title="Already Cancelled">
-        This booking was already cancelled, so there&apos;s nothing more to do. If you rescheduled
-        it, your new booking has its own links in its confirmation email.
+      <Notice title={t("alreadyCancelledTitle")}>
+        {t("cancel.alreadyCancelledBody")}
       </Notice>
     );
   }
 
   if (start.getTime() <= openedAt) {
     return (
-      <Notice title="This Booking Has Passed">
-        {eventName} started on {format(start, "MMMM d, yyyy 'at' h:mm a")}, so it can no longer be
-        cancelled.
+      <Notice title={t("passedTitle")}>
+        {t("cancel.passedBody", {
+          name: eventName,
+          date: start.toLocaleDateString(locale, { month: "long", day: "numeric", year: "numeric" }),
+          time: start.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
+        })}
       </Notice>
     );
   }
@@ -179,16 +181,16 @@ export default function CancelBookingPage() {
       <div className="max-w-md w-full mx-4 bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl shadow-lg shadow-black/[0.03] p-8 relative">
         <div className="flex items-center gap-3 mb-2">
           <XCircle className="h-5 w-5 text-red-500" />
-          <h1 className="text-2xl font-bold tracking-tight">Cancel booking?</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("cancel.title")}</h1>
         </div>
         <p className="text-sm text-muted-foreground mb-6">
-          {booking.username ? `With ${booking.username}. ` : ""}This frees the time for others.
+          {booking.username ? t("cancel.subtitleWithHost", { name: booking.username }) : t("cancel.subtitle")}
         </p>
 
         <div className="rounded-xl border border-black/5 bg-white/70 p-4 mb-6">{when}</div>
         {booking.price_cents != null && <div className="text-sm text-muted-foreground mb-6 space-y-2">
           <p>{booking.refund_policy}</p>
-          <p>{booking.status === "pending_payment" ? "Cancelling closes checkout and releases your slot." : booking.refund_eligible ? "If you cancel now, you will receive a full refund." : "If you cancel now, your payment will not be refunded."}</p>
+          <p>{booking.status === "pending_payment" ? t("cancel.closesCheckout") : booking.refund_eligible ? t("cancel.willRefund") : t("cancel.wontRefund")}</p>
         </div>}
 
         {cancelError && (
@@ -199,15 +201,15 @@ export default function CancelBookingPage() {
 
         <Button
           variant="destructive"
-          className="w-full"
+          className="w-full h-auto min-h-10 whitespace-normal"
           onClick={handleCancel}
           disabled={cancelling}
         >
-          {cancelling ? "Cancelling..." : "Yes, cancel this booking"}
+          {cancelling ? t("cancel.cancelling") : t("cancel.confirm")}
         </Button>
         <Link href={rescheduleHref} className="block mt-3">
-          <Button variant="outline" className="w-full">
-            Pick a different time
+          <Button variant="outline" className="w-full h-auto min-h-10 whitespace-normal">
+            {t("pickDifferentTime")}
           </Button>
         </Link>
       </div>

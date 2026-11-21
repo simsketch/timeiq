@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 const LOOKS_LIKE_EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
@@ -28,6 +29,7 @@ export function EmailChips({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const t = useTranslations("clients.emails");
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const emails = splitEmails(value);
@@ -56,7 +58,7 @@ export function EmailChips({
         return (
           <span
             key={email}
-            title={valid ? undefined : "This doesn't look like an email address"}
+            title={valid ? undefined : t("invalid")}
             className={cn(
               "inline-flex max-w-full items-center gap-1 rounded-md py-0.5 pl-2 pr-1",
               valid
@@ -67,7 +69,7 @@ export function EmailChips({
             <span className="truncate">{email}</span>
             <button
               type="button"
-              aria-label={`Remove ${email}`}
+              aria-label={t("remove", { email })}
               onClick={(e) => {
                 e.stopPropagation();
                 remove(i);
@@ -87,7 +89,7 @@ export function EmailChips({
         inputMode="email"
         autoComplete="off"
         value={draft}
-        placeholder={emails.length ? "Add another" : "billing@company.com"}
+        placeholder={emails.length ? t("addAnother") : "billing@company.com"}
         onChange={(e) => {
           // A pasted or typed separator commits what came before it.
           const v = e.target.value;

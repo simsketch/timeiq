@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { COMMON_ZONES, isValidZone, zoneAbbr } from "@/lib/availability-share";
 import { NumberField, Panel } from "./ui";
 
@@ -15,13 +16,14 @@ function offsetHours(zone: string, at: Date): number {
   return (asUtc - at.getTime()) / 3_600_000;
 }
 
-function clock(h: number): string {
+/** An hour of the day (fractions are minutes) as the locale writes it: "9 AM", "9 Uhr", "21 h 30". */
+function clock(h: number, locale: string): string {
   const x = ((h % 24) + 24) % 24;
   const hh = Math.floor(x);
   const mm = Math.round((x - hh) * 60);
-  const ap = hh < 12 ? "AM" : "PM";
-  const h12 = ((hh + 11) % 12) + 1;
-  return mm ? `${h12}:${String(mm).padStart(2, "0")} ${ap}` : `${h12} ${ap}`;
+  return new Date(Date.UTC(2000, 0, 1, hh, mm)).toLocaleTimeString(locale, {
+    hour: "numeric", minute: mm ? "2-digit" : undefined, timeZone: "UTC",
+  });
 }
 
 /** A window [from, to) in the first zone's hours, folded onto its 0–24 day. */
@@ -49,6 +51,8 @@ function intersect(xs: [number, number][], ys: [number, number][]): [number, num
 
 /** Working hours several time zones share, drawn on one 24-hour strip. */
 export function TimezoneOverlapCalculator() {
+  const t = useTranslations("tools.overlap");
+  const locale = useLocale();
   const [zones, setZones] = useState<string[]>(["America/New_York", "America/Los_Angeles", "Europe/London"]);
   const [start, setStart] = useState(9);
   const [end, setEnd] = useState(17);
@@ -97,7 +101,7 @@ export function TimezoneOverlapCalculator() {
             <span className="font-medium">{zoneAbbr(z, at)}</span>
             <span className="text-muted-foreground">{z.replace(/_/g, " ")}</span>
             {zones.length > 2 && (
-              <button type="button" aria-label={`Remove ${z}`} onClick={() => setZones(zones.filter((_, j) => j !== i))}>
+              <button type="button" aria-label={t("remove", { zone: z })} onClick={() => setZones(zones.filter((_, j) => j !== i))}>
                 <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
               </button>
             )}
@@ -105,23 +109,23 @@ export function TimezoneOverlapCalculator() {
         ))}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <select className="h-9 rounded-md border bg-background px-2 text-sm" value="" onChange={(e) => add(e.target.value)} aria-label="Add a time zone">
-          <option value="">Add a time zone…</option>
+        <select className="h-9 rounded-md border bg-background px-2 text-sm" value="" onChange={(e) => add(e.target.value)} aria-label={t("add")}>
+          <option value="">{t("addOption")}</option>
           {COMMON_ZONES.filter((z) => !zones.includes(z.zone)).map((z) => (
             <option key={z.zone} value={z.zone}>{z.label} ({zoneAbbr(z.zone, at)})</option>
           ))}
         </select>
         <input
           className="h-9 w-48 rounded-md border bg-background px-2 text-sm"
-          placeholder="Other, e.g. Asia/Singapore"
+          placeholder={t("other")}
           value={custom}
           onChange={(e) => setCustom(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add(custom.trim())}
         />
       </div>
       <div className="mt-5 grid max-w-sm grid-cols-2 gap-4">
-        <NumberField label="Workday starts" suffix=":00" value={start} onChange={(n) => setStart(Math.min(Math.max(n, 0), 23))} />
-        <NumberField label="Workday ends" suffix=":00" value={end} onChange={(n) => setEnd(Math.min(Math.max(n, 1), 24))} />
+        <NumberField label={t("starts")} suffix=":00" value={start} onChange={(n) => setStart(Math.min(Math.max(n, 0), 23))} />
+        <NumberField label={t("ends")} suffix=":00" value={end} onChange={(n) => setEnd(Math.min(Math.max(n, 1), 24))} />
       </div>
 
       <div className="mt-6 space-y-2">
@@ -141,17 +145,17 @@ export function TimezoneOverlapCalculator() {
         ))}
         <div className="grid grid-cols-[64px_1fr] gap-3 text-[11px] text-muted-foreground">
           <span />
-          <div className="flex justify-between"><span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>12 AM</span></div>
+          <div className="flex justify-between">{[0, 6, 12, 18, 24].map((h) => <span key={h}>{clock(h, locale)}</span>)}</div>
         </div>
-        <p className="text-xs text-muted-foreground">Hours shown on {zoneAbbr(base, at)} time. Grey is each place&apos;s workday; orange is the overlap.</p>
+        <p className="text-xs text-muted-foreground">{t("legend", { zone: zoneAbbr(base, at) })}</p>
       </div>
 
       <div className="mt-6 rounded-xl border bg-background/70 p-4">
         {overlap > 0 ? (
           <>
-            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Shared working hours</div>
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">{t("shared")}</div>
             <div className="mt-1 text-2xl font-semibold">
-              {`${Math.round(overlap * 10) / 10} hour${Math.round(overlap * 10) / 10 === 1 ? "" : "s"} a day`}
+              {t("hoursADay", { hours: Math.round(overlap * 10) / 10 })}
             </div>
             {shared.map(([lo, hi]) => (
               <ul key={lo} className="mt-3 space-y-1 text-sm">
@@ -161,9 +165,9 @@ export function TimezoneOverlapCalculator() {
                   const day = Math.floor((lo + shift) / 24) - Math.floor(lo / 24);
                   return (
                     <li key={z} className="tabular-nums">
-                      <span className="font-medium">{zoneAbbr(z, at)}:</span> {clock(lo + shift)}–{clock(hi + shift)}
+                      <span className="font-medium">{zoneAbbr(z, at)}:</span> {clock(lo + shift, locale)}–{clock(hi + shift, locale)}
                       {day !== 0 && (
-                        <span className="text-muted-foreground"> ({day > 0 ? "next day" : "previous day"})</span>
+                        <span className="text-muted-foreground"> ({day > 0 ? t("nextDay") : t("previousDay")})</span>
                       )}
                     </li>
                   );
@@ -173,7 +177,7 @@ export function TimezoneOverlapCalculator() {
           </>
         ) : (
           <div className="text-sm">
-            <span className="font-semibold">No shared working hours.</span> Someone has to start early or stay late. Try widening the workday above.
+            <span className="font-semibold">{t("none")}</span> {t("noneHint")}
           </div>
         )}
       </div>

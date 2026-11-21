@@ -78,7 +78,3 @@ export function fmtCents(cents: number, currency = "USD", locale = "en"): string
   }).format(cents / 100);
 }
 
-export const PLAN_LABEL: Record<string, string> = {
-  founder: "Founding member",
-  standard: "Standard",
-};

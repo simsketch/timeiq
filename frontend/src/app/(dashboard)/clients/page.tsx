@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useLocale, useTranslations } from "next-intl";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,6 +41,9 @@ const EMPTY = {
 export default function ClientsPage() {
   const { getToken } = useAuth();
   const { toast } = useToast();
+  const t = useTranslations("clients");
+  const tc = useTranslations("common");
+  const locale = useLocale();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -52,11 +56,11 @@ export default function ClientsPage() {
       const token = await getToken();
       setClients(await apiFetch<Client[]>("/api/clients", { headers: authHeaders(token) }));
     } catch (e: any) {
-      toast({ title: "Failed to load clients", description: e.message, variant: "destructive" });
+      toast({ title: t("loadFailed"), description: e.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [getToken, toast]);
+  }, [getToken, toast, t]);
 
   useEffect(() => {
     // Every setState in load() runs after its first await; the rule can't see that.
@@ -106,26 +110,26 @@ export default function ClientsPage() {
         headers: authHeaders(token),
         body: JSON.stringify(body),
       });
-      toast({ title: editingId ? "Client updated" : "Client added" });
+      toast({ title: editingId ? t("updated") : t("added") });
       setOpen(false);
       reset();
       load();
     } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+      toast({ title: tc("error"), description: e.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
   }
 
   async function remove(c: Client) {
-    if (!confirm(`Delete ${c.name}? This also deletes their time entries and invoices.`)) return;
+    if (!confirm(t("confirmDelete", { name: c.name }))) return;
     try {
       const token = await getToken();
       await apiFetch(`/api/clients/${c.id}`, { method: "DELETE", headers: authHeaders(token) });
-      toast({ title: "Client deleted" });
+      toast({ title: t("deleted") });
       load();
     } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+      toast({ title: tc("error"), description: e.message, variant: "destructive" });
     }
   }
 
@@ -138,7 +142,7 @@ export default function ClientsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
-        <ClockLoader size="lg" label="Loading clients" />
+        <ClockLoader size="lg" label={t("loading")} />
       </div>
     );
   }
@@ -147,8 +151,8 @@ export default function ClientsPage() {
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Clients</h1>
-          <p className="text-muted-foreground mt-2">Who you bill and at what rate.</p>
+          <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
+          <p className="text-muted-foreground mt-2">{t("subtitle")}</p>
         </div>
         <Dialog
           open={open}
@@ -160,65 +164,65 @@ export default function ClientsPage() {
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              New client
+              {t("new")}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <form onSubmit={save}>
               <DialogHeader>
-                <DialogTitle>{editingId ? "Edit" : "New"} client</DialogTitle>
-                <DialogDescription>Billing details appear on invoices.</DialogDescription>
+                <DialogTitle>{editingId ? t("editTitle") : t("new")}</DialogTitle>
+                <DialogDescription>{t("dialogDescription")}</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Company name</Label>
+                  <Label htmlFor="name">{t("companyName")}</Label>
                   <Input id="name" required {...field("name")} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="contact_name">Contact name</Label>
+                  <Label htmlFor="contact_name">{t("contactName")}</Label>
                   <Input id="contact_name" {...field("contact_name")} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="billing_email">Billing emails</Label>
+                  <Label htmlFor="billing_email">{t("billingEmails")}</Label>
                   <EmailChips
                     id="billing_email"
                     value={form.billing_email}
                     onChange={(billing_email) => setForm((f) => ({ ...f, billing_email }))}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Press Enter or a comma after each address. You pick who gets each invoice when you send it.
+                    {t("billingEmailsHint")}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="address">Address</Label>
+                  <Label htmlFor="address">{t("address")}</Label>
                   <Textarea id="address" rows={3} {...field("address")} />
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-2">
-                    <Label htmlFor="hourly_rate">Rate / hr</Label>
+                    <Label htmlFor="hourly_rate">{t("rate")}</Label>
                     <Input id="hourly_rate" type="number" step="0.01" min="0" required {...field("hourly_rate")} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="currency">Currency</Label>
+                    <Label htmlFor="currency">{t("currency")}</Label>
                     <Input id="currency" maxLength={3} {...field("currency")} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="payment_terms_days">Net days</Label>
+                    <Label htmlFor="payment_terms_days">{t("netDays")}</Label>
                     <Input id="payment_terms_days" type="number" min="0" max="365" {...field("payment_terms_days")} />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="match_keywords">Calendar keywords</Label>
-                  <Input id="match_keywords" placeholder="acme, standup" {...field("match_keywords")} />
+                  <Label htmlFor="match_keywords">{t("keywords")}</Label>
+                  <Input id="match_keywords" placeholder={t("keywordsPlaceholder")} {...field("match_keywords")} />
                   <p className="text-xs text-muted-foreground">
-                    Comma-separated. Calendar events whose title contains one of these can be imported as time entries.
+                    {t("keywordsHint")}
                   </p>
                 </div>
                 <div className="flex items-start justify-between gap-4 rounded-xl border p-3">
                   <div>
-                    <Label htmlFor="auto_invoice">Auto-draft monthly invoice</Label>
+                    <Label htmlFor="auto_invoice">{t("autoInvoice")}</Label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      On the 1st, last month&apos;s unbilled hours become a draft invoice for you to review and send.
+                      {t("autoInvoiceHint")}
                     </p>
                   </div>
                   <Switch
@@ -230,7 +234,7 @@ export default function ClientsPage() {
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={saving}>
-                  {saving ? "Saving…" : "Save"}
+                  {saving ? tc("saving") : tc("save")}
                 </Button>
               </DialogFooter>
             </form>
@@ -241,7 +245,7 @@ export default function ClientsPage() {
       {clients.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            No clients yet. Add the company you bill to get started.
+            {t("empty")}
           </CardContent>
         </Card>
       ) : (
@@ -257,20 +261,20 @@ export default function ClientsPage() {
                       <p className="text-sm text-muted-foreground truncate">{c.billing_email}</p>
                     )}
                     <p className="text-sm mt-2">
-                      {fmtMoney(c.hourly_rate, c.currency)} / hr · Net {c.payment_terms_days}
+                      {t("rateLine", { rate: fmtMoney(c.hourly_rate, c.currency, locale), days: c.payment_terms_days })}
                     </p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Unbilled: {fmtHours(c.unbilled_hours)} · {fmtMoney(c.unbilled_amount, c.currency)}
+                      {t("unbilledLine", { hours: fmtHours(c.unbilled_hours), amount: fmtMoney(c.unbilled_amount, c.currency, locale) })}
                     </p>
                     {c.auto_invoice_monthly && (
-                      <Badge variant="secondary" className="mt-2 font-normal">Auto-invoices monthly</Badge>
+                      <Badge variant="secondary" className="mt-2 font-normal">{t("autoInvoiceBadge")}</Badge>
                     )}
                   </div>
                   <div className="flex gap-1 shrink-0">
-                    <Button size="icon" variant="ghost" aria-label="Edit" onClick={() => startEdit(c)}>
+                    <Button size="icon" variant="ghost" aria-label={tc("edit")} onClick={() => startEdit(c)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button size="icon" variant="ghost" aria-label="Delete" onClick={() => remove(c)}>
+                    <Button size="icon" variant="ghost" aria-label={tc("delete")} onClick={() => remove(c)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>

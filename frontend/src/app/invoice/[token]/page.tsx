@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ClockLoader } from "@/components/ui/clock-loader";
@@ -14,6 +15,7 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ token:
   const { token } = use(params);
   const [invoice, setInvoice] = useState<PublicInvoice | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "missing">("loading");
+  const t = useTranslations("invoiceView");
 
   useEffect(() => {
     apiFetch<PublicInvoice>(`/api/public/invoices/${token}`)
@@ -38,30 +40,32 @@ export default function PublicInvoicePage({ params }: { params: Promise<{ token:
             <Button asChild>
               <a href={`${API_BASE}/api/public/invoices/${token}/pdf`} target="_blank" rel="noopener noreferrer">
                 <Download className="h-4 w-4 mr-2" />
-                Download PDF
+                {t("downloadPdf")}
               </a>
             </Button>
           )}
         </div>
         {state === "loading" && (
           <div className="flex justify-center py-20">
-            <ClockLoader size="lg" label="Loading invoice" />
+            <ClockLoader size="lg" label={t("loading")} />
           </div>
         )}
         {state === "missing" && (
           <div className="rounded-2xl border bg-background p-10 text-center text-muted-foreground">
-            This invoice is unavailable. It may have been voided or the link is incorrect.
+            {t("unavailable")}
           </div>
         )}
         {state === "ok" && invoice && <InvoiceView invoice={invoice} />}
         <div className="flex items-center justify-center gap-2 pt-6 text-xs text-muted-foreground">
           <LogoIcon className="w-4 h-4" />
           <span>
-            Invoiced with{" "}
-            <Link href="/?utm_source=invoice&utm_medium=powered_by" className="font-medium text-foreground/80 hover:text-foreground">
-              TimeIQ
-            </Link>
-            . Book meetings, log hours, send invoices. Your first 7 meetings are free.
+            {t.rich("poweredBy", {
+              timeiq: (chunks) => (
+                <Link href="/?utm_source=invoice&utm_medium=powered_by" className="font-medium text-foreground/80 hover:text-foreground">
+                  {chunks}
+                </Link>
+              ),
+            })}
           </span>
         </div>
       </div>

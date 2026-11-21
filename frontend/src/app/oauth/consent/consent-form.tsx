@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiFetch } from "@/lib/api";
@@ -15,6 +16,8 @@ interface ConsentDetails {
 
 export function ConsentForm({ request }: { request: string }) {
   const { getToken } = useAuth();
+  const t = useTranslations("oauth");
+  const common = useTranslations("common");
   const [details, setDetails] = useState<ConsentDetails | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,12 +33,12 @@ export function ConsentForm({ request }: { request: string }) {
         });
         if (!cancelled) setDetails(data);
       } catch (cause) {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : "Couldn't load this request. Add the connector again.");
+        if (!cancelled) setError(cause instanceof Error ? cause.message : t("loadError"));
       }
     }
     void load();
     return () => { cancelled = true; };
-  }, [getToken, request]);
+  }, [getToken, request, t]);
 
   async function decide(allow: boolean) {
     if (busy || !details) return;
@@ -49,7 +52,7 @@ export function ConsentForm({ request }: { request: string }) {
       });
       window.location.assign(result.redirect_url);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Couldn't save your choice. Add the connector again.");
+      setError(cause instanceof Error ? cause.message : t("saveError"));
       setBusy(false);
     }
   }
@@ -58,31 +61,32 @@ export function ConsentForm({ request }: { request: string }) {
     <Card className="w-full max-w-md">
       <CardHeader>
         <p className="text-sm text-muted-foreground">TimeIQ</p>
-        <CardTitle>Connect {details?.client_name || "an assistant"}</CardTitle>
+        <CardTitle>{t("title", { name: details?.client_name || t("anAssistant") })}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
         {!request ? (
-          <p role="alert" className="text-sm">This connection request is invalid. Add the TimeIQ connector again.</p>
+          <p role="alert" className="text-sm">{t("invalid")}</p>
         ) : details ? (
           <>
-            <p className="break-words text-sm">Allow this app to access TimeIQ as {details.email}?</p>
+            <p className="break-words text-sm">{t("question", { email: details.email })}</p>
             <ul className="list-disc space-y-2 pl-5 text-sm">
-              <li>Read and change your scheduling, time entries and invoices.</li>
-              <li>Email people on your behalf when you confirm.</li>
+              <li>{t("scopeData")}</li>
+              <li>{t("scopeEmail")}</li>
             </ul>
             <p className="text-xs text-muted-foreground">
-              App names are supplied by their developers. You will return to{" "}
-              <span className="break-all font-mono">{details.redirect_uri}</span>.
-              {" "}Disconnect this app any time in Settings → AI assistants.
+              {t.rich("note", {
+                uri: details.redirect_uri,
+                url: (chunks) => <span className="break-all font-mono">{chunks}</span>,
+              })}
             </p>
             <div className="flex gap-3">
-              <Button onClick={() => decide(true)} disabled={busy} className="flex-1">{busy ? "Saving…" : "Allow"}</Button>
-              <Button onClick={() => decide(false)} disabled={busy} variant="outline" className="flex-1">Cancel</Button>
+              <Button onClick={() => decide(true)} disabled={busy} className="flex-1">{busy ? common("saving") : t("allow")}</Button>
+              <Button onClick={() => decide(false)} disabled={busy} variant="outline" className="flex-1">{common("cancel")}</Button>
             </div>
           </>
-        ) : !error ? <p role="status" className="text-sm text-muted-foreground">Loading connection request…</p> : null}
+        ) : !error ? <p role="status" className="text-sm text-muted-foreground">{t("loading")}</p> : null}
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-        <Link href="/settings" className="block text-sm underline underline-offset-4">Open TimeIQ Settings</Link>
+        <Link href="/settings" className="block text-sm underline underline-offset-4">{t("openSettings")}</Link>
       </CardContent>
     </Card>
   );

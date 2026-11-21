@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -70,6 +71,9 @@ const COLOR_OPTIONS = [
 export default function EventTypesPage() {
   const { getToken } = useAuth();
   const { toast } = useToast();
+  const t = useTranslations("eventTypes");
+  const tc = useTranslations("common");
+  const locale = useLocale();
   // Booking links use the TimeIQ username from /api/me, which can differ from Clerk's.
   const [profile, setProfile] = useState<{ username: string; booking_scene: string | null; booking_logo?: string | null; booking_white_label?: boolean } | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -111,7 +115,7 @@ export default function EventTypesPage() {
       setProfile(me);
       setProfileError(null);
     } catch (error) {
-      setProfileError(error instanceof Error ? error.message : "Your booking link did not load. Try again.");
+      setProfileError(error instanceof Error ? error.message : t("linkLoadError"));
     }
   }
 
@@ -149,21 +153,21 @@ export default function EventTypesPage() {
           headers: { Authorization: `Bearer ${token}` },
           body: JSON.stringify(payload),
         });
-        toast({ title: "Event type updated successfully" });
+        toast({ title: t("updated") });
       } else {
         await apiFetch("/api/event-types", {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
           body: JSON.stringify(payload),
         });
-        toast({ title: "Event type created successfully" });
+        toast({ title: t("created") });
       }
 
       setDialogOpen(false);
       resetForm();
       fetchEventTypes();
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: tc("error"), description: error.message, variant: "destructive" });
     }
   }
 
@@ -177,23 +181,23 @@ export default function EventTypesPage() {
       });
       fetchEventTypes();
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ title: tc("error"), description: error.message, variant: "destructive" });
     }
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Are you sure you want to delete this event type?")) return;
+    if (!confirm(t("deleteConfirm"))) return;
     try {
       const token = await getToken();
       await apiFetch(`/api/event-types/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      toast({ title: "Event type deleted" });
+      toast({ title: t("deleted") });
       fetchEventTypes();
     } catch (error: any) {
       // A 409 explains which upcoming bookings keep this event type in place.
-      toast({ title: "Couldn't delete event type", description: error.message, variant: "destructive" });
+      toast({ title: t("deleteFailed"), description: error.message, variant: "destructive" });
     }
   }
 
@@ -227,7 +231,7 @@ export default function EventTypesPage() {
   function handleClone(eventType: EventType) {
     handleEdit(eventType);
     setEditingId(null);
-    setFormData((f) => ({ ...f, name: `${eventType.name} (copy)` }));
+    setFormData((f) => ({ ...f, name: t("copyName", { name: eventType.name }) }));
   }
 
   function resetForm() {
@@ -255,8 +259,8 @@ export default function EventTypesPage() {
   async function copyBookingLink(slug: string) {
     if (!username) {
       toast({
-        title: "Couldn't copy the link",
-        description: "Your profile is still loading. Try again in a moment.",
+        title: t("copyFailed"),
+        description: t("profileLoading"),
         variant: "destructive",
       });
       fetchUsername();
@@ -265,16 +269,16 @@ export default function EventTypesPage() {
     const link = `${window.location.origin}/book/${username}/${slug}`;
     try {
       await navigator.clipboard.writeText(link);
-      toast({ title: "Link copied to clipboard" });
+      toast({ title: t("linkCopied") });
     } catch {
-      toast({ title: "Copy this link", description: link });
+      toast({ title: t("copyThisLink"), description: link });
     }
   }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
-        <ClockLoader size="lg" label="Loading booking page" />
+        <ClockLoader size="lg" label={t("loadingPage")} />
       </div>
     );
   }
@@ -282,56 +286,56 @@ export default function EventTypesPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Booking page</h1>
-        <p className="text-muted-foreground mt-2">Set up your booking link, meeting types, page look, payments and website widget.</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
+        <p className="text-muted-foreground mt-2">{t("subtitle")}</p>
       </div>
 
       {profile ? (
         <BookingLinkCard username={profile.username} onSaved={(username) => setProfile({ ...profile, username })} />
       ) : (
         <Card>
-          <CardHeader><CardTitle>Your booking link</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t("link.title")}</CardTitle></CardHeader>
           <CardContent>
             {profileError ? (
               <div role="alert" className="space-y-3 text-sm">
                 <p>{profileError}</p>
-                <Button variant="outline" onClick={fetchUsername}>Try again</Button>
+                <Button variant="outline" onClick={fetchUsername}>{tc("retry")}</Button>
               </div>
-            ) : <ClockLoader label="Loading booking link" />}
+            ) : <ClockLoader label={t("loadingLink")} />}
           </CardContent>
         </Card>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-xl font-semibold">Event types</h2>
+        <h2 className="text-xl font-semibold">{t("heading")}</h2>
         <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              New event type
+              {t("new")}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <form onSubmit={handleSubmit}>
               <DialogHeader>
-                <DialogTitle>{editingId ? "Edit" : "Create"} event type</DialogTitle>
+                <DialogTitle>{editingId ? t("editTitle") : t("createTitle")}</DialogTitle>
                 <DialogDescription>
-                  Set up a new type of meeting that people can book with you.
+                  {t("dialogDescription")}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div>
-                  <Label htmlFor="name">Event Name</Label>
+                  <Label htmlFor="name">{t("name")}</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="30 Minute Meeting"
+                    placeholder={t("namePlaceholder")}
                     required
                   />
                 </div>
                 <div>
-                  <Label htmlFor="duration">Duration</Label>
+                  <Label htmlFor="duration">{t("duration")}</Label>
                   <Select
                     value={formData.duration_minutes.toString()}
                     onValueChange={(value) => setFormData({ ...formData, duration_minutes: parseInt(value) })}
@@ -342,38 +346,40 @@ export default function EventTypesPage() {
                     <SelectContent>
                       {DURATION_OPTIONS.map((dur) => (
                         <SelectItem key={dur} value={dur.toString()}>
-                          {dur} minutes
+                          {t("minutes", { count: dur })}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description">{t("description")}</Label>
                   <Textarea
                     id="description"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Brief description of this meeting type"
+                    placeholder={t("descriptionPlaceholder")}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="location">Meeting Link / Location</Label>
+                  <Label htmlFor="location">{t("location")}</Label>
                   <Input
                     id="location"
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    placeholder="Zoom URL, Google Meet link, phone, or address"
+                    placeholder={t("locationPlaceholder")}
                     maxLength={500}
                   />
                 </div>
                 <div>
-                  <Label>Color</Label>
+                  <Label>{t("color")}</Label>
                   <div className="flex gap-2 mt-2">
                     {COLOR_OPTIONS.map((color) => (
                       <button
                         key={color}
                         type="button"
+                        aria-label={t("colorOption", { color })}
+                        aria-pressed={formData.color === color}
                         className="w-8 h-8 rounded-full border-2"
                         style={{
                           backgroundColor: color,
@@ -385,7 +391,7 @@ export default function EventTypesPage() {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="buffer">Buffer Time (minutes)</Label>
+                  <Label htmlFor="buffer">{t("buffer")}</Label>
                   <Input
                     id="buffer"
                     type="number"
@@ -395,23 +401,23 @@ export default function EventTypesPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="maxBookings">Max Bookings Per Day</Label>
+                  <Label htmlFor="maxBookings">{t("maxPerDay")}</Label>
                   <Input
                     id="maxBookings"
                     type="number"
                     value={formData.max_bookings_per_day}
                     onChange={(e) => setFormData({ ...formData, max_bookings_per_day: e.target.value })}
-                    placeholder="Leave empty for unlimited"
+                    placeholder={t("maxPerDayPlaceholder")}
                     min="1"
                   />
                 </div>
                 <BookingExtrasFields value={formData} onChange={(change) => setFormData({ ...formData, ...change })} />
                 <div className="space-y-3 pt-2">
                   <BookingPriceFields onSetupClick={() => { setDialogOpen(false); resetForm(); }} price={price} currency={currency} onChange={(p, c) => { setPrice(p); setCurrency(c); }} />
-                  <Label className="text-sm font-medium">Collect from guests</Label>
+                  <Label className="text-sm font-medium">{t("collect")}</Label>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="collect_phone" className="text-sm font-normal">Phone number</Label>
+                      <Label htmlFor="collect_phone" className="text-sm font-normal">{t("phone")}</Label>
                       <Switch
                         id="collect_phone"
                         checked={formData.collect_phone}
@@ -419,7 +425,7 @@ export default function EventTypesPage() {
                       />
                     </div>
                     <div className="flex items-center justify-between pl-4">
-                      <Label htmlFor="require_phone" className={`text-xs ${formData.collect_phone ? "text-muted-foreground" : "text-muted-foreground/40"}`}>Required</Label>
+                      <Label htmlFor="require_phone" className={`text-xs ${formData.collect_phone ? "text-muted-foreground" : "text-muted-foreground/40"}`}>{t("required")}</Label>
                       <Switch
                         id="require_phone"
                         checked={formData.require_phone}
@@ -430,7 +436,7 @@ export default function EventTypesPage() {
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="collect_company" className="text-sm font-normal">Company name</Label>
+                      <Label htmlFor="collect_company" className="text-sm font-normal">{t("company")}</Label>
                       <Switch
                         id="collect_company"
                         checked={formData.collect_company}
@@ -438,7 +444,7 @@ export default function EventTypesPage() {
                       />
                     </div>
                     <div className="flex items-center justify-between pl-4">
-                      <Label htmlFor="require_company" className={`text-xs ${formData.collect_company ? "text-muted-foreground" : "text-muted-foreground/40"}`}>Required</Label>
+                      <Label htmlFor="require_company" className={`text-xs ${formData.collect_company ? "text-muted-foreground" : "text-muted-foreground/40"}`}>{t("required")}</Label>
                       <Switch
                         id="require_company"
                         checked={formData.require_company}
@@ -449,7 +455,7 @@ export default function EventTypesPage() {
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="collect_url" className="text-sm font-normal">Website / LinkedIn URL</Label>
+                      <Label htmlFor="collect_url" className="text-sm font-normal">{t("url")}</Label>
                       <Switch
                         id="collect_url"
                         checked={formData.collect_url}
@@ -457,7 +463,7 @@ export default function EventTypesPage() {
                       />
                     </div>
                     <div className="flex items-center justify-between pl-4">
-                      <Label htmlFor="require_url" className={`text-xs ${formData.collect_url ? "text-muted-foreground" : "text-muted-foreground/40"}`}>Required</Label>
+                      <Label htmlFor="require_url" className={`text-xs ${formData.collect_url ? "text-muted-foreground" : "text-muted-foreground/40"}`}>{t("required")}</Label>
                       <Switch
                         id="require_url"
                         checked={formData.require_url}
@@ -469,7 +475,7 @@ export default function EventTypesPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit">{editingId ? "Update" : "Create"}</Button>
+                <Button type="submit">{editingId ? t("update") : t("create")}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -496,8 +502,8 @@ export default function EventTypesPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                {eventType.duration} minutes
-                {eventType.price_cents != null && ` · ${bookingPrice(eventType.price_cents, eventType.currency)}`}
+                {t("minutes", { count: eventType.duration })}
+                {eventType.price_cents != null && ` · ${bookingPrice(eventType.price_cents, eventType.currency, locale)}`}
               </p>
               {eventType.description && (
                 <p className="text-sm mb-4">{eventType.description}</p>
@@ -512,8 +518,8 @@ export default function EventTypesPage() {
                   size="sm"
                   variant="outline"
                   onClick={() => copyBookingLink(eventType.slug)}
-                  title="Copy booking link"
-                  aria-label="Copy booking link"
+                  title={t("copyLink")}
+                  aria-label={t("copyLink")}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -521,8 +527,8 @@ export default function EventTypesPage() {
                   size="sm"
                   variant="outline"
                   onClick={() => handleEdit(eventType)}
-                  title="Edit"
-                  aria-label="Edit"
+                  title={tc("edit")}
+                  aria-label={tc("edit")}
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
@@ -530,8 +536,8 @@ export default function EventTypesPage() {
                   size="sm"
                   variant="outline"
                   onClick={() => handleClone(eventType)}
-                  title="Clone"
-                  aria-label="Clone"
+                  title={t("clone")}
+                  aria-label={t("clone")}
                 >
                   <CopyPlus className="h-4 w-4" />
                 </Button>
@@ -539,8 +545,8 @@ export default function EventTypesPage() {
                   size="sm"
                   variant="outline"
                   onClick={() => handleDelete(eventType.id)}
-                  title="Delete"
-                  aria-label="Delete"
+                  title={tc("delete")}
+                  aria-label={tc("delete")}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -553,15 +559,15 @@ export default function EventTypesPage() {
 
       {eventTypes.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">No event types yet. Create your first one!</p>
+          <p className="text-muted-foreground">{t("empty")}</p>
         </div>
       )}
       <ConnectCard />
 
       <Card id="embed" className="scroll-mt-6">
-        <CardHeader><CardTitle>Add to your website</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("embedTitle")}</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">Let guests book from your website with an iframe, an auto-resizing widget or a popup button.</p>
+          <p className="text-sm text-muted-foreground">{t("embedBody")}</p>
           <EmbedSnippets username={username} />
         </CardContent>
       </Card>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useTranslations } from "next-intl";
 import { Check, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,8 +12,6 @@ import { DEFAULT_SCENE, NO_SCENE, RANDOM_SCENE, SCENE_IDS, SCENES, type SceneId 
 
 type Choice = SceneId | typeof NO_SCENE | typeof RANDOM_SCENE;
 
-const label = (choice: Choice) => (choice === NO_SCENE ? "No scene" : choice === RANDOM_SCENE ? "Random" : SCENES[choice].name);
-
 function initialChoice(initial: string | null | undefined): Choice {
   if (initial === NO_SCENE || initial === RANDOM_SCENE) return initial;
   return initial && initial in SCENES ? (initial as SceneId) : DEFAULT_SCENE;
@@ -21,6 +20,9 @@ function initialChoice(initial: string | null | undefined): Choice {
 export function BookingScenePicker({ username, initial }: { username: string; initial: string | null | undefined }) {
   const { getToken } = useAuth();
   const { toast } = useToast();
+  const t = useTranslations("eventTypes");
+  const tc = useTranslations("common");
+  const label = (choice: Choice) => (choice === NO_SCENE ? t("look.none") : choice === RANDOM_SCENE ? t("look.random") : t(`scenes.${choice}.name`));
   const [selected, setSelected] = useState<Choice>(() => initialChoice(initial));
   const [saving, setSaving] = useState<Choice | null>(null);
 
@@ -37,13 +39,13 @@ export function BookingScenePicker({ username, initial }: { username: string; in
         body: JSON.stringify({ booking_scene: choice }),
       });
       toast({
-        title: choice === NO_SCENE ? "Booking page set to no scene"
-          : choice === RANDOM_SCENE ? "Booking page set to a random scene on each visit"
-          : `Booking page scene set to ${label(choice)}`,
+        title: choice === NO_SCENE ? t("look.setNone")
+          : choice === RANDOM_SCENE ? t("look.setRandom")
+          : t("look.set", { name: label(choice) }),
       });
     } catch (error) {
       setSelected(previous);
-      toast({ title: "Couldn't change the scene", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+      toast({ title: t("look.failed"), description: error instanceof Error ? error.message : tc("retry"), variant: "destructive" });
     } finally {
       setSaving(null);
     }
@@ -56,19 +58,19 @@ export function BookingScenePicker({ username, initial }: { username: string; in
     <Card id="look" className="scroll-mt-6">
       <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
         <div className="space-y-1.5">
-          <CardTitle>Look</CardTitle>
+          <CardTitle>{t("look.title")}</CardTitle>
           <p className="text-sm text-muted-foreground">
-            The 3D scene beside your meeting list. Every scene shows your visitor&apos;s real time.
+            {t("look.body")}
           </p>
         </div>
         <Button asChild variant="outline" size="sm" className="shrink-0">
           <a href={pageUrl(selected)} target="_blank" rel="noopener noreferrer">
-            Preview booking page <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+            {t("look.preview")} <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
           </a>
         </Button>
       </CardHeader>
       <CardContent>
-        <div role="radiogroup" aria-label="Booking page scene" className="grid gap-4 grid-cols-2 lg:grid-cols-3">
+        <div role="radiogroup" aria-label={t("look.group")} className="grid gap-4 grid-cols-2 lg:grid-cols-3">
           {choices.map((choice) => {
             const isSelected = choice === selected;
             const scene = choice === NO_SCENE || choice === RANDOM_SCENE ? null : SCENES[choice];
@@ -116,9 +118,9 @@ export function BookingScenePicker({ username, initial }: { username: string; in
                   <span className="block p-3">
                     <span className="block text-sm font-medium">{label(choice)}</span>
                     <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
-                      {scene ? scene.blurb
-                        : choice === RANDOM_SCENE ? "A different scene each time someone opens your page."
-                        : "Just your profile and meetings, the fastest page."}
+                      {scene ? t(`scenes.${scene.id}.blurb`)
+                        : choice === RANDOM_SCENE ? t("look.randomBlurb")
+                        : t("look.noneBlurb")}
                     </span>
                   </span>
                 </button>
@@ -128,7 +130,7 @@ export function BookingScenePicker({ username, initial }: { username: string; in
                   rel="noopener noreferrer"
                   className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-background/85 px-2 py-1 text-xs font-medium opacity-0 shadow-sm backdrop-blur transition group-hover:opacity-100 focus-visible:opacity-100"
                 >
-                  Preview <ExternalLink className="h-3 w-3" />
+                  {t("look.previewShort")} <ExternalLink className="h-3 w-3" />
                 </a>
               </div>
             );

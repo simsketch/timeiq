@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addDays, addMinutes, addMonths, addWeeks, format, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek } from "date-fns";
+import { addDays, addMinutes, addMonths, addWeeks, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek } from "date-fns";
+import { useLocale, useTranslations } from "next-intl";
 import { CalendarDays, ChevronLeft, ChevronRight, Keyboard, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -71,8 +72,9 @@ export function useCalendarView(key: string): [CalendarView, (v: CalendarView) =
 }
 
 export function ViewToggle({ view, onChange }: { view: CalendarView; onChange: (v: CalendarView) => void }) {
+  const t = useTranslations("calendars.grid");
   return (
-    <div className="inline-flex rounded-lg border p-0.5" role="group" aria-label="View">
+    <div className="inline-flex rounded-lg border p-0.5" role="group" aria-label={t("view")}>
       {(["calendar", "list"] as const).map((v) => (
         <button
           key={v}
@@ -85,7 +87,7 @@ export function ViewToggle({ view, onChange }: { view: CalendarView; onChange: (
           )}
         >
           {v === "calendar" ? <CalendarDays className="h-4 w-4" /> : <List className="h-4 w-4" />}
-          {v === "calendar" ? "Calendar" : "List"}
+          {v === "calendar" ? t("calendarView") : t("listView")}
         </button>
       ))}
     </div>
@@ -138,6 +140,13 @@ export function colorFor(key: string): string {
 
 const HOUR_PX = 44;
 
+/** Display formats in the UI language; the wall-clock math stays in date-fns. */
+const fmtTime = (d: Date, locale: string) => d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
+const fmtTimeRange = (a: Date, b: Date, locale: string) =>
+  b > a ? new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" }).formatRange(a, b) : fmtTime(a, locale);
+const fmtDay = (d: Date, locale: string, options: Intl.DateTimeFormatOptions) => d.toLocaleDateString(locale, options);
+const LONG_DAY: Intl.DateTimeFormatOptions = { weekday: "long", month: "long", day: "numeric" };
+
 interface Placed {
   ev: CalEvent;
   top: number;
@@ -185,7 +194,6 @@ function placeDay(events: CalEvent[], day: Date, startHour: number, endHour: num
 }
 
 type Mode = "day" | "3day" | "week" | "month";
-const MODE_LABEL: Record<Mode, string> = { day: "Day", "3day": "3 days", week: "Week", month: "Month" };
 /** Clicking or dragging on the grid picks half hours; dragging an event moves it in quarter hours. */
 const SLOT_PX = HOUR_PX / 2;
 const MOVE_MINUTES = 15;
@@ -226,6 +234,8 @@ export function WeekCalendar({
   onNew?: () => void;
   emptyHint?: string;
 }) {
+  const t = useTranslations("calendars.grid");
+  const locale = useLocale();
   // Availability rules are wall-clock times in the account zone (or the browser's).
   // The browser zone, the zone list and the screen width differ between server
   // and browser, so they are read after hydration.
@@ -284,8 +294,8 @@ export function WeekCalendar({
     // The clock is read after hydration so server and browser render the same grid.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setNow(new Date());
-    const t = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(timer);
   }, []);
   const displayNow = now && calendarDate(now, viewZone);
 
@@ -351,7 +361,7 @@ export function WeekCalendar({
       const [endHour, endMinute] = rule.end_time.split(":").map(Number);
       start.setHours(startHour, startMinute, 0, 0);
       end.setHours(endHour, endMinute, 0, 0);
-      return end > start ? [{ id: `open-${day.getTime()}-${index}`, title: "Available", start: toView(start), end: toView(end), color: "#10b981" }] : [];
+      return end > start ? [{ id: `open-${day.getTime()}-${index}`, title: t("available"), start: toView(start), end: toView(end), color: "#10b981" }] : [];
     }));
 
   // 8 AM to 8 PM, stretched to fit the shown events and open hours; or the
@@ -430,15 +440,24 @@ export function WeekCalendar({
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  const rangeLabel = (a: Date, b: Date) =>
+    new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", year: "numeric" }).formatRange(a, b);
   const label =
     mode === "day"
-      ? format(focusDay, "EEEE, MMM d, yyyy")
+      ? fmtDay(focusDay, locale, { weekday: "long", month: "short", day: "numeric", year: "numeric" })
       : mode === "month"
-        ? format(focusDay, "MMMM yyyy")
+        ? fmtDay(focusDay, locale, { month: "long", year: "numeric" })
         : mode === "3day"
-          ? format(focusDay, "MMM d") + " – " + format(addDays(focusDay, 2), "MMM d, yyyy")
-        : format(weekStart, "MMM d") + " – " + format(addDays(weekStart, 6), "MMM d, yyyy");
-  const shortcuts = `Shortcuts: T today · ← → previous/next · D day${modes.includes("3day") ? " · 3 three days" : ""} · W week${modes.includes("month") ? " · M month" : ""}${onNew ? " · N new booking" : ""}`;
+          ? rangeLabel(focusDay, addDays(focusDay, 2))
+        : rangeLabel(weekStart, addDays(weekStart, 6));
+  // Shortcut keys stay T, D, W, M, N in every language.
+  const shortcuts = [
+    t("shortcuts.base"),
+    modes.includes("3day") && t("shortcuts.threeDays"),
+    t("shortcuts.week"),
+    modes.includes("month") && t("shortcuts.month"),
+    onNew && t("shortcuts.new"),
+  ].filter(Boolean).join(" · ");
   const columns = { gridTemplateColumns: `52px repeat(${days.length}, minmax(0, 1fr))` };
 
   const detailCalendar = detail?.calendarId ? calendars?.find((c) => c.id === detail.calendarId) : undefined;
@@ -474,8 +493,8 @@ export function WeekCalendar({
               <DialogTitle>{detail.title}</DialogTitle>
               <DialogDescription>
                 {detail.allDay
-                  ? `${format(detail.start, "EEEE, MMMM d, yyyy")} · all day`
-                  : `${format(detail.start, "EEEE, MMMM d, yyyy · h:mm a")} – ${format(detail.end, "h:mm a")}`}
+                  ? t("allDayOn", { day: fmtDay(detail.start, locale, { ...LONG_DAY, year: "numeric" }) })
+                  : t("timeOn", { day: fmtDay(detail.start, locale, { ...LONG_DAY, year: "numeric" }), time: fmtTimeRange(detail.start, detail.end, locale) })}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-1 text-sm">
@@ -489,28 +508,28 @@ export function WeekCalendar({
             </div>
             {detail.href ? (
               <Button asChild className="self-start">
-                <Link href={detail.href}>Edit booking</Link>
+                <Link href={detail.href}>{t("editBooking")}</Link>
               </Button>
             ) : detail.calendarId !== "bookings" && (
-              <p className="text-xs text-muted-foreground">From your connected calendar. Edit it there; TimeIQ picks up the change on its next sync.</p>
+              <p className="text-xs text-muted-foreground">{t("fromConnected")}</p>
             )}
           </DialogContent>
         )}
       </Dialog>
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="outline" onClick={goToday}>
-          Today
+          {t("today")}
         </Button>
-        <Button size="icon" variant="ghost" aria-label={`Previous ${mode}`} onClick={() => step(-1)}>
+        <Button size="icon" variant="ghost" aria-label={t("previous", { mode })} onClick={() => step(-1)}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <Button size="icon" variant="ghost" aria-label={`Next ${mode}`} onClick={() => step(1)}>
+        <Button size="icon" variant="ghost" aria-label={t("next", { mode })} onClick={() => step(1)}>
           <ChevronRight className="h-4 w-4" />
         </Button>
         <span className="font-medium">{label}</span>
         {mode !== "month" && !inView.length && emptyHint && <span className="hidden text-sm text-muted-foreground sm:inline">· {emptyHint}</span>}
         <div className="ml-auto flex flex-wrap items-center gap-3">
-          <div className="inline-flex rounded-lg border p-0.5" role="group" aria-label="Calendar range">
+          <div className="inline-flex rounded-lg border p-0.5" role="group" aria-label={t("range")}>
             {modes.map((m) => (
               <button
                 key={m}
@@ -522,25 +541,25 @@ export function WeekCalendar({
                   mode === m ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                {MODE_LABEL[m]}
+                {t(`modes.${m}`)}
               </button>
             ))}
           </div>
           {mode !== "month" && (
             <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
               <input type="checkbox" className="h-4 w-4 accent-[hsl(var(--primary))]" checked={fullDay} onChange={(e) => setFullDayPref(e.target.checked ? "1" : "0")} />
-              Show all 24h
+              {t("allHours")}
             </label>
           )}
           <select
-            aria-label="Time zone"
+            aria-label={t("timeZone")}
             value={viewZone}
             onChange={(e) => setStoredZone(e.target.value === baseZone ? "" : e.target.value)}
             className="h-8 max-w-[18rem] rounded-md border bg-background px-2 text-sm"
           >
             {zones.map((z) => (
               <option key={z} value={z}>
-                {zoneLabel(z)}{z === baseZone ? " · yours" : ""}
+                {z === baseZone ? t("yourZone", { zone: zoneLabel(z) }) : zoneLabel(z)}
               </option>
             ))}
           </select>
@@ -582,16 +601,16 @@ export function WeekCalendar({
                   }}
                   disabled={mode === "day"}
                   className="px-2 py-2 text-center enabled:hover:bg-muted/60"
-                  aria-label={`Show ${format(d, "EEEE, MMMM d")}`}
+                  aria-label={t("showDay", { day: fmtDay(d, locale, LONG_DAY) })}
                 >
-                  <div className="text-xs text-muted-foreground">{format(d, "EEE")}</div>
+                  <div className="text-xs text-muted-foreground">{fmtDay(d, locale, { weekday: "short" })}</div>
                   <div
                     className={cn(
                       "mx-auto mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold",
                       today && "bg-foreground text-background"
                     )}
                   >
-                    {format(d, "d")}
+                    {d.getDate()}
                   </div>
                 </button>
               );
@@ -600,7 +619,7 @@ export function WeekCalendar({
 
           {hasAllDay && (
             <div className="grid border-b" style={columns}>
-              <div className="px-1 py-1.5 text-right text-[10px] text-muted-foreground">All day</div>
+              <div className="px-1 py-1.5 text-right text-[10px] text-muted-foreground">{t("allDay")}</div>
               {days.map((d) => (
                 <div key={d.toISOString()} className="space-y-1 border-l p-1">
                   {allDayFor(d).map((e) => (
@@ -629,7 +648,7 @@ export function WeekCalendar({
               {hours.map((h) => (
                 <div key={h} className="relative text-right" style={{ height: HOUR_PX }}>
                   <span className="absolute -top-2 right-1.5 text-[11px] text-muted-foreground">
-                    {h === startHour ? "" : format(new Date(2000, 0, 1, h), "h a")}
+                    {h === startHour ? "" : new Date(2000, 0, 1, h).toLocaleTimeString(locale, { hour: "numeric" })}
                   </span>
                 </div>
               ))}
@@ -638,7 +657,7 @@ export function WeekCalendar({
                   className="pointer-events-none absolute right-1 z-10 -translate-y-1/2 rounded bg-red-500 px-1 text-[10px] font-semibold leading-4 text-white"
                   style={{ top: (nowHours - startHour) * HOUR_PX }}
                 >
-                  {format(displayNow!, "h:mm")}
+                  {fmtTime(displayNow!, locale)}
                 </span>
               )}
             </div>
@@ -694,8 +713,8 @@ export function WeekCalendar({
                   ))}
                   {placeDay(openBlocks, d, startHour, endHour).map(({ ev, top, height }) => (
                     <div key={ev.id} className="pointer-events-none absolute inset-x-0 overflow-hidden border-y border-emerald-500/20 bg-emerald-500/10 px-1.5 py-1 text-[10px] text-emerald-800 dark:text-emerald-300"
-                      style={{ top, height }} title={`Available · ${format(ev.start, "h:mm a")}–${format(ev.end, "h:mm a")}`}>
-                      Available
+                      style={{ top, height }} title={t("eventTitle", { title: t("available"), time: fmtTimeRange(ev.start, ev.end, locale) })}>
+                      {t("available")}
                     </div>
                   ))}
                   {draftHere && (
@@ -703,7 +722,7 @@ export function WeekCalendar({
                       className="pointer-events-none absolute inset-x-1 z-10 rounded-md border border-primary bg-primary/15 px-1.5 py-1 text-xs font-medium text-primary"
                       style={{ top: draftHere.lo * SLOT_PX, height: (draftHere.hi - draftHere.lo) * SLOT_PX }}
                     >
-                      {format(slotStart(d, draftHere.lo), "h:mm")}–{format(slotStart(d, draftHere.hi), "h:mm a")}
+                      {fmtTimeRange(slotStart(d, draftHere.lo), slotStart(d, draftHere.hi), locale)}
                     </div>
                   )}
                   {placed.map(({ ev, top, height, col, cols }) => {
@@ -775,14 +794,14 @@ export function WeekCalendar({
                         background: `color-mix(in srgb, ${ev.color} 16%, hsl(var(--background)))`,
                         transform: drag ? `translate(${drag.dDay * drag.colWidth}px, ${(drag.dMin / 60) * HOUR_PX}px)` : undefined,
                       }}
-                      title={`${ev.title} · ${format(ev.start, "h:mm a")}–${format(ev.end, "h:mm a")}${canMove ? " · drag to move" : ""}`}
+                      title={t(canMove ? "eventTitleMovable" : "eventTitle", { title: ev.title, time: fmtTimeRange(ev.start, ev.end, locale) })}
                     >
                       <div className="truncate font-medium">{ev.title}</div>
                       {(height > 34 || drag) && (
                         <div className="truncate text-muted-foreground">
                           {drag
-                            ? `${format(addMinutes(addDays(ev.start, drag.dDay), drag.dMin), drag.dDay ? "EEE h:mm" : "h:mm")}–${format(addMinutes(addDays(ev.end, drag.dDay), drag.dMin), "h:mm a")}`
-                            : `${format(ev.start, "h:mm")}–${format(ev.end, "h:mm a")}${ev.label ? ` · ${ev.label}` : ""}`}
+                            ? `${drag.dDay ? `${fmtDay(addDays(ev.start, drag.dDay), locale, { weekday: "short" })} ` : ""}${fmtTimeRange(addMinutes(addDays(ev.start, drag.dDay), drag.dMin), addMinutes(addDays(ev.end, drag.dDay), drag.dMin), locale)}`
+                            : `${fmtTimeRange(ev.start, ev.end, locale)}${ev.label ? ` · ${ev.label}` : ""}`}
                         </div>
                       )}
                     </button>
@@ -826,13 +845,15 @@ function MonthGrid({
   onSelect: (ev: CalEvent) => void;
   onOpen: (ev: CalEvent) => void;
 }) {
+  const t = useTranslations("calendars.grid");
+  const locale = useLocale();
   const cells = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
   return (
     <div className="overflow-hidden rounded-xl border">
       <div className="grid grid-cols-7 border-b bg-muted/30">
         {cells.slice(0, 7).map((d) => (
           <div key={d.toISOString()} className="py-2 text-center text-xs text-muted-foreground">
-            {format(d, "EEE")}
+            {fmtDay(d, locale, { weekday: "short" })}
           </div>
         ))}
       </div>
@@ -859,13 +880,13 @@ function MonthGrid({
                   e.stopPropagation();
                   onPickDay(d);
                 }}
-                aria-label={`Show ${format(d, "EEEE, MMMM d")}${dayEvents.length ? `, ${dayEvents.length} events` : ""}`}
+                aria-label={t("showDayEvents", { day: fmtDay(d, locale, LONG_DAY), count: dayEvents.length })}
                 className={cn(
                   "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold",
                   today && isSameDay(d, today) && "bg-foreground text-background"
                 )}
               >
-                {format(d, "d")}
+                {d.getDate()}
               </button>
               {shown.map((e) => (
                 <button
@@ -883,12 +904,12 @@ function MonthGrid({
                   style={{ background: `color-mix(in srgb, ${e.color} 18%, hsl(var(--background)))` }}
                   title={e.title}
                 >
-                  {!e.allDay && <span className="hidden text-muted-foreground sm:inline">{format(e.start, "h:mma").toLowerCase()} </span>}
+                  {!e.allDay && <span className="hidden text-muted-foreground sm:inline">{fmtTime(e.start, locale)} </span>}
                   {e.title}
                 </button>
               ))}
               {dayEvents.length > shown.length && (
-                <div className="px-1 text-[10px] text-muted-foreground">+{dayEvents.length - shown.length} more</div>
+                <div className="px-1 text-[10px] text-muted-foreground">{t("more", { count: dayEvents.length - shown.length })}</div>
               )}
             </div>
           );

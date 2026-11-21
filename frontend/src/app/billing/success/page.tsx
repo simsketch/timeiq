@@ -4,15 +4,18 @@ import { Suspense, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { track } from "@/components/meta-pixel";
 import { apiFetch } from "@/lib/api";
-import { BillingStatus, PLAN_LABEL } from "@/lib/billing";
+import type { BillingStatus } from "@/lib/billing";
 
 function SuccessInner() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
+  const t = useTranslations("billing");
+  const locale = useLocale();
   const params = useSearchParams();
   const sessionId = params.get("session_id");
   // Guest purchases were already reported on the welcome page.
@@ -20,7 +23,7 @@ function SuccessInner() {
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [confirmError, setError] = useState<string | null>(null);
   const error =
-    isLoaded && isSignedIn && !sessionId ? "Missing checkout session" : confirmError;
+    isLoaded && isSignedIn && !sessionId ? t("missingSession") : confirmError;
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !sessionId) return;
@@ -39,10 +42,10 @@ function SuccessInner() {
           track(s.status === "trialing" ? "StartTrial" : "Purchase", { value, currency: "USD", predicted_ltv: value });
         }
       } catch (e: any) {
-        setError(e.message || "Could not confirm your subscription");
+        setError(e.message || t("confirmFailed"));
       }
     })();
-  }, [isLoaded, isSignedIn, sessionId, fromGuest, getToken]);
+  }, [isLoaded, isSignedIn, sessionId, fromGuest, getToken, t]);
 
   return (
     <div className="relative min-h-screen flex items-center justify-center px-6">
@@ -52,30 +55,30 @@ function SuccessInner() {
           <>
             <p className="text-muted-foreground">{error}</p>
             <p className="text-xs text-muted-foreground">
-              If you were charged, your access will activate within a minute once Stripe notifies us.
+              {t("chargedNote")}
             </p>
-            <Button asChild><Link href="/dashboard">Go to dashboard</Link></Button>
+            <Button asChild><Link href="/dashboard">{t("goDashboard")}</Link></Button>
           </>
         ) : status ? (
           <>
             <div className="h-14 w-14 mx-auto rounded-full bg-[hsl(var(--aurora-4))] flex items-center justify-center shadow-[0_10px_30px_-8px_hsl(var(--aurora-4)/0.7)]">
               <CheckCircle2 className="h-7 w-7 text-white" />
             </div>
-            <h1 className="font-display text-3xl tracking-[-0.02em]">You&apos;re in.</h1>
+            <h1 className="font-display text-3xl tracking-[-0.02em]">{t("youreIn")}</h1>
             <p className="text-muted-foreground text-pretty">
               {status.status === "trialing" && status.current_period_end
-                ? `Your free trial runs until ${new Date(status.current_period_end).toLocaleDateString(undefined, { month: "long", day: "numeric" })}. We'll email you 3 days before the first charge.`
-                : `${status.plan ? `${PLAN_LABEL[status.plan]} plan active.` : "Subscription active."} Thanks for backing TimeIQ this early.`}
+                ? t("trialUntil", { date: new Date(status.current_period_end).toLocaleDateString(locale, { month: "long", day: "numeric" }) })
+                : `${status.plan === "founder" || status.plan === "standard" ? t(`planActive.${status.plan}`) : t("subscriptionActive")} ${t("thanks")}`}
             </p>
             <Button asChild variant="aurora" size="lg">
               <Link href="/dashboard">
-                Open your workspace
+                {t("openWorkspace")}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
           </>
         ) : (
-          <ClockLoader size="lg" label="Confirming your subscription" />
+          <ClockLoader size="lg" label={t("confirming")} />
         )}
       </div>
     </div>

@@ -4,7 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import { Toaster } from "@/components/ui/toaster";
 import { AttributionCapture } from "@/components/attribution-capture";
 import { SiteAnalytics } from "@/components/site-analytics";
-import { NextIntlClientProvider } from "next-intl";
+import { ClientMessages } from "@/i18n/client-messages";
 import { getLocale } from "next-intl/server";
 import "./globals.css";
 
@@ -54,10 +54,10 @@ export default async function RootLayout({
   return (
     <html lang={await getLocale()} className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body className="font-sans antialiased">
-        <NextIntlClientProvider>
+        <ClientMessages namespaces={["shell"]}>
           {children}
           <Toaster />
-        </NextIntlClientProvider>
+        </ClientMessages>
         <AttributionCapture />
         <SiteAnalytics />
       </body>

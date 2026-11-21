@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { Component, useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, LocateFixed, Minus, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import type { MeetingType } from "./booking-profile";
 import { sceneFor } from "./scenes";
@@ -30,6 +31,7 @@ class SceneBoundary extends Component<{ children: ReactNode; onError: () => void
 
 export function BookingScene({ active, sceneId }: { active: MeetingType | null; sceneId?: string | null }) {
   const definition = sceneFor(sceneId);
+  const t = useTranslations("booking.scene");
   const container = useRef<HTMLDivElement>(null);
   const rig = useRef<CameraRig | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
@@ -99,7 +101,7 @@ export function BookingScene({ active, sceneId }: { active: MeetingType | null; 
     <>
       <div ref={container} aria-hidden="true" style={{ position: "absolute", inset: 0, background: definition.backdrop }}>
         <div style={{ ...layer, display: "grid", placeItems: "center", opacity: phase === "loading" ? 1 : 0, pointerEvents: "none" }}>
-          <ClockLoader size="md" label="Loading scene" />
+          <ClockLoader size="md" label={t("loading")} />
         </div>
         {/* A painted render of the same scene, for missing WebGL, failures, slow loads and reduced motion. */}
         <img
@@ -128,12 +130,12 @@ export function BookingScene({ active, sceneId }: { active: MeetingType | null; 
         )}
       </div>
       {phase === "scene" && (
-        <div className={styles.cameraControls} role="group" aria-label="Scene camera">
-          <button type="button" onClick={() => rig.current?.orbit(-1)} aria-label="Turn the view left"><ChevronLeft /></button>
-          <button type="button" onClick={() => rig.current?.zoom(1)} aria-label="Zoom in"><Plus /></button>
-          <button type="button" onClick={() => rig.current?.zoom(-1)} aria-label="Zoom out"><Minus /></button>
-          <button type="button" onClick={() => rig.current?.orbit(1)} aria-label="Turn the view right"><ChevronRight /></button>
-          <button type="button" onClick={() => rig.current?.reset()} aria-label="Reset the view"><LocateFixed /></button>
+        <div className={styles.cameraControls} role="group" aria-label={t("camera")}>
+          <button type="button" onClick={() => rig.current?.orbit(-1)} aria-label={t("turnLeft")}><ChevronLeft /></button>
+          <button type="button" onClick={() => rig.current?.zoom(1)} aria-label={t("zoomIn")}><Plus /></button>
+          <button type="button" onClick={() => rig.current?.zoom(-1)} aria-label={t("zoomOut")}><Minus /></button>
+          <button type="button" onClick={() => rig.current?.orbit(1)} aria-label={t("turnRight")}><ChevronRight /></button>
+          <button type="button" onClick={() => rig.current?.reset()} aria-label={t("reset")}><LocateFixed /></button>
         </div>
       )}
     </>

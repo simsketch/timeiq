@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useTranslations } from "next-intl";
 import { Copy, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +20,8 @@ interface FeedSettings {
 }
 
 export function CalendarSubscriptionCard() {
+  const t = useTranslations("calendars.subscription");
+  const tc = useTranslations("common");
   const { getToken } = useAuth();
   const { toast } = useToast();
   const [feed, setFeed] = useState<FeedSettings | null>(null);
@@ -34,9 +37,9 @@ export function CalendarSubscriptionCard() {
       });
       setFeed(data);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "The subscription link did not load. Try again.");
+      setError(error instanceof Error ? error.message : t("loadFailed"));
     }
-  }, [getToken]);
+  }, [getToken, t]);
 
   useEffect(() => {
     // State updates follow the first await in fetchFeed.
@@ -58,12 +61,12 @@ export function CalendarSubscriptionCard() {
       });
       setFeed(data);
       toast({
-        title: value ? "Event names hidden" : "Event names visible",
+        title: value ? t("namesHidden") : t("namesVisible"),
       });
     } catch (error: any) {
       setFeed(prev);
       toast({
-        title: "Error",
+        title: tc("error"),
         description: error.message,
         variant: "destructive",
       });
@@ -75,7 +78,7 @@ export function CalendarSubscriptionCard() {
   async function regenerateFeed() {
     if (
       !confirm(
-        "Regenerate the subscription link? The old link will stop working in any calendar that uses it.",
+        t("confirmRegenerate"),
       )
     ) {
       return;
@@ -88,10 +91,10 @@ export function CalendarSubscriptionCard() {
         headers: { Authorization: `Bearer ${token}` },
       });
       setFeed(data);
-      toast({ title: "New link generated" });
+      toast({ title: t("regenerated") });
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: tc("error"),
         description: error.message,
         variant: "destructive",
       });
@@ -103,19 +106,17 @@ export function CalendarSubscriptionCard() {
   function copyFeedLink() {
     if (!feed) return;
     navigator.clipboard.writeText(feed.url);
-    toast({ title: "Subscription link copied" });
+    toast({ title: t("copied") });
   }
 
   return (
     <Card id="subscription" className="scroll-mt-6">
       <CardHeader>
-        <CardTitle>Calendar subscription</CardTitle>
+        <CardTitle>{t("title")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Subscribe to a read-only feed of your bookings and synced external
-          events. Add this URL to Google Calendar, Apple Calendar, or any app
-          that supports ICS subscriptions.
+          {t("intro")}
         </p>
 
         {feed ? (
@@ -126,8 +127,8 @@ export function CalendarSubscriptionCard() {
                 type="button"
                 variant="outline"
                 onClick={copyFeedLink}
-                title="Copy link"
-                aria-label="Copy subscription link"
+                title={t("copyLink")}
+                aria-label={t("copyLinkLabel")}
               >
                 <Copy className="h-4 w-4" />
               </Button>
@@ -136,29 +137,24 @@ export function CalendarSubscriptionCard() {
                 variant="outline"
                 onClick={regenerateFeed}
                 disabled={feedBusy}
-                title="Generate a new link (revokes the old one)"
-                aria-label="Generate a new subscription link"
+                title={t("regenerateTitle")}
+                aria-label={t("regenerateLabel")}
               >
                 <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
 
             <div className="text-xs text-muted-foreground">
-              One-click subscribe:{" "}
-              <a
-                href={feed.webcal_url}
-                className="underline underline-offset-2"
-              >
-                open in calendar app
-              </a>
+              {t.rich("oneClick", {
+                link: (chunks) => <a href={feed.webcal_url} className="underline underline-offset-2">{chunks}</a>,
+              })}
             </div>
 
             <div className="flex items-start justify-between gap-4 pt-2 border-t">
               <div>
-                <Label htmlFor="obfuscate">Hide event names</Label>
+                <Label htmlFor="obfuscate">{t("hideNames")}</Label>
                 <p className="text-xs text-muted-foreground mt-1">
-                  When enabled, all events show as &ldquo;Busy&rdquo; with no
-                  title, description, location, or attendees.
+                  {t("hideNamesHint")}
                 </p>
               </div>
               <Switch
@@ -172,12 +168,12 @@ export function CalendarSubscriptionCard() {
         ) : error ? (
           <div role="alert" className="space-y-3 text-sm">
             <p>{error}</p>
-            <Button variant="outline" onClick={fetchFeed}>Try again</Button>
+            <Button variant="outline" onClick={fetchFeed}>{tc("retry")}</Button>
           </div>
         ) : (
           <div className="flex items-center gap-3 py-2">
             <ClockLoader size="sm" />
-            <p className="text-sm text-muted-foreground">Loading feed</p>
+            <p className="text-sm text-muted-foreground">{t("loading")}</p>
           </div>
         )}
       </CardContent>

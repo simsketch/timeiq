@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useLocale, useTranslations } from "next-intl";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,9 @@ function BookingCard({
   onCancel?: (id: number) => void;
   onMove?: (id: string, start: Date) => Promise<void>;
 }) {
+  const t = useTranslations("bookings");
+  const tc = useTranslations("common");
+  const locale = useLocale();
   const [when, setWhen] = useState(() => format(new Date(booking.starts_at), "yyyy-MM-dd'T'HH:mm"));
   const [saving, setSaving] = useState(false);
   return (
@@ -67,33 +71,35 @@ function BookingCard({
               {booking.visitor_email}
               {booking.guest_emails?.length ? `, ${booking.guest_emails.join(", ")}` : ""}
             </p>
-            {booking.status === "pending_payment" && <p className="text-sm text-muted-foreground">Waiting for payment</p>}
-            {booking.price_cents != null && <p className="text-sm">{bookingPrice(booking.price_cents, booking.currency)}</p>}
+            {booking.status === "pending_payment" && <p className="text-sm text-muted-foreground">{t("waitingForPayment")}</p>}
+            {booking.price_cents != null && <p className="text-sm">{bookingPrice(booking.price_cents, booking.currency, locale)}</p>}
             <p className="text-sm font-medium">
-              {format(new Date(booking.starts_at), "EEEE, MMMM d, yyyy")}
+              {new Date(booking.starts_at).toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
             </p>
             <p className="text-sm text-muted-foreground">
-              {format(new Date(booking.starts_at), "h:mm a")} -{" "}
-              {format(new Date(booking.ends_at), "h:mm a")}
+              {t("timeRange", {
+                start: new Date(booking.starts_at).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
+                end: new Date(booking.ends_at).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
+              })}
             </p>
             {booking.visitor_phone && (
               <p className="text-sm mt-1 text-muted-foreground">
-                Phone: {booking.visitor_phone}
+                {t("phone", { value: booking.visitor_phone })}
               </p>
             )}
             {booking.visitor_company && (
               <p className="text-sm mt-1 text-muted-foreground">
-                Company: {booking.visitor_company}
+                {t("company", { value: booking.visitor_company })}
               </p>
             )}
             {booking.visitor_url && (
               <p className="text-sm mt-1 text-muted-foreground">
-                URL: <a href={booking.visitor_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{booking.visitor_url}</a>
+                {t("url")} <a href={booking.visitor_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{booking.visitor_url}</a>
               </p>
             )}
             {booking.visitor_notes && (
               <p className="text-sm mt-1 text-muted-foreground">
-                Note: {booking.visitor_notes}
+                {t("note", { value: booking.visitor_notes })}
               </p>
             )}
             {onMove && (
@@ -106,7 +112,7 @@ function BookingCard({
                   setSaving(false);
                 }}
               >
-                <label className="text-sm text-muted-foreground" htmlFor={`when-${booking.id}`}>Change time</label>
+                <label className="text-sm text-muted-foreground" htmlFor={`when-${booking.id}`}>{t("changeTime")}</label>
                 <input
                   id={`when-${booking.id}`}
                   type="datetime-local"
@@ -116,7 +122,7 @@ function BookingCard({
                   className="rounded-md border px-2 py-1 text-sm"
                 />
                 <Button size="sm" type="submit" disabled={saving || new Date(when).getTime() === new Date(booking.starts_at).getTime()}>
-                  {saving ? "Saving…" : "Save"}
+                  {saving ? tc("saving") : tc("save")}
                 </Button>
               </form>
             )}
@@ -127,7 +133,7 @@ function BookingCard({
               variant="destructive"
               onClick={() => onCancel(booking.id)}
             >
-              Cancel
+              {tc("cancel")}
             </Button>
           )}
         </div>
@@ -137,6 +143,9 @@ function BookingCard({
 }
 
 export default function BookingsPage() {
+  const t = useTranslations("bookings");
+  const tc = useTranslations("common");
+  const locale = useLocale();
   const { getToken } = useAuth();
   const { toast } = useToast();
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
@@ -190,15 +199,16 @@ export default function BookingsPage() {
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({ starts_at: start.toISOString(), allow_conflict: allowConflict }),
       });
-      toast({ title: "Moved", description: `${moved.visitor_name} got the updated invite.` });
+      toast({ title: t("moved"), description: t("movedBody", { name: moved.visitor_name }) });
       setSelectedId(String(moved.id));
       fetchBookings();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "The booking didn't move. Try again.";
-      if (!allowConflict && message.startsWith("This time overlaps") && confirm(`${message}. Move it anyway?`)) {
+      const message = error instanceof Error ? error.message : t("moveFailed");
+      // The API's overlap message is English; match it before showing the localized question.
+      if (!allowConflict && message.startsWith("This time overlaps") && confirm(t("moveAnyway", { message }))) {
         return moveBooking(id, start, true);
       }
-      toast({ title: "Not moved", description: message, variant: "destructive" });
+      toast({ title: t("notMoved"), description: message, variant: "destructive" });
     }
   }
 
@@ -239,18 +249,18 @@ export default function BookingsPage() {
   }
 
   async function handleCancel(id: number) {
-    if (!confirm("Cancel this booking? Paid bookings receive a full refund.")) return;
+    if (!confirm(t("confirmCancel"))) return;
     try {
       const token = await getToken();
       await apiFetch(`/api/bookings/${id}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` },
       });
-      toast({ title: "Booking cancelled" });
+      toast({ title: t("cancelled") });
       fetchBookings();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: tc("error"),
         description: error.message,
         variant: "destructive",
       });
@@ -267,7 +277,7 @@ export default function BookingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
-        <ClockLoader size="lg" label="Loading bookings" />
+        <ClockLoader size="lg" label={t("loading")} />
       </div>
     );
   }
@@ -276,16 +286,16 @@ export default function BookingsPage() {
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Bookings</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
           <p className="text-muted-foreground mt-2">
-            View and manage your scheduled meetings
+            {t("subtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <ViewToggle view={view} onChange={setView} />
           <Button onClick={() => openNewBooking(nextHalfHour())}>
             <Plus className="mr-2 h-4 w-4" />
-            New booking
+            {t("newBooking")}
           </Button>
         </div>
       </div>
@@ -308,7 +318,7 @@ export default function BookingsPage() {
         <div className="space-y-4">
           <WeekCalendar
             calendars={[
-              { id: "bookings", name: "TimeIQ bookings", color: "hsl(var(--aurora-1))" },
+              { id: "bookings", name: t("timeiqBookings"), color: "hsl(var(--aurora-1))" },
               ...sources.map((c) => ({ id: c.id, name: c.name, color: colorFor(c.id) })),
             ]}
             weekStart={weekStart}
@@ -316,7 +326,7 @@ export default function BookingsPage() {
             events={[
               ...synced.map((e) => ({
                 id: SYNCED + e.id,
-                title: e.title || "Busy",
+                title: e.title || t("busy"),
                 start: new Date(e.starts_at),
                 end: new Date(e.ends_at),
                 allDay: e.is_all_day,
@@ -334,11 +344,11 @@ export default function BookingsPage() {
                   start: new Date(b.starts_at),
                   end: new Date(b.ends_at),
                   color: colorFor(String(b.event_type_id)),
-                  label: b.status === "cancelled" ? "Cancelled" : b.status === "pending_payment" ? "Waiting for payment" : undefined,
+                  label: b.status === "cancelled" ? t("cancelledLabel") : b.status === "pending_payment" ? t("waitingForPayment") : undefined,
                   faded: b.status === "cancelled",
                   movable: b.status === "confirmed" && new Date(b.starts_at) > now,
                   calendarId: "bookings",
-                  details: [b.visitor_email, ...(b.visitor_notes ? [`Note: ${b.visitor_notes}`] : [])],
+                  details: [b.visitor_email, ...(b.visitor_notes ? [t("note", { value: b.visitor_notes })] : [])],
                 })),
             ]}
             onSelect={(ev: CalEvent) => setSelectedId(ev.id)}
@@ -346,23 +356,27 @@ export default function BookingsPage() {
             onEventMove={(ev, start) => moveBooking(ev.id, start)}
             onRangeChange={onRangeChange}
             onNew={() => openNewBooking(nextHalfHour())}
-            emptyHint="no bookings this week · click or drag to book one"
+            emptyHint={t("emptyWeek")}
           />
           {selectedSynced && (
             <Card>
               <CardContent className="flex items-start justify-between gap-4 py-4">
                 <div>
-                  <p className="font-semibold">{selectedSynced.title || "Busy"}</p>
+                  <p className="font-semibold">{selectedSynced.title || t("busy")}</p>
                   <p className="text-sm text-muted-foreground">
                     {selectedSynced.is_all_day
-                      ? `${format(new Date(selectedSynced.starts_at), "EEEE, MMMM d")} · all day`
-                      : `${format(new Date(selectedSynced.starts_at), "EEEE, MMMM d · h:mm a")} – ${format(new Date(selectedSynced.ends_at), "h:mm a")}`}
+                      ? t("allDayOn", { day: new Date(selectedSynced.starts_at).toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" }) })
+                      : t("timeRangeOn", {
+                          day: new Date(selectedSynced.starts_at).toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" }),
+                          start: new Date(selectedSynced.starts_at).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
+                          end: new Date(selectedSynced.ends_at).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
+                        })}
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    From your calendar{selectedSynced.source_name ? ` · ${selectedSynced.source_name}` : ""}. It blocks this time on your booking page.
+                    {selectedSynced.source_name ? t("fromCalendarNamed", { name: selectedSynced.source_name }) : t("fromCalendar")}
                   </p>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => setSelectedId(null)}>Close</Button>
+                <Button size="sm" variant="ghost" onClick={() => setSelectedId(null)}>{tc("close")}</Button>
               </CardContent>
             </Card>
           )}
@@ -371,11 +385,11 @@ export default function BookingsPage() {
       <Tabs defaultValue="upcoming">
         <TabsList>
           <TabsTrigger value="upcoming">
-            Upcoming ({upcomingBookings.length})
+            {t("tabUpcoming", { count: upcomingBookings.length })}
           </TabsTrigger>
-          <TabsTrigger value="past">Past ({pastBookings.length})</TabsTrigger>
+          <TabsTrigger value="past">{t("tabPast", { count: pastBookings.length })}</TabsTrigger>
           <TabsTrigger value="cancelled">
-            Cancelled ({cancelledBookings.length})
+            {t("tabCancelled", { count: cancelledBookings.length })}
           </TabsTrigger>
         </TabsList>
 
@@ -383,7 +397,7 @@ export default function BookingsPage() {
           {upcomingBookings.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
-                No upcoming bookings
+                {t("noUpcoming")}
               </CardContent>
             </Card>
           ) : (
@@ -397,7 +411,7 @@ export default function BookingsPage() {
           {pastBookings.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
-                No past bookings
+                {t("noPast")}
               </CardContent>
             </Card>
           ) : (
@@ -411,7 +425,7 @@ export default function BookingsPage() {
           {cancelledBookings.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
-                No cancelled bookings
+                {t("noCancelled")}
               </CardContent>
             </Card>
           ) : (

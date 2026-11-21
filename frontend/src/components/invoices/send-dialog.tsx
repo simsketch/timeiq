@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -40,6 +41,8 @@ export function SendDialog({
   busy: boolean;
   onConfirm: (recipients: string[], copyMe: boolean) => void;
 }) {
+  const t = useTranslations("invoices.send");
+  const tc = useTranslations("common");
   const all = splitEmails(billingEmails);
   const [chosen, setChosen] = useState<string[]>(all);
   // Remember the copy preference per browser; storage can be unavailable
@@ -78,7 +81,7 @@ export function SendDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <fieldset className="space-y-1 py-2">
-          <legend className="mb-2 text-sm font-medium">Send to</legend>
+          <legend className="mb-2 text-sm font-medium">{t("sendTo")}</legend>
           {all.map((email) => (
             <label
               key={email}
@@ -102,20 +105,20 @@ export function SendDialog({
             className="h-4 w-4 accent-primary"
           />
           <span className="min-w-0">
-            Send me a copy
+            {t("copyMe")}
             {senderEmail && (
               <span className="block truncate text-xs text-muted-foreground">
-                BCC to {senderEmail}
+                {t("bcc", { email: senderEmail })}
               </span>
             )}
           </span>
         </label>
         <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
-            Cancel
+            {tc("cancel")}
           </Button>
           <Button onClick={() => onConfirm(chosen, copyMe)} disabled={busy || chosen.length === 0}>
-            {chosen.length > 1 ? `${confirmLabel} to ${chosen.length}` : confirmLabel}
+            {chosen.length > 1 ? t("confirmTo", { label: confirmLabel, count: chosen.length }) : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

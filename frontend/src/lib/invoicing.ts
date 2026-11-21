@@ -161,11 +161,4 @@ export function authHeaders(token: string | null): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
 }
 
-export const STATUS_LABEL: Record<InvoiceStatus, string> = {
-  draft: "Draft",
-  sent: "Sent",
-  paid: "Paid",
-  void: "Void",
-};
-
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";

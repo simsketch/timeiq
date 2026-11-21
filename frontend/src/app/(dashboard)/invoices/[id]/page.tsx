@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -36,6 +37,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const { user } = useUser();
   const { toast } = useToast();
   const router = useRouter();
+  const t = useTranslations("invoices.detail");
+  const tc = useTranslations("common");
+  const locale = useLocale();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -49,14 +53,14 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       `/api/invoices/${invoice.id}/lines`,
       "POST",
       { description: expense.description.trim(), amount: expense.amount },
-      "Expense added"
+      t("expenseAdded")
     );
     if (ok) setExpense({ description: "", amount: "" });
   }
 
   async function removeExpense(lineId: string) {
     if (!invoice) return;
-    await action(`/api/invoices/${invoice.id}/lines/${lineId}`, "DELETE", undefined, "Expense removed");
+    await action(`/api/invoices/${invoice.id}/lines/${lineId}`, "DELETE", undefined, t("expenseRemoved"));
   }
 
   const [missing, setMissing] = useState<InvoicePreview | null>(null);
@@ -81,11 +85,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       }
       setDraft({ issue_date: inv.issue_date, due_date: inv.due_date, notes: inv.notes ?? "" });
     } catch (e: any) {
-      toast({ title: "Failed to load invoice", description: e.message, variant: "destructive" });
+      toast({ title: t("loadFailed"), description: e.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
-  }, [getToken, id, toast]);
+  }, [getToken, id, toast, t]);
 
   useEffect(() => {
     // Every setState in load() runs after its first await; the rule can't see that.
@@ -106,7 +110,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       await load();
       return true;
     } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+      toast({ title: tc("error"), description: e.message, variant: "destructive" });
       return false;
     } finally {
       setBusy(false);
@@ -120,7 +124,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       headers: authHeaders(token),
     });
     if (!res.ok) {
-      toast({ title: "Download failed", variant: "destructive" });
+      toast({ title: t("downloadFailed"), variant: "destructive" });
       return;
     }
     const url = URL.createObjectURL(await res.blob());
@@ -135,27 +139,26 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
   async function confirmSend(recipients: string[], copyMe: boolean) {
     if (!invoice || !sending) return;
-    const who = recipients.length === 1 ? recipients[0] : `${recipients.length} recipients`;
-    const copy = copyMe ? ", with a copy to you" : "";
+    const who = recipients.length === 1 ? recipients[0] : t("recipients", { count: recipients.length });
     const ok = await action(
       `/api/invoices/${invoice.id}/${sending}`,
       "POST",
       { recipients, copy_me: copyMe },
-      sending === "send" ? `Invoice sent to ${who}${copy}` : `Reminder sent to ${who}${copy}`
+      t("sentToast", { kind: sending, who, copy: copyMe ? "yes" : "no" })
     );
     if (ok) setSending(null);
   }
 
   async function voidInvoice() {
     if (!invoice) return;
-    if (!confirm("Void this invoice? Its entries become unbilled again.")) return;
-    await action(`/api/invoices/${invoice.id}/void`, "POST", undefined, "Invoice voided");
+    if (!confirm(t("confirmVoid"))) return;
+    await action(`/api/invoices/${invoice.id}/void`, "POST", undefined, t("voided"));
   }
 
   async function remove() {
     if (!invoice) return;
-    if (!confirm(`Delete draft ${invoice.number}? Its entries become unbilled again.`)) return;
-    if (await action(`/api/invoices/${invoice.id}`, "DELETE", undefined, "Draft deleted")) {
+    if (!confirm(t("confirmDelete", { number: invoice.number }))) return;
+    if (await action(`/api/invoices/${invoice.id}`, "DELETE", undefined, t("deleted"))) {
       router.push("/invoices");
     }
   }
@@ -163,11 +166,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
-        <ClockLoader size="lg" label="Loading invoice" />
+        <ClockLoader size="lg" label={t("loading")} />
       </div>
     );
   }
-  if (!invoice) return <p className="text-muted-foreground">Invoice not found.</p>;
+  if (!invoice) return <p className="text-muted-foreground">{t("notFound")}</p>;
 
   const isDraft = invoice.status === "draft";
   const { expenseLines } = splitLines(invoice.lines);
@@ -183,7 +186,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4 mr-1" />
-        Invoices
+        {t("back")}
       </Link>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -201,14 +204,14 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             <Button variant="outline" asChild>
               <a href={publicUrl} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4 mr-2" />
-                Public link
+                {t("publicLink")}
               </a>
             </Button>
           )}
           {(isDraft || isSent) && (
             <Button onClick={() => setSending("send")} disabled={busy || !invoice.client_billing_email}>
               <Send className="h-4 w-4 mr-2" />
-              {isDraft ? "Send" : "Resend"}
+              {isDraft ? t("send") : t("resend")}
             </Button>
           )}
           {(isSent || invoice.status === "paid") && (
@@ -220,12 +223,14 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                   `/api/invoices/${invoice.id}/copy`,
                   "POST",
                   undefined,
-                  `Copy sent to ${user?.primaryEmailAddress?.emailAddress ?? "you"}`
+                  user?.primaryEmailAddress?.emailAddress
+                    ? t("copySentTo", { email: user.primaryEmailAddress.emailAddress })
+                    : t("copySent")
                 )
               }
             >
               <MailCheck className="h-4 w-4 mr-2" />
-              Email me a copy
+              {t("emailMeCopy")}
             </Button>
           )}
           {isOverdue && (
@@ -235,29 +240,29 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               onClick={() => setSending("remind")}
             >
               <BellRing className="h-4 w-4 mr-2" />
-              Send reminder
+              {t("sendReminder")}
             </Button>
           )}
           {isSent && (
             <Button
               variant="outline"
               disabled={busy}
-              onClick={() => action(`/api/invoices/${invoice.id}/mark-paid`, "POST", undefined, "Marked paid")}
+              onClick={() => action(`/api/invoices/${invoice.id}/mark-paid`, "POST", undefined, t("markedPaid"))}
             >
               <CheckCircle2 className="h-4 w-4 mr-2" />
-              Mark paid
+              {t("markPaid")}
             </Button>
           )}
           {(isDraft || isSent) && (
             <Button variant="outline" disabled={busy} onClick={voidInvoice}>
               <Ban className="h-4 w-4 mr-2" />
-              Void
+              {t("void")}
             </Button>
           )}
           {isDraft && (
             <Button variant="destructive" disabled={busy} onClick={remove}>
               <Trash2 className="h-4 w-4 mr-2" />
-              Delete
+              {tc("delete")}
             </Button>
           )}
         </div>
@@ -266,26 +271,23 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       {isDraft && missing && missing.entry_count > 0 && (
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm">
-            {missing.entry_count} unbilled {missing.entry_count === 1 ? "entry" : "entries"} (
-            {parseFloat(String(missing.total_hours))}h) in this invoice&apos;s period{" "}
-            {missing.entry_count === 1 ? "isn't" : "aren't"} on it yet.
+            {t("missingEntries", { count: missing.entry_count, hours: parseFloat(String(missing.total_hours)) })}
           </p>
           <Button
             size="sm"
             disabled={busy}
             onClick={() =>
-              action(`/api/invoices/${invoice.id}/refresh`, "POST", undefined, "Hours added to invoice")
+              action(`/api/invoices/${invoice.id}/refresh`, "POST", undefined, t("hoursAdded"))
             }
           >
-            Add to invoice
+            {t("addToInvoice")}
           </Button>
         </div>
       )}
 
       {isDraft && !invoice.client_billing_email && (
         <p className="text-sm text-amber-600">
-          This invoice has no billing email, so it can&apos;t be sent. Add one to the client and it
-          will appear here.
+          {t("noBillingEmail")}
         </p>
       )}
 
@@ -293,12 +295,12 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            action(`/api/invoices/${invoice.id}`, "PATCH", { ...draft, notes: draft.notes || null }, "Saved");
+            action(`/api/invoices/${invoice.id}`, "PATCH", { ...draft, notes: draft.notes || null }, tc("saved"));
           }}
           className="grid gap-3 sm:grid-cols-[10rem_10rem_1fr_auto] items-end rounded-xl border p-4"
         >
           <div className="space-y-2">
-            <Label>Issue date</Label>
+            <Label>{t("issueDate")}</Label>
             <Input
               type="date"
               value={draft.issue_date}
@@ -306,7 +308,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             />
           </div>
           <div className="space-y-2">
-            <Label>Due date</Label>
+            <Label>{t("dueDate")}</Label>
             <Input
               type="date"
               value={draft.due_date}
@@ -314,11 +316,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             />
           </div>
           <div className="space-y-2">
-            <Label>Notes</Label>
+            <Label>{t("notes")}</Label>
             <Textarea rows={1} value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
           </div>
           <Button type="submit" variant="outline" disabled={busy}>
-            Save
+            {tc("save")}
           </Button>
         </form>
       )}
@@ -326,10 +328,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       {!isVoid && (
         <div className="rounded-xl border p-4 flex items-center justify-between gap-4">
           <div>
-            <Label htmlFor="weekly-toggle">Show daily hours grid</Label>
+            <Label htmlFor="weekly-toggle">{t("gridToggle")}</Label>
             <p className="text-sm text-muted-foreground">
-              Adds a day-by-day grid of hours above the services, so a steady
-              schedule is easy to see. Hours only, with no amounts.
+              {t("gridHint")}
             </p>
           </div>
           <Switch
@@ -341,7 +342,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 `/api/invoices/${invoice.id}`,
                 "PATCH",
                 { show_weekly_breakdown: v },
-                v ? "Hours grid shown" : "Hours grid hidden"
+                v ? t("gridShown") : t("gridHidden")
               )
             }
           />
@@ -351,9 +352,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
       {isDraft && (
         <div className="rounded-xl border p-4 space-y-4">
           <div>
-            <h2 className="font-semibold">Expenses</h2>
+            <h2 className="font-semibold">{t("expenses")}</h2>
             <p className="text-sm text-muted-foreground">
-              Pass-through costs billed alongside your hours, such as software seats or travel.
+              {t("expensesHint")}
             </p>
           </div>
 
@@ -363,12 +364,12 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 <li key={e.id} className="flex items-center gap-3 py-2">
                   <span className="flex-1 text-sm">{e.description}</span>
                   <span className="text-sm tabular-nums">
-                    {fmtMoney(e.amount, invoice.currency)}
+                    {fmtMoney(e.amount, invoice.currency, locale)}
                   </span>
                   <Button
                     size="icon"
                     variant="ghost"
-                    aria-label={`Remove ${e.description}`}
+                    aria-label={t("removeExpense", { name: e.description })}
                     disabled={busy}
                     onClick={() => removeExpense(e.id)}
                   >
@@ -381,16 +382,16 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
           <form onSubmit={addExpense} className="grid gap-3 sm:grid-cols-[1fr_9rem_auto] items-end">
             <div className="space-y-2">
-              <Label htmlFor="expense-desc">Description</Label>
+              <Label htmlFor="expense-desc">{t("description")}</Label>
               <Input
                 id="expense-desc"
-                placeholder="Claude Max subscription"
+                placeholder={t("expensePlaceholder")}
                 value={expense.description}
                 onChange={(e) => setExpense({ ...expense, description: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="expense-amount">Amount</Label>
+              <Label htmlFor="expense-amount">{t("amount")}</Label>
               <Input
                 id="expense-amount"
                 type="number"
@@ -407,7 +408,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               disabled={busy || !expense.description.trim() || !expense.amount}
             >
               <Plus className="h-4 w-4 mr-2" />
-              Add expense
+              {t("addExpense")}
             </Button>
           </form>
         </div>
@@ -418,15 +419,15 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         onOpenChange={(o) => !o && setSending(null)}
         title={
           sending === "remind"
-            ? `Send a past-due reminder for ${invoice.number}?`
-            : `${isDraft ? "Send" : "Resend"} ${invoice.number}?`
+            ? t("remindTitle", { number: invoice.number })
+            : isDraft
+            ? t("sendTitle", { number: invoice.number })
+            : t("resendTitle", { number: invoice.number })
         }
         description={
-          sending === "remind"
-            ? "The invoice PDF goes out again with a past-due note."
-            : "Recipients get the PDF and a link to view it online. Everyone you choose is on one email, so they can reply-all."
+          sending === "remind" ? t("remindDescription") : t("sendDescription")
         }
-        confirmLabel={sending === "remind" ? "Send reminder" : isDraft ? "Send" : "Resend"}
+        confirmLabel={sending === "remind" ? t("sendReminder") : isDraft ? t("send") : t("resend")}
         billingEmails={invoice.client_billing_email}
         senderEmail={user?.primaryEmailAddress?.emailAddress}
         busy={busy}

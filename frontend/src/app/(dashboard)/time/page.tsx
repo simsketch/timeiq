@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useLocale, useTranslations } from "next-intl";
 import {
   addWeeks,
   eachDayOfInterval,
@@ -112,6 +113,9 @@ type Pending =
 export default function TimePage() {
   const { getToken } = useAuth();
   const { toast } = useToast();
+  const t = useTranslations("time");
+  const tc = useTranslations("common");
+  const locale = useLocale();
   const [clients, setClients] = useState<Client[]>([]);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [summary, setSummary] = useState<UnbilledSummary[]>([]);
@@ -159,12 +163,12 @@ export default function TimePage() {
         setSavedRows(r);
         if (m) setTarget(m.weekly_hours_target);
       } catch (e: any) {
-        toast({ title: "Failed to load", description: e.message, variant: "destructive" });
+        toast({ title: t("loadFailed"), description: e.message, variant: "destructive" });
       } finally {
         setLoading(false);
       }
     },
-    [getToken, toast, weekStart, weekEnd]
+    [getToken, toast, weekStart, weekEnd, t]
   );
 
   useEffect(() => {
@@ -215,7 +219,7 @@ export default function TimePage() {
   async function commitCell(row: Row, day: Date, raw: string) {
     const hours = parseHours(raw);
     if (hours === null) {
-      toast({ title: "Enter hours like 2, 2.5, or 2h 30m", variant: "destructive" });
+      toast({ title: t("hoursFormat"), variant: "destructive" });
       return;
     }
     const existing = cellEntries[`${row.key}|${iso(day)}`] ?? [];
@@ -224,7 +228,7 @@ export default function TimePage() {
     const cellKey = `${row.key}|${iso(day)}`;
     if (existing.some(isLocked) && !unlocked.has(cellKey)) return;
     if (hours > 24) {
-      toast({ title: "Hours must be 24 or less", variant: "destructive" });
+      toast({ title: t("hoursMax"), variant: "destructive" });
       return;
     }
 
@@ -261,7 +265,7 @@ export default function TimePage() {
       }
       await load(true);
     } catch (e: any) {
-      toast({ title: "Save failed", description: e.message, variant: "destructive" });
+      toast({ title: t("saveFailed"), description: e.message, variant: "destructive" });
     } finally {
       setSavingCells((s) => {
         const n = new Set(s);
@@ -288,7 +292,7 @@ export default function TimePage() {
       setAddForm({ client_id: addForm.client_id, description: "" });
       setAddOpen(false);
     } catch (err: any) {
-      toast({ title: "Could not add row", description: err.message, variant: "destructive" });
+      toast({ title: t("addRowFailed"), description: err.message, variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -349,8 +353,8 @@ export default function TimePage() {
   ) {
     if (targets.length === 0 && !row.saved_id) {
       toast({
-        title: "Nothing to rename",
-        description: "Every entry in this row is already on an invoice.",
+        title: t("nothingToRename"),
+        description: t("allInvoiced"),
         variant: "destructive",
       });
       return;
@@ -379,15 +383,15 @@ export default function TimePage() {
       const touched = targets.filter(isLocked).length;
       if (touched > 0) {
         toast({
-          title: `Updated ${targets.length} entr${targets.length === 1 ? "y" : "ies"}`,
-          description: `${touched} on ${invoiceList(targets.filter(isLocked))} ${touched === 1 ? "was" : "were"} rewritten and the invoice retotalled.`,
+          title: t("updatedEntries", { count: targets.length }),
+          description: t("rewrittenEntries", { count: touched, invoices: invoiceList(targets.filter(isLocked)) }),
         });
       }
       setPending(null);
       setEditRowKey(null);
       await load(true);
     } catch (e: any) {
-      toast({ title: "Update failed", description: e.message, variant: "destructive" });
+      toast({ title: t("updateFailed"), description: e.message, variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -402,9 +406,9 @@ export default function TimePage() {
       return;
     }
     const msg = unbilled.length
-      ? `Remove this row and its ${unbilled.length} unbilled entr${unbilled.length === 1 ? "y" : "ies"} this week? It will stop appearing in future weeks.`
+      ? t("confirmRemoveRow", { count: unbilled.length })
       : row.saved_id
-      ? `Remove "${row.description}" from your timesheet? It will stop appearing in future weeks.`
+      ? t("confirmRemoveTask", { task: row.description })
       : null;
     if (msg && !confirm(msg)) return;
     await applyRowDelete(row, unbilled);
@@ -413,8 +417,8 @@ export default function TimePage() {
   async function applyRowDelete(row: Row, targets: TimeEntry[]) {
     if (targets.length === 0 && !row.saved_id) {
       toast({
-        title: "Nothing to delete",
-        description: "Every entry in this row is already on an invoice.",
+        title: t("nothingToDelete"),
+        description: t("allInvoiced"),
         variant: "destructive",
       });
       return;
@@ -433,7 +437,7 @@ export default function TimePage() {
       }
       await load(true);
     } catch (e: any) {
-      toast({ title: "Delete failed", description: e.message, variant: "destructive" });
+      toast({ title: t("deleteFailed"), description: e.message, variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -464,12 +468,10 @@ export default function TimePage() {
       }
       setSavedRows((p) => [...p, ...added.filter((a) => !p.some((r) => r.id === a.id))]);
       toast({
-        title: added.length
-          ? `Copied ${added.length} row${added.length === 1 ? "" : "s"} from last week`
-          : "Nothing new to copy from last week",
+        title: added.length ? t("copiedRows", { count: added.length }) : t("nothingToCopy"),
       });
     } catch (e: any) {
-      toast({ title: "Copy failed", description: e.message, variant: "destructive" });
+      toast({ title: t("copyFailed"), description: e.message, variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -478,7 +480,7 @@ export default function TimePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
-        <ClockLoader size="lg" label="Loading timesheet" />
+        <ClockLoader size="lg" label={t("loading")} />
       </div>
     );
   }
@@ -487,15 +489,15 @@ export default function TimePage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Timesheet</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
           <p className="text-muted-foreground mt-2">
-            Enter hours per day. Cells save when you leave them. Billed cells are locked.
+            {t("subtitle")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={copyPreviousWeek} disabled={busy || clients.length === 0}>
             <Copy className="h-4 w-4 mr-2" />
-            Copy previous week
+            {t("copyPreviousWeek")}
           </Button>
           <ImportDialog
             clients={clients}
@@ -509,7 +511,7 @@ export default function TimePage() {
       {clients.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            Add a client first, then log time against it.
+            {t("noClients")}
           </CardContent>
         </Card>
       ) : (
@@ -519,7 +521,7 @@ export default function TimePage() {
               {summary.map((s) => (
                 <Badge key={s.client_id} variant="secondary" className="py-1.5 px-3 font-normal">
                   <span className="font-medium mr-1">{s.client_name}</span>
-                  unbilled {fmtHours(s.unbilled_hours)} · {fmtMoney(s.unbilled_amount, s.currency)}
+                  {t("unbilledBadge", { hours: fmtHours(s.unbilled_hours), amount: fmtMoney(s.unbilled_amount, s.currency, locale) })}
                 </Badge>
               ))}
             </div>
@@ -527,25 +529,25 @@ export default function TimePage() {
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-1">
-              <Button size="icon" variant="ghost" aria-label="Previous week" onClick={() => setWeekStart(addWeeks(weekStart, -1))}>
+              <Button size="icon" variant="ghost" aria-label={t("previousWeek")} onClick={() => setWeekStart(addWeeks(weekStart, -1))}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setWeekStart(weekOf(new Date()))}>
-                Today
+                {tc("today")}
               </Button>
-              <Button size="icon" variant="ghost" aria-label="Next week" onClick={() => setWeekStart(addWeeks(weekStart, 1))}>
+              <Button size="icon" variant="ghost" aria-label={t("nextWeek")} onClick={() => setWeekStart(addWeeks(weekStart, 1))}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
               <span className="ml-2 text-sm text-muted-foreground">
-                Showing time for{" "}
-                <span className="font-medium text-foreground">
-                  {format(weekStart, "d")} – {format(weekEnd, "d MMMM yyyy")}
-                </span>
+                {t.rich("showingWeek", {
+                  range: new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric" }).formatRange(weekStart, weekEnd),
+                  strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+                })}
               </span>
             </div>
             <Button size="sm" onClick={() => { setAddForm((f) => ({ ...f, client_id: f.client_id || clients[0].id })); setAddOpen(true); }}>
               <Plus className="h-4 w-4 mr-2" />
-              Add row
+              {t("addRow")}
             </Button>
           </div>
 
@@ -554,8 +556,8 @@ export default function TimePage() {
               <table className="w-full text-sm min-w-[56rem]">
                 <thead>
                   <tr className="text-[11px] uppercase tracking-wide text-muted-foreground border-b">
-                    <th className="text-left font-semibold px-4 py-3 w-[14rem]">Client</th>
-                    <th className="text-left font-semibold px-2 py-3">Task</th>
+                    <th className="text-left font-semibold px-4 py-3 w-[14rem]">{t("client")}</th>
+                    <th className="text-left font-semibold px-2 py-3">{t("task")}</th>
                     {days.map((d) => {
                       const weekend = d.getDay() === 0 || d.getDay() === 6;
                       return (
@@ -567,8 +569,8 @@ export default function TimePage() {
                             isToday(d) && "text-primary"
                           )}
                         >
-                          <div>{format(d, "EEEE")}</div>
-                          <div className="font-normal normal-case">{format(d, "dd MMM")}</div>
+                          <div>{d.toLocaleDateString(locale, { weekday: "long" })}</div>
+                          <div className="font-normal normal-case">{d.toLocaleDateString(locale, { day: "2-digit", month: "short" })}</div>
                         </th>
                       );
                     })}
@@ -579,7 +581,7 @@ export default function TimePage() {
                   {rows.length === 0 && (
                     <tr>
                       <td colSpan={days.length + 3} className="px-4 py-10 text-center text-muted-foreground">
-                        No rows yet. Add a row once and it stays on your timesheet every week.
+                        {t("emptyRows")}
                       </td>
                     </tr>
                   )}
@@ -590,7 +592,7 @@ export default function TimePage() {
                           <td className="px-3 py-1.5">
                             <Select value={rowEdit.client_id} onValueChange={(v) => setRowEdit({ ...rowEdit, client_id: v })}>
                               <SelectTrigger className="h-9">
-                                <SelectValue placeholder="Client" />
+                                <SelectValue placeholder={t("client")} />
                               </SelectTrigger>
                               <SelectContent>
                                 {clients.map((c) => (
@@ -613,10 +615,10 @@ export default function TimePage() {
                                   if (e.key === "Escape") setEditRowKey(null);
                                 }}
                               />
-                              <Button size="icon" variant="ghost" aria-label="Save row" disabled={busy} onClick={() => saveRowEdit(row)}>
+                              <Button size="icon" variant="ghost" aria-label={t("saveRow")} disabled={busy} onClick={() => saveRowEdit(row)}>
                                 <Check className="h-4 w-4" />
                               </Button>
-                              <Button size="icon" variant="ghost" aria-label="Cancel" onClick={() => setEditRowKey(null)}>
+                              <Button size="icon" variant="ghost" aria-label={tc("cancel")} onClick={() => setEditRowKey(null)}>
                                 <X className="h-4 w-4" />
                               </Button>
                             </div>
@@ -640,7 +642,10 @@ export default function TimePage() {
                       {days.map((d) => (
                         <td key={iso(d)} className="px-1 py-1.5 text-center">
                           <HourCell
-                            label={`Hours for ${row.client_name}${row.description ? `, ${row.description}` : ""} on ${format(d, "EEEE d MMMM")}`}
+                            label={t("cellLabel", {
+                              row: row.description ? `${row.client_name}, ${row.description}` : row.client_name,
+                              date: d.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" }),
+                            })}
                             value={cellHours(row, d)}
                             billed={cellBilled(row, d)}
                             unlocked={unlocked.has(`${row.key}|${iso(d)}`)}
@@ -655,7 +660,7 @@ export default function TimePage() {
                         </td>
                       ))}
                       <td className="px-1 py-1.5 text-center">
-                        <Button size="icon" variant="ghost" aria-label="Remove row" disabled={busy} onClick={() => deleteRow(row)}>
+                        <Button size="icon" variant="ghost" aria-label={t("removeRow")} disabled={busy} onClick={() => deleteRow(row)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </td>
@@ -667,7 +672,7 @@ export default function TimePage() {
                     <td className="px-4 py-3" colSpan={2}>
                       <div className="flex items-center gap-3">
                         <span>
-                          Timesheet total: {fmtHm(weekTotal) || "0h"}
+                          {t("total", { hours: fmtHm(weekTotal) || "0h" })}
                           {target > 0 && <span className="text-muted-foreground font-normal"> / {target}h</span>}
                         </span>
                         {target > 0 && (
@@ -698,15 +703,15 @@ export default function TimePage() {
         <DialogContent className="max-w-md">
           <form onSubmit={addRow}>
             <DialogHeader>
-              <DialogTitle>Add row</DialogTitle>
-              <DialogDescription>A row is a client plus a task. Hours go in the day cells.</DialogDescription>
+              <DialogTitle>{t("addRow")}</DialogTitle>
+              <DialogDescription>{t("addRowDescription")}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Client</Label>
+                <Label>{t("client")}</Label>
                 <Select value={addForm.client_id} onValueChange={(v) => setAddForm({ ...addForm, client_id: v })}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Client" />
+                    <SelectValue placeholder={t("client")} />
                   </SelectTrigger>
                   <SelectContent>
                     {clients.map((c) => (
@@ -718,7 +723,7 @@ export default function TimePage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="task">Task</Label>
+                <Label htmlFor="task">{t("task")}</Label>
                 <TaskCombobox
                   id="task"
                   clientId={addForm.client_id}
@@ -736,7 +741,7 @@ export default function TimePage() {
             </div>
             <DialogFooter>
               <Button type="submit" disabled={!addForm.client_id || !addForm.description.trim()}>
-                Add
+                {tc("add")}
               </Button>
             </DialogFooter>
           </form>
@@ -748,49 +753,26 @@ export default function TimePage() {
           <DialogHeader>
             <DialogTitle>
               {pending?.kind === "delete"
-                ? "Delete billed time?"
+                ? t("deleteBilledTitle")
                 : pending?.kind === "cell"
-                ? "Edit billed time?"
-                : `Rename "${pending?.row.description ?? ""}"?`}
+                ? t("editBilledTitle")
+                : t("renameTitle", { task: pending?.row.description ?? "" })}
             </DialogTitle>
             <DialogDescription>
               {pending?.kind === "cell" ? (
-                <>
-                  These hours are billed on {pending.entry.invoice_number}. Editing
-                  them rewrites that invoice line and retotals the invoice.
-                </>
+                t("cellBilledBody", { invoice: pending.entry.invoice_number ?? "" })
               ) : pending?.kind === "edit" ? (
                 <>
-                  This task has {pending.thisWeek.length}{" "}
-                  {pending.thisWeek.length === 1 ? "entry" : "entries"} in the week on
-                  screen
-                  {pending.allWeeks.length > pending.thisWeek.length && (
-                    <>
-                      {" "}
-                      and {pending.allWeeks.length - pending.thisWeek.length} in other
-                      weeks
-                    </>
-                  )}
-                  .
-                  {pending.allWeeks.some(isLocked) && (
-                    <>
-                      {" "}
-                      {pending.allWeeks.filter(isLocked).length} of them are
-                      billed on {invoiceList(pending.allWeeks)}; renaming those rewrites
-                      the invoice lines and retotals the invoice.
-                    </>
-                  )}
-                  {pending.merges && (
-                    <> This name is already in use, so the two rows will merge.</>
-                  )}
+                  {t("renameCounts", {
+                    count: pending.thisWeek.length,
+                    others: pending.allWeeks.length - pending.thisWeek.length,
+                  })}
+                  {pending.allWeeks.some(isLocked) &&
+                    ` ${t("renameBilled", { count: pending.allWeeks.filter(isLocked).length, invoices: invoiceList(pending.allWeeks) })}`}
+                  {pending.merges && ` ${t("renameMerges")}`}
                 </>
               ) : pending?.kind === "delete" ? (
-                <>
-                  {pending.billed.length} of {pending.all.length} entries in this row
-                  are billed on {invoiceList(pending.billed)}. Deleting them removes
-                  those invoice lines and retotals{" "}
-                  {pending.billed.length === 1 ? "the invoice" : "the invoices"}.
-                </>
+                t("deleteBilledBody", { count: pending.billed.length, total: pending.all.length, invoices: invoiceList(pending.billed) })
               ) : null}
             </DialogDescription>
           </DialogHeader>
@@ -798,13 +780,12 @@ export default function TimePage() {
             (pending?.kind === "edit" && pending.allWeeks.some(isLocked)) ||
             (pending?.kind === "delete" && pending.billed.length > 0)) && (
             <p className="text-sm text-muted-foreground">
-              Invoices you have already sent will no longer match the copy your client
-              received.
+              {t("sentWarning")}
             </p>
           )}
           <DialogFooter className="gap-2 sm:gap-2">
             <Button variant="outline" onClick={() => setPending(null)} disabled={busy}>
-              Cancel
+              {tc("cancel")}
             </Button>
             {pending?.kind === "edit" &&
               pending.allWeeks.some((e) => !isLocked(e)) && (
@@ -820,7 +801,7 @@ export default function TimePage() {
                     )
                   }
                 >
-                  Unbilled only
+                  {t("unbilledOnly")}
                 </Button>
               )}
             {pending?.kind === "edit" &&
@@ -838,7 +819,7 @@ export default function TimePage() {
                     )
                   }
                 >
-                  This week only
+                  {t("thisWeekOnly")}
                 </Button>
               )}
             {pending?.kind === "delete" && pending.all.some((e) => !isLocked(e)) && (
@@ -849,7 +830,7 @@ export default function TimePage() {
                   applyRowDelete(pending.row, pending.all.filter((e) => !isLocked(e)))
                 }
               >
-                Unbilled only
+                {t("unbilledOnly")}
               </Button>
             )}
             <Button
@@ -873,12 +854,12 @@ export default function TimePage() {
               }}
             >
               {pending?.kind === "cell"
-                ? "Edit anyway"
+                ? t("editAnyway")
                 : pending?.kind === "delete"
-                ? "Delete all"
+                ? t("deleteAll")
                 : pending && pending.kind === "edit" && pending.allWeeks.length > pending.thisWeek.length
-                ? "Rename all weeks"
-                : "Rename all"}
+                ? t("renameAllWeeks")
+                : t("renameAll")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -906,6 +887,7 @@ function HourCell({
   onCommit: (raw: string) => void;
   onUnlock: () => void;
 }) {
+  const t = useTranslations("time");
   const [draft, setDraft] = useState<string | null>(null);
   const ref = useRef<HTMLInputElement>(null);
   const display = draft ?? fmtHm(value);
@@ -915,8 +897,8 @@ function HourCell({
       <button
         type="button"
         onClick={onUnlock}
-        aria-label={`${label}: ${fmtHm(value)}, billed on ${billed.invoice_number}. Edit anyway`}
-        title={`Billed on ${billed.invoice_number} - click to edit anyway`}
+        aria-label={t("billedCellLabel", { label, hours: fmtHm(value), invoice: billed.invoice_number ?? "" })}
+        title={t("billedCellTitle", { invoice: billed.invoice_number ?? "" })}
         className="h-9 w-full rounded-md border border-dashed bg-muted/50 text-muted-foreground flex items-center justify-center tabular-nums hover:border-foreground/40 hover:text-foreground transition-colors"
       >
         {fmtHm(value)}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useLocale, useTranslations } from "next-intl";
 import { Check, Copy, KeyRound, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,13 +41,13 @@ function setupSnippet(client: Client, token: string) {
   );
 }
 
-function when(iso: string | null) {
-  return iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "never";
-}
-
 export function ApiTokensCard() {
   const { getToken } = useAuth();
   const { toast } = useToast();
+  const t = useTranslations("apiTokens");
+  const locale = useLocale();
+  const when = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" }) : t("never");
   const [tokens, setTokens] = useState<ApiToken[] | null>(null);
   const [apps, setApps] = useState<ConnectedApp[] | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -87,13 +88,13 @@ export function ApiTokensCard() {
       const out = await apiFetch<ApiToken & { token: string }>("/api/me/tokens", {
         method: "POST",
         headers: await authed(),
-        body: JSON.stringify({ name: name.trim() || "AI assistant" }),
+        body: JSON.stringify({ name: name.trim() || t("defaultName") }),
       });
       setCreated(out.token);
       setName("");
       await load();
     } catch (error) {
-      toast({ title: "Couldn't create a token", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+      toast({ title: t("createFailed"), description: error instanceof Error ? error.message : t("tryAgain"), variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -102,10 +103,10 @@ export function ApiTokensCard() {
   async function revoke(token: ApiToken) {
     try {
       await apiFetch(`/api/me/tokens/${token.id}`, { method: "DELETE", headers: await authed() });
-      toast({ title: `Revoked "${token.name}"`, description: "Anything using it stops working right away." });
+      toast({ title: t("revoked", { name: token.name }), description: t("revokedBody") });
       await load();
     } catch (error) {
-      toast({ title: "Couldn't revoke the token", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+      toast({ title: t("revokeFailed"), description: error instanceof Error ? error.message : t("tryAgain"), variant: "destructive" });
     }
   }
 
@@ -118,81 +119,79 @@ export function ApiTokensCard() {
   async function disconnect(app: ConnectedApp) {
     try {
       await apiFetch(`/api/me/connections/${app.id}`, { method: "DELETE", headers: await authed() });
-      toast({ title: `Disconnected ${app.client_name}` });
+      toast({ title: t("disconnected", { name: app.client_name }) });
       await load();
     } catch (error) {
-      toast({ title: "Couldn't disconnect the app", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+      toast({ title: t("disconnectFailed"), description: error instanceof Error ? error.message : t("tryAgain"), variant: "destructive" });
     }
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>AI assistants (MCP)</CardTitle>
+        <CardTitle>{t("title")}</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Connect TimeIQ to Claude, ChatGPT, Cursor or any MCP client, then ask things like &ldquo;when am I free
-          Thursday?&rdquo; or &ldquo;find a time with Ana next week&rdquo;. Assistants check with you before
-          sending anything.
+          {t("body")}
         </p>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="space-y-2">
-          <p className="text-sm">Claude (web and desktop) and ChatGPT: add a custom connector with this URL.</p>
+          <p className="text-sm">{t("connectorHelp")}</p>
           <div className="flex gap-2">
-            <Input value={MCP_URL} readOnly className="font-mono text-xs" aria-label="MCP connector URL" />
-            <Button type="button" variant="outline" onClick={() => copy(MCP_URL, "url")} aria-label="Copy connector URL">
+            <Input value={MCP_URL} readOnly className="font-mono text-xs" aria-label={t("connectorUrl")} />
+            <Button type="button" variant="outline" onClick={() => copy(MCP_URL, "url")} aria-label={t("copyConnector")}>
               {copied === "url" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">Sign in and click Allow. No token needed.</p>
+          <p className="text-xs text-muted-foreground">{t("noToken")}</p>
         </div>
 
         <div className="space-y-2">
-          <h3 className="text-sm font-medium">Connected apps</h3>
-          {apps === null ? !loadError && <p className="text-sm text-muted-foreground">Loading connected apps…</p> : apps.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No connected apps yet.</p>
+          <h3 className="text-sm font-medium">{t("apps")}</h3>
+          {apps === null ? !loadError && <p className="text-sm text-muted-foreground">{t("loadingApps")}</p> : apps.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("noApps")}</p>
           ) : (
             <ul className="divide-y rounded-lg border">
               {apps.map((app) => (
                 <li key={app.id} className="flex items-center gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{app.client_name}</p>
-                    <p className="text-xs text-muted-foreground">Connected {when(app.created_at)} · last used {when(app.last_used_at)}</p>
+                    <p className="text-xs text-muted-foreground">{t("appMeta", { created: when(app.created_at), used: when(app.last_used_at) })}</p>
                   </div>
-                  <Button type="button" variant="outline" size="sm" onClick={() => disconnect(app)}>Disconnect</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => disconnect(app)}>{t("disconnect")}</Button>
                 </li>
               ))}
             </ul>
           )}
         </div>
 
-        {loadError && <p role="alert" className="text-sm text-destructive">Couldn&apos;t load your connections. <button type="button" onClick={load} className="underline">Try again</button>.</p>}
+        {loadError && <p role="alert" className="text-sm text-destructive">{t.rich("loadError", { retry: (chunks) => <button type="button" onClick={load} className="underline">{chunks}</button> })}</p>}
 
-        <h3 className="text-sm font-medium">Personal tokens for Claude Code, Cursor and other clients</h3>
+        <h3 className="text-sm font-medium">{t("tokensHeading")}</h3>
         <form onSubmit={create} className="flex gap-2">
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Name this token, e.g. Claude Code"
+            placeholder={t("namePlaceholder")}
             maxLength={100}
-            aria-label="Token name"
+            aria-label={t("nameLabel")}
           />
           <Button type="submit" disabled={busy} className="shrink-0">
-            <KeyRound className="mr-1.5 h-4 w-4" /> Create token
+            <KeyRound className="mr-1.5 h-4 w-4" /> {t("create")}
           </Button>
         </form>
 
         {created && (
           <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
-            <p className="text-sm font-medium">Copy this token now. TimeIQ won&apos;t show it again.</p>
+            <p className="text-sm font-medium">{t("copyNow")}</p>
             <div className="flex gap-2">
-              <Input value={created} readOnly className="font-mono text-xs" aria-label="New token" />
-              <Button type="button" variant="outline" onClick={() => copy(created, "token")} aria-label="Copy token">
+              <Input value={created} readOnly className="font-mono text-xs" aria-label={t("newToken")} />
+              <Button type="button" variant="outline" onClick={() => copy(created, "token")} aria-label={t("copyToken")}>
                 {copied === "token" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
-            <div className="flex gap-1 text-xs" role="tablist" aria-label="Setup instructions">
-              {([["claude-code", "Claude Code"], ["json", "Cursor and other clients"]] as const).map(([id, label]) => (
+            <div className="flex gap-1 text-xs" role="tablist" aria-label={t("setupTabs")}>
+              {([["claude-code", "Claude Code"], ["json", t("otherClients")]] as const).map(([id, label]) => (
                 <button
                   key={id}
                   type="button"
@@ -213,34 +212,34 @@ export function ApiTokensCard() {
                 size="sm"
                 className="absolute right-1.5 top-1.5"
                 onClick={() => copy(setupSnippet(client, created), "setup")}
-                aria-label="Copy setup"
+                aria-label={t("copySetup")}
               >
                 {copied === "setup" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
               {client === "claude-code"
-                ? "Run it in a terminal; TimeIQ's tools appear in your next Claude Code session."
-                : "Add this JSON to the client's MCP settings (Cursor: Settings → MCP)."}
-              {" "}Server URL: <code className="font-mono">{MCP_URL}</code>
+                ? t("claudeCodeHelp")
+                : t("jsonHelp")}
+              {" "}{t("serverUrl")} <code className="font-mono">{MCP_URL}</code>
             </p>
           </div>
         )}
 
         <div>
           {tokens === null ? null : tokens.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No tokens yet.</p>
+            <p className="text-sm text-muted-foreground">{t("noTokens")}</p>
           ) : (
             <ul className="divide-y rounded-lg border">
-              {tokens.map((t) => (
-                <li key={t.id} className="flex items-center gap-3 px-4 py-3">
+              {tokens.map((token) => (
+                <li key={token.id} className="flex items-center gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{t.name}</p>
+                    <p className="truncate text-sm font-medium">{token.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      <span className="font-mono">{t.prefix}…</span> · created {when(t.created_at)} · last used {when(t.last_used_at)}
+                      <span className="font-mono">{token.prefix}…</span> · {t("tokenMeta", { created: when(token.created_at), used: when(token.last_used_at) })}
                     </p>
                   </div>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => revoke(t)} aria-label={`Revoke ${t.name}`}>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => revoke(token)} aria-label={t("revokeLabel", { name: token.name })}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </li>

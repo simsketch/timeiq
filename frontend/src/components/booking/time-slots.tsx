@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { slotOptions, timeZoneLabel } from "@/lib/booking-time";
@@ -22,9 +23,11 @@ export function TimeSlots({
   onSlotSelect,
   loading = false,
 }: TimeSlotsProps) {
+  const t = useTranslations("booking.slots");
+  const locale = useLocale();
   const zone = (
     <p className="text-[11px] font-mono text-muted-foreground/80 mb-4">
-      Times in your timezone: {timeZoneLabel(date)}
+      {t("zone", { zone: timeZoneLabel(date) })}
     </p>
   );
 
@@ -33,7 +36,7 @@ export function TimeSlots({
       <>
         {zone}
         <div className="flex items-center justify-center py-12">
-          <ClockLoader size="md" label="Checking availability" />
+          <ClockLoader size="md" label={t("checking")} />
         </div>
       </>
     );
@@ -44,14 +47,14 @@ export function TimeSlots({
       <>
         {zone}
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="text-sm text-muted-foreground mb-1">No times available</p>
-          <p className="text-xs text-muted-foreground/70">Try another date</p>
+          <p className="text-sm text-muted-foreground mb-1">{t("none")}</p>
+          <p className="text-xs text-muted-foreground/70">{t("tryAnotherDate")}</p>
         </div>
       </>
     );
   }
 
-  const options = slotOptions(slots, date);
+  const options = slotOptions(slots, date, locale);
   const crossesDays = options.some((o) => o.note);
 
   return (
@@ -59,7 +62,7 @@ export function TimeSlots({
       {zone}
       {crossesDays && (
         <p className="text-xs text-muted-foreground mb-3 text-pretty">
-          Some of these times fall on a different day where you are. Those show their date.
+          {t("crossesDays")}
         </p>
       )}
       <div className="grid grid-cols-2 gap-2 max-h-[22rem] overflow-y-auto pr-1">

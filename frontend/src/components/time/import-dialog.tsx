@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useLocale, useTranslations } from "next-intl";
 import { CalendarSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +45,9 @@ function sameSearch(a: SearchKey, b: SearchKey) {
 export function ImportDialog({ clients, defaultStart, defaultEnd, onImported }: Props) {
   const { getToken } = useAuth();
   const { toast } = useToast();
+  const t = useTranslations("time.import");
+  const tt = useTranslations("time");
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [clientId, setClientId] = useState(clients[0]?.id ?? "");
   const [start, setStart] = useState(defaultStart);
@@ -101,7 +105,7 @@ export function ImportDialog({ clients, defaultStart, defaultEnd, onImported }: 
       setSearchedFor(key);
     } catch (e: any) {
       if (seq !== searchSeq.current) return;
-      toast({ title: "Search failed", description: e.message, variant: "destructive" });
+      toast({ title: t("searchFailed"), description: e.message, variant: "destructive" });
     } finally {
       if (seq === searchSeq.current) setSearching(false);
     }
@@ -127,12 +131,12 @@ export function ImportDialog({ clients, defaultStart, defaultEnd, onImported }: 
           })),
         }),
       });
-      toast({ title: `Imported ${picked.length} entr${picked.length === 1 ? "y" : "ies"}` });
+      toast({ title: t("imported", { count: picked.length }) });
       setOpen(false);
       resetResults();
       onImported();
     } catch (e: any) {
-      toast({ title: "Import failed", description: e.message, variant: "destructive" });
+      toast({ title: t("importFailed"), description: e.message, variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -159,22 +163,20 @@ export function ImportDialog({ clients, defaultStart, defaultEnd, onImported }: 
       <DialogTrigger asChild>
         <Button variant="outline" disabled={clients.length === 0}>
           <CalendarSearch className="h-4 w-4 mr-2" />
-          Import from calendar
+          {t("title")}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Import from calendar</DialogTitle>
-          <DialogDescription>
-            Finds synced calendar events whose title matches the client&apos;s keywords.
-          </DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto] items-end">
           <div className="space-y-2">
-            <Label>Client</Label>
+            <Label>{tt("client")}</Label>
             <Select value={clientId} onValueChange={changeClient}>
               <SelectTrigger>
-                <SelectValue placeholder="Client" />
+                <SelectValue placeholder={tt("client")} />
               </SelectTrigger>
               <SelectContent>
                 {clients.map((c) => (
@@ -186,25 +188,25 @@ export function ImportDialog({ clients, defaultStart, defaultEnd, onImported }: 
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>From</Label>
+            <Label>{t("from")}</Label>
             <Input type="date" value={start} onChange={(e) => changeStart(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>To</Label>
+            <Label>{t("to")}</Label>
             <Input type="date" value={end} onChange={(e) => changeEnd(e.target.value)} />
           </div>
           <Button onClick={search} disabled={busy || searching || !clientId}>
-            {searching ? "Searching..." : "Search"}
+            {searching ? t("searching") : t("search")}
           </Button>
         </div>
         {client && !client.match_keywords && (
           <p className="text-sm text-amber-600">
-            This client has no calendar keywords. Add some on the Clients page first.
+            {t("noKeywords")}
           </p>
         )}
         {results && results.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No matching events that aren&apos;t already logged.
+            {t("noMatches")}
           </p>
         )}
         {results && results.length > 0 && (
@@ -219,8 +221,9 @@ export function ImportDialog({ clients, defaultStart, defaultEnd, onImported }: 
                   checked={r.checked}
                   onChange={(e) => update(i, { checked: e.target.checked })}
                   className="h-4 w-4"
+                  aria-label={t("include", { title: r.description })}
                 />
-                <span className="text-sm">{fmtDate(r.entry_date, undefined, { month: "short", day: "numeric" })}</span>
+                <span className="text-sm">{fmtDate(r.entry_date, locale, { month: "short", day: "numeric" })}</span>
                 <Input value={r.description} onChange={(e) => update(i, { description: e.target.value })} />
                 <Input
                   type="number"
@@ -236,7 +239,7 @@ export function ImportDialog({ clients, defaultStart, defaultEnd, onImported }: 
         <DialogFooter>
           <Button onClick={importChecked} disabled={busy || searching || !results || results.every((r) => !r.checked)}
           >
-            Import selected
+            {t("importSelected")}
           </Button>
         </DialogFooter>
       </DialogContent>

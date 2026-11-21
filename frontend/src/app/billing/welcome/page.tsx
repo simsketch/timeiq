@@ -4,11 +4,12 @@ import { Suspense, useEffect, useState } from "react";
 import { SignUp, useAuth } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ClockLoader } from "@/components/ui/clock-loader";
 import { track } from "@/components/meta-pixel";
-import { GuestSession, PLAN_LABEL, fetchGuestSession } from "@/lib/billing";
+import { GuestSession, fetchGuestSession } from "@/lib/billing";
 
 /** Report a purchase once per checkout, even if the page is reloaded. */
 function trackPurchaseOnce(sessionId: string, s: GuestSession) {
@@ -27,10 +28,11 @@ function trackPurchaseOnce(sessionId: string, s: GuestSession) {
 /** After paying without an account: confirm the purchase, then create the account. */
 function WelcomeInner() {
   const { isLoaded, isSignedIn } = useAuth();
+  const t = useTranslations("billing");
   const router = useRouter();
   const sessionId = useSearchParams().get("session_id");
   const [session, setSession] = useState<GuestSession | null>(null);
-  const [error, setError] = useState<string | null>(sessionId ? null : "This link is missing its checkout details.");
+  const [error, setError] = useState<string | null>(sessionId ? null : t("missingDetails"));
 
   const finishUrl = sessionId ? `/billing/success?session_id=${encodeURIComponent(sessionId)}&guest=1` : "/dashboard";
 
@@ -49,17 +51,17 @@ function WelcomeInner() {
           // Stripe can take a few seconds to confirm the payment.
           setTimeout(load, 2000);
         } else {
-          setError("We haven't received confirmation of your payment yet. If you were charged, refresh this page in a minute.");
+          setError(t("notConfirmed"));
         }
       } catch (e: unknown) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Could not find your checkout.");
+        if (!cancelled) setError(e instanceof Error ? e.message : t("notFound"));
       }
     }
     load();
     return () => {
       cancelled = true;
     };
-  }, [sessionId]);
+  }, [sessionId, t]);
 
   // Already signed in: attach the purchase to this account straight away.
   useEffect(() => {
@@ -74,9 +76,9 @@ function WelcomeInner() {
           <div className="glass glass-chroma rounded-[1.75rem] p-10 text-center space-y-4">
             <p className="text-muted-foreground text-pretty">{error}</p>
             <p className="text-xs text-muted-foreground">
-              Need a hand? Email hello@timeiq.app and we&apos;ll sort it out.
+              {t("help")}
             </p>
-            <Button asChild variant="outline"><Link href="/">Back to TimeIQ</Link></Button>
+            <Button asChild variant="outline"><Link href="/">{t("backHome")}</Link></Button>
           </div>
         ) : session && isLoaded && !isSignedIn ? (
           <>
@@ -84,10 +86,12 @@ function WelcomeInner() {
               <div className="h-12 w-12 mx-auto rounded-full bg-[hsl(var(--aurora-4))] flex items-center justify-center">
                 <CheckCircle2 className="h-6 w-6 text-white" />
               </div>
-              <h1 className="font-display text-3xl tracking-[-0.02em]">You&apos;re in.</h1>
+              <h1 className="font-display text-3xl tracking-[-0.02em]">{t("youreIn")}</h1>
               <p className="text-muted-foreground text-pretty">
-                {PLAN_LABEL[session.plan]} spot secured{session.trialing ? ", and your 7-day free trial has started" : ""}. One last step: create your account
-                {session.email ? <> with <span className="text-foreground">{session.email}</span></> : null} to open your workspace.
+                {t(session.trialing ? "secured.trial" : "secured.paid", { plan: session.plan === "founder" ? "founder" : "standard" })}{" "}
+                {session.email
+                  ? t.rich("lastStepEmail", { email: session.email, b: (chunks) => <span className="text-foreground">{chunks}</span> })
+                  : t("lastStep")}
               </p>
             </div>
             <div className="flex justify-center">
@@ -101,7 +105,7 @@ function WelcomeInner() {
           </>
         ) : (
           <div className="flex justify-center">
-            <ClockLoader size="lg" label="Confirming your payment" />
+            <ClockLoader size="lg" label={t("confirmingPayment")} />
           </div>
         )}
       </div>

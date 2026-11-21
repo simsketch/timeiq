@@ -114,19 +114,12 @@ export function invoiceTotals(lines: InvoiceLine[]) {
   return { hours, timeAmount, expenseAmount, total: timeAmount + expenseAmount };
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** Compact range; the period line already carries the year. */
-export function fmtSpan(first: string, last: string): string {
+/** Compact range; the period line already carries the year unless the span crosses one. */
+export function fmtSpan(first: string, last: string, locale = "en"): string {
   const a = parseDay(first);
   const b = parseDay(last);
-  const short = (d: Date) => `${MONTHS[d.getMonth()]} ${d.getDate()}`;
-  if (first === last) return short(a);
-  if (a.getFullYear() !== b.getFullYear()) {
-    return `${short(a)}, ${a.getFullYear()} - ${short(b)}, ${b.getFullYear()}`;
-  }
-  if (a.getMonth() === b.getMonth()) return `${short(a)} - ${b.getDate()}`;
-  return `${short(a)} - ${short(b)}`;
+  const year = a.getFullYear() !== b.getFullYear() ? "numeric" : undefined;
+  return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", year }).formatRange(a, b);
 }
 
 /** Date of day `i` (0 = Sunday) in the week starting `weekStart`, as YYYY-MM-DD. */

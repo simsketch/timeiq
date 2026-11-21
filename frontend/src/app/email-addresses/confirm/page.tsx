@@ -3,15 +3,17 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { CheckCircle2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiFetch, errorMessage } from "@/lib/api";
 
 function ConfirmInner() {
   const token = useSearchParams().get("token");
+  const t = useTranslations("misc");
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(token ? null : "This confirmation link is missing its code. Request another from Calendars.");
+  const [error, setError] = useState<string | null>(token ? null : t("confirmMissing"));
 
   async function confirm() {
     setBusy(true);
@@ -33,23 +35,23 @@ function ConfirmInner() {
       <div className="relative z-10 glass glass-chroma rounded-[1.75rem] p-10 max-w-md w-full text-center space-y-5">
         {error ? (
           <>
-            <h1 className="font-display text-2xl tracking-[-0.02em]">Couldn&apos;t confirm this address</h1>
+            <h1 className="font-display text-2xl tracking-[-0.02em]">{t("confirmFailed")}</h1>
             <p className="text-muted-foreground text-pretty">{error}</p>
-            <Button asChild variant="outline"><Link href="/calendars">Open your calendars</Link></Button>
+            <Button asChild variant="outline"><Link href="/calendars">{t("openCalendars")}</Link></Button>
           </>
         ) : email ? (
           <>
             <CheckCircle2 className="h-10 w-10 mx-auto text-[hsl(var(--aurora-4))]" />
-            <h1 className="font-display text-2xl tracking-[-0.02em]">Email address confirmed</h1>
-            <p className="text-muted-foreground text-pretty">You can now cc or forward to the TimeIQ agent from {email}.</p>
-            <Button asChild variant="outline"><Link href="/calendars">Open your calendars</Link></Button>
+            <h1 className="font-display text-2xl tracking-[-0.02em]">{t("confirmed")}</h1>
+            <p className="text-muted-foreground text-pretty">{t("confirmedBody", { email })}</p>
+            <Button asChild variant="outline"><Link href="/calendars">{t("openCalendars")}</Link></Button>
           </>
         ) : (
           <>
-            <h1 className="font-display text-2xl tracking-[-0.02em]">Confirm your email address</h1>
-            <p className="text-muted-foreground text-pretty">This lets TimeIQ recognize email you send from this address and act on your scheduling requests.</p>
+            <h1 className="font-display text-2xl tracking-[-0.02em]">{t("confirmTitle")}</h1>
+            <p className="text-muted-foreground text-pretty">{t("confirmBody")}</p>
             <Button variant="aurora" size="lg" onClick={confirm} disabled={busy}>
-              <Mail className="h-4 w-4" />{busy ? "Confirming…" : "Confirm email address"}
+              <Mail className="h-4 w-4" />{busy ? t("confirming") : t("confirmButton")}
             </Button>
           </>
         )}

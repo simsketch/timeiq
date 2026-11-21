@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -27,28 +28,25 @@ interface AvailabilityRule {
   is_active: boolean;
 }
 
-const DAYS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
+/** Monday first, matching day_of_week 0 to 6; names come from the UI language. */
+const dayNames = (locale: string) =>
+  Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: "long" }));
 
-const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
+const timeSlots = (locale: string) => Array.from({ length: 48 }, (_, i) => {
   const hour = Math.floor(i / 2);
   const minute = i % 2 === 0 ? "00" : "30";
-  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-  const period = hour < 12 ? "AM" : "PM";
   return {
     value: `${String(hour).padStart(2, "0")}:${minute}:00`,
-    label: `${displayHour}:${minute} ${period}`,
+    label: new Date(2000, 0, 1, hour, Number(minute)).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
   };
 });
 
 export default function AvailabilityPage() {
+  const t = useTranslations("availability");
+  const tc = useTranslations("common");
+  const locale = useLocale();
+  const DAYS = useMemo(() => dayNames(locale), [locale]);
+  const TIME_SLOTS = useMemo(() => timeSlots(locale), [locale]);
   const { getToken } = useAuth();
   const { toast } = useToast();
   const [availability, setAvailability] = useState<AvailabilityRule[]>([]);
@@ -82,7 +80,7 @@ export default function AvailabilityPage() {
       }
     } catch (error) {
       console.error("Failed to fetch availability:", error);
-      setLoadError("We couldn't load your weekly hours, so they can't be edited right now.");
+      setLoadError(t("loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -98,10 +96,10 @@ export default function AvailabilityPage() {
         body: JSON.stringify({ rules: availability }),
       });
       setUsingDefaults(false);
-      toast({ title: "Availability updated successfully" });
+      toast({ title: t("saved") });
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: tc("error"),
         description: error.message,
         variant: "destructive",
       });
@@ -127,7 +125,7 @@ export default function AvailabilityPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
-        <ClockLoader size="lg" label="Loading availability" />
+        <ClockLoader size="lg" label={t("loading")} />
       </div>
     );
   }
@@ -135,25 +133,25 @@ export default function AvailabilityPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Availability</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
         <p className="text-muted-foreground mt-2">
-          Set your weekly working hours
+          {t("subtitle")}
         </p>
       </div>
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
         <Card>
           <CardHeader>
-            <CardTitle>Weekly hours</CardTitle>
+            <CardTitle>{t("weeklyHours")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {loadError && (
               <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/40 p-4 text-sm">
                 <span>{loadError}</span>
-                <Button size="sm" variant="outline" onClick={() => fetchAvailability()}>Try again</Button>
+                <Button size="sm" variant="outline" onClick={() => fetchAvailability()}>{tc("retry")}</Button>
               </div>
             )}
-            {usingDefaults && <p className="text-sm text-muted-foreground">No weekly hours saved yet. These default hours are a starting point. Adjust them and save your availability.</p>}
+            {usingDefaults && <p className="text-sm text-muted-foreground">{t("defaultsHint")}</p>}
             {DAYS.map((day, index) => {
               const rule = availability.find((r) => r.day_of_week === index);
               if (!rule) return null;
@@ -163,7 +161,7 @@ export default function AvailabilityPage() {
                   key={index}
                   className="flex flex-wrap items-center gap-3 p-4 border rounded-lg"
                 >
-                  <div className="w-24">
+                  <div className="w-28">
                     <Label className="font-medium">{day}</Label>
                   </div>
                   <Switch
@@ -192,7 +190,7 @@ export default function AvailabilityPage() {
                             ))}
                           </SelectContent>
                         </Select>
-                        <span className="text-muted-foreground">to</span>
+                        <span className="text-muted-foreground">{t("to")}</span>
                         <Select
                           value={rule.end_time}
                           onValueChange={(value) =>
@@ -218,15 +216,15 @@ export default function AvailabilityPage() {
             })}
             <div className="pt-4">
               <Button onClick={handleSave} disabled={saving || loadError !== null}>
-                {saving ? "Saving..." : "Save availability"}
+                {saving ? tc("saving") : t("save")}
               </Button>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Share availability</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t("shareTitle")}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">Copy your open times as text or an image to share with anyone. Save your weekly hours first to include your changes.</p>
+            <p className="text-sm text-muted-foreground">{t("shareHint")}</p>
             <ShareAvailability />
           </CardContent>
         </Card>

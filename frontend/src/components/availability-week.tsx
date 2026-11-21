@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
+import { useTranslations } from "next-intl";
 import { addDays, startOfWeek } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +23,8 @@ interface CachedEvent {
 }
 
 export function AvailabilityWeek({ hours }: { hours: WeeklyHours[] }) {
+  const t = useTranslations("availability.week");
+  const tc = useTranslations("common");
   const { getToken } = useAuth();
   const [context, setContext] = useState<{ timezone: string; hasCalendars: boolean } | null>(null);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -44,11 +47,11 @@ export function AvailabilityWeek({ hours }: { hours: WeeklyHours[] }) {
         setContext({ timezone: me.timezone, hasCalendars: calendars.length > 0 });
         setError(null);
       } catch (error) {
-        if (!cancelled) setError(error instanceof Error ? error.message : "The week preview did not load. Try again.");
+        if (!cancelled) setError(error instanceof Error ? error.message : t("previewFailed"));
       }
     })();
     return () => { cancelled = true; };
-  }, [getToken, attempt]);
+  }, [getToken, attempt, t]);
 
   useEffect(() => {
     if (!context) return;
@@ -65,7 +68,7 @@ export function AvailabilityWeek({ hours }: { hours: WeeklyHours[] }) {
         if (cancelled) return;
         setWeek({ start: weekStart.getTime(), events: events.map((event) => ({
           id: event.id,
-          title: event.title || "Busy",
+          title: event.title || t("busy"),
           start: new Date(event.starts_at),
           end: new Date(event.ends_at),
           allDay: event.is_all_day,
@@ -74,11 +77,11 @@ export function AvailabilityWeek({ hours }: { hours: WeeklyHours[] }) {
         })) });
         setError(null);
       } catch (error) {
-        if (!cancelled) setError(error instanceof Error ? error.message : "Busy times did not load. Try again or sync your calendars.");
+        if (!cancelled) setError(error instanceof Error ? error.message : t("busyFailed"));
       }
     })();
     return () => { cancelled = true; };
-  }, [context, weekStart, getToken]);
+  }, [context, weekStart, getToken, t]);
 
   const loading = !context || week?.start !== weekStart.getTime();
   const hasHours = hours.some((rule) => rule.is_active && rule.end_time > rule.start_time);
@@ -86,24 +89,24 @@ export function AvailabilityWeek({ hours }: { hours: WeeklyHours[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Your week</CardTitle>
+        <CardTitle>{t("title")}</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Green blocks show your weekly hours, including unsaved edits. Busy events block those times.
-          {context && ` Times are in ${context.timezone.replace(/_/g, " ")}.`}
+          {t("intro")}
+          {context && ` ${t("timesIn", { zone: context.timezone.replace(/_/g, " ") })}`}
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!hasHours && <p className="text-sm text-muted-foreground">No hours set. Turn on a day and choose its hours above to see available blocks.</p>}
-        {context && !context.hasCalendars && <p className="text-sm text-muted-foreground"><Link href="/calendars" className="underline underline-offset-4">Connect a calendar</Link> to see busy times here.</p>}
+        {!hasHours && <p className="text-sm text-muted-foreground">{t("noHours")}</p>}
+        {context && !context.hasCalendars && <p className="text-sm text-muted-foreground">{t.rich("connect", { link: (chunks) => <Link href="/calendars" className="underline underline-offset-4">{chunks}</Link> })}</p>}
         {error ? (
           <div role="alert" className="space-y-3 text-sm">
             <p>{error}</p>
-            <Button variant="outline" onClick={() => { setError(null); setAttempt((value) => value + 1); }}>Try again</Button>
-            {" "}<Link href="/calendars" className="underline underline-offset-4">Check calendar connections</Link>
+            <Button variant="outline" onClick={() => { setError(null); setAttempt((value) => value + 1); }}>{tc("retry")}</Button>
+            {" "}<Link href="/calendars" className="underline underline-offset-4">{t("checkConnections")}</Link>
           </div>
-        ) : loading ? <ClockLoader label="Loading your week" /> : (
+        ) : loading ? <ClockLoader label={t("loading")} /> : (
           <>
-            {context.hasCalendars && !week?.events.length && <p className="text-sm text-muted-foreground">No synced busy events this week. If you expect events, <Link href="/calendars" className="underline underline-offset-4">sync your calendars</Link>.</p>}
+            {context.hasCalendars && !week?.events.length && <p className="text-sm text-muted-foreground">{t.rich("noEvents", { link: (chunks) => <Link href="/calendars" className="underline underline-offset-4">{chunks}</Link> })}</p>}
             <WeekCalendar weekStart={weekStart} onWeekChange={setWeekStart} events={week?.events ?? []} availableHours={hours} timezone={context.timezone} />
           </>
         )}

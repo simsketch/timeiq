@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
+// next-intl's own ICU parser (installed with it), so the check matches what renders.
+import { parse } from "@formatjs/icu-messageformat-parser";
 
 const dir = new URL("../messages/", import.meta.url);
 const load = (file) => JSON.parse(readFileSync(new URL(file, dir), "utf8"));
@@ -29,11 +31,21 @@ test("every messages file is listed in src/i18n/locales.ts and vice versa", () =
   assert.deepEqual(files.map((f) => f.replace(".json", "")).sort(), listed);
 });
 
-test("ICU arguments match across locales", () => {
+/** Argument names used anywhere in an ICU message, including inside plural/select branches. */
+function args(message) {
+  const names = new Set();
+  const walk = (nodes) => nodes.forEach((n) => {
+    if (n.value && typeof n.value === "string" && n.type !== 0) names.add(n.value);
+    if (n.options) Object.values(n.options).forEach((o) => walk(o.value));
+    if (n.children) walk(n.children);
+  });
+  walk(parse(String(message), { ignoreTag: false }));
+  return [...names].sort();
+}
+
+test("every message is valid ICU and uses the same arguments as English", () => {
   const en = load("en.json");
-  // Argument names only ({name} or {count, plural, ...}); branch wording may differ.
-  const args = (s) => [...new Set([...String(s).matchAll(/\{\s*(\w+)\s*[,}]/g)].map((m) => m[1]))].sort();
-  for (const file of files.filter((f) => f !== "en.json")) {
+  for (const file of files) {
     const other = load(file);
     for (const key of keys(en)) assert.deepEqual(args(get(other, key)), args(get(en, key)), `${file} ${key}`);
   }

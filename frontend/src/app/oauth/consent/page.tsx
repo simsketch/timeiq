@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import { auth } from "@clerk/nextjs/server";
+import { getTranslations } from "next-intl/server";
 import { ConsentForm } from "./consent-form";
 
-export const metadata: Metadata = {
-  title: "Connect an assistant | TimeIQ",
-  robots: { index: false, follow: false },
-  referrer: "no-referrer",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: (await getTranslations("oauth"))("metaTitle"),
+    robots: { index: false, follow: false },
+    referrer: "no-referrer",
+  };
+}
 
 export default async function ConsentPage({
   searchParams,

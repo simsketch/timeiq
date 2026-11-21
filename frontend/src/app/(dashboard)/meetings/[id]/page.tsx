@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
+import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowLeft,
   Bell,
@@ -28,20 +29,21 @@ import { personLabel, viewerZone, whenLabel, type MeetingDetail, type MeetingSlo
 const SHOWN = 8;
 
 function Answer({ value, who }: { value: boolean | null | undefined; who: string }) {
+  const t = useTranslations("meetings.detail");
   if (value === true)
     return (
-      <span title={`${who}: can make it`} className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+      <span title={t("canMake", { who })} className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
         <Check className="h-3.5 w-3.5" />
       </span>
     );
   if (value === false)
     return (
-      <span title={`${who}: can't make it`} className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-rose-700">
+      <span title={t("cantMake", { who })} className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-rose-700">
         <X className="h-3.5 w-3.5" />
       </span>
     );
   return (
-    <span title={`${who}: hasn't answered`} className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground/[0.06] text-muted-foreground">
+    <span title={t("noAnswer", { who })} className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground/[0.06] text-muted-foreground">
       <HelpCircle className="h-3.5 w-3.5" />
     </span>
   );
@@ -52,6 +54,10 @@ export default function MeetingPage() {
   const { getToken } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const t = useTranslations("meetings");
+  const td = useTranslations("meetings.detail");
+  const tc = useTranslations("common");
+  const locale = useLocale();
   const [m, setM] = useState<MeetingDetail | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -89,7 +95,7 @@ export default function MeetingPage() {
       toast({ title: success });
       return true;
     } catch (e) {
-      toast({ title: "That didn't work", description: e instanceof Error ? e.message : undefined, variant: "destructive" });
+      toast({ title: td("failed"), description: e instanceof Error ? e.message : undefined, variant: "destructive" });
       load();
       return false;
     } finally {
@@ -101,9 +107,9 @@ export default function MeetingPage() {
   async function copy(link: string, who: string) {
     try {
       await navigator.clipboard.writeText(link);
-      toast({ title: `Copied ${who}'s link` });
+      toast({ title: td("copied", { who }) });
     } catch {
-      toast({ title: "Couldn't copy", description: link });
+      toast({ title: t("copyFailed"), description: link });
     }
   }
 
@@ -111,9 +117,9 @@ export default function MeetingPage() {
     setBusy(true);
     try {
       const r = await call<{ reminded: number }>(`/api/group-meetings/${id}/remind`, { method: "POST" });
-      toast({ title: r.reminded ? `Reminded ${r.reminded} ${r.reminded === 1 ? "person" : "people"}` : "Everyone has answered" });
+      toast({ title: r.reminded ? td("reminded", { count: r.reminded }) : td("everyoneAnswered") });
     } catch (e) {
-      toast({ title: "Couldn't send reminders", description: e instanceof Error ? e.message : undefined, variant: "destructive" });
+      toast({ title: td("remindFailed"), description: e instanceof Error ? e.message : undefined, variant: "destructive" });
     } finally {
       setBusy(false);
     }
@@ -126,7 +132,7 @@ export default function MeetingPage() {
       await call(`/api/group-meetings/${id}`, { method: "DELETE" });
       router.push("/meetings");
     } catch (e) {
-      toast({ title: "Couldn't delete", description: e instanceof Error ? e.message : undefined, variant: "destructive" });
+      toast({ title: td("deleteFailed"), description: e instanceof Error ? e.message : undefined, variant: "destructive" });
       setBusy(false);
     }
   }
@@ -135,9 +141,9 @@ export default function MeetingPage() {
     return (
       <div className="space-y-4">
         <Link href="/meetings" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> Group meetings
+          <ArrowLeft className="h-4 w-4" /> {t("title")}
         </Link>
-        <p>That meeting doesn&apos;t exist, or it isn&apos;t yours.</p>
+        <p>{td("notFound")}</p>
       </div>
     );
   }
@@ -157,36 +163,36 @@ export default function MeetingPage() {
   return (
     <div className="space-y-6">
       <Link href="/meetings" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Group meetings
+        <ArrowLeft className="h-4 w-4" /> {t("title")}
       </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-3xl font-bold tracking-tight break-words">{m.title}</h1>
           <p className="text-muted-foreground mt-2">
-            {m.duration_minutes} min · {total + 1} people
+            {t("summary", { minutes: m.duration_minutes, people: total + 1 })}
             {m.location ? ` · ${m.location}` : ""}
-            {m.source === "email" ? " · started from an email thread" : ""}
-            {m.source === "accepted" ? " · a time someone offered, accepted by TimeIQ" : ""}
+            {m.source === "email" ? ` · ${td("startedFromEmail")}` : ""}
+            {m.source === "accepted" ? ` · ${td("acceptedSource")}` : ""}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {m.status === "open" && waiting > 0 && (
             <Button variant="outline" onClick={remind} disabled={busy}>
-              <Bell className="h-4 w-4" /> Remind {waiting}
+              <Bell className="h-4 w-4" /> {td("remind", { count: waiting })}
             </Button>
           )}
           {m.status !== "cancelled" && (
             <Button
               variant="outline"
               disabled={busy}
-              onClick={() => act(`/api/group-meetings/${id}/cancel`, { method: "POST" }, m.status === "booked" ? "Cancelled; invites withdrawn" : "Meeting cancelled")}
+              onClick={() => act(`/api/group-meetings/${id}/cancel`, { method: "POST" }, m.status === "booked" ? td("cancelledInvitesWithdrawn") : td("meetingCancelled"))}
             >
-              <XCircle className="h-4 w-4" /> Cancel meeting
+              <XCircle className="h-4 w-4" /> {td("cancel")}
             </Button>
           )}
           {m.status !== "booked" && (
-            <Button variant="ghost" disabled={busy} onClick={remove} aria-label="Delete meeting">
+            <Button variant="ghost" disabled={busy} onClick={remove} aria-label={td("delete")}>
               <Trash2 className="h-4 w-4" />
             </Button>
           )}
@@ -198,11 +204,11 @@ export default function MeetingPage() {
           <CardContent className="flex items-center gap-3 py-5">
             <CalendarCheck className="h-6 w-6 shrink-0 text-emerald-700" />
             <div>
-              <div className="font-semibold text-emerald-900">{whenLabel(m.starts_at, m.duration_minutes, zone)}</div>
+              <div className="font-semibold text-emerald-900">{whenLabel(m.starts_at, m.duration_minutes, zone, locale)}</div>
               <div className="text-sm text-emerald-900/75">
                 {m.source === "accepted"
-                  ? "Accepted on the email thread and held on your calendar. The other side sends the invite."
-                  : "Booked. Everyone got a calendar invite, and it's blocking time on every TimeIQ calendar involved."}
+                  ? td("acceptedBody")
+                  : td("bookedBody")}
               </div>
             </div>
           </CardContent>
@@ -210,7 +216,7 @@ export default function MeetingPage() {
       )}
       {m.status === "cancelled" && (
         <Card>
-          <CardContent className="py-5 text-sm text-muted-foreground">This meeting was cancelled.</CardContent>
+          <CardContent className="py-5 text-sm text-muted-foreground">{td("wasCancelled")}</CardContent>
         </Card>
       )}
 
@@ -218,16 +224,15 @@ export default function MeetingPage() {
         {m.status === "open" && (
           <Card className="min-w-0">
             <CardHeader>
-              <CardTitle className="text-lg">Best times</CardTitle>
+              <CardTitle className="text-lg">{td("bestTimes")}</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Times you&apos;re free, ranked by how many people can make them. Booking sends everyone an invite.
+                {td("bestTimesHelp")}
               </p>
             </CardHeader>
             <CardContent className="space-y-2">
               {m.slots.length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  You have no free time in this range. Check your working hours on the Availability page, or cancel and
-                  pick other days.
+                  {td("noFreeTime")}
                 </p>
               )}
               {slots.map((s, i) => {
@@ -240,11 +245,11 @@ export default function MeetingPage() {
                     }`}
                   >
                     <div className="min-w-[11rem] flex-1">
-                      <div className="text-sm font-medium tabular-nums">{whenLabel(s.start, m.duration_minutes, zone)}</div>
+                      <div className="text-sm font-medium tabular-nums">{whenLabel(s.start, m.duration_minutes, zone, locale)}</div>
                       <div className="text-xs text-muted-foreground">
-                        {everyone ? "Everyone can make it" : `${s.yes} of ${total} can make it`}
-                        {s.pending > 0 && ` · ${s.pending} waiting`}
-                        {i === 0 && !everyone && s.yes > 0 && " · best so far"}
+                        {everyone ? td("everyone") : td("someCan", { yes: s.yes, total })}
+                        {s.pending > 0 && ` · ${td("waitingCount", { count: s.pending })}`}
+                        {i === 0 && !everyone && s.yes > 0 && ` · ${td("bestSoFar")}`}
                       </div>
                     </div>
                     <div className="flex -space-x-1">
@@ -255,7 +260,7 @@ export default function MeetingPage() {
                     {confirming === s.start ? (
                       <div className="flex gap-1.5">
                         <Button size="sm" variant="ghost" onClick={() => setConfirming(null)}>
-                          Back
+                          {tc("back")}
                         </Button>
                         <Button
                           size="sm"
@@ -264,16 +269,16 @@ export default function MeetingPage() {
                             act(
                               `/api/group-meetings/${id}/book`,
                               { method: "POST", body: JSON.stringify({ starts_at: s.start }) },
-                              "Booked; invites sent"
+                              td("bookedInvites")
                             )
                           }
                         >
-                          Book &amp; send invites
+                          {td("bookAndSend")}
                         </Button>
                       </div>
                     ) : (
                       <Button size="sm" variant={everyone ? "default" : "outline"} onClick={() => setConfirming(s.start)}>
-                        Book
+                        {td("book")}
                       </Button>
                     )}
                   </div>
@@ -281,7 +286,7 @@ export default function MeetingPage() {
               })}
               {m.slots.length > SHOWN && (
                 <button type="button" className="text-sm font-medium text-orange-700 hover:underline" onClick={() => setShowAll(!showAll)}>
-                  {showAll ? "Show fewer" : `Show all ${m.slots.length} times`}
+                  {showAll ? td("showFewer") : td("showAll", { count: m.slots.length })}
                 </button>
               )}
             </CardContent>
@@ -290,14 +295,14 @@ export default function MeetingPage() {
 
         <Card className={m.status === "open" ? "" : "lg:col-span-2"}>
           <CardHeader>
-            <CardTitle className="text-lg">People</CardTitle>
+            <CardTitle className="text-lg">{td("people")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-3 text-sm">
               <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
               <div className="min-w-0 flex-1">
-                <div className="font-medium">You</div>
-                <div className="text-xs text-muted-foreground">Your calendars, live</div>
+                <div className="font-medium">{td("you")}</div>
+                <div className="text-xs text-muted-foreground">{td("yourCalendars")}</div>
               </div>
             </div>
             {m.participants.map((p) => (
@@ -310,13 +315,13 @@ export default function MeetingPage() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-medium">{personLabel(p)}</div>
                   <div className="truncate text-xs text-muted-foreground">
-                    {p.uses_calendar ? "Shared their TimeIQ calendar" : p.responded ? "Picked times" : "Waiting"}
+                    {p.uses_calendar ? td("sharedCalendar") : p.responded ? td("pickedTimes") : td("waiting")}
                     {p.name ? ` · ${p.email}` : ""}
                   </div>
                 </div>
                 {m.status === "open" && (
                   <>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copy(p.link, personLabel(p))} aria-label={`Copy ${personLabel(p)}'s link`}>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => copy(p.link, personLabel(p))} aria-label={td("copyLink", { who: personLabel(p) })}>
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
                     {total > 1 && (
@@ -325,8 +330,8 @@ export default function MeetingPage() {
                         variant="ghost"
                         className="h-8 w-8"
                         disabled={busy}
-                        onClick={() => act(`/api/group-meetings/${id}/participants/${p.id}`, { method: "DELETE" }, "Removed")}
-                        aria-label={`Remove ${personLabel(p)}`}
+                        onClick={() => act(`/api/group-meetings/${id}/participants/${p.id}`, { method: "DELETE" }, td("removed"))}
+                        aria-label={td("removePerson", { who: personLabel(p) })}
                       >
                         <X className="h-3.5 w-3.5" />
                       </Button>
@@ -344,13 +349,13 @@ export default function MeetingPage() {
                   const ok = await act(
                     `/api/group-meetings/${id}/participants`,
                     { method: "POST", body: JSON.stringify({ email: newEmail.trim() }) },
-                    "Invite sent"
+                    td("inviteSent")
                   );
                   if (ok) setNewEmail("");
                 }}
               >
-                <Input type="email" placeholder="Add someone by email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
-                <Button type="submit" size="icon" variant="outline" disabled={busy} aria-label="Add person">
+                <Input type="email" placeholder={td("addPlaceholder")} value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+                <Button type="submit" size="icon" variant="outline" disabled={busy} aria-label={td("addPerson")}>
                   <UserPlus className="h-4 w-4" />
                 </Button>
               </form>

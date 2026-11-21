@@ -1,5 +1,6 @@
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
-import { InvoiceStatus, STATUS_LABEL } from "@/lib/invoicing";
+import type { InvoiceStatus } from "@/lib/invoicing";
 
 const CLASSES: Record<InvoiceStatus, string> = {
   draft: "border-transparent bg-slate-200 text-slate-800 hover:bg-slate-200",
@@ -9,5 +10,6 @@ const CLASSES: Record<InvoiceStatus, string> = {
 };
 
 export function StatusBadge({ status }: { status: InvoiceStatus }) {
-  return <Badge className={CLASSES[status]}>{STATUS_LABEL[status]}</Badge>;
+  const t = useTranslations("invoiceView.status");
+  return <Badge className={CLASSES[status]}>{t(status)}</Badge>;
 }

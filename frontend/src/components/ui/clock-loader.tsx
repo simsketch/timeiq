@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 interface ClockLoaderProps {
@@ -20,6 +21,7 @@ export function ClockLoader({
   fullscreen = false,
 }: ClockLoaderProps) {
   const dim = SIZE_MAP[size];
+  const t = useTranslations("common");
 
   const clock = (
     <div
@@ -28,7 +30,7 @@ export function ClockLoader({
         className
       )}
       role="status"
-      aria-label={label ?? "Loading"}
+      aria-label={label ?? t("loading")}
     >
       <div className="relative" style={{ width: dim, height: dim }}>
         {/* Soft pulsing aurora halo */}

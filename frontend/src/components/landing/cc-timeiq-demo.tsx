@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CalendarCheck, CheckCircle2, Loader2, Paperclip, Plus, RotateCcw, Send, X } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useDemoAutoplay } from "./use-demo-autoplay";
 
 type Mode = "thread" | "assistant";
@@ -15,9 +16,12 @@ interface Msg {
   delay?: number;
 }
 
-const TIMES = ["Mon Nov 2, 9 AM", "Tue Nov 3, 10:30 AM", "Wed Nov 4, 11 AM"];
+// The three suggested starts (EST), each a 30-minute slot.
+const STARTS = ["2026-11-02T09:00:00-05:00", "2026-11-03T10:30:00-05:00", "2026-11-04T11:00:00-05:00"];
+const ZONE = "America/New_York";
 
 function Bubble({ m }: { m: Msg }) {
+  const t = useTranslations("landing.demo.cc");
   return (
     <div className={`demo-pop rounded-2xl border px-4 py-3 text-sm ${m.agent ? "border-[hsl(var(--aurora-1))]/25 bg-[hsl(var(--aurora-1))]/[0.05]" : "border-foreground/[0.08] bg-white/85"}`}>
       <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
@@ -25,7 +29,7 @@ function Bubble({ m }: { m: Msg }) {
           {m.agent && <CalendarCheck className="mr-1 inline h-3 w-3" />}
           {m.from}
         </span>
-        <span className="truncate">to {m.to}</span>
+        <span className="truncate">{t("to", { names: m.to })}</span>
       </div>
       <div className="leading-relaxed text-foreground/85">{m.body}</div>
     </div>
@@ -33,15 +37,23 @@ function Bubble({ m }: { m: Msg }) {
 }
 
 function Typing() {
+  const t = useTranslations("landing.demo.cc");
   return (
     <div className="demo-fade inline-flex items-center gap-2 rounded-full border border-[hsl(var(--aurora-1))]/20 bg-white/70 px-3 py-1.5 text-xs text-[hsl(var(--aurora-1))]">
-      <Loader2 className="h-3 w-3 animate-spin" /> TimeIQ is checking Elon&apos;s calendars…
+      <Loader2 className="h-3 w-3 animate-spin" /> {t("typing")}
     </div>
   );
 }
 
 /** Homepage demo: cc TimeIQ on a thread and watch it schedule the meeting. */
 export function CcTimeiqDemo() {
+  const t = useTranslations("landing.demo.cc");
+  const demo = useTranslations("landing.demo");
+  const locale = useLocale();
+  const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat(locale, { ...opts, timeZone: ZONE }).format(new Date(iso));
+  const TIMES = STARTS.map((iso) => fmt(iso, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }));
+  const ends = STARTS.map((iso) => fmt(new Date(new Date(iso).getTime() + 30 * 60_000).toISOString(), { hour: "numeric", minute: "2-digit" }));
   const [mode, setMode] = useState<Mode>("thread");
   const [cc, setCc] = useState(false);
   const [step, setStep] = useState(0);
@@ -108,72 +120,70 @@ export function CcTimeiqDemo() {
     if (step >= 1)
       thread.push({
         id: "dana",
-        from: "Dana (you)",
-        to: cc ? "Elon, cc TimeIQ" : "Elon",
-        body: "Could we find 30 minutes next week for the pilot kickoff? Mornings work best.",
+        from: t("danaYou"),
+        to: cc ? t("elonCc") : "Elon",
+        body: t("ask"),
       });
     if (step >= 2)
       thread.push({
         id: "proposal",
-        from: "Elon via TimeIQ",
+        from: t("elonVia"),
         to: "Dana, Elon",
         agent: true,
         body: (
           <>
-            Hi Dana, here are 3 times that work for Elon. Tap one, or just reply:
+            {t("proposal")}
             <div className="mt-2 grid gap-1.5">
-              {TIMES.map((t) => (
+              {TIMES.map((time) => (
                 <button
-                  key={t}
+                  key={time}
                   type="button"
                   disabled={step !== 2}
                   onClick={() => {
-                    setPicked(t);
+                    setPicked(time);
                     advance(3);
                   }}
                   className={`rounded-xl border px-3 py-2 text-left text-sm font-semibold transition-all ${
-                    picked === t
+                    picked === time
                       ? "border-foreground bg-foreground text-background"
                       : "border-foreground/10 bg-white hover:-translate-y-0.5 hover:border-[hsl(var(--aurora-1))]/50 disabled:hover:translate-y-0"
                   } ${step === 2 ? "ring-2 ring-[hsl(var(--aurora-1))]/0 hover:ring-[hsl(var(--aurora-1))]/20" : ""}`}
                 >
-                  {t} EST
+                  {time} EST
                 </button>
               ))}
             </div>
-            <div className="mt-2 text-xs text-muted-foreground underline underline-offset-2">None of these work? Pick a different time</div>
+            <div className="mt-2 text-xs text-muted-foreground underline underline-offset-2">{t("noneWork")}</div>
           </>
         ),
       });
-    if (step >= 3) thread.push({ id: "reply", from: "Dana (you)", to: "TimeIQ, Elon", body: `${picked} works for me!` });
+    if (step >= 3) thread.push({ id: "reply", from: t("danaYou"), to: "TimeIQ, Elon", body: t("works", { time: picked ?? "" }) });
     if (step >= 4)
       thread.push({
         id: "note",
-        from: "Elon via TimeIQ",
+        from: t("elonVia"),
         to: "Elon",
         agent: true,
-        body: (
-          <>
-            Everyone has answered for <strong>Pilot kickoff</strong>. Dana can make {picked}. Reply &ldquo;book it&rdquo; and
-            I&apos;ll send the invite.
-          </>
-        ),
+        body: <>{t.rich("answered", { time: picked ?? "", b: (chunks) => <strong>{chunks}</strong> })}</>,
       });
-    if (step >= 5) thread.push({ id: "book", from: "Elon", to: "TimeIQ", body: "Book it, thanks!" });
+    if (step >= 5) thread.push({ id: "book", from: "Elon", to: "TimeIQ", body: t("bookThanks") });
     if (step >= 6)
       thread.push({
         id: "booked",
-        from: "Elon via TimeIQ",
+        from: t("elonVia"),
         to: "Dana, Elon",
         agent: true,
         body: (
           <>
-            <strong>Pilot kickoff</strong> is booked for {picked}–{picked?.includes("10:30") ? "11 AM" : "30 min"} EST. The
-            calendar invite is attached.
+            {t.rich("booked", {
+              start: picked ?? "",
+              end: ends[Math.max(0, TIMES.indexOf(picked ?? ""))],
+              b: (chunks) => <strong>{chunks}</strong>,
+            })}
             <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-foreground/10 bg-white px-3 py-1.5 text-xs font-medium">
               <Paperclip className="h-3.5 w-3.5" /> invite.ics
               <span className="text-emerald-700 inline-flex items-center gap-1">
-                <CalendarCheck className="h-3.5 w-3.5" /> on both calendars
+                <CalendarCheck className="h-3.5 w-3.5" /> {t("bothCalendars")}
               </span>
             </div>
           </>
@@ -183,15 +193,15 @@ export function CcTimeiqDemo() {
     if (step >= 1)
       thread.push({
         id: "luna",
-        from: "Luna, Acme's scheduler",
-        to: "Elon, cc TimeIQ",
+        from: t("luna"),
+        to: t("elonCc"),
         body: (
           <>
-            Please choose a time for your 45-minute interview:
+            {t("lunaAsk")}
             <ul className="mt-1.5 space-y-0.5">
-              <li className={step >= 2 ? "text-muted-foreground line-through" : ""}>Mon Nov 2, 10 AM ET</li>
-              <li className={step >= 2 ? "font-semibold text-emerald-700" : ""}>Tue Nov 3, 2 PM ET</li>
-              <li>Wed Nov 4, 11 AM PT</li>
+              <li className={step >= 2 ? "text-muted-foreground line-through" : ""}>{t("luna1")}</li>
+              <li className={step >= 2 ? "font-semibold text-emerald-700" : ""}>{t("luna2")}</li>
+              <li>{t("luna3")}</li>
             </ul>
           </>
         ),
@@ -199,19 +209,18 @@ export function CcTimeiqDemo() {
     if (step >= 2)
       thread.push({
         id: "accept",
-        from: "Elon via TimeIQ",
+        from: t("elonVia"),
         to: "Luna, Elon",
         agent: true,
         body: (
           <>
-            Hi Luna, I&apos;m TimeIQ, Elon&apos;s scheduling assistant. <strong>Tue Nov 3, 2 PM EST</strong> works for Elon.
-            Please send the invite to elon@… I&apos;ve held the time on his calendar.
+            {t.rich("accept", { b: (chunks) => <strong>{chunks}</strong> })}
             <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
               <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-rose-800">
-                <X className="h-3 w-3" /> Mon 10 AM: team standup
+                <X className="h-3 w-3" /> {t("busyChip")}
               </span>
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-800">
-                <CheckCircle2 className="h-3 w-3" /> Tue 2 PM: free, held
+                <CheckCircle2 className="h-3 w-3" /> {t("freeChip")}
               </span>
             </div>
           </>
@@ -224,11 +233,11 @@ export function CcTimeiqDemo() {
   return (
     <div ref={ref} className="glass rounded-[1.75rem] p-4 sm:p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex rounded-lg bg-foreground/[0.05] p-0.5" role="tablist" aria-label="Demo">
+        <div className="flex rounded-lg bg-foreground/[0.05] p-0.5" role="tablist" aria-label={t("tabs")}>
           {(
             [
-              ["thread", "Find a time"],
-              ["assistant", "Answer another assistant"],
+              ["thread", t("tabThread")],
+              ["assistant", t("tabAssistant")],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -246,7 +255,7 @@ export function CcTimeiqDemo() {
           ))}
         </div>
         <button type="button" onClick={() => reset()} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-          <RotateCcw className="h-3 w-3" /> Reset
+          <RotateCcw className="h-3 w-3" /> {demo("reset")}
         </button>
       </div>
 
@@ -254,11 +263,11 @@ export function CcTimeiqDemo() {
         {step === 0 && mode === "thread" && (
           <div className="rounded-2xl border border-dashed border-foreground/15 bg-white/70 px-4 py-3 text-sm">
             <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-              <span>To: Elon</span>
+              <span>{t("toElon")}</span>
               {cc ? (
                 <span className="demo-pop inline-flex items-center gap-1 rounded-full bg-[hsl(var(--aurora-1))]/10 px-2 py-0.5 font-medium text-[hsl(var(--aurora-1))]">
                   Cc: agent@timeiq.app
-                  <button type="button" aria-label="Remove TimeIQ" onClick={() => setCc(false)}>
+                  <button type="button" aria-label={t("removeCc")} onClick={() => setCc(false)}>
                     <X className="h-3 w-3" />
                   </button>
                 </span>
@@ -268,20 +277,20 @@ export function CcTimeiqDemo() {
                   onClick={() => setCc(true)}
                   className="inline-flex items-center gap-1 rounded-full border border-[hsl(var(--aurora-1))]/40 px-2 py-0.5 font-medium text-[hsl(var(--aurora-1))] hover:bg-[hsl(var(--aurora-1))]/10"
                 >
-                  <Plus className="h-3 w-3" /> Cc TimeIQ
+                  <Plus className="h-3 w-3" /> {t("ccButton")}
                 </button>
               )}
             </div>
-            <p className="text-foreground/85">Could we find 30 minutes next week for the pilot kickoff? Mornings work best.</p>
+            <p className="text-foreground/85">{t("ask")}</p>
             <div className="mt-3 flex items-center justify-between gap-3">
-              <span className="text-xs text-muted-foreground">{cc ? "Ready. TimeIQ takes it from here." : "Add TimeIQ, then send."}</span>
+              <span className="text-xs text-muted-foreground">{cc ? t("ready") : t("addFirst")}</span>
               <button
                 type="button"
                 disabled={!cc}
                 onClick={() => advance(1)}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[linear-gradient(135deg,hsl(var(--aurora-1)),hsl(var(--aurora-5)))] px-3 py-1.5 text-xs font-semibold text-white shadow-md transition-transform hover:-translate-y-0.5 disabled:opacity-40 disabled:hover:translate-y-0"
               >
-                <Send className="h-3 w-3" /> Send
+                <Send className="h-3 w-3" /> {t("send")}
               </button>
             </div>
           </div>
@@ -289,14 +298,14 @@ export function CcTimeiqDemo() {
         {step === 0 && mode === "assistant" && (
           <div className="rounded-2xl border border-dashed border-foreground/15 bg-white/70 px-4 py-4 text-sm">
             <p className="text-foreground/85">
-              A recruiter&apos;s scheduling assistant offers three interview times. Elon is busy for one of them.
+              {t("recruiter")}
             </p>
             <button
               type="button"
               onClick={() => advance(1)}
               className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[linear-gradient(135deg,hsl(var(--aurora-1)),hsl(var(--aurora-5)))] px-3 py-1.5 text-xs font-semibold text-white shadow-md transition-transform hover:-translate-y-0.5"
             >
-              <Send className="h-3 w-3" /> Show Luna&apos;s email
+              <Send className="h-3 w-3" /> {t("showLuna")}
             </button>
           </div>
         )}
@@ -308,7 +317,7 @@ export function CcTimeiqDemo() {
 
       <div className="mt-4 flex min-h-[40px] flex-wrap items-center gap-2">
         {mode === "thread" && step === 2 && !typing && (
-          <span className="text-xs text-muted-foreground">You&apos;re Dana now. Tap the time that works.</span>
+          <span className="text-xs text-muted-foreground">{t("youreDana")}</span>
         )}
         {mode === "thread" && step === 4 && !typing && (
           <button
@@ -316,13 +325,13 @@ export function CcTimeiqDemo() {
             onClick={() => advance(5)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-2 text-xs font-semibold text-background shadow-md hover:-translate-y-0.5 transition-transform"
           >
-            Reply as Elon: &ldquo;Book it&rdquo;
+            {t("replyAsElon")}
           </button>
         )}
         {done && (
           <span className="demo-pop inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700">
             <CheckCircle2 className="h-4 w-4" />
-            {mode === "thread" ? "Booked. Elon typed two words." : "Handled without Elon opening the email."}
+            {mode === "thread" ? t("doneThread") : t("doneAssistant")}
           </span>
         )}
       </div>

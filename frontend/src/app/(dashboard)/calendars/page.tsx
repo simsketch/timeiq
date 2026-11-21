@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,7 @@ import { EmailSchedules } from "@/components/email-schedules";
 import { apiFetch } from "@/lib/api";
 import { FIX_CALENDAR_EVENT } from "@/components/dashboard/calendar-health-banner";
 import { Plus, Trash2, RefreshCw, CalendarDays, Clock, AlertTriangle, Link2 } from "lucide-react";
-import { addDays, format, startOfWeek } from "date-fns";
+import { startOfWeek } from "date-fns";
 import { CalEvent, ViewToggle, WeekCalendar, colorFor, useCalendarView } from "@/components/week-calendar";
 import { ClockLoader } from "@/components/ui/clock-loader";
 
@@ -39,6 +40,9 @@ interface CachedEvent {
 }
 
 export default function CalendarsPage() {
+  const t = useTranslations("calendars");
+  const tc = useTranslations("common");
+  const locale = useLocale();
   const { getToken } = useAuth();
   const { toast } = useToast();
   const [calendars, setCalendars] = useState<Calendar[]>([]);
@@ -101,8 +105,8 @@ export default function CalendarsPage() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("google") === "connected") {
       toast({
-        title: "Google Calendar connected",
-        description: "Its events now block times on your booking page.",
+        title: t("toast.googleConnected"),
+        description: t("toast.googleConnectedBody"),
       });
       params.delete("google");
       const query = params.toString();
@@ -111,15 +115,15 @@ export default function CalendarsPage() {
     const outlook = params.get("microsoft");
     if (outlook) {
       toast(outlook === "connected" ? {
-        title: "Outlook connected",
-        description: "Check its sync status below to confirm events are blocking your booking page.",
+        title: t("toast.outlookConnected"),
+        description: t("toast.outlookConnectedBody"),
       } : outlook === "admin" ? {
-        title: "Your organization needs to approve TimeIQ",
-        description: "Ask your IT admin to approve TimeIQ, or add your Outlook calendar with its ICS link instead: in Outlook on the web, open Settings, Calendar, Shared calendars, and publish your calendar.",
+        title: t("toast.outlookAdmin"),
+        description: t("toast.outlookAdminBody"),
         variant: "destructive",
       } : {
-        title: "Outlook connection did not finish",
-        description: "Choose Connect Outlook to try again and allow calendar access.",
+        title: t("toast.outlookFailed"),
+        description: t("toast.outlookFailedBody"),
         variant: "destructive",
       });
       params.delete("microsoft");
@@ -174,7 +178,7 @@ export default function CalendarsPage() {
       window.location.href = url;
     } catch (error: any) {
       toast({
-        title: "Couldn't start Google sign-in",
+        title: t("toast.googleStartFailed"),
         description: error.message,
         variant: "destructive",
       });
@@ -196,8 +200,8 @@ export default function CalendarsPage() {
       window.location.href = url;
     } catch (error: unknown) {
       toast({
-        title: "Couldn't start Outlook sign-in",
-        description: error instanceof Error ? error.message : "Try connecting Outlook again.",
+        title: t("toast.outlookStartFailed"),
+        description: error instanceof Error ? error.message : t("toast.outlookRetry"),
         variant: "destructive",
       });
       setConnectingOutlook(false);
@@ -232,13 +236,13 @@ export default function CalendarsPage() {
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify(formData),
       });
-      toast({ title: "Calendar added successfully" });
+      toast({ title: t("toast.added") });
       setFormData({ name: "", ics_url: "" });
       setShowAddForm(false);
       fetchAll();
     } catch (error: any) {
       toast({
-        title: "Couldn't add that calendar",
+        title: t("toast.addFailed"),
         description: error.message,
         variant: "destructive",
       });
@@ -257,30 +261,30 @@ export default function CalendarsPage() {
         headers: { Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ics_url: newLink }),
       });
-      toast({ title: "Link replaced", description: "The calendar is syncing again." });
+      toast({ title: t("toast.linkReplaced"), description: t("toast.linkReplacedBody") });
       setReplacing(null);
       setNewLink("");
       fetchAll();
     } catch (error: any) {
-      toast({ title: "That link didn't work", description: error.message, variant: "destructive" });
+      toast({ title: t("toast.linkFailed"), description: error.message, variant: "destructive" });
     } finally {
       setSavingLink(false);
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Are you sure you want to remove this calendar?")) return;
+    if (!confirm(t("confirmRemove"))) return;
     try {
       const token = await getToken();
       await apiFetch(`/api/calendars/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      toast({ title: "Calendar removed" });
+      toast({ title: t("toast.removed") });
       fetchAll();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: tc("error"),
         description: error.message,
         variant: "destructive",
       });
@@ -294,10 +298,10 @@ export default function CalendarsPage() {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      toast({ title: "Calendar synced successfully" });
+      toast({ title: t("toast.synced") });
     } catch (error: any) {
       toast({
-        title: "Sync failed",
+        title: t("toast.syncFailed"),
         description: error.message,
         variant: "destructive",
       });
@@ -319,13 +323,13 @@ export default function CalendarsPage() {
         }
       );
       toast({
-        title: "Sync complete",
-        description: `${result.synced} calendar${result.synced !== 1 ? "s" : ""} synced${result.failed > 0 ? `, ${result.failed} failed` : ""}`,
+        title: t("toast.syncComplete"),
+        description: t("toast.syncCompleteBody", { synced: result.synced, failed: result.failed }),
       });
       fetchAll();
     } catch (error: any) {
       toast({
-        title: "Sync failed",
+        title: t("toast.syncFailed"),
         description: error.message,
         variant: "destructive",
       });
@@ -337,7 +341,7 @@ export default function CalendarsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
-        <ClockLoader size="lg" label="Loading calendars" />
+        <ClockLoader size="lg" label={t("loading")} />
       </div>
     );
   }
@@ -346,12 +350,12 @@ export default function CalendarsPage() {
     <div className="space-y-8">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Calendar Connections</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
           <p className="text-muted-foreground mt-2">
-            Connect calendars to check availability and prevent double bookings
+            {t("subtitle")}
           </p>
           <p className="text-sm text-muted-foreground mt-1">
-            Calendars sync every hour, and right away when you add one. When someone opens your booking page, any calendar more than 10 minutes out of date syncs first, so they only see times you&apos;re free. Use Sync All to update now.
+            {t("syncExplainer")}
           </p>
         </div>
         {calendars.length > 0 && (
@@ -361,7 +365,7 @@ export default function CalendarsPage() {
             disabled={syncingAll}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${syncingAll ? "animate-spin" : ""}`} />
-            {syncingAll ? "Syncing..." : "Sync All"}
+            {syncingAll ? t("syncing") : t("syncAll")}
           </Button>
         )}
       </div>
@@ -370,10 +374,9 @@ export default function CalendarsPage() {
       <div className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold">Synced Events</h2>
+            <h2 className="text-xl font-semibold">{t("syncedEvents")}</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Events from your connected calendars that block availability
-              {view === "list" ? " (next 14 days)" : ""}
+              {view === "list" ? t("syncedEventsListHint") : t("syncedEventsHint")}
             </p>
           </div>
           <ViewToggle view={view} onChange={setView} />
@@ -386,7 +389,7 @@ export default function CalendarsPage() {
               onWeekChange={setWeekStart}
               events={weekEvents.map((e) => ({
                 id: e.id,
-                title: e.title || "(No title)",
+                title: e.title || t("noTitle"),
                 start: new Date(e.starts_at),
                 end: new Date(e.ends_at),
                 allDay: e.is_all_day,
@@ -396,7 +399,7 @@ export default function CalendarsPage() {
               }))}
               onSelect={setSelected}
               onRangeChange={onRangeChange}
-              emptyHint="no synced events this week"
+              emptyHint={t("noSyncedThisWeek")}
             />
             {selected && (
               <Card>
@@ -405,8 +408,12 @@ export default function CalendarsPage() {
                     <p className="font-semibold">{selected.title}</p>
                     <p className="text-sm text-muted-foreground">
                       {selected.allDay
-                        ? `${format(selected.start, "EEEE, MMMM d")} · all day`
-                        : `${format(selected.start, "EEEE, MMMM d · h:mm a")} – ${format(selected.end, "h:mm a")}`}
+                        ? t("allDayOn", { day: selected.start.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" }) })
+                        : t("timeRangeOn", {
+                            day: selected.start.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" }),
+                            start: selected.start.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
+                            end: selected.end.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }),
+                          })}
                     </p>
                     {selected.label && (
                       <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -415,7 +422,7 @@ export default function CalendarsPage() {
                       </p>
                     )}
                   </div>
-                  <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>Close</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>{tc("close")}</Button>
                 </CardContent>
               </Card>
             )}
@@ -424,7 +431,7 @@ export default function CalendarsPage() {
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
               <CalendarDays className="h-8 w-8 mx-auto mb-3 text-gray-300" />
-              No cached events found. Sync your calendars to import events.
+              {t("noCached")}
             </CardContent>
           </Card>
         ) : (
@@ -438,18 +445,18 @@ export default function CalendarsPage() {
                     <div key={event.id} className="flex items-start justify-between py-3 gap-4">
                       <div className="min-w-0 flex-1">
                         <p className="font-medium truncate">
-                          {event.title || "(No title)"}
+                          {event.title || t("noTitle")}
                         </p>
                         <div className="flex items-center gap-3 mt-1">
                           <span className="text-sm text-muted-foreground">
-                            {format(start, "EEE, MMM d")}
+                            {start.toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" })}
                           </span>
                           {event.is_all_day ? (
-                            <Badge variant="secondary" className="text-xs">All day</Badge>
+                            <Badge variant="secondary" className="text-xs">{t("allDay")}</Badge>
                           ) : (
                             <span className="text-sm text-muted-foreground flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              {format(start, "h:mm a")} – {format(end, "h:mm a")}
+                              {t("timeRange", { start: start.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }), end: end.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" }) })}
                             </span>
                           )}
                         </div>
@@ -471,18 +478,18 @@ export default function CalendarsPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Add Calendar</CardTitle>
+            <CardTitle>{t("addCalendar")}</CardTitle>
             <div className="flex flex-wrap justify-end gap-2">
 {googleEnabled && (
                             <Button size="sm" onClick={handleConnectGoogle} disabled={connectingGoogle}>
                 <CalendarDays className="h-4 w-4 mr-2" />
-                {connectingGoogle ? "Opening Google..." : "Connect Google Calendar"}
+                {connectingGoogle ? t("openingGoogle") : t("connectGoogle")}
               </Button>
               )}
               {outlookEnabled && (
                 <Button size="sm" onClick={handleConnectOutlook} disabled={connectingOutlook}>
                   <CalendarDays className="h-4 w-4 mr-2" />
-                  {connectingOutlook ? "Opening Outlook..." : "Connect Outlook"}
+                  {connectingOutlook ? t("openingOutlook") : t("connectOutlook")}
                 </Button>
               )}
               {!showAddForm && (
@@ -492,7 +499,7 @@ export default function CalendarsPage() {
                   onClick={() => setShowAddForm(true)}
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Add ICS Calendar
+                  {t("addIcs")}
                 </Button>
               )}
             </div>
@@ -502,19 +509,19 @@ export default function CalendarsPage() {
           {showAddForm && (
             <form onSubmit={handleAddCalendar} className="space-y-4">
               <div>
-                <Label htmlFor="name">Calendar Name</Label>
+                <Label htmlFor="name">{t("calendarName")}</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  placeholder="My Calendar"
+                  placeholder={t("calendarNamePlaceholder")}
                   required
                 />
               </div>
               <div>
-                <Label htmlFor="ics_url">Calendar link (ICS or webcal)</Label>
+                <Label htmlFor="ics_url">{t("calendarLink")}</Label>
                 <Input
                   id="ics_url"
                   type="text"
@@ -530,7 +537,7 @@ export default function CalendarsPage() {
               </div>
               <div className="flex gap-2">
                 <Button type="submit" disabled={adding}>
-                  {adding ? "Checking link..." : "Add Calendar"}
+                  {adding ? t("checkingLink") : t("addCalendar")}
                 </Button>
                 <Button
                   type="button"
@@ -540,7 +547,7 @@ export default function CalendarsPage() {
                     setFormData({ name: "", ics_url: "" });
                   }}
                 >
-                  Cancel
+                  {tc("cancel")}
                 </Button>
               </div>
             </form>
@@ -553,11 +560,11 @@ export default function CalendarsPage() {
       <CalendarSubscriptionCard />
 
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Connected Calendars</h2>
+        <h2 className="text-xl font-semibold">{t("connected")}</h2>
         {calendars.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
-              No calendars connected yet
+              {t("noneConnected")}
             </CardContent>
           </Card>
         ) : (
@@ -569,22 +576,23 @@ export default function CalendarsPage() {
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <h3 className="font-semibold">{calendar.name}</h3>
                       <Badge variant="secondary">
-                        {calendar.type === "microsoft" ? "Outlook" : calendar.type === "ics_url" ? "ICS" : calendar.type === "email" ? "Emailed schedules" : calendar.type === "meetings" ? "Group meetings" : calendar.type.toUpperCase()}
+                        {calendar.type === "microsoft" ? "Outlook" : calendar.type === "ics_url" ? "ICS" : calendar.type === "email" ? t("typeEmail") : calendar.type === "meetings" ? t("typeMeetings") : calendar.type.toUpperCase()}
                       </Badge>
                       {calendar.sync_status === "broken" && (
-                        <Badge variant="destructive">Not syncing</Badge>
+                        <Badge variant="destructive">{t("notSyncing")}</Badge>
                       )}
                       {calendar.sync_status === "failing" && (
-                        <Badge variant="outline" className="border-amber-400 text-amber-800">Retrying</Badge>
+                        <Badge variant="outline" className="border-amber-400 text-amber-800">{t("retrying")}</Badge>
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {calendar.last_synced_at
-                        ? `Last synced: ${format(
-                            new Date(calendar.last_synced_at),
-                            "MMM d, yyyy h:mm a"
-                          )}`
-                        : "Never synced"}
+                        ? t("lastSynced", {
+                            when: new Date(calendar.last_synced_at).toLocaleString(locale, {
+                              month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit",
+                            }),
+                          })
+                        : t("neverSynced")}
                     </p>
                     {calendar.sync_status !== "ok" && calendar.last_sync_error && (
                       <p className="text-sm mt-2 flex items-start gap-2 text-red-700">
@@ -592,7 +600,7 @@ export default function CalendarsPage() {
                         <span>
                           {calendar.last_sync_error}
                           {calendar.sync_status === "broken" &&
-                            " New events on this calendar aren't blocking your booking page."}
+                            ` ${t("brokenNote")}`}
                         </span>
                       </p>
                     )}
@@ -606,7 +614,7 @@ export default function CalendarsPage() {
                         disabled={connectingOutlook}
                       >
                         <RefreshCw className="h-4 w-4 mr-2" />
-                        Reconnect
+                        {t("reconnect")}
                       </Button>
                     )}
                     {calendar.type === "google" && calendar.sync_status !== "ok" && (
@@ -617,7 +625,7 @@ export default function CalendarsPage() {
                         disabled={connectingGoogle}
                       >
                         <RefreshCw className="h-4 w-4 mr-2" />
-                        Reconnect
+                        {t("reconnect")}
                       </Button>
                     )}
                     {calendar.type === "ics_url" && (
@@ -628,10 +636,10 @@ export default function CalendarsPage() {
                           setReplacing(replacing === calendar.id ? null : calendar.id);
                           setNewLink("");
                         }}
-                        aria-label="Replace link"
+                        aria-label={t("replaceLink")}
                       >
                         <Link2 className="h-4 w-4" />
-                        {calendar.sync_status === "broken" && <span className="ml-2">Replace link</span>}
+                        {calendar.sync_status === "broken" && <span className="ml-2">{t("replaceLink")}</span>}
                       </Button>
                     )}
                     {calendar.type !== "email" && calendar.type !== "meetings" && (
@@ -639,7 +647,7 @@ export default function CalendarsPage() {
                         size="sm"
                         variant="outline"
                         onClick={() => handleSync(calendar.id)}
-                        aria-label="Sync now"
+                        aria-label={t("syncNow")}
                       >
                         <RefreshCw className="h-4 w-4" />
                       </Button>
@@ -648,7 +656,7 @@ export default function CalendarsPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleDelete(calendar.id)}
-                      aria-label="Remove calendar"
+                      aria-label={t("removeCalendar")}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -662,12 +670,12 @@ export default function CalendarsPage() {
                       autoComplete="off"
                       value={newLink}
                       onChange={(e) => setNewLink(e.target.value)}
-                      placeholder="Paste the new ICS or webcal link"
+                      placeholder={t("newLinkPlaceholder")}
                       required
                       autoFocus
                     />
                     <Button type="submit" disabled={savingLink}>
-                      {savingLink ? "Checking..." : "Save"}
+                      {savingLink ? t("checking") : tc("save")}
                     </Button>
                   </form>
                 )}

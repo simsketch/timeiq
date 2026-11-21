@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
+import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
@@ -19,20 +20,22 @@ import {
   Receipt,
   UsersRound,
 } from "lucide-react";
+import type { Messages } from "next-intl";
 import { LogoIcon } from "@/components/logo";
 
-const routes = [
-  { label: "Home", icon: LayoutDashboard, href: "/dashboard" },
-  { label: "Booking page", icon: Calendar, href: "/event-types" },
-  { label: "Availability", icon: Clock, href: "/availability" },
-  { label: "Calendars", icon: CalendarDays, href: "/calendars" },
-  { label: "Bookings", icon: BookOpen, href: "/bookings" },
-  { label: "Group meetings", icon: UsersRound, href: "/meetings" },
-  { label: "Time", icon: Timer, href: "/time", invoicing: true },
-  { label: "Clients", icon: Users, href: "/clients", invoicing: true },
-  { label: "Invoices", icon: Receipt, href: "/invoices", invoicing: true },
-  { label: "Settings", icon: Settings, href: "/settings" },
-  { label: "Admin", icon: ShieldCheck, href: "/admin", admin: true },
+const routes: { label: keyof Messages["nav"]; icon: typeof Settings; href: string; invoicing?: boolean; admin?: boolean }[] = [
+  // label is a key in the "nav" messages.
+  { label: "home", icon: LayoutDashboard, href: "/dashboard" },
+  { label: "bookingPage", icon: Calendar, href: "/event-types" },
+  { label: "availability", icon: Clock, href: "/availability" },
+  { label: "calendars", icon: CalendarDays, href: "/calendars" },
+  { label: "bookings", icon: BookOpen, href: "/bookings" },
+  { label: "meetings", icon: UsersRound, href: "/meetings" },
+  { label: "time", icon: Timer, href: "/time", invoicing: true },
+  { label: "clients", icon: Users, href: "/clients", invoicing: true },
+  { label: "invoices", icon: Receipt, href: "/invoices", invoicing: true },
+  { label: "settings", icon: Settings, href: "/settings" },
+  { label: "admin", icon: ShieldCheck, href: "/admin", admin: true },
 ];
 
 /** Time tracking and invoicing show only for accounts they're switched on for. */
@@ -61,6 +64,7 @@ function useAccountFeatures() {
 }
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+  const t = useTranslations("nav");
   const pathname = usePathname();
   const features = useAccountFeatures();
   const visible = routes.filter((r) => (!r.invoicing || features.invoicing) && (!r.admin || features.admin));
@@ -78,18 +82,18 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             </span>
           </Link>
           <div className="mt-1 text-xs text-white/40">
-            Workspace
+            {t("workspace")}
           </div>
         </div>
 
-        <nav aria-label="Main navigation" className="sidebar-scroll flex-1 min-h-0 overflow-y-auto px-3 space-y-0.5">
+        <nav aria-label={t("mainNavigation")} className="sidebar-scroll flex-1 min-h-0 overflow-y-auto px-3 space-y-0.5">
           {visible.map((route) => {
             const isActive = pathname === route.href || pathname.startsWith(`${route.href}/`);
             return (
               <div key={route.href} className={route.href === "/settings" ? "mt-5! border-t border-white/10 pt-3" : undefined}>
-                {route.href === "/settings" && <p className="px-4 pb-2 pt-2 text-xs font-medium text-white/50">Workspace</p>}
-                {route.href === "/event-types" && <p className="px-4 pb-2 pt-5 text-xs font-medium text-white/35">Scheduling</p>}
-                {route.href === "/time" && <p className="px-4 pb-2 pt-5 text-xs font-medium text-white/35">Time &amp; invoicing</p>}
+                {route.href === "/settings" && <p className="px-4 pb-2 pt-2 text-xs font-medium text-white/50">{t("workspace")}</p>}
+                {route.href === "/event-types" && <p className="px-4 pb-2 pt-5 text-xs font-medium text-white/35">{t("scheduling")}</p>}
+                {route.href === "/time" && <p className="px-4 pb-2 pt-5 text-xs font-medium text-white/35">{t("timeInvoicing")}</p>}
                 <Link
                   href={route.href}
                   onClick={onNavigate}
@@ -118,7 +122,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                         : "text-white/45 group-hover:text-white/85"
                     )}
                   />
-                  <span className="relative z-10">{route.label}</span>
+                  <span className="relative z-10">{t(route.label)}</span>
                 </Link>
               </div>
             );

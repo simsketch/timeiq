@@ -9,9 +9,11 @@ import {
   ToastViewport,
 } from "@/components/ui/toast";
 import { useToast } from "@/components/ui/use-toast";
+import { useTranslations } from "next-intl";
 
 export function Toaster() {
   const { toasts } = useToast();
+  const t = useTranslations("common");
 
   return (
     <ToastProvider>
@@ -25,7 +27,7 @@ export function Toaster() {
               )}
             </div>
             {action}
-            <ToastClose />
+            <ToastClose aria-label={t("close")} />
           </Toast>
         );
       })}

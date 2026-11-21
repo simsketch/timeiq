@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useAuth } from "@clerk/nextjs";
+import { useTranslations } from "next-intl";
 import { ArrowUp, Mic, RotateCcw, Square } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { LogoMark } from "@/components/logo";
@@ -16,31 +17,8 @@ type Turn = { role: "user" | "assistant"; text: string; steps?: Step[] };
 
 const STORE = "timeiq-assistant-v1";
 const noop = () => () => {};
-const SUGGESTIONS = [
-  "When am I free this week?",
-  "What's on my calendar tomorrow?",
-  "Find 30 minutes with someone next week",
-  "Add a schedule I paste in",
-];
-const STEP_LABEL: Record<string, string> = {
-  get_profile: "Read your profile",
-  get_free_times: "Checked your free time",
-  list_calendar_events: "Read your calendar",
-  list_calendars: "Looked at your calendars",
-  sync_calendars: "Synced your calendars",
-  add_calendar: "Added a calendar",
-  list_event_types: "Looked at your event types",
-  list_bookings: "Looked at your bookings",
-  cancel_booking: "Cancelled a booking",
-  find_time_with: "Sent a find-a-time invite",
-  list_group_meetings: "Looked at group meetings",
-  get_group_meeting: "Checked a group meeting",
-  book_group_meeting: "Booked the meeting",
-  remind_group_meeting: "Sent reminders",
-  cancel_group_meeting: "Cancelled a group meeting",
-  import_schedule_text: "Imported the schedule",
-  get_schedule_email_address: "Found your schedule email",
-};
+// Keys in the "assistant" messages; "paste" fills the box instead of sending.
+const SUGGESTIONS = ["freeThisWeek", "tomorrow", "findTime", "paste"] as const;
 
 /** The visible conversation: user text, and each assistant reply with the tools it used. */
 function turnsFrom(history: Message[], stepsByReply: Step[][]): Turn[] {
@@ -93,6 +71,7 @@ function saved(): { history: Message[]; steps: Step[][] } {
 
 // Rendered only in the browser: the dashboard shows a loader until its data arrives.
 export function AssistantChat({ firstName }: { firstName?: string | null }) {
+  const t = useTranslations("assistant");
   const { getToken } = useAuth();
   const [history, setHistory] = useState<Message[]>(() => saved().history);
   const [steps, setSteps] = useState<Step[][]>(() => saved().steps);
@@ -139,11 +118,11 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
     } catch (e) {
       setHistory(history);
       setDraft(message);
-      setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
+      setError(e instanceof Error ? e.message : t("failed"));
     } finally {
       setBusy(false);
     }
-  }, [busy, getToken, history]);
+  }, [busy, getToken, history, t]);
 
   // A request typed on the homepage before signing up: ask it now.
   const asked = useRef(false);
@@ -161,7 +140,7 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
       draft,
       setDraft,
       () => { setListening(false); recognizer.current = null; input.current?.focus(); },
-      (error) => { if (error === "not-allowed") setError("Microphone access is blocked. Allow it in your browser to talk to TimeIQ."); },
+      (error) => { if (error === "not-allowed") setError(t("micBlocked")); },
     );
     if (recognizer.current) setListening(true);
   }
@@ -175,22 +154,22 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
   const empty = turns.length === 0;
 
   return (
-    <section aria-label="Ask TimeIQ" className="rounded-2xl border bg-card shadow-sm">
+    <section aria-label={t("title")} className="rounded-2xl border bg-card shadow-sm">
       <div className={cn("px-5 sm:px-7", empty ? "pt-7 pb-2" : "pt-5")}>
         {empty ? (
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-              What should we schedule{firstName ? `, ${firstName}` : ""}?
+              {firstName ? t("headingName", { name: firstName }) : t("heading")}
             </h2>
             <p className="mt-1.5 text-muted-foreground">
-              Ask about your week, find time with people, or paste a schedule. Type it or say it.
+              {t("intro")}
             </p>
           </div>
         ) : (
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-muted-foreground">Ask TimeIQ</p>
+            <p className="text-sm font-medium text-muted-foreground">{t("title")}</p>
             <button type="button" onClick={reset} disabled={busy} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50">
-              <RotateCcw className="h-3.5 w-3.5" /> New chat
+              <RotateCcw className="h-3.5 w-3.5" /> {t("newChat")}
             </button>
           </div>
         )}
@@ -198,25 +177,25 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
 
       {!empty && (
         <div className="max-h-[56vh] overflow-y-auto px-5 sm:px-7 py-4 space-y-5" aria-live="polite">
-          {turns.map((t, i) =>
-            t.role === "user" ? (
+          {turns.map((turn, i) =>
+            turn.role === "user" ? (
               <div key={i} className="flex justify-end">
-                <p className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-foreground px-4 py-2.5 text-background">{t.text}</p>
+                <p className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-foreground px-4 py-2.5 text-background">{turn.text}</p>
               </div>
             ) : (
               <div key={i} className="flex gap-3">
                 <LogoMark className="mt-0.5 h-7 w-7 shrink-0 text-foreground" />
                 <div className="min-w-0 flex-1 text-[15px] leading-relaxed">
-                  {t.steps && t.steps.length > 0 && (
+                  {turn.steps && turn.steps.length > 0 && (
                     <div className="mb-2 flex flex-wrap gap-1.5">
-                      {[...new Set(t.steps.map((s) => s.tool))].map((tool) => (
+                      {[...new Set(turn.steps.map((s) => s.tool))].map((tool) => (
                         <span key={tool} className="rounded-full bg-muted px-2.5 py-0.5 font-mono text-[11px] text-muted-foreground">
-                          {STEP_LABEL[tool] ?? tool.replaceAll("_", " ")}
+                          {t.has(`steps.${tool}` as Parameters<typeof t>[0]) ? t(`steps.${tool}` as Parameters<typeof t>[0]) : tool.replaceAll("_", " ")}
                         </span>
                       ))}
                     </div>
                   )}
-                  <Reply text={t.text} />
+                  <Reply text={turn.text} />
                 </div>
               </div>
             ),
@@ -224,7 +203,7 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
           {busy && (
             <div className="flex items-center gap-3 text-muted-foreground">
               <LogoMark className="h-7 w-7 shrink-0 text-foreground animate-pulse" />
-              <span className="text-sm">Working on it…</span>
+              <span className="text-sm">{t("working")}</span>
             </div>
           )}
           <div ref={bottom} />
@@ -247,15 +226,15 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
               if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(draft); }
             }}
             rows={1}
-            placeholder={listening ? "Listening…" : "Find 30 minutes with Sam next week…"}
-            aria-label="Message TimeIQ"
+            placeholder={listening ? t("listening") : t("placeholder")}
+            aria-label={t("messageLabel")}
             className="max-h-[200px] min-h-[40px] flex-1 resize-none bg-transparent px-1 py-2 text-[15px] outline-none placeholder:text-muted-foreground"
           />
           {canListen && (
             <button
               type="button"
               onClick={toggleMic}
-              aria-label={listening ? "Stop listening" : "Talk instead of typing"}
+              aria-label={listening ? t("stopListening") : t("talk")}
               aria-pressed={listening}
               className={cn(
                 "mb-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition",
@@ -268,7 +247,7 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
           <button
             type="submit"
             disabled={!draft.trim() || busy}
-            aria-label="Send"
+            aria-label={t("send")}
             className="mb-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition disabled:opacity-30"
           >
             <ArrowUp className="h-5 w-5" />
@@ -281,10 +260,10 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
               <button
                 key={s}
                 type="button"
-                onClick={() => (s.startsWith("Add a schedule") ? (setDraft("Add this schedule to my calendar:\n"), input.current?.focus()) : send(s))}
+                onClick={() => (s === "paste" ? (setDraft(`${t("pastePrefix")}\n`), input.current?.focus()) : send(t(`suggestions.${s}`)))}
                 className="rounded-full border px-3 py-1.5 text-sm text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
               >
-                {s}
+                {t(`suggestions.${s}`)}
               </button>
             ))}
           </div>

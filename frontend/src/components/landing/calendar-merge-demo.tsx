@@ -2,13 +2,14 @@
 
 import { useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { MiniWeek } from "./mini-week";
 import {
-  DAY_LABELS,
   DEMO_CALENDARS,
   MERGE_EVENTS,
   clock,
   dayDate,
+  dayLabel,
   freeWindows,
   slotsFor,
   type CalendarKey,
@@ -35,6 +36,8 @@ const AUTOPLAY: ({ calendar: CalendarKey } | { day: number })[] = [
 
 /** Toggle calendars and watch the booking page's open slots follow. */
 export function CalendarMergeDemo() {
+  const t = useTranslations("landing.demo");
+  const locale = useLocale();
   const [on, setOn] = useState<Set<CalendarKey>>(new Set(["work"]));
   const [justAdded, setJustAdded] = useState<CalendarKey | null>(null);
   const [day, setDay] = useState(1);
@@ -65,7 +68,7 @@ export function CalendarMergeDemo() {
     <div ref={ref} className="grid lg:grid-cols-12 gap-6 lg:gap-8 items-start">
       <div className="lg:col-span-4 space-y-3">
         <div className="text-[11px] font-mono uppercase tracking-[0.18em] text-muted-foreground mb-1">
-          Your calendars · tap to connect
+          {t("merge.heading")}
         </div>
         {DEMO_CALENDARS.map((c) => {
           const active = on.has(c.key);
@@ -82,9 +85,9 @@ export function CalendarMergeDemo() {
             >
               <span className="h-3 w-3 rounded-full shrink-0" style={{ background: c.color, opacity: active ? 1 : 0.35 }} />
               <span className="min-w-0 flex-1">
-                <span className={`block text-sm font-semibold ${active ? "" : "text-foreground/60"}`}>{c.name}</span>
+                <span className={`block text-sm font-semibold ${active ? "" : "text-foreground/60"}`}>{t(`calendars.${c.key}`)}</span>
                 <span className="block text-xs text-muted-foreground">
-                  {c.source} · {MERGE_EVENTS[c.key].length} events this week
+                  {c.key === "school" ? t("merge.emailedIn") : c.source} · {t("merge.eventsThisWeek", { count: MERGE_EVENTS[c.key].length })}
                 </span>
               </span>
               <span
@@ -112,10 +115,10 @@ export function CalendarMergeDemo() {
           >
             <div className="flex items-center gap-1.5 font-semibold">
               <AlertTriangle className="h-4 w-4" />
-              {Math.max(clashes, 1)} bookable {clashes === 1 ? "slot clashes" : "slots clash"} with a calendar you left out
+              {t("merge.clashes", { count: Math.max(clashes, 1) })}
             </div>
             <p className="mt-1 text-amber-900/80 text-xs leading-relaxed">
-              A booking page that only sees some of your calendars will happily book over the dentist.
+              {t("merge.clashesBody")}
             </p>
           </div>
           <div
@@ -126,10 +129,10 @@ export function CalendarMergeDemo() {
           >
             <div className="flex items-center gap-1.5 font-semibold">
               <CheckCircle2 className="h-4 w-4" />
-              Zero clashes. Guests only see times you&apos;re really free.
+              {t("merge.noClashes")}
             </div>
             <p className="mt-1 text-emerald-900/80 text-xs leading-relaxed">
-              Connect as many calendars as you use. There&apos;s no limit and no upgrade.
+              {t("merge.noClashesBody")}
             </p>
           </div>
         </div>
@@ -137,18 +140,18 @@ export function CalendarMergeDemo() {
 
       <div className="lg:col-span-8 glass rounded-[1.75rem] p-4 sm:p-6">
         <div className="flex items-baseline justify-between mb-3">
-          <div className="text-sm font-semibold">Your week</div>
+          <div className="text-sm font-semibold">{t("yourWeek")}</div>
           <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
             <span className="inline-block h-2 w-2 rounded-sm bg-emerald-400/50 ring-1 ring-emerald-500/40 mr-1" />
-            Open to book
+            {t("merge.open")}
           </div>
         </div>
         <MiniWeek days={5} from={9} to={17} events={busy} fresh={fresh} free={free} hourHeight={26} />
 
         <div className="mt-5 border-t border-foreground/[0.06] pt-4">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <div className="text-sm font-semibold">What your booking page offers</div>
-            <div className="flex gap-1" role="tablist" aria-label="Day">
+            <div className="text-sm font-semibold">{t("merge.offers")}</div>
+            <div className="flex gap-1" role="tablist" aria-label={t("merge.day")}>
               {WEEKDAYS.map((d) => (
                 <button
                   key={d}
@@ -160,7 +163,7 @@ export function CalendarMergeDemo() {
                     d === day ? "bg-foreground text-background" : "text-muted-foreground hover:bg-foreground/[0.06]"
                   }`}
                 >
-                  {DAY_LABELS[d]}
+                  {dayLabel(d, locale)}
                 </button>
               ))}
             </div>
@@ -168,23 +171,22 @@ export function CalendarMergeDemo() {
           {/* Reserves the most rows any day needs at each width, and keys chips by position,
               so toggling calendars restyles chips in place instead of reflowing the page. */}
           <div className="flex flex-wrap gap-1.5 min-h-[138px] sm:min-h-[100px] md:min-h-[66px] lg:min-h-[100px] xl:min-h-[66px] content-start">
-            {daySlots.map((t, i) => (
+            {daySlots.map((slot, i) => (
               <span
                 key={i}
                 className={`rounded-lg px-2.5 py-1.5 font-mono text-xs tabular-nums transition-colors ${
-                  clashing.has(t)
+                  clashing.has(slot)
                     ? "bg-amber-100 text-amber-900 ring-1 ring-amber-500/40 line-through decoration-amber-700/60"
                     : "glass text-foreground/80"
                 }`}
-                title={clashing.has(t) ? "Clashes with a calendar you haven't connected" : undefined}
+                title={clashing.has(slot) ? t("merge.clashTitle") : undefined}
               >
-                {clock(t)}
+                {clock(slot, locale)}
               </span>
             ))}
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            {dayDate(day)}: {daySlots.length - clashing.size} safe 30-minute slots
-            {clashing.size > 0 && `, ${clashing.size} that would double-book you`}.
+            {t("merge.summary", { day: dayDate(day, locale), safe: daySlots.length - clashing.size, risky: clashing.size })}
           </p>
         </div>
       </div>

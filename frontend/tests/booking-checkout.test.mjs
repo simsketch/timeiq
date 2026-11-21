@@ -6,6 +6,14 @@ import vm from "node:vm";
 import ts from "typescript";
 
 const require = createRequire(import.meta.url);
+
+// The flow renders with the real English messages, so assertions read the shipped copy.
+const { createTranslator } = require("use-intl");
+const messages = JSON.parse(readFileSync(new URL("../messages/en.json", import.meta.url), "utf8"));
+const intl = {
+  useTranslations: (namespace) => createTranslator({ locale: "en", messages, namespace }),
+  useLocale: () => "en",
+};
 const source = ts.transpileModule(readFileSync(new URL("../src/components/booking/booking-flow.tsx", import.meta.url), "utf8"), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
 }).outputText;
@@ -30,9 +38,10 @@ function flow(embed, status = "pending_payment", branding = {}) {
         return [states[index], (value) => { states[index] = value; }];
       },
     };
+    if (name === "next-intl") return intl;
     if (name === "next/navigation") return { useParams: () => ({ username: "host", eventSlug: "call" }) };
     if (name === "@/lib/api") return { apiFetch };
-    if (name === "@/lib/booking-payments") return { bookingPrice: () => "$50.00", REFUND_POLICY: "Policy" };
+    if (name === "@/lib/booking-payments") return { bookingPrice: () => "$50.00" };
     if (name === "@/lib/booking-time") return {
       guestTimeZone: () => "UTC", timeZoneLabel: () => "UTC", describeSlot: () => ({ date: "Nov 2", time: "10 AM" }),
     };
