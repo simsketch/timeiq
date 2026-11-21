@@ -80,10 +80,11 @@ function FreeCard({ signedIn, headline }: { signedIn: boolean; headline?: string
       </ul>
       <Button asChild variant="brand" size="xl" className="w-full mt-auto">
         {signedIn ? (
-          <Link href="/dashboard" className="gap-2">
+          // eslint-disable-next-line @next/next/no-html-link-for-pages -- full load lets Clerk refresh the session on Clerk-free pages
+          <a href="/dashboard" className="gap-2">
             {t("goDashboard")}
             <ArrowRight className="h-4 w-4" />
-          </Link>
+          </a>
         ) : (
           <Link href="/sign-up" className="gap-2" onClick={() => track("Lead", { ...(headline && { content_name: headline }) })}>
             {t("startFree")}
