@@ -161,13 +161,19 @@ export default function Settings() {
         <Row icon="globe-outline" title="Time zone" detail={me.timezone.replace(/_/g, " ")} onPress={() => setZonePicker(true)} />
       </Card>
 
-      <Label>Email</Label>
+      <Label>Email and notifications</Label>
       <Card style={{ paddingVertical: 6 }}>
         <ToggleRow
           title="Your week email"
           detail="Your bookings and open time every Monday around 7 am."
           value={me.weekly_summary_enabled ?? true}
           onChange={(v) => patch({ weekly_summary_enabled: v }, "Not changed")}
+        />
+        <ToggleRow
+          title="Tips and feature reminders"
+          detail="A few push notifications in your first week about TimeIQ features."
+          value={me.push_tips_opt_in ?? false}
+          onChange={(v) => patch({ push_tips_opt_in: v }, "Not changed")}
         />
         <Row icon="mail-outline" title="Linked email addresses" detail="Other addresses that can forward schedules and cc TimeIQ" onPress={() => router.push("/email-addresses")} />
       </Card>

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
-import { Tabs, useRouter } from "expo-router";
+import { type Href, Tabs, useRouter } from "expo-router";
 import { useShareIntentContext } from "expo-share-intent";
 import { useEffect } from "react";
 import { Platform } from "react-native";
@@ -22,11 +22,13 @@ export default function AppLayout() {
       .catch(() => undefined);
   }, [api]);
 
-  // Tapping a notification opens its booking.
+  // Tapping a notification opens its booking, or the screen a tip is about.
   useEffect(() => {
     const open = (r: Notifications.NotificationResponse | null) => {
-      const id = r?.notification.request.content.data?.booking_id;
+      const data = r?.notification.request.content.data;
+      const id = data?.booking_id;
       if (typeof id === "string") router.push({ pathname: "/booking/[id]", params: { id } });
+      else if (typeof data?.path === "string" && data.path.startsWith("/")) router.navigate(data.path as Href);
     };
     Notifications.getLastNotificationResponseAsync().then(open).catch(() => undefined);
     const sub = Notifications.addNotificationResponseReceivedListener(open);

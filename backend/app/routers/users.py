@@ -30,6 +30,7 @@ from app.models.event_type import EventType, starter_event_types
 from app.models.booking import Booking
 from app.services.email import send_welcome
 from app.services.branding import validate_booking_logo
+from app.services import push_tips
 from sqlalchemy import func, and_
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,10 @@ class UserResponse(BaseModel):
     booking_logo: Optional[str] = None
     booking_white_label: bool = False
     invoicing_enabled: bool = False
+    push_tips_opt_in: bool = False
+    push_tips_asked_at: Optional[datetime] = None
+    # The app shows the one-time tips question while this is true.
+    push_tips_offer: bool = False
 
     @computed_field
     @property
@@ -78,6 +83,8 @@ class UserUpdate(BaseModel):
     booking_scene: Optional[str] = Field(default=None, max_length=32)
     booking_logo: Optional[str] = Field(default=None, max_length=180_000)
     booking_white_label: Optional[bool] = None
+    # Answering the tips question, or the switch in settings; either counts as asked.
+    push_tips_opt_in: Optional[bool] = None
 
     _valid_booking_logo = field_validator("booking_logo")(validate_booking_logo)
 
@@ -243,6 +250,12 @@ async def sync_current_user(
 async def get_me(
     user: User = Depends(get_current_user),
 ):
+    return _me(user)
+
+
+def _me(user: User) -> User:
+    # A plain (unmapped) attribute; UserResponse reads it like a column.
+    user.push_tips_offer = push_tips.offer(user, datetime.now(timezone.utc))
     return user
 
 
@@ -256,6 +269,9 @@ async def update_me(
         user.name = payload.name.strip() or None
     if payload.weekly_summary_enabled is not None:
         user.weekly_summary_enabled = payload.weekly_summary_enabled
+    if payload.push_tips_opt_in is not None:
+        user.push_tips_opt_in = payload.push_tips_opt_in
+        user.push_tips_asked_at = user.push_tips_asked_at or datetime.now(timezone.utc)
     if payload.weekly_hours_target is not None:
         if not 0 <= payload.weekly_hours_target <= 168:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Weekly target must be between 0 and 168 hours")
@@ -297,7 +313,7 @@ async def update_me(
     user.updated_at = datetime.now(timezone.utc)
     await db.flush()
     await db.refresh(user)
-    return user
+    return _me(user)
 
 
 @router.get("/api/dashboard/money", response_model=MoneyStats)

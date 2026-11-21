@@ -74,6 +74,9 @@ export interface Me {
   invoicing_enabled?: boolean;
   weekly_hours_target?: number;
   weekly_summary_enabled?: boolean;
+  push_tips_opt_in?: boolean;
+  push_tips_asked_at?: string | null;
+  push_tips_offer?: boolean;
   booking_scene?: string | null;
   booking_logo?: string | null;
   booking_white_label?: boolean;

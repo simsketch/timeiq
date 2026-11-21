@@ -33,6 +33,10 @@
       "schedule": "0 * * * 1"
     },
     {
+      "path": "/api/cron/push-tips",
+      "schedule": "30 * * * *"
+    },
+    {
       "path": "/api/cron/sync-calendars",
       "schedule": "0 * * * *"
     },

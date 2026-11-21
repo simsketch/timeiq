@@ -5,6 +5,7 @@ import { Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { SetupChecklist } from "@/components/setup-checklist";
 import { ShareAvailability } from "@/components/share-availability";
+import { TipsPrompt } from "@/components/tips-prompt";
 import { Notice } from "@/components/ui";
 import { type CalItem, WeekCalendar, bookingItems, confirmMove, syncedItems } from "@/components/week-calendar";
 import { ApiError, type BillingStatus, type Booking, type CachedEvent, type EventType, useApi } from "@/lib/api";
@@ -20,6 +21,9 @@ type Item =
 type View_ = "list" | "calendar";
 // The List / Calendar choice lasts for the app session.
 let rememberedView: View_ = "list";
+const rememberView = (v: View_) => {
+  rememberedView = v;
+};
 
 export default function Agenda() {
   const t = useTheme();
@@ -39,7 +43,7 @@ export default function Agenda() {
   const [broken, setBroken] = useState<string[]>([]);
   const [view, setViewState] = useState<View_>(rememberedView);
   const setView = (v: View_) => {
-    rememberedView = v;
+    rememberView(v);
     setViewState(v);
   };
   // The instants the calendar shows, so its synced events load with it.
@@ -231,6 +235,7 @@ export default function Agenda() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
       >
         {error && <Notice tone="warn">{error}</Notice>}
+        <TipsPrompt />
         <SetupChecklist />
         {stats && (
           <View style={styles.stats}>

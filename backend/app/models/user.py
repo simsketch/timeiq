@@ -49,6 +49,11 @@ class User(Base):
     booking_scene: Mapped[str | None] = mapped_column(String(32), nullable=True)
     booking_logo: Mapped[str | None] = mapped_column(Text, nullable=True)
     booking_white_label: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    # Opt-in feature tips by push in the first days (services/push_tips.py).
+    push_tips_step: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    push_tips_opt_in: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    push_tips_asked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    push_tips_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     signup_attribution: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
     # Billing
     stripe_connect_account_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)

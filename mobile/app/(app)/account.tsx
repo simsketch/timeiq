@@ -101,7 +101,7 @@ export default function Account() {
         <Row icon="albums-outline" title="Event types" detail="Your meeting kinds, rules, reminders and prices" onPress={() => router.push("/event-types")} />
         <Row icon="time-outline" title="Availability" detail="The hours people can book you" onPress={() => router.push("/availability")} />
         <Row icon="calendar-outline" title="Calendars" detail="Connect and sync the calendars that block your times" onPress={() => router.push("/calendars")} />
-        <Row icon="settings-outline" title="Settings" detail="Profile, time zone, booking page, billing, AI assistants" onPress={() => router.push("/settings")} />
+        <Row icon="settings-outline" title="Settings" detail="Profile, time zone, notifications, booking page, billing, AI assistants" onPress={() => router.push("/settings")} />
       </Card>
 
       {me?.invoicing_enabled && (
