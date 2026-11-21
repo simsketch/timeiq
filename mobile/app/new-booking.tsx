@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { DateTimeField } from "@/components/date-time-field";
 import { Button, Label, Notice } from "@/components/ui";
 import { ApiError, type EventType, useApi } from "@/lib/api";
@@ -89,7 +89,7 @@ export default function NewBooking() {
 
   const input = [styles.input, { borderColor: t.border, color: t.text, backgroundColor: t.card }];
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
         {types && types.length === 0 && !error && (
           <Notice>Create an event type on timeiq.app first. It sets the meeting length and link.</Notice>

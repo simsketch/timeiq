@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button, Card, Input, Label, Notice } from "@/components/ui";
 import { useApi } from "@/lib/api";
 import { API_URL } from "@/lib/config";
@@ -91,7 +91,7 @@ export default function ApiTokens() {
       <Card style={{ gap: 8 }}>
         <Text style={{ color: t.text, fontSize: 14, lineHeight: 20 }}>For Claude and ChatGPT, add a custom connector with this URL, then sign in and allow. No token needed.</Text>
         <Pressable accessibilityRole="button" onPress={() => copy(MCP_URL, "url")} style={styles.copyRow}>
-          <Text style={{ color: t.text, fontFamily: "Menlo", fontSize: 13, flex: 1 }} selectable>{MCP_URL}</Text>
+          <Text style={{ color: t.text, fontFamily: Platform.select({ ios: "Menlo", default: "monospace" }), fontSize: 13, flex: 1 }} selectable>{MCP_URL}</Text>
           <Ionicons name={copied === "url" ? "checkmark" : "copy-outline"} size={18} color={t.primary} />
         </Pressable>
       </Card>
@@ -128,7 +128,7 @@ export default function ApiTokens() {
               <View style={{ gap: 8 }}>
                 <Notice tone="warn">Copy this token now. TimeIQ won&apos;t show it again.</Notice>
                 <Pressable accessibilityRole="button" onPress={() => copy(fresh, "fresh")} style={styles.copyRow}>
-                  <Text style={{ color: t.text, fontFamily: "Menlo", fontSize: 12, flex: 1 }} selectable>{fresh}</Text>
+                  <Text style={{ color: t.text, fontFamily: Platform.select({ ios: "Menlo", default: "monospace" }), fontSize: 12, flex: 1 }} selectable>{fresh}</Text>
                   <Ionicons name={copied === "fresh" ? "checkmark" : "copy-outline"} size={18} color={t.primary} />
                 </Pressable>
               </View>

@@ -1,7 +1,7 @@
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Button, Card, Label, Notice } from "@/components/ui";
 import { confirmAiConsent } from "@/lib/ai-consent";
 import { useApi } from "@/lib/api";
@@ -58,6 +58,8 @@ export default function Import() {
 
   useEffect(() => {
     if (!shared) return;
+    // Consumes a one-shot event from the share store, then clears it.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setText(shared);
     setResult(null);
     clearShared();
@@ -123,7 +125,7 @@ export default function Import() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+    <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
         <Text style={[styles.lead, { color: t.muted }]}>
           Paste a schedule (a team calendar, class times, an email) and the dates land on your TimeIQ calendar. You can also share text to TimeIQ from any app.
