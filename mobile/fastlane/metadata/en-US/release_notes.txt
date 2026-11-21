@@ -1,1 +1,3 @@
-The first TimeIQ for iPhone: your calendar, bookings, availability and the TimeIQ assistant in your pocket.
+Talk to Ask TimeIQ: tap the new microphone button and say what you need, like "find an hour with Sam next week."
+
+Smoother calendars and small fixes throughout.
