@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { SetupChecklist } from "@/components/setup-checklist";
 import { ShareAvailability } from "@/components/share-availability";
 import { TipsPrompt } from "@/components/tips-prompt";
+import { maybeAskForReview } from "@/lib/review";
 import { Notice, useFold, useSplit } from "@/components/ui";
 import { type CalItem, WeekCalendar, bookingItems, confirmMove, syncedItems } from "@/components/week-calendar";
 import { ApiError, type BillingStatus, type Booking, type CachedEvent, type EventType, useApi } from "@/lib/api";
@@ -82,6 +83,7 @@ export default function Agenda() {
         .then((cals) => setBroken(cals.filter((c) => c.sync_status === "broken").map((c) => c.name)))
         .catch(() => undefined);
       setBookings([...confirmed, ...pending]);
+      maybeAskForReview(confirmed.length);
       setEvents(cached);
       setTypes(Object.fromEntries(eventTypes.map((e) => [String(e.id), e.name])));
       setError(null);
