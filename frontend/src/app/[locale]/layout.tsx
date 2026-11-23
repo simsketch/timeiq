@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
+import localFont from "next/font/local";
 import { Toaster } from "@/components/ui/toaster";
 import { AttributionCapture } from "@/components/attribution-capture";
 import { SiteAnalytics } from "@/components/site-analytics";
@@ -12,6 +12,16 @@ import "../globals.css";
 const SITE = "https://timeiq.app";
 const DESCRIPTION =
   "Forward TimeIQ a soccer PDF, band email or team-app screenshot and every event lands on your calendar. One booking link for all your calendars, and your open times in any time zone. Your first 7 meetings are free, then $19/year founder price for the first 100 subscribers.";
+
+// Geist Mono only sets small labels below the fold, so it isn't preloaded: the hero image gets the bandwidth first.
+const GeistMono = localFont({
+  src: "../../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2",
+  variable: "--font-geist-mono",
+  weight: "100 900",
+  preload: false,
+  adjustFontFallback: false,
+  fallback: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),

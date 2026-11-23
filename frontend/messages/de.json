@@ -1511,51 +1511,62 @@
       "tryDemo": "Demo ausprobieren",
       "startFree": "Kostenlos starten",
       "b1": {
-        "title": "Alle deine Kalender. Ein Buchungslink.",
-        "body": "Google, Outlook und iCloud, live geprüft. Niemand bucht über deinen Zahnarzttermin.",
-        "label": "Deine Kalender",
-        "connected": "verbunden",
-        "clashes": "Konflikte"
+        "title": "Alle Kalender. Ein Link.",
+        "body": "Google, Outlook und iCloud, live geprüft. So bucht niemand über deinen Zahnarzttermin.",
+        "label": "Heute",
+        "work": "Arbeit",
+        "personal": "Privat",
+        "clients": "Kunden",
+        "noClashes": "Keine Überschneidungen"
       },
       "b2": {
-        "title": "Setz TimeIQ in Cc. Es findet den Termin.",
-        "body": "Füg es zu jedem E-Mail-Thread hinzu. Es antwortet mit Zeiten, die für alle passen.",
+        "title": "CC: TimeIQ. Es findet den Termin.",
+        "body": "Setz es bei jeder E-Mail in Kopie. Es antwortet mit Zeiten, die für alle passen.",
         "label": "AW: Kick-off nächste Woche",
-        "card": "Di. 10:00 oder Mi. 14:30 passt euch beiden."
+        "ask": "Finden wir nächste Woche 30 Minuten?",
+        "replyLead": "Ihr seid beide frei:"
       },
       "b3": {
-        "title": "Frag Claude oder ChatGPT.",
+        "title": "Frag einfach Claude oder ChatGPT.",
         "body": "Sag es in deinen Worten. Noch vor Ende der Mittagspause steht es in beiden Kalendern.",
         "label": "Frag deine KI",
         "prompt": "buch 30 Min. mit Aghil am Dienstag",
-        "card": "Gebucht für Di. 9:00. Einladung verschickt."
+        "booked": "Gebucht. Einladung an Aghil gesendet."
       },
       "b4": {
-        "title": "Teil deine freie Zeit als Bild.",
-        "body": "Wirf deine Verfügbarkeit in jeden Chat. Sie wählen eine Zeit, du bist gebucht.",
-        "label": "Frei diese Woche"
+        "title": "Schick deine freie Zeit als Bild.",
+        "body": "Teil es in jedem Chat. Sie tippen auf eine Zeit, und du bist gebucht.",
+        "label": "Frei diese Woche",
+        "tap": "Tippe auf eine Zeit zum Buchen"
       },
       "b5": {
         "title": "Leite den Fußballplan weiter.",
-        "body": "Jedes PDF, jeder Screenshot, jede E-Mail. Jedes Training und jedes Spiel landet in deinem Kalender.",
+        "body": "Ein PDF, ein Screenshot oder eine E-Mail. Jedes Training und jedes Spiel landet in deinem Kalender.",
         "label": "Weitergeleitet",
         "added": "9 Termine hinzugefügt",
         "subject": "WG: Fußballplan U10 Herbst",
-        "card": "Training Di. & Do. 17:30 · Spiele Sa. 9:00"
+        "practice": "Training",
+        "game": "Spiel"
       },
       "b6": {
-        "title": "Nie doppelt gebucht beim Abendessen.",
-        "body": "Arbeitszeiten und Puffer halten deine Abende frei.",
+        "title": "Deine Abende gehören dir.",
+        "body": "Arbeitszeiten und Puffer halten Termine vom Abendessen fern.",
         "label": "Arbeitszeiten",
         "card": "Mo.–Fr., 9:00–18:00",
-        "buffer": "15 Min. Puffer zwischen Terminen"
+        "buffer": "15 Min. Puffer zwischen Terminen",
+        "evening": "Abend geschützt"
       },
       "b7": {
-        "title": "Gebucht, während du geschlafen hast.",
-        "body": "Dein Link füllt die Woche, während du dich ausruhst. Deine ersten 7 Termine sind kostenlos.",
-        "label": "Als Nächstes",
-        "card": "Kennenlerngespräch",
-        "when": "Aghil · Di. 9:00–9:30"
+        "title": "Gebucht, während du schläfst.",
+        "body": "Dein Link füllt den nächsten Tag, während du schläfst. Die ersten 7 Termine sind kostenlos.",
+        "label": "Neue Buchung",
+        "card": "Kennenlerngespräch"
+      },
+      "cta": {
+        "title": "Dein ganzer Tag auf Autopilot.",
+        "body": "Starte mit 7 kostenlosen Terminen, ohne Karte. Danach 19 $ pro Jahr.",
+        "start": "Kostenlos starten",
+        "plans": "Tarife ansehen"
       }
     },
     "ask": {

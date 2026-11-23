@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { HeroAsk } from "@/components/landing/hero-ask";
+import { Check, FileText, Moon } from "lucide-react";
 import { AppStoreBadge, GooglePlayBadge } from "@/components/app-store-badge";
+import { FlipClock } from "@/components/landing/flip-clock";
 import type { Headline } from "@/components/landing/headlines";
 
 // Scroll-scrubbed hero: one day passes around a floating clock while life
@@ -25,13 +27,28 @@ const PHONE = "(max-width: 767px)";
 type Beat = { time: string; title: string; body: string; dark?: boolean; card: React.ReactNode };
 type T = ReturnType<typeof useTranslations<"landing.clock">>;
 
+// The day's beats, in minutes past midnight: the intro at 6:00, then one per slide. The flip clock runs between them as you scroll.
+const TIMES = [360, 495, 630, 750, 900, 1050, 1200, 1425];
+
 /** A clock time on the day the hero walks through, in the visitor's language. */
 const at = (locale: string, hour: number, minute: number) =>
   new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" }).format(new Date(2026, 10, 2, hour, minute));
 
+/** A weekday of the demo week (2 = Monday Nov 2) plus a time, e.g. "Tue 10:00 AM". */
+const on = (locale: string, day: number, hour: number, minute: number) =>
+  `${new Intl.DateTimeFormat(locale, { weekday: "short" }).format(new Date(2026, 10, day))} ${at(locale, hour, minute)}`;
+
 /** Monday to Friday of the demo week, short names. */
 const weekdays = (locale: string) =>
   [2, 3, 4, 5, 6].map((d) => new Intl.DateTimeFormat(locale, { weekday: "short" }).format(new Date(2026, 10, d)));
+
+const BLUE = "#3b82f6";
+const GREEN = "#16a34a";
+const ORANGE = "#e8590c";
+// Today's merged calendar strip: [start %, width %, colour].
+const STRIP: [number, number, string][] = [[6, 8, BLUE], [20, 10, ORANGE], [38, 6, GREEN], [55, 14, BLUE], [76, 7, ORANGE]];
+// Free this week, row by row across Mon-Fri: 0 busy, 1 free, 2 the slot they picked.
+const FREE = [0, 1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 2, 1, 0, 1, 0, 0, 1, 1];
 
 const beats = (t: T, locale: string): Beat[] => [
   {
@@ -41,16 +58,21 @@ const beats = (t: T, locale: string): Beat[] => [
     card: (
       <>
         <p className="ch-label">{t("b1.label")}</p>
-        <div className="mt-3 flex items-baseline gap-7">
-          <p><span className="text-2xl font-medium">4</span><span className="block text-xs opacity-60">{t("b1.connected")}</span></p>
-          <p><span className="text-2xl font-medium">0</span><span className="block text-xs opacity-60">{t("b1.clashes")}</span></p>
+        <ul className="mt-3 space-y-1.5">
+          {([[BLUE, t("b1.work"), "Google"], [GREEN, t("b1.personal"), "iCloud"], [ORANGE, t("b1.clients"), "Outlook"]] as const).map(([c, name, from]) => (
+            <li key={from} className="flex items-center gap-2">
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: c }} />
+              <span className="flex-1 truncate">{name}</span>
+              <span className="text-[11px] opacity-55">{from}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="ch-well relative mt-3 h-3 overflow-hidden rounded-full">
+          {STRIP.map(([left, width, c]) => (
+            <span key={left} className="absolute inset-y-0 rounded-full" style={{ left: `${left}%`, width: `${width}%`, background: c }} />
+          ))}
         </div>
-        <div className="mt-3 flex h-2 gap-1">
-          <span className="w-[46%] rounded-full bg-current" />
-          <span className="w-[26%] rounded-full bg-current opacity-50" />
-          <span className="w-[16%] rounded-full bg-current opacity-30" />
-          <span className="w-[12%] rounded-full bg-current opacity-15" />
-        </div>
+        <p className="mt-2.5 flex items-center gap-1.5 text-xs font-medium"><Check className="h-3.5 w-3.5" style={{ color: GREEN }} />{t("b1.noClashes")}</p>
       </>
     ),
   },
@@ -61,8 +83,18 @@ const beats = (t: T, locale: string): Beat[] => [
     card: (
       <>
         <p className="ch-label">{t("b2.label")}</p>
-        <p className="mt-3 text-xs opacity-60">Cc: agent@timeiq.app</p>
-        <p className="mt-2 text-sm">{t("b2.card")}</p>
+        <p className="mt-2 text-[11px] opacity-60">CC: agent@timeiq.app</p>
+        <p className="ch-well mt-2 rounded-lg px-2.5 py-2 text-xs">{t("b2.ask")}</p>
+        <div className="mt-2.5 flex gap-2">
+          <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white" style={{ background: ORANGE }}>T</span>
+          <div className="min-w-0">
+            <p className="text-xs opacity-70">{t("b2.replyLead")}</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <span className="rounded-full px-2 py-0.5 text-[11px] font-medium text-white" style={{ background: ORANGE }}>{on(locale, 3, 10, 0)}</span>
+              <span className="ch-chip rounded-full px-2 py-0.5 text-[11px] font-medium">{on(locale, 4, 14, 30)}</span>
+            </div>
+          </div>
+        </div>
       </>
     ),
   },
@@ -73,8 +105,14 @@ const beats = (t: T, locale: string): Beat[] => [
     card: (
       <>
         <p className="ch-label">{t("b3.label")}</p>
-        <p className="mt-3 rounded-md bg-black/[0.06] px-2.5 py-1.5 font-mono text-xs">{t("b3.prompt")}</p>
-        <p className="mt-2 text-sm">{t("b3.card")}</p>
+        <p className="ch-ink ml-auto mt-3 w-fit max-w-[92%] rounded-2xl rounded-br-md px-3 py-1.5 text-xs">{t("b3.prompt")}</p>
+        <div className="mt-2.5 flex items-start gap-2 text-xs">
+          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-white" style={{ background: GREEN }}><Check className="h-3 w-3" /></span>
+          <div>
+            <p className="font-medium">{t("b3.booked")}</p>
+            <p className="ch-well mt-1.5 inline-block rounded-md px-2 py-0.5 text-[11px] tabular-nums">{on(locale, 3, 9, 0)}</p>
+          </div>
+        </div>
       </>
     ),
   },
@@ -85,14 +123,15 @@ const beats = (t: T, locale: string): Beat[] => [
     card: (
       <>
         <p className="ch-label">{t("b4.label")}</p>
-        <div className="mt-3 flex h-16 items-end gap-1.5">
-          {[3, 5, 2, 6, 4].map((h, i) => (
-            <span key={i} className={`flex-1 rounded-sm bg-current ${h === 6 ? "" : "opacity-25"}`} style={{ height: `${h * 15}%` }} />
-          ))}
-        </div>
-        <div className="mt-1.5 flex justify-between text-[10px] opacity-55">
+        <div className="mt-3 grid grid-cols-5 gap-1 text-center text-[10px] opacity-55">
           {weekdays(locale).map((d) => <span key={d}>{d}</span>)}
         </div>
+        <div className="mt-1 grid grid-cols-5 gap-1">
+          {FREE.map((f, i) => (
+            <span key={i} className={`h-3.5 rounded-[3px] ${f ? "" : "ch-well"}`} style={f ? { background: ORANGE, opacity: f === 2 ? 1 : 0.32 } : undefined} />
+          ))}
+        </div>
+        <p className="mt-2.5 text-[11px] opacity-60">{t("b4.tap")}</p>
       </>
     ),
   },
@@ -103,9 +142,16 @@ const beats = (t: T, locale: string): Beat[] => [
     card: (
       <>
         <p className="ch-label">{t("b5.label")}</p>
-        <p className="mt-3 inline-block rounded bg-black/[0.07] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em]">{t("b5.added")}</p>
-        <p className="mt-2 text-sm font-medium">{t("b5.subject")}</p>
-        <p className="mt-1 text-xs opacity-60">{t("b5.card")}</p>
+        <p className="mt-2 flex items-center gap-2 text-xs font-medium"><FileText className="h-4 w-4 shrink-0 opacity-70" /><span className="truncate">{t("b5.subject")}</span></p>
+        <ul className="mt-2.5 space-y-1.5 text-xs">
+          {([[3, 17, 30, t("b5.practice")], [5, 17, 30, t("b5.practice")], [7, 9, 0, t("b5.game")]] as const).map(([d, h, m, name]) => (
+            <li key={d} className="flex items-center gap-2">
+              <span className="h-3.5 w-1 shrink-0 rounded-full" style={{ background: GREEN }} />
+              <span className="truncate"><span className="tabular-nums opacity-60">{on(locale, d, h, m)}</span> {name}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="ch-well mt-2.5 inline-block rounded px-2 py-0.5 text-[10px] font-semibold">{t("b5.added")}</p>
       </>
     ),
   },
@@ -117,8 +163,19 @@ const beats = (t: T, locale: string): Beat[] => [
     card: (
       <>
         <p className="ch-label">{t("b6.label")}</p>
-        <p className="mt-3 text-sm">{t("b6.card")}</p>
-        <p className="mt-1 text-xs opacity-60">{t("b6.buffer")}</p>
+        <p className="mt-2 text-sm">{t("b6.card")}</p>
+        {/* 6:00 to midnight: work 9-6 with buffers between meetings, then the evening held. */}
+        <div className="ch-well relative mt-3 h-6 overflow-hidden rounded-md">
+          <span className="absolute inset-y-0 left-[16.7%] w-1/2" style={{ background: ORANGE, opacity: 0.75 }} />
+          {[27, 38, 49, 60].map((x) => <span key={x} className="absolute inset-y-0 w-[2px] bg-black/40" style={{ left: `${x}%` }} />)}
+          <span className="ch-night absolute inset-y-0 left-[66.7%] right-0 grid place-items-center"><Moon className="h-3.5 w-3.5" /></span>
+        </div>
+        <div className="mt-1 flex justify-between text-[10px] opacity-55 tabular-nums">
+          {[6, 12, 18].map((h) => <span key={h}>{new Intl.DateTimeFormat(locale, { hour: "numeric" }).format(new Date(2026, 10, 2, h))}</span>)}
+          <span />
+        </div>
+        <p className="mt-2 text-xs font-medium">{t("b6.evening")}</p>
+        <p className="mt-0.5 text-[11px] opacity-60">{t("b6.buffer")}</p>
       </>
     ),
   },
@@ -130,8 +187,14 @@ const beats = (t: T, locale: string): Beat[] => [
     card: (
       <>
         <p className="ch-label"><span className="ch-dot" />{t("b7.label")}</p>
-        <p className="mt-3 text-xl font-medium">{t("b7.card")}</p>
-        <p className="mt-1 text-xs opacity-60">{t("b7.when")}</p>
+        <div className="mt-3 flex items-center gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-base font-semibold text-white" style={{ background: ORANGE }}>A</span>
+          <div className="min-w-0">
+            <p className="text-base font-medium leading-tight">{t("b7.card")}</p>
+            <p className="mt-0.5 text-xs opacity-60">Aghil</p>
+          </div>
+        </div>
+        <p className="ch-well mt-3 rounded-lg px-2.5 py-1.5 text-xs tabular-nums">{on(locale, 3, 9, 0)}</p>
       </>
     ),
   },
@@ -147,6 +210,7 @@ export function ClockHero({ headline }: { headline: Headline }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [active, setActive] = useState(0);
   const [live, setLive] = useState(false);
+  const [minutes, setMinutes] = useState(TIMES[0]);
 
   useEffect(() => {
     const el = ref.current;
@@ -177,6 +241,10 @@ export function ClockHero({ headline }: { headline: Headline }) {
       if (!visible) return;
       const p = progress();
       setActive(Math.round(p * FRAMES));
+      // The clock runs between the beats' times as you scroll, in 5-minute steps like a station board.
+      const f = p * FRAMES;
+      const i = Math.min(FRAMES - 1, Math.floor(f));
+      setMinutes(Math.round((TIMES[i] + (TIMES[i + 1] - TIMES[i]) * (f - i)) / 5) * 5);
       if (ready && video.duration) {
         target = p * (video.duration - 0.05);
         shown += (target - shown) * 0.2;
@@ -287,8 +355,10 @@ export function ClockHero({ headline }: { headline: Headline }) {
         <video ref={videoRef} className="ch-media ch-video" muted playsInline preload="none" aria-hidden />
         <div aria-hidden className="ch-scrim" />
 
+        <div className="ch-clock"><FlipClock minutes={minutes} locale={locale} /></div>
+
         <div className="ch-beat ch-intro" data-on={active === 0 ? "" : undefined}>
-          <p className="ch-time">{at(locale, 6, 0)}</p>
+          <p className="sr-only">{at(locale, 6, 0)}</p>
           <h1 className="text-[2.5rem] sm:text-6xl xl:text-[4.25rem] font-normal leading-[1.04] tracking-[-0.02em] text-balance">
             <span className="block">{headline.lead}</span>
             <span className="block opacity-55">{headline.accent}</span>
@@ -308,7 +378,7 @@ export function ClockHero({ headline }: { headline: Headline }) {
           <div key={i} className="ch-beat" data-on={active === i + 1 ? "" : undefined} aria-hidden={active !== i + 1}>
             <div className="ch-card">{b.card}</div>
             <div className="ch-copy">
-              <p className="ch-time">{b.time}</p>
+              <p className="sr-only">{b.time}</p>
               <h2 className="text-[2rem] sm:text-5xl font-normal leading-[1.05] tracking-[-0.02em] text-balance">{b.title}</h2>
               <p className="mt-3 max-w-[24rem] text-[15px] sm:text-[17px] leading-[1.45] opacity-70 text-pretty">{b.body}</p>
               {i === BEATS.length - 1 && (

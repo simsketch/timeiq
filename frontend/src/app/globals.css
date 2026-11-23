@@ -666,8 +666,33 @@
 .ch-beat[data-on] a, .ch-beat[data-on] button, .ch-beat[data-on] input { pointer-events: auto; }
 .ch-intro, .ch-copy { position: absolute; top: auto; left: 20px; right: 20px; bottom: calc(env(safe-area-inset-bottom) + 28px); }
 .ch-intro.ch-beat { inset: auto 20px calc(env(safe-area-inset-bottom) + 28px) 20px; }
-.ch-time { margin-bottom: 10px; font-size: 12px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #e8590c; }
-.ch[data-dark] .ch-time { color: #ff8a3d; }
+/* The split-flap clock: one instance for the whole hero, flipping as the day scrolls by. */
+.ch-clock { position: absolute; z-index: 2; top: 76px; left: 16px; --fc-h: clamp(30px, 9.4vw, 40px); }
+.fc { display: inline-flex; align-items: center; gap: calc(var(--fc-h) * 0.08); filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.28)); }
+.fc-tile {
+  position: relative; display: inline-block; width: calc(var(--fc-h) * 0.7); height: var(--fc-h);
+  perspective: calc(var(--fc-h) * 5); border-radius: calc(var(--fc-h) * 0.12);
+  font-size: calc(var(--fc-h) * 0.74); font-weight: 600; font-variant-numeric: tabular-nums; color: #f4f2ec;
+}
+.fc-tile--wide { width: calc(var(--fc-h) * 1.06); margin-left: calc(var(--fc-h) * 0.08); font-size: calc(var(--fc-h) * 0.34); letter-spacing: 0.04em; }
+.fc-half { position: absolute; left: 0; right: 0; height: 50%; overflow: hidden; backface-visibility: hidden; }
+.fc-top { top: 0; border-radius: inherit; border-bottom-left-radius: 0; border-bottom-right-radius: 0; background: linear-gradient(#323235, #26262a); }
+.fc-bottom { bottom: 0; border-radius: inherit; border-top-left-radius: 0; border-top-right-radius: 0; background: linear-gradient(#202023, #1a1a1d); }
+.fc-g { display: block; height: var(--fc-h); line-height: var(--fc-h); text-align: center; }
+.fc-bottom .fc-g { transform: translateY(-50%); }
+/* The hinge, and a little light on the top edge. */
+.fc-tile::after { content: ""; position: absolute; inset: 50% 0 auto; height: 1px; background: rgb(0 0 0 / 0.6); z-index: 3; }
+.fc-tile::before { content: ""; position: absolute; inset: 0 0 auto; height: 1px; border-radius: inherit; background: rgb(255 255 255 / 0.08); z-index: 3; }
+.fc-flap-top { z-index: 2; transform-origin: 50% 100%; animation: fc-fall 170ms ease-in forwards; }
+.fc-flap-bottom { z-index: 2; transform-origin: 50% 0; transform: rotateX(90deg); animation: fc-land 170ms 170ms ease-out forwards; }
+@keyframes fc-fall { to { transform: rotateX(-90deg); } }
+@keyframes fc-land { to { transform: rotateX(0deg); } }
+.fc-colon { display: inline-flex; flex-direction: column; gap: calc(var(--fc-h) * 0.22); padding: 0 calc(var(--fc-h) * 0.03); }
+.fc-colon i { width: calc(var(--fc-h) * 0.1); height: calc(var(--fc-h) * 0.1); border-radius: 999px; background: #26262a; }
+.ch[data-dark] .fc-colon i { background: #f4f2ec; opacity: 0.8; }
+@media (prefers-reduced-motion: reduce) {
+  .fc-flap-top, .fc-flap-bottom { animation-duration: 1ms; animation-delay: 0s; }
+}
 .ch-card {
   position: absolute; top: 88px; left: 20px; width: min(230px, 62vw);
   padding: 14px 16px; border-radius: 14px;
@@ -677,13 +702,21 @@
   font-size: 13px;
 }
 .ch[data-dark] .ch-card { background: rgb(20 20 20 / 0.55); border-color: rgb(255 255 255 / 0.12); }
-.ch[data-dark] .ch-card .bg-black\/\[0\.06\], .ch[data-dark] .ch-card .bg-black\/\[0\.07\] { background: rgb(255 255 255 / 0.1); }
 .ch-label { display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.6; }
 .ch-dot { width: 6px; height: 6px; border-radius: 999px; background: #e8590c; }
+/* Surfaces inside the hero cards, flipped for the night slides. */
+.ch-well { background: rgb(0 0 0 / 0.06); }
+.ch-chip { box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18); }
+.ch-ink { background: #141414; color: #f4f2ec; }
+.ch-night { background: repeating-linear-gradient(135deg, rgb(255 255 255 / 0.1) 0 4px, transparent 4px 8px); }
+.ch[data-dark] .ch-well { background: rgb(255 255 255 / 0.1); }
+.ch[data-dark] .ch-chip { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.25); }
+.ch[data-dark] .ch-ink { background: #f4f2ec; color: #141414; }
 .ch-progress { display: none; }
 @media (min-width: 768px) {
   .ch-intro, .ch-copy, .ch-intro.ch-beat { left: max(32px, 6vw); right: auto; bottom: 11vh; max-width: 36rem; }
-  .ch-card { top: auto; left: auto; right: max(32px, 6vw); bottom: 13vh; width: 270px; padding: 18px 20px; font-size: 14px; }
+  .ch-card { top: auto; left: auto; right: max(32px, 6vw); bottom: 13vh; width: 300px; padding: 18px 20px; font-size: 14px; }
+  .ch-clock { top: 104px; left: max(32px, 6vw); --fc-h: 64px; }
   .ch-progress { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; }
   .ch-progress span { width: 4px; height: 18px; border-radius: 4px; background: currentColor; opacity: 0.18; transition: opacity 300ms; }
   .ch-progress span[data-on] { opacity: 0.6; }

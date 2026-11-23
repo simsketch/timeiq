@@ -214,6 +214,30 @@ export function LandingPage({ headline: source, hero = "clock" }: { headline: He
         )}
 
         {/* ================================================================
+             PRICING CTA — right after the day plays out, before the deep dives
+             ================================================================ */}
+        <section aria-labelledby="day-cta" className="bg-[hsl(var(--brand-ink))] text-white">
+          <div className="container mx-auto flex flex-col gap-8 px-6 py-16 lg:flex-row lg:items-center lg:justify-between lg:px-10 lg:py-20">
+            <div className="max-w-xl">
+              <h2 id="day-cta" className="font-serif text-4xl font-normal leading-[1.05] tracking-[-0.01em] text-balance lg:text-6xl">
+                {t("clock.cta.title")}
+              </h2>
+              <p className="mt-4 text-lg text-white/70 text-pretty">{t("clock.cta.body")}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Full page load: sign-up runs Clerk, which this page skips. */}
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- see above */}
+              <a href="/sign-up" className="inline-flex h-12 items-center rounded-md bg-white px-6 text-[15px] font-medium text-[hsl(var(--brand-ink))] transition-colors hover:bg-white/85">
+                {t("clock.cta.start")}
+              </a>
+              <a href="#pricing" className="inline-flex h-12 items-center rounded-md border border-white/25 px-6 text-[15px] font-medium text-white transition-colors hover:bg-white/10">
+                {t("clock.cta.plans")}
+              </a>
+            </div>
+          </div>
+        </section>
+
+        {/* ================================================================
              LIVE DEMO — email a schedule
              ================================================================ */}
         <section id="try" className="relative py-24 lg:py-32 scroll-mt-16">

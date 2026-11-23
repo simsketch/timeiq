@@ -1511,51 +1511,62 @@
       "tryDemo": "Prueba la demo",
       "startFree": "Empieza gratis",
       "b1": {
-        "title": "Todos tus calendarios. Un solo enlace de reserva.",
-        "body": "Google, Outlook e iCloud, revisados en tiempo real. Nadie reservará encima de tu cita con el dentista.",
-        "label": "Tus calendarios",
-        "connected": "conectados",
-        "clashes": "choques"
+        "title": "Todos tus calendarios. Un solo enlace.",
+        "body": "Google, Outlook e iCloud, consultados en vivo, para que nadie reserve encima de tu dentista.",
+        "label": "Hoy",
+        "work": "Trabajo",
+        "personal": "Personal",
+        "clients": "Clientes",
+        "noClashes": "Sin choques"
       },
       "b2": {
-        "title": "Pon a TimeIQ en copia. Encuentra el horario.",
-        "body": "Añádelo a cualquier conversación por correo. Responde con horarios que les vienen bien a todos.",
+        "title": "CC: TimeIQ. Encuentra el horario.",
+        "body": "Ponlo en copia en cualquier correo. Responde con horarios que les vienen bien a todos.",
         "label": "Re: Arranque la próxima semana",
-        "card": "El mar. a las 10:00 o el mié. a las 14:30 les va bien a los dos."
+        "ask": "¿Buscamos 30 minutos la semana que viene?",
+        "replyLead": "Ambos tienen libre:"
       },
       "b3": {
-        "title": "Pregúntale a Claude o ChatGPT.",
-        "body": "Dilo con tus palabras. Está en los dos calendarios antes de que termine el almuerzo.",
+        "title": "Pídeselo a Claude o ChatGPT.",
+        "body": "Dilo con tus palabras. Estará en ambos calendarios antes de que acabe el almuerzo.",
         "label": "Pregúntale a tu IA",
         "prompt": "reserva 30 min con Aghil el martes",
-        "card": "Reservado el mar. a las 9:00. Invitación enviada."
+        "booked": "Reservado. Invitación enviada a Aghil."
       },
       "b4": {
-        "title": "Comparte tu tiempo libre como imagen.",
-        "body": "Deja tu disponibilidad en cualquier chat. Eligen un horario y ya está reservado.",
-        "label": "Libre esta semana"
+        "title": "Envía tu tiempo libre como imagen.",
+        "body": "Compártela en cualquier chat. Eligen un horario y queda reservado.",
+        "label": "Libre esta semana",
+        "tap": "Toca un horario para reservar"
       },
       "b5": {
         "title": "Reenvía el calendario de fútbol.",
-        "body": "Cualquier PDF, captura de pantalla o correo. Cada entrenamiento y partido llega a tu calendario.",
+        "body": "Un PDF, una captura o un correo. Cada entrenamiento y partido llega a tu calendario.",
         "label": "Reenviado",
         "added": "9 eventos añadidos",
         "subject": "RV: Calendario de fútbol sub-10 de otoño",
-        "card": "Entrenamiento mar. y jue. 17:30 · Partidos sáb. 9:00"
+        "practice": "Entrenamiento",
+        "game": "Partido"
       },
       "b6": {
-        "title": "Sin reservas dobles a la hora de cenar.",
-        "body": "El horario laboral y los márgenes mantienen tus noches libres.",
+        "title": "Tus noches son tuyas.",
+        "body": "El horario laboral y los márgenes mantienen las reuniones lejos de la cena.",
         "label": "Horario laboral",
         "card": "lun.–vie., 9:00–18:00",
-        "buffer": "15 min de margen entre reuniones"
+        "buffer": "15 min de margen entre reuniones",
+        "evening": "Noche protegida"
       },
       "b7": {
-        "title": "Reservado mientras dormías.",
-        "body": "Tu enlace llena la semana mientras descansas. Tus primeras 7 reuniones son gratis.",
-        "label": "Lo siguiente",
-        "card": "Llamada de presentación",
-        "when": "Aghil · mar. 9:00–9:30"
+        "title": "Reservado mientras duermes.",
+        "body": "Tu enlace llena el día de mañana mientras descansas. Las primeras 7 reuniones son gratis.",
+        "label": "Nueva reserva",
+        "card": "Llamada de presentación"
+      },
+      "cta": {
+        "title": "Tu día entero, en piloto automático.",
+        "body": "Empieza con 7 reuniones gratis, sin tarjeta. Después, 19 US$ al año.",
+        "start": "Empieza gratis",
+        "plans": "Ver planes"
       }
     },
     "ask": {
@@ -1746,7 +1757,7 @@
         "tabAssistant": "Responder a otro asistente",
         "toElon": "Para: Elon",
         "removeCc": "Quitar a TimeIQ",
-        "ccButton": "Cc a TimeIQ",
+        "ccButton": "CC: TimeIQ",
         "ready": "Listo. TimeIQ se encarga a partir de aquí.",
         "addFirst": "Añade a TimeIQ y envía.",
         "send": "Enviar",

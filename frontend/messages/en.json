@@ -1409,8 +1409,8 @@
       "howTo": "How to connect your assistant"
     },
     "cc": {
-      "eyebrow": "Cc TimeIQ",
-      "title": "Cc TimeIQ.",
+      "eyebrow": "CC: TimeIQ",
+      "title": "CC: TimeIQ.",
       "accent": "It finds the time.",
       "body": "Cc agent@timeiq.app from your own email on any thread about meeting up. It replies to everyone with three times you’re free, reads their answers in plain English, and books it when you say so. When a recruiter’s or client’s assistant offers times, it picks one you’re free for and holds it.",
       "point1": "Three suggestions instead of a wall of slots, plus “pick a different time”",
@@ -1511,51 +1511,62 @@
       "tryDemo": "Try the demo",
       "startFree": "Start free",
       "b1": {
-        "title": "All your calendars. One booking link.",
-        "body": "Google, Outlook and iCloud, checked live. Nobody books over your dentist.",
-        "label": "Your calendars",
-        "connected": "connected",
-        "clashes": "clashes"
+        "title": "Every calendar. One link.",
+        "body": "Google, Outlook and iCloud, checked live, so nobody books over your dentist.",
+        "label": "Today",
+        "work": "Work",
+        "personal": "Personal",
+        "clients": "Clients",
+        "noClashes": "No clashes"
       },
       "b2": {
-        "title": "Cc TimeIQ. It finds the time.",
-        "body": "Add it to any email thread. It replies with times that work for everyone.",
+        "title": "CC: TimeIQ. It finds the time.",
+        "body": "Copy it on any email thread. It replies with times that work for everyone.",
         "label": "Re: Kickoff next week",
-        "card": "Tue 10:00 AM or Wed 2:30 PM work for both of you."
+        "ask": "Can we find 30 minutes next week?",
+        "replyLead": "You're both free:"
       },
       "b3": {
-        "title": "Ask Claude or ChatGPT.",
-        "body": "Say it in plain words. It’s on both calendars before lunch is over.",
+        "title": "Just ask Claude or ChatGPT.",
+        "body": "Say it in plain words. It's on both calendars before lunch is over.",
         "label": "Ask your AI",
         "prompt": "book 30 min with Aghil Tuesday",
-        "card": "Booked Tue 9:00 AM. Invite sent."
+        "booked": "Booked. Invite sent to Aghil."
       },
       "b4": {
-        "title": "Share your free time as a picture.",
-        "body": "Drop your availability into any chat. They pick a time, you’re booked.",
-        "label": "Free this week"
+        "title": "Send your free time as a picture.",
+        "body": "Drop it in any chat. They tap a time, and you're booked.",
+        "label": "Free this week",
+        "tap": "Tap a time to book"
       },
       "b5": {
         "title": "Forward the soccer schedule.",
-        "body": "Any PDF, screenshot or email. Every practice and game lands on your calendar.",
+        "body": "A PDF, a screenshot or an email. Every practice and game lands on your calendar.",
         "label": "Forwarded",
         "added": "9 events added",
         "subject": "Fw: U10 fall soccer schedule",
-        "card": "Practice Tue & Thu 5:30 PM · Games Sat 9 AM"
+        "practice": "Practice",
+        "game": "Game"
       },
       "b6": {
-        "title": "Never double-booked over dinner.",
-        "body": "Working hours and buffers keep your evenings yours.",
+        "title": "Your evenings stay yours.",
+        "body": "Working hours and buffers keep meetings away from dinner.",
         "label": "Working hours",
         "card": "Mon–Fri, 9:00 AM–6:00 PM",
-        "buffer": "15 min buffer between meetings"
+        "buffer": "15 min buffer between meetings",
+        "evening": "Evening protected"
       },
       "b7": {
-        "title": "Booked while you slept.",
-        "body": "Your link fills the week while you rest. Your first 7 meetings are free.",
-        "label": "Next up",
-        "card": "Intro call",
-        "when": "Aghil · Tue 9:00–9:30 AM"
+        "title": "Booked while you sleep.",
+        "body": "Your link fills tomorrow while you rest. The first 7 meetings are free.",
+        "label": "New booking",
+        "card": "Intro call"
+      },
+      "cta": {
+        "title": "Your whole day, on autopilot.",
+        "body": "Start with 7 free meetings, no card. After that it's $19 a year.",
+        "start": "Start free",
+        "plans": "See plans"
       }
     },
     "ask": {
@@ -1746,7 +1757,7 @@
         "tabAssistant": "Answer another assistant",
         "toElon": "To: Elon",
         "removeCc": "Remove TimeIQ",
-        "ccButton": "Cc TimeIQ",
+        "ccButton": "CC: TimeIQ",
         "ready": "Ready. TimeIQ takes it from here.",
         "addFirst": "Add TimeIQ, then send.",
         "send": "Send",
@@ -1795,7 +1806,7 @@
       "accent": "are on us."
     },
     "cc-timeiq": {
-      "lead": "Cc TimeIQ.",
+      "lead": "CC: TimeIQ.",
       "accent": "It finds the time."
     },
     "forward-schedule": {
