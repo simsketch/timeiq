@@ -107,6 +107,45 @@ async def list_bookings(status: Optional[str] = None) -> str:
 
 
 @mcp.tool(annotations=OUTWARD)
+async def book_meeting(
+    email: str,
+    starts_at: str,
+    duration_minutes: Optional[int] = None,
+    name: Optional[str] = None,
+    event_type_id: Optional[str] = None,
+    guest_emails: Optional[list[str]] = None,
+    note: Optional[str] = None,
+    allow_conflict: bool = False,
+) -> str:
+    """Book a meeting at a fixed time and send the person a calendar invite, like booking by hand
+    from the dashboard. `starts_at` is ISO 8601 with an offset. The meeting uses `event_type_id`, or
+    else the event type whose length matches `duration_minutes`, or else the first one. Any future
+    time works; a time that overlaps the user's calendar is refused unless `allow_conflict` (ask the
+    user first). Confirm the person, time and length with the user first."""
+    types = await _api("GET", "/api/event-types")
+    if not types:
+        raise ToolError("Create an event type first (Event types in the app).")
+    chosen = (
+        next((t for t in types if str(t["id"]) == event_type_id), None)
+        or next((t for t in types if t.get("duration_minutes") == duration_minutes), None)
+        or types[0]
+    )
+    me = await _api("GET", "/api/me")
+    body = {
+        "event_type_id": str(chosen["id"]),
+        "visitor_name": name or email.split("@")[0],
+        "visitor_email": email,
+        "visitor_notes": note,
+        "guest_emails": guest_emails or [],
+        "starts_at": starts_at,
+        "duration_minutes": duration_minutes,
+        "timezone": me.get("timezone") or "UTC",
+        "allow_conflict": allow_conflict,
+    }
+    return _out(await _api("POST", "/api/bookings", body={k: v for k, v in body.items() if v is not None}))
+
+
+@mcp.tool(annotations=OUTWARD)
 async def cancel_booking(booking_id: str) -> str:
     """Cancel a booking as the host. The guest is emailed and the invite is withdrawn.
     Confirm with the user first."""
@@ -128,7 +167,8 @@ async def find_time_with(
 ) -> str:
     """Find a time with other people: creates a group meeting and (by default) emails each person a
     link to pick the times that work, suggesting three of the user's free times. Dates bound the
-    search (default: the next week). Confirm the people and the window with the user first."""
+    search (default: the next week). When the user already picked the time, use book_meeting
+    instead. Confirm the people and the window with the user first."""
     body = {
         "title": title,
         "duration_minutes": duration_minutes,

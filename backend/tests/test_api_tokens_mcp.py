@@ -130,7 +130,7 @@ async def test_mcp_lists_tools_and_calls_them_as_the_token_owner(env):
     names = {t["name"] for t in tools}
     assert {"get_profile", "get_free_times", "find_time_with", "import_schedule_text", "log_time", "send_invoice"} <= names
     outward = {t["name"] for t in tools if (t.get("annotations") or {}).get("destructiveHint")}
-    assert {"send_invoice", "book_group_meeting", "cancel_booking", "find_time_with"} <= outward
+    assert {"send_invoice", "book_group_meeting", "cancel_booking", "find_time_with", "book_meeting"} <= outward
 
     called = (await _rpc(env, token, "tools/call", {"name": "get_profile", "arguments": {}})).json()["result"]
     profile = json.loads(called["content"][0]["text"])
@@ -155,3 +155,33 @@ async def test_mcp_tools_respect_the_subscription_gate(env, monkeypatch):
     monkeypatch.setattr(billing, "FREE_MEETINGS", 0)  # free meetings used up
     result = (await _rpc(env, token, "tools/call", {"name": "list_bookings", "arguments": {}})).json()["result"]
     assert result["isError"] and "subscription" in result["content"][0]["text"]
+
+
+async def test_book_meeting_books_a_fixed_time(env, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    from app.models import EventType
+    from app.routers import bookings as bookings_router
+
+    sent = []
+    async def fake_confirmation(booking, *_):
+        sent.append(booking.visitor_email)
+    async def no_sync(*_):
+        return None
+    monkeypatch.setattr(bookings_router, "send_booking_confirmation", fake_confirmation)
+    monkeypatch.setattr(bookings_router, "freshen_host_calendars", no_sync)
+    async with async_session() as db:
+        db.add(EventType(user_id=env["user"].id, name="1 hour", slug="hour", duration_minutes=60))
+        db.add(EventType(user_id=env["user"].id, name="30 minutes", slug="half", duration_minutes=30))
+        await db.commit()
+    token = (await _create_token(env))["token"]
+    start = (datetime.now(timezone.utc) + timedelta(days=1)).replace(minute=0, second=0, microsecond=0)
+    result = (await _rpc(env, token, "tools/call", {"name": "book_meeting", "arguments": {
+        "email": "guest@example.com", "starts_at": start.isoformat(), "duration_minutes": 30,
+    }})).json()["result"]
+    assert not result.get("isError"), result
+    booking = json.loads(result["content"][0]["text"])
+    assert booking["status"] == "confirmed" and booking["visitor_name"] == "guest"
+    ends = datetime.fromisoformat(booking["ends_at"]) - datetime.fromisoformat(booking["starts_at"])
+    assert ends == timedelta(minutes=30)
+    assert sent == ["guest@example.com"]
