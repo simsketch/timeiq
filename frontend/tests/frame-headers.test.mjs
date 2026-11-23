@@ -98,5 +98,5 @@ test("pages rewrite to a per-locale internal path; the address bar and route han
   assert.equal(await rewrite("/?utm_content=free-meetings", { "accept-language": "es" }), "/es/lp/free-meetings?utm_content=free-meetings");
   assert.equal(await rewrite("/pricing", { cookie: "NEXT_LOCALE=de" }), "/de/pricing");
   assert.equal(await rewrite("/book/host/call?embed=1", { cookie: "NEXT_LOCALE=de" }), "/de/book/host/call?embed=1");
-  for (const path of ["/api/health", "/ios", "/robots.txt", "/sitemap.xml"]) assert.equal(await rewrite(path), null, path);
+  for (const path of ["/api/health", "/ios", "/android", "/robots.txt", "/sitemap.xml"]) assert.equal(await rewrite(path), null, path);
 });

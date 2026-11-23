@@ -1816,6 +1816,8 @@
     "copyright": "© 2026 TimeIQ, une création Yoyo Code",
     "appStoreLabel": "Télécharger TimeIQ sur l’App Store",
     "appStoreAlt": "Télécharger dans l’App Store",
+    "playStoreLabel": "Télécharger TimeIQ sur Google Play",
+    "playStoreAlt": "Disponible sur Google Play",
     "cta": {
       "heading": "Tous vos calendriers. Un seul lien de réservation.",
       "body": "TimeIQ réunit Google, Outlook et iCloud pour qu’on ne réserve que lorsque vous êtes vraiment libre. Envoyez-lui un planning par e-mail et il ajoute les événements. Partagez vos créneaux libres dans n’importe quel fuseau horaire en un clic.",

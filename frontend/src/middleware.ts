@@ -25,6 +25,7 @@ const isPublicRoute = createRouteMatcher([
   "/terms",
   "/support",
   "/ios",
+  "/android",
   "/api(.*)",
 ]);
 
@@ -40,7 +41,7 @@ function isEmbeddedBooking(request: NextRequest) {
 
 // Route handlers and metadata files live outside app/[locale].
 function isUnlocalized(pathname: string) {
-  return /^\/(api|trpc)(\/|$)/.test(pathname) || ["/ios", "/robots.txt", "/sitemap.xml"].includes(pathname);
+  return /^\/(api|trpc)(\/|$)/.test(pathname) || ["/ios", "/android", "/robots.txt", "/sitemap.xml"].includes(pathname);
 }
 
 /**

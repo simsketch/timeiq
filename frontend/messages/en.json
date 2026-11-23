@@ -1816,6 +1816,8 @@
     "copyright": "© 2026 TimeIQ, a Yoyo Code creation",
     "appStoreLabel": "Download TimeIQ on the App Store",
     "appStoreAlt": "Download on the App Store",
+    "playStoreLabel": "Get TimeIQ on Google Play",
+    "playStoreAlt": "Get it on Google Play",
     "cta": {
       "heading": "All your calendars. One booking link.",
       "body": "TimeIQ merges Google, Outlook and iCloud so people only book when you’re really free. Email it a schedule and it adds the events. Share your open times in any time zone in one click.",

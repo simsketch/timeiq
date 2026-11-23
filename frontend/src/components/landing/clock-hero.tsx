@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { HeroAsk } from "@/components/landing/hero-ask";
-import { AppStoreBadge } from "@/components/app-store-badge";
+import { AppStoreBadge, GooglePlayBadge } from "@/components/app-store-badge";
 import type { Headline } from "@/components/landing/headlines";
 
 // Scroll-scrubbed hero: one day passes around a floating clock while life
@@ -298,8 +298,9 @@ export function ClockHero({ headline }: { headline: Headline }) {
           </p>
           <HeroAsk />
           <p className="mt-4 text-[13px] opacity-55">{t("offer")} <a href="#try" className="underline underline-offset-2">{t("tryDemo")}</a></p>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap items-center gap-3">
             <AppStoreBadge placement="hero" className="h-10 w-auto" />
+            <GooglePlayBadge placement="hero" className="h-10 w-auto" />
           </div>
         </div>
 

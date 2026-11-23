@@ -2,7 +2,7 @@
 
 import { track } from "@vercel/analytics";
 import { useTranslations } from "next-intl";
-import { appStoreUrl } from "@/lib/app-store";
+import { appStoreUrl, playStoreUrl } from "@/lib/app-store";
 
 /** Apple's official badge (it must not be redrawn); clicks are counted in Vercel Analytics and GA by placement. */
 export function AppStoreBadge({ placement, className = "h-12 w-auto" }: { placement: string; className?: string }) {
@@ -23,5 +23,36 @@ export function AppStoreBadge({ placement, className = "h-12 w-auto" }: { placem
       {/* eslint-disable-next-line @next/next/no-img-element -- static SVG, no optimization to gain */}
       <img src="/app-store-badge.svg" alt={t("appStoreAlt")} width={120} height={40} className={className} />
     </a>
+  );
+}
+
+/** Google's official "Get it on Google Play" badge, sized to match the App Store one. */
+export function GooglePlayBadge({ placement, className = "h-12 w-auto" }: { placement: string; className?: string }) {
+  const t = useTranslations("shell");
+  return (
+    <a
+      href={playStoreUrl(`website-${placement}`)}
+      target="_blank"
+      rel="noopener"
+      onClick={() => {
+        track("play_store_click", { placement });
+        (window as unknown as { gtag?: (...a: unknown[]) => void }).gtag?.("event", "play_store_click", { placement });
+      }}
+      aria-label={t("playStoreLabel")}
+      className="inline-flex shrink-0"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- static SVG, no optimization to gain */}
+      <img src="/google-play-badge.svg" alt={t("playStoreAlt")} width={135} height={40} className={className} />
+    </a>
+  );
+}
+
+/** Both store badges side by side. */
+export function StoreBadges({ placement, className }: { placement: string; className?: string }) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-3">
+      <AppStoreBadge placement={placement} className={className} />
+      <GooglePlayBadge placement={placement} className={className} />
+    </div>
   );
 }

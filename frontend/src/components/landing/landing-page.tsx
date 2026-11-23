@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { LogoIcon } from "@/components/logo";
 import { LanguagePicker } from "@/components/language-picker";
-import { AppStoreBadge } from "@/components/app-store-badge";
+import { AppStoreBadge, GooglePlayBadge, StoreBadges } from "@/components/app-store-badge";
 import { PublicPricingCards } from "@/components/billing/pricing-card";
 import { HeaderAuthLinks } from "@/components/landing/header-auth-links";
 import type { Headline } from "@/components/landing/headlines";
@@ -115,8 +115,8 @@ export function LandingPage({ headline: source, hero = "clock" }: { headline: He
                   Try the demo
                 </a>
               </div>
-              <div className="reveal reveal-3 mt-4 flex justify-center">
-                <AppStoreBadge placement="hero" />
+              <div className="reveal reveal-3 mt-4">
+                <StoreBadges placement="hero" />
               </div>
               <p className="reveal reveal-4 mt-5 text-[13px] text-[#737373]">
                 First 7 meetings free, no card. Then $19 a year.
@@ -649,6 +649,7 @@ export function LandingPage({ headline: source, hero = "clock" }: { headline: He
             </div>
             <div className="flex flex-wrap items-center justify-center gap-5 text-sm text-muted-foreground">
               <AppStoreBadge placement="footer" className="h-10 w-auto" />
+              <GooglePlayBadge placement="footer" className="h-10 w-auto" />
               <a
                 href={GITHUB_URL}
                 target="_blank"

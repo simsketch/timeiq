@@ -1816,6 +1816,8 @@
     "copyright": "© 2026 TimeIQ, eine Kreation von Yoyo Code",
     "appStoreLabel": "TimeIQ im App Store laden",
     "appStoreAlt": "Laden im App Store",
+    "playStoreLabel": "TimeIQ bei Google Play laden",
+    "playStoreAlt": "Jetzt bei Google Play",
     "cta": {
       "heading": "Alle deine Kalender. Ein Buchungslink.",
       "body": "TimeIQ führt Google, Outlook und iCloud zusammen, damit nur gebucht wird, wenn du wirklich frei bist. Schick ihm einen Plan per E-Mail, und es trägt die Termine ein. Teil deine freien Zeiten in jeder Zeitzone mit einem Klick.",
