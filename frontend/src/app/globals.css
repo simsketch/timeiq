@@ -704,6 +704,24 @@
 .ch[data-dark] .ch-card { background: rgb(20 20 20 / 0.55); border-color: rgb(255 255 255 / 0.12); }
 .ch-label { display: flex; align-items: center; gap: 8px; font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.6; }
 .ch-dot { width: 6px; height: 6px; border-radius: 999px; background: #e8590c; }
+/* The free offer: a solid pill so it reads over the moving video. */
+.ch-offer {
+  display: inline-flex; align-items: center; gap: 8px; margin: 0;
+  padding: 8px 14px; border-radius: 999px; font-size: 15px; font-weight: 600; line-height: 1.25;
+  background: rgb(255 255 255 / 0.88); color: #141414; box-shadow: 0 6px 20px -8px rgb(0 0 0 / 0.3);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+@media (max-width: 767px) { .ch-offer { font-size: 14px; padding: 7px 12px; } }
+.ch-offer--night { background: rgb(255 255 255 / 0.14); color: #fff; box-shadow: none; }
+.ch-offer--night svg { color: #4ade80; }
+/* The last slide's sign-up: the one orange button in the hero. */
+.ch-cta {
+  display: inline-flex; align-items: center; gap: 10px; height: 56px; padding: 0 28px; border-radius: 12px;
+  background: #e8590c; color: #fff; font-size: 18px; font-weight: 600;
+  box-shadow: 0 14px 34px -10px rgb(232 89 12 / 0.7); transition: background-color 150ms, transform 150ms;
+}
+.ch-cta:hover { background: #d14f0a; transform: translateY(-1px); }
+.ch-cta:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 /* Surfaces inside the hero cards, flipped for the night slides. */
 .ch-well { background: rgb(0 0 0 / 0.06); }
 .ch-chip { box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.18); }
@@ -717,10 +735,14 @@
   .ch-intro, .ch-copy, .ch-intro.ch-beat { left: max(32px, 6vw); right: auto; bottom: 11vh; max-width: 36rem; }
   .ch-card { top: auto; left: auto; right: max(32px, 6vw); bottom: 13vh; width: 300px; padding: 18px 20px; font-size: 14px; }
   .ch-clock { top: 104px; left: max(32px, 6vw); --fc-h: 64px; }
+  .ch-card { transform-origin: 100% 100%; }
   .ch-progress { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; }
   .ch-progress span { width: 4px; height: 18px; border-radius: 4px; background: currentColor; opacity: 0.18; transition: opacity 300ms; }
   .ch-progress span[data-on] { opacity: 0.6; }
 }
+/* Wide screens have room for the cards to read like real screens. */
+@media (min-width: 1024px) { .ch-card { transform: scale(1.2); } }
+@media (min-width: 1280px) { .ch-card { transform: scale(1.38); } }
 @media (prefers-reduced-motion: reduce) {
   .ch-beat { transition: none; transform: none; }
 }
@@ -734,7 +756,7 @@
       linear-gradient(to bottom, rgb(0 0 0 / 0.28), transparent 110px),
       linear-gradient(to bottom, transparent 48svh, var(--ch-floor, #adb2ba) 70svh);
   }
-  .ch-card { top: 80px; left: auto; right: 14px; width: 178px; padding: 10px 12px; font-size: 12px; }
+  .ch-card { top: calc(76px + clamp(30px, 9.4vw, 40px) + 12px); left: auto; right: 14px; width: min(250px, 66vw); padding: 12px 14px; font-size: 13px; }
   .ch-card .text-2xl, .ch-card .text-xl { font-size: 1.125rem; }
   .ch-intro h1 { font-size: 2.15rem; }
 }

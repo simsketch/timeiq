@@ -252,6 +252,9 @@
     "headingName": "¿Qué agendamos, {name}?",
     "intro": "Pregunta por tu semana, encuentra tiempo con otras personas o pega un horario. Escríbelo o dilo en voz alta.",
     "newChat": "Nuevo chat",
+    "history": "Historial de chats",
+    "noHistory": "Aún no hay chats anteriores.",
+    "clearHistory": "Borrar historial",
     "confirm": "Confirmar",
     "cancel": "Cancelar",
     "working": "Trabajando en ello…",
@@ -1558,7 +1561,7 @@
       },
       "b7": {
         "title": "Reservado mientras duermes.",
-        "body": "Tu enlace llena el día de mañana mientras descansas. Las primeras 7 reuniones son gratis.",
+        "body": "Tu enlace sigue llenando el día de mañana mientras descansas.",
         "label": "Nueva reserva",
         "card": "Llamada de presentación"
       },

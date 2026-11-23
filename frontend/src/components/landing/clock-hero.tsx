@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { HeroAsk } from "@/components/landing/hero-ask";
-import { Check, FileText, Moon } from "lucide-react";
+import { ArrowRight, Check, FileText, Moon } from "lucide-react";
 import { AppStoreBadge, GooglePlayBadge } from "@/components/app-store-badge";
 import { FlipClock } from "@/components/landing/flip-clock";
 import type { Headline } from "@/components/landing/headlines";
@@ -367,7 +367,10 @@ export function ClockHero({ headline }: { headline: Headline }) {
             {t("intro")}
           </p>
           <HeroAsk />
-          <p className="mt-4 text-[13px] opacity-55">{t("offer")} <a href="#try" className="underline underline-offset-2">{t("tryDemo")}</a></p>
+          <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <p className="ch-offer"><Check className="h-4 w-4 shrink-0" style={{ color: GREEN }} />{t("offer")}</p>
+            <a href="#try" className="text-[14px] font-medium underline underline-offset-4 opacity-80 hover:opacity-100">{t("tryDemo")}</a>
+          </div>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <AppStoreBadge placement="hero" className="h-10 w-auto" />
             <GooglePlayBadge placement="hero" className="h-10 w-auto" />
@@ -382,9 +385,13 @@ export function ClockHero({ headline }: { headline: Headline }) {
               <h2 className="text-[2rem] sm:text-5xl font-normal leading-[1.05] tracking-[-0.02em] text-balance">{b.title}</h2>
               <p className="mt-3 max-w-[24rem] text-[15px] sm:text-[17px] leading-[1.45] opacity-70 text-pretty">{b.body}</p>
               {i === BEATS.length - 1 && (
-                <Link href="/sign-up" tabIndex={active === i + 1 ? 0 : -1} className="mt-6 inline-flex h-12 items-center rounded-md bg-white px-6 text-[15px] font-medium text-[#0a0a0a] transition-colors hover:bg-white/85">
-                  {t("startFree")}
-                </Link>
+                <div className="mt-7 flex flex-col items-start gap-4">
+                  <Link href="/sign-up" tabIndex={active === i + 1 ? 0 : -1} className="ch-cta">
+                    {t("startFree")}
+                    <ArrowRight className="h-5 w-5" />
+                  </Link>
+                  <p className="ch-offer ch-offer--night"><Check className="h-4 w-4 shrink-0" />{t("offer")}</p>
+                </div>
               )}
             </div>
           </div>

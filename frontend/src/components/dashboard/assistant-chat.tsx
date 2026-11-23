@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useTranslations } from "next-intl";
-import { ArrowUp, Check, Mic, RotateCcw, Square, X } from "lucide-react";
+import { ArrowUp, Check, History, Mic, RotateCcw, Square, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { LogoMark } from "@/components/logo";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,10 @@ type Step = { tool: string; ok: boolean };
 type Turn = { role: "user" | "assistant"; text: string; steps?: Step[] };
 
 const STORE = "timeiq-assistant-v1";
+// Past chats, kept in this browser per account (the conversation itself never leaves TimeIQ's API otherwise).
+const HISTORY = "timeiq-assistant-history:";
+const MAX_CHATS = 20;
+type Chat = { id: string; title: string; at: number; history: Message[]; steps: Step[][] };
 const noop = () => () => {};
 // Keys in the "assistant" messages; "paste" fills the box instead of sending.
 const SUGGESTIONS = ["freeThisWeek", "tomorrow", "findTime", "paste"] as const;
@@ -60,21 +64,40 @@ function Reply({ text }: { text: string }) {
   );
 }
 
-function saved(): { history: Message[]; steps: Step[][] } {
+function saved(): { id: string; history: Message[]; steps: Step[][] } {
   // Kept for this tab, so a reload or a trip to Calendars doesn't lose the conversation.
   try {
     const s = JSON.parse(sessionStorage.getItem(STORE) || "null");
-    if (Array.isArray(s?.history)) return { history: s.history, steps: Array.isArray(s.steps) ? s.steps : [] };
+    if (Array.isArray(s?.history)) return { id: s.id || newId(), history: s.history, steps: Array.isArray(s.steps) ? s.steps : [] };
   } catch { /* storage blocked: start fresh */ }
-  return { history: [], steps: [] };
+  return { id: newId(), history: [], steps: [] };
+}
+
+const newId = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
+
+function loadChats(userId: string | null | undefined): Chat[] {
+  if (!userId) return [];
+  try {
+    const list = JSON.parse(localStorage.getItem(HISTORY + userId) || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch { return []; }
+}
+
+function storeChats(userId: string | null | undefined, chats: Chat[]) {
+  if (!userId) return;
+  try { localStorage.setItem(HISTORY + userId, JSON.stringify(chats.slice(0, MAX_CHATS))); } catch { /* full or blocked: skip */ }
 }
 
 // Rendered only in the browser: the dashboard shows a loader until its data arrives.
 export function AssistantChat({ firstName }: { firstName?: string | null }) {
   const t = useTranslations("assistant");
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
+  const [chatId, setChatId] = useState(() => saved().id);
   const [history, setHistory] = useState<Message[]>(() => saved().history);
   const [steps, setSteps] = useState<Step[][]>(() => saved().steps);
+  const [showHistory, setShowHistory] = useState(false);
+  const [chats, setChats] = useState<Chat[]>([]);
+  const historyPanel = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,9 +108,27 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
   const bottom = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    try { sessionStorage.setItem(STORE, JSON.stringify({ history, steps })); } catch { /* ignore */ }
+    try { sessionStorage.setItem(STORE, JSON.stringify({ id: chatId, history, steps })); } catch { /* ignore */ }
     if (history.length) bottom.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [history, steps]);
+    // Every finished turn updates this chat in the history, newest first.
+    const first = history.find((m) => m.role === "user" && typeof m.content === "string");
+    if (first && history[history.length - 1]?.role === "assistant") {
+      const chat: Chat = { id: chatId, title: String(first.content).slice(0, 80), at: Date.now(), history, steps };
+      storeChats(userId, [chat, ...loadChats(userId).filter((c) => c.id !== chatId)]);
+    }
+  }, [chatId, history, steps, userId]);
+
+  // The history panel closes on Escape or a click outside it.
+  useEffect(() => {
+    if (!showHistory) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setShowHistory(false);
+    const onClick = (e: MouseEvent) => {
+      if (!historyPanel.current?.contains(e.target as Node)) setShowHistory(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onClick);
+    return () => { document.removeEventListener("keydown", onKey); document.removeEventListener("mousedown", onClick); };
+  }, [showHistory]);
 
   // Grow the box with what's typed or said.
   useEffect(() => {
@@ -174,8 +215,64 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
 
   function reset() {
     recognizer.current?.stop();
-    setHistory([]); setSteps([]); setDraft(""); setError(null);
+    setChatId(newId()); setHistory([]); setSteps([]); setDraft(""); setError(null);
   }
+
+  function openChat(chat: Chat) {
+    recognizer.current?.stop();
+    setChatId(chat.id); setHistory(chat.history); setSteps(chat.steps); setDraft(""); setError(null);
+    setShowHistory(false);
+  }
+
+  function clearHistory() {
+    storeChats(userId, []);
+    setChats([]);
+  }
+
+  const historyButton = (
+    <div ref={historyPanel} className="relative">
+      <button
+        type="button"
+        onClick={() => { setChats(loadChats(userId)); setShowHistory((v) => !v); }}
+        disabled={busy}
+        aria-label={t("history")}
+        aria-expanded={showHistory}
+        title={t("history")}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
+      >
+        <History className="h-4 w-4" />
+      </button>
+      {showHistory && (
+        <div role="dialog" aria-label={t("history")} className="absolute right-0 top-10 z-20 w-72 max-w-[80vw] rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-lg">
+          {chats.length === 0 ? (
+            <p className="px-3 py-4 text-sm text-muted-foreground">{t("noHistory")}</p>
+          ) : (
+            <>
+              <ul className="max-h-80 overflow-y-auto">
+                {chats.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => openChat(c)}
+                      className={cn("w-full rounded-lg px-3 py-2 text-left transition hover:bg-muted", c.id === chatId && "bg-muted")}
+                    >
+                      <span className="block truncate text-sm">{c.title}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(c.at)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button type="button" onClick={clearHistory} className="mt-1 w-full rounded-lg px-3 py-2 text-left text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground">
+                {t("clearHistory")}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   const turns = turnsFrom(history, steps);
   const empty = turns.length === 0;
@@ -184,7 +281,8 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
     <section aria-label={t("title")} className="rounded-2xl border bg-card shadow-sm">
       <div className={cn("px-5 sm:px-7", empty ? "pt-7 pb-2" : "pt-5")}>
         {empty ? (
-          <div>
+          <div className="relative">
+            <div className="absolute -right-2 -top-3">{historyButton}</div>
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
               {firstName ? t("headingName", { name: firstName }) : t("heading")}
             </h2>
@@ -195,9 +293,12 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
         ) : (
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-muted-foreground">{t("title")}</p>
-            <button type="button" onClick={reset} disabled={busy} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50">
-              <RotateCcw className="h-3.5 w-3.5" /> {t("newChat")}
-            </button>
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={reset} disabled={busy} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50">
+                <RotateCcw className="h-3.5 w-3.5" /> {t("newChat")}
+              </button>
+              {historyButton}
+            </div>
           </div>
         )}
       </div>

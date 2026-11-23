@@ -252,6 +252,9 @@
     "headingName": "What should we schedule, {name}?",
     "intro": "Ask about your week, find time with people, or paste a schedule. Type it or say it.",
     "newChat": "New chat",
+    "history": "Chat history",
+    "noHistory": "No past chats yet.",
+    "clearHistory": "Clear history",
     "confirm": "Confirm",
     "cancel": "Cancel",
     "working": "Working on it…",
@@ -1558,7 +1561,7 @@
       },
       "b7": {
         "title": "Booked while you sleep.",
-        "body": "Your link fills tomorrow while you rest. The first 7 meetings are free.",
+        "body": "Your link keeps filling tomorrow while you rest.",
         "label": "New booking",
         "card": "Intro call"
       },

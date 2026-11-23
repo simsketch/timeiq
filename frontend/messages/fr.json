@@ -252,6 +252,9 @@
     "headingName": "Que planifions-nous, {name} ?",
     "intro": "Posez une question sur votre semaine, trouvez un créneau avec d’autres personnes ou collez un planning. À l’écrit ou à voix haute.",
     "newChat": "Nouvelle discussion",
+    "history": "Historique des discussions",
+    "noHistory": "Aucune discussion pour l’instant.",
+    "clearHistory": "Effacer l’historique",
     "confirm": "Confirmer",
     "cancel": "Annuler",
     "working": "Je m’en occupe…",
@@ -1558,7 +1561,7 @@
       },
       "b7": {
         "title": "Réservé pendant votre sommeil.",
-        "body": "Votre lien remplit la journée de demain pendant que vous dormez. Les 7 premiers rendez-vous sont gratuits.",
+        "body": "Votre lien continue de remplir la journée de demain pendant que vous dormez.",
         "label": "Nouvelle réservation",
         "card": "Appel découverte"
       },

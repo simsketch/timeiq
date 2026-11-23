@@ -252,6 +252,9 @@
     "headingName": "Was sollen wir planen, {name}?",
     "intro": "Frag nach deiner Woche, finde Zeit mit anderen oder füge einen Plan ein. Tippen oder sprechen.",
     "newChat": "Neuer Chat",
+    "history": "Chatverlauf",
+    "noHistory": "Noch keine früheren Chats.",
+    "clearHistory": "Verlauf löschen",
     "confirm": "Bestätigen",
     "cancel": "Abbrechen",
     "working": "Ich kümmere mich darum…",
@@ -1558,7 +1561,7 @@
       },
       "b7": {
         "title": "Gebucht, während du schläfst.",
-        "body": "Dein Link füllt den nächsten Tag, während du schläfst. Die ersten 7 Termine sind kostenlos.",
+        "body": "Dein Link füllt den nächsten Tag, während du schläfst.",
         "label": "Neue Buchung",
         "card": "Kennenlerngespräch"
       },
