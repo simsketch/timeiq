@@ -628,6 +628,8 @@ export function LandingPage({ headline: source, hero = "clock" }: { headline: He
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center sm:justify-start sm:text-left">
               <LogoIcon className="w-6 h-6" />
+              {/* One text run, so the flex gap doesn't put a space before the comma. */}
+              <span>
               <span className="font-semibold tracking-tight">TimeIQ</span>
               <span className="text-sm text-muted-foreground">
                 {t.rich("footer.creation", {
@@ -642,6 +644,7 @@ export function LandingPage({ headline: source, hero = "clock" }: { headline: He
                     </a>
                   ),
                 })}
+              </span>
               </span>
               <span className="text-muted-foreground text-sm font-mono tabular-nums">
                 · &copy; 2026
