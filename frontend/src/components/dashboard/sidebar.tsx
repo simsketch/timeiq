@@ -75,7 +75,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="relative z-10 flex h-full min-h-0 flex-col py-7">
         <div className="px-6 mb-9">
-          <Link href="/dashboard" onClick={onNavigate} className="flex items-center gap-2.5 group">
+          <Link href="/" onClick={onNavigate} className="flex items-center gap-2.5 group">
             <LogoIcon className="h-12 w-12 shrink-0" />
             <span className="text-2xl font-semibold tracking-tight text-white">
               TimeIQ

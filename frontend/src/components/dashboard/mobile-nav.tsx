@@ -37,7 +37,7 @@ export function MobileNav() {
     <>
       {/* Top bar */}
       <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-16 glass rounded-none border-b border-white/20">
-        <Link href="/dashboard" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2">
           <LogoIcon className="h-11 w-11" />
           <span className="text-xl font-semibold tracking-tight">TimeIQ</span>
         </Link>
