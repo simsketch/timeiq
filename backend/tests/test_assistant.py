@@ -194,3 +194,85 @@ async def test_daily_limit_free_vs_paid(chat):
     await _turns(chat["user"], assistant.TURNS_PER_DAY_PAID - assistant.TURNS_PER_DAY_FREE - 1, timedelta(hours=2))
     r = await chat["post"]()
     assert r.status_code == 429 and "today's limit" in r.json()["detail"]
+
+
+def _tool_call(name, args):
+    from anthropic.types import Message
+
+    return Message.model_validate({
+        "id": "msg_2", "type": "message", "role": "assistant", "model": "claude-sonnet-5-5",
+        "content": [{"type": "text", "text": "I'll book Mon 2:00 PM with sam@example.com."},
+                    {"type": "tool_use", "id": "tu_1", "name": name, "input": args}],
+        "stop_reason": "tool_use", "stop_sequence": None, "usage": {"input_tokens": 0, "output_tokens": 0},
+    })
+
+
+@pytest.fixture
+async def held(chat, monkeypatch):
+    """The model asks to book a meeting (an outward tool), then says it's done."""
+    replies = [_tool_call("book_meeting", {"email": "sam@example.com", "starts_at": "2030-01-07T14:00:00-05:00"})]
+
+    async def create(**kwargs):
+        chat["calls"].append(kwargs)
+        return replies.pop(0) if replies else _reply("Booked.")
+
+    ran = []
+
+    async def run_tool(_server, name, args):
+        ran.append(name)
+        return True, "{}"
+
+    monkeypatch.setattr(llm, "client", lambda: SimpleNamespace(messages=SimpleNamespace(create=create)))
+    monkeypatch.setattr(assistant, "_run_tool", run_tool)
+
+    async def send(messages, decision=None, cards=True):
+        return await chat["client"].post("/api/me/assistant", json={"messages": messages, "decision": decision, "confirm_cards": cards},
+                                         headers={"Authorization": "Bearer x"})
+
+    chat.update(ran=ran, send=send)
+    return chat
+
+
+async def test_outward_tools_wait_for_confirm(held):
+    r = await held["send"]([{"role": "user", "content": "book sam tomorrow at 2"}])
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["pending"] == [{"tool": "book_meeting", "input": {"email": "sam@example.com", "starts_at": "2030-01-07T14:00:00-05:00"}}]
+    assert body["reply"].startswith("I'll book") and held["ran"] == []
+
+    r = await held["send"](body["messages"], "confirm")
+    assert r.status_code == 200, r.text
+    assert r.json()["reply"] == "Booked." and r.json()["pending"] is None
+    assert held["ran"] == ["book_meeting"]
+
+
+async def test_cancel_skips_the_tool_and_the_model(held):
+    body = (await held["send"]([{"role": "user", "content": "book sam"}])).json()
+    calls = len(held["calls"])
+    r = await held["send"](body["messages"], "cancel")
+    assert r.status_code == 200 and r.json()["reply"] == "OK, I didn't do that."
+    assert held["ran"] == [] and len(held["calls"]) == calls
+    assert len(await _rows(held["user"])) == 1  # a cancel doesn't use up a turn
+
+
+async def test_typing_past_the_card_cancels_the_held_tool(held):
+    body = (await held["send"]([{"role": "user", "content": "book sam"}])).json()
+    r = await held["send"]([*body["messages"], {"role": "user", "content": "actually make it 3pm"}])
+    assert r.status_code == 200, r.text
+    sent = held["calls"][-1]["messages"]
+    i = next(i for i, m in enumerate(sent) if m["content"] == "actually make it 3pm")
+    assert sent[i - 1]["content"][0]["type"] == "tool_result" and sent[i - 1]["content"][0]["is_error"]
+    assert held["ran"] == []
+
+
+async def test_confirm_needs_something_held(held):
+    r = await held["send"]([{"role": "user", "content": "hi"}], "confirm")
+    assert r.status_code == 422
+
+
+async def test_older_apps_run_tools_after_a_text_yes(held):
+    r = await held["send"]([{"role": "user", "content": "book sam"}], cards=False)
+    assert r.status_code == 200 and r.json()["pending"] is None
+    assert held["ran"] == ["book_meeting"]
+    system = held["calls"][0]["system"][0]["text"]
+    assert "Shall I go ahead?" in system and "Confirm and Cancel" not in system

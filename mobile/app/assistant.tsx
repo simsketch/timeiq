@@ -34,6 +34,7 @@ const STEP_LABEL: Record<string, string> = {
   list_event_types: "Looked at your event types",
   list_bookings: "Looked at your bookings",
   cancel_booking: "Cancelled a booking",
+  book_meeting: "Booked the meeting",
   find_time_with: "Sent a find-a-time invite",
   list_group_meetings: "Looked at group meetings",
   get_group_meeting: "Checked a group meeting",
@@ -143,13 +144,36 @@ export default function Assistant() {
     try {
       const res = await api<{ messages: Message[]; steps: Step[] }>("/api/me/assistant", {
         method: "POST",
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify({ messages: next, confirm_cards: true }),
       });
       setHistory(res.messages);
       setSteps([...steps, res.steps]);
     } catch (e) {
       setHistory(history);
       setDraft(message);
+      setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // The last reply's emails or calendar changes wait for this answer (the server holds them).
+  const last = history[history.length - 1];
+  const held = last?.role === "assistant" && Array.isArray(last.content) && last.content.some((b) => b.type === "tool_use");
+
+  async function decide(decision: "confirm" | "cancel") {
+    if (busy) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await api<{ messages: Message[]; steps: Step[] }>("/api/me/assistant", {
+        method: "POST",
+        body: JSON.stringify({ messages: history, decision, confirm_cards: true }),
+      });
+      setHistory(res.messages);
+      // Same reply as the card, so its steps join the card's.
+      setSteps([...steps.slice(0, -1), [...(steps[steps.length - 1] ?? []), ...res.steps]]);
+    } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
     } finally {
       setBusy(false);
@@ -231,7 +255,33 @@ export default function Assistant() {
                     ))}
                   </View>
                 )}
-                <Reply text={turn.text} t={t} />
+                {held && i === turns.length - 1 ? (
+                  <View style={[styles.card, { borderColor: t.border, backgroundColor: t.card }]}>
+                    <Reply text={turn.text} t={t} />
+                    <View style={styles.actions}>
+                      <Pressable
+                        onPress={() => decide("confirm")}
+                        disabled={busy}
+                        accessibilityRole="button"
+                        style={({ pressed }) => [styles.action, { backgroundColor: t.primary, opacity: busy ? 0.5 : pressed ? 0.8 : 1 }]}
+                      >
+                        <Ionicons name="checkmark" size={18} color={t.primaryText} />
+                        <Text style={{ color: t.primaryText, fontSize: 15, fontWeight: "600" }}>Confirm</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => decide("cancel")}
+                        disabled={busy}
+                        accessibilityRole="button"
+                        style={({ pressed }) => [styles.action, { borderWidth: 1, borderColor: t.border, opacity: busy ? 0.5 : pressed ? 0.7 : 1 }]}
+                      >
+                        <Ionicons name="close" size={18} color={t.muted} />
+                        <Text style={{ color: t.text, fontSize: 15, fontWeight: "600" }}>Cancel</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
+                  <Reply text={turn.text} t={t} />
+                )}
               </View>
             ),
           )
@@ -299,6 +349,9 @@ const styles = StyleSheet.create({
   step: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
   bubble: { alignSelf: "flex-end", maxWidth: "85%", borderRadius: 18, borderBottomRightRadius: 6, paddingHorizontal: 14, paddingVertical: 10 },
   reply: { fontSize: 16, lineHeight: 23 },
+  card: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 14 },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  action: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10 },
   composer: { paddingHorizontal: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth },
   box: { flexDirection: "row", alignItems: "flex-end", gap: 8, borderWidth: 1, borderRadius: 22, paddingLeft: 14, paddingRight: 5, paddingVertical: 5, ...readable, maxWidth: 760 },
   input: { flex: 1, maxHeight: 140, minHeight: 36, fontSize: 16, paddingTop: 8, paddingBottom: 8 },

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -25,12 +25,24 @@ class ChatIn(BaseModel):
     # Anthropic-format history from earlier turns (returned by this endpoint), ending with
     # the new user message.
     messages: list[dict[str, Any]] = Field(min_length=1)
+    # The user's answer to tools the last reply held for confirmation.
+    decision: Optional[Literal["confirm", "cancel"]] = None
+    # The app shows a Confirm card for held tools (apps from before it don't send this).
+    confirm_cards: bool = False
 
 
 class ChatOut(BaseModel):
     messages: list[dict[str, Any]]
     reply: str
     steps: list[dict[str, Any]]
+    # Tools waiting for the user's Confirm; the history then ends on their tool_use.
+    pending: Optional[list[dict[str, Any]]] = None
+
+
+def _held(message: dict[str, Any] | None) -> bool:
+    """An assistant message whose tool calls are waiting for the user's answer."""
+    return bool(message) and message.get("role") == "assistant" and isinstance(message.get("content"), list) and any(
+        isinstance(b, dict) and b.get("type") == "tool_use" for b in message["content"])
 
 
 @router.post("", response_model=ChatOut)
@@ -47,13 +59,23 @@ async def chat(
     while messages and not (messages[0].get("role") == "user" and isinstance(messages[0].get("content"), str)):
         messages = messages[1:]
     last = messages[-1] if messages else None
-    if not last or last.get("role") != "user" or not isinstance(last.get("content"), str) or not last["content"].strip():
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "End with a message from you.")
+    if payload.decision:
+        if not _held(last):
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "There's nothing waiting to confirm.")
+        if payload.decision == "cancel":
+            messages = assistant.cancelled(messages)
+            return {"messages": messages, "reply": messages[-1]["content"][0]["text"], "steps": []}
+    else:
+        if not last or last.get("role") != "user" or not isinstance(last.get("content"), str) or not last["content"].strip():
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "End with a message from you.")
+        if len(messages) >= 2 and _held(messages[-2]):
+            # They typed instead of pressing Confirm or Cancel: the held tools count as cancelled.
+            messages = [*assistant.cancelled(messages[:-1])[:-1], last]
     if len(json.dumps(messages, default=str)) > MAX_BYTES:
         raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "This conversation is too long. Start a new one.")
     turn = await assistant.start_turn(db, user)
     try:
-        result = await assistant.chat(user, messages)
+        result = await assistant.chat(user, messages, confirmed=payload.decision == "confirm", cards=payload.confirm_cards)
     except Exception:
         logger.exception("Assistant turn failed for user %s", user.id)
         await db.delete(turn)  # a failed turn doesn't count against the limit

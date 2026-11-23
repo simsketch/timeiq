@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useTranslations } from "next-intl";
-import { ArrowUp, Mic, RotateCcw, Square } from "lucide-react";
+import { ArrowUp, Check, Mic, RotateCcw, Square, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { LogoMark } from "@/components/logo";
 import { cn } from "@/lib/utils";
@@ -111,7 +111,7 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
       const res = await apiFetch<{ messages: Message[]; steps: Step[] }>("/api/me/assistant", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify({ messages: next, confirm_cards: true }),
       });
       setHistory(res.messages);
       setSteps((s) => [...s, res.steps]);
@@ -123,6 +123,33 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
       setBusy(false);
     }
   }, [busy, getToken, history, t]);
+
+  // The last reply's emails or calendar changes wait for this answer (the server holds them).
+  const held = (() => {
+    const last = history[history.length - 1];
+    return last?.role === "assistant" && Array.isArray(last.content) && last.content.some((b) => b.type === "tool_use");
+  })();
+
+  async function decide(decision: "confirm" | "cancel") {
+    if (busy) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const token = await getToken();
+      const res = await apiFetch<{ messages: Message[]; steps: Step[] }>("/api/me/assistant", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ messages: history, decision, confirm_cards: true }),
+      });
+      setHistory(res.messages);
+      // Same reply as the card, so its steps join the card's.
+      setSteps((s) => [...s.slice(0, -1), [...(s[s.length - 1] ?? []), ...res.steps]]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("failed"));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   // A request typed on the homepage before signing up: ask it now.
   const asked = useRef(false);
@@ -195,7 +222,21 @@ export function AssistantChat({ firstName }: { firstName?: string | null }) {
                       ))}
                     </div>
                   )}
-                  <Reply text={turn.text} />
+                  {held && i === turns.length - 1 ? (
+                    <div className="rounded-xl border bg-background p-4">
+                      <Reply text={turn.text} />
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button type="button" onClick={() => decide("confirm")} disabled={busy} className="inline-flex items-center gap-1.5 rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background transition disabled:opacity-50">
+                          <Check className="h-4 w-4" /> {t("confirm")}
+                        </button>
+                        <button type="button" onClick={() => decide("cancel")} disabled={busy} className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium text-muted-foreground transition hover:text-foreground disabled:opacity-50">
+                          <X className="h-4 w-4" /> {t("cancel")}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Reply text={turn.text} />
+                  )}
                 </div>
               </div>
             ),

@@ -78,9 +78,7 @@ like "Tue Nov 11, 3:00 PM".
 
 How to work:
 - Use the tools to look things up rather than guessing. Read before you write.
-- Before anything that emails other people or changes calendars (finding time with people, booking, \
-cancelling, reminders{invoices}), say exactly what you're about to do in one or two lines and ask \
-"Shall I go ahead?". Do it only after a clear yes.
+- {confirm_rule}
 - Keep replies short: a sentence or two, then a short list if it helps. No tables, no headings.
 - If something needs the app (connecting a calendar, payment), say where: Calendars, Settings, \
 Pricing.
@@ -114,38 +112,75 @@ async def start_turn(db: AsyncSession, user: User) -> AssistantTurn:
     return turn
 
 
-async def chat(user: User, history: list[dict[str, Any]]) -> dict[str, Any]:
+# How to get a yes before anything that emails other people or changes calendars.
+ASK_FIRST = """Before anything that emails other people or changes calendars (finding time with people, booking, \
+cancelling, reminders{invoices}), say exactly what you're about to do in one or two lines and ask \
+"Shall I go ahead?". Do it only after a clear yes."""
+CARD = """For anything that emails other people or changes calendars (finding time with people, booking, \
+cancelling, reminders{invoices}), first look up what you need, then write one or two lines saying \
+exactly what will happen (who, when, how long) and call the tool in the same reply. The app holds \
+the tool and shows the user Confirm and Cancel buttons, so don't ask "Shall I go ahead?" yourself."""
+
+
+def cancelled(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The user pressed Cancel on held tools: answer them as not run, with no model call."""
+    results = [
+        {"type": "tool_result", "tool_use_id": b["id"], "content": "The user cancelled this. Nothing was done.", "is_error": True}
+        for b in history[-1]["content"] if b.get("type") == "tool_use"
+    ]
+    return [*history, {"role": "user", "content": results},
+            {"role": "assistant", "content": [{"type": "text", "text": "OK, I didn't do that."}]}]
+
+
+async def chat(user: User, history: list[dict[str, Any]], confirmed: bool = False, cards: bool = False) -> dict[str, Any]:
     """Run one turn. `history` is the Anthropic-format message list from earlier turns plus
     the new user message; returns the updated history, the reply text, the steps taken and
-    the token usage summed over every model call."""
+    the token usage summed over every model call.
+
+    Tools marked destructive (they email people or change calendars) never run straight
+    away: the turn stops with them unanswered and `pending` set, and the app asks the user.
+    Confirming sends the same history back with `confirmed`, which runs them and carries on.
+    Only apps that show the confirm card send `cards`; older ones get asked in text."""
     from app import mcp_server
 
     zone = ZoneInfo(user.timezone or "UTC")
     now = datetime.now(timezone.utc).astimezone(zone)
-    tools = [
-        {"name": t.name, "description": t.description or "", "input_schema": t.input_schema}
-        for t in await mcp_server.mcp.list_tools()
-        if user.invoicing_enabled or t.name not in INVOICING_TOOLS
-    ]
+    listed = [t for t in await mcp_server.mcp.list_tools() if user.invoicing_enabled or t.name not in INVOICING_TOOLS]
+    outward = {t.name for t in listed if cards and t.annotations and t.annotations.destructive_hint}
+    tools = [{"name": t.name, "description": t.description or "", "input_schema": t.input_schema} for t in listed]
     # Prompt caching: tools render first, so they cache across turns and users; the
     # system prompt (it has the time in it) caches across this turn's tool rounds.
     if tools:
         tools[-1]["cache_control"] = {"type": "ephemeral"}
+    invoices = ", sending invoices" if user.invoicing_enabled else ""
     system = SYSTEM.format(
+        confirm_rule=(CARD if cards else ASK_FIRST).format(invoices=invoices),
         name=user.name or user.username or "the user",
         now=now.strftime("%A %B %-d, %Y, %-I:%M %p"),
         zone=zone.key,
-        invoices=", sending invoices" if user.invoicing_enabled else "",
     )
     client = llm.client()
     messages = list(history)
     steps: list[dict[str, Any]] = []
     usage = {"input_tokens": 0, "output_tokens": 0, "model": llm.model_id(MODEL)}
     started = time.monotonic()
+    pending: list[dict[str, Any]] = []
+
+    async def run_all(content: list[dict[str, Any]]) -> None:
+        results = []
+        for block in content:
+            if block.get("type") != "tool_use":
+                continue
+            ok, text = await _run_tool(mcp_server, block["name"], block.get("input") or {})
+            steps.append({"tool": block["name"], "ok": ok})
+            results.append({"type": "tool_result", "tool_use_id": block["id"], "content": text, "is_error": not ok})
+        messages.append({"role": "user", "content": results})
 
     with request_token(user) as token:
         reset = mcp_server._token.set(token)
         try:
+            if confirmed:
+                await run_all(messages[-1]["content"])
             for _ in range(MAX_ROUNDS):
                 response = await client.messages.create(
                     model=llm.model_id(MODEL), max_tokens=4096, tools=tools, messages=messages,
@@ -159,14 +194,10 @@ async def chat(user: User, history: list[dict[str, Any]]) -> dict[str, Any]:
                 messages.append({"role": "assistant", "content": [b.model_dump(exclude_none=True) for b in response.content]})
                 if response.stop_reason != "tool_use":
                     break
-                results = []
-                for block in response.content:
-                    if block.type != "tool_use":
-                        continue
-                    ok, text = await _run_tool(mcp_server, block.name, block.input)
-                    steps.append({"tool": block.name, "ok": ok})
-                    results.append({"type": "tool_result", "tool_use_id": block.id, "content": text, "is_error": not ok})
-                messages.append({"role": "user", "content": results})
+                pending = [{"tool": b.name, "input": b.input} for b in response.content if b.type == "tool_use" and b.name in outward]
+                if pending:
+                    break  # held for the user's Confirm
+                await run_all(messages[-1]["content"])
                 if time.monotonic() - started > TIME_BUDGET:
                     messages.append({"role": "assistant", "content": [{"type": "text", "text": "That's taking longer than it should. Ask me again and I'll pick up from here."}]})
                     break
@@ -177,10 +208,12 @@ async def chat(user: User, history: list[dict[str, Any]]) -> dict[str, Any]:
         (b["text"] for b in reversed(messages[-1]["content"]) if b.get("type") == "text"),
         "",
     ) if messages and messages[-1]["role"] == "assistant" else ""
+    if pending:
+        return {"messages": messages, "reply": reply, "steps": steps, "usage": usage, "pending": pending}
     if not reply:
         reply = "Sorry, I lost my train of thought there. Could you ask that again?"
         messages.append({"role": "assistant", "content": [{"type": "text", "text": reply}]}) if messages[-1]["role"] != "assistant" else messages[-1]["content"].append({"type": "text", "text": reply})
-    return {"messages": messages, "reply": reply, "steps": steps, "usage": usage}
+    return {"messages": messages, "reply": reply, "steps": steps, "usage": usage, "pending": None}
 
 
 async def _run_tool(mcp_server, name: str, args: dict[str, Any]) -> tuple[bool, str]:
