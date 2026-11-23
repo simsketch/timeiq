@@ -120,7 +120,7 @@ async def book_meeting(
     """Book a meeting at a fixed time and send the person a calendar invite, like booking by hand
     from the dashboard. `starts_at` is ISO 8601 with an offset. The meeting uses `event_type_id`, or
     else the event type whose length matches `duration_minutes`, or else the first one. Any future
-    time works; a time that overlaps the user's calendar is refused unless `allow_conflict` (ask the
+    time works, or one up to 10 minutes ago; a time that overlaps the user's calendar is refused unless `allow_conflict` (ask the
     user first). To change the time of an existing booking, use reschedule_booking instead. Confirm
     the person, time and length with the user first."""
     types = await _api("GET", "/api/event-types")
@@ -148,7 +148,8 @@ async def book_meeting(
 
 @mcp.tool(annotations=OUTWARD)
 async def reschedule_booking(booking_id: str, starts_at: str, allow_conflict: bool = False) -> str:
-    """Move a booking to a new start time (ISO 8601 with an offset), keeping its length. The guest's
+    """Move a booking to a new start time (ISO 8601 with an offset), keeping its length. A start up to
+    10 minutes ago is fine (the user is running late). The guest's
     calendar invite moves to the new time. Use this, not cancel_booking plus book_meeting, to change a
     booking's time. A time that overlaps the user's calendar is refused unless `allow_conflict` (ask the
     user first)."""

@@ -154,6 +154,10 @@ _cancel = payments.mark_cancelled
 router = APIRouter(tags=["bookings"])
 
 
+
+# A host can book or move a meeting to a start up to this far in the past (they're running a bit late).
+HOST_GRACE = timedelta(minutes=10)
+
 @router.get("/api/bookings", response_model=list[BookingResponse])
 async def list_bookings(
     status_filter: str | None = Query(
@@ -194,7 +198,7 @@ async def create_booking_as_host(
     if starts_at.tzinfo is None:
         starts_at = starts_at.replace(tzinfo=timezone.utc)
     starts_at = starts_at.astimezone(timezone.utc)
-    if starts_at < datetime.now(timezone.utc) - timedelta(minutes=5):
+    if starts_at < datetime.now(timezone.utc) - HOST_GRACE:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pick a time that hasn't passed yet")
     ends_at = starts_at + timedelta(minutes=payload.duration_minutes or event_type.duration_minutes)
 
@@ -252,7 +256,7 @@ async def reschedule_booking_as_host(
     if starts_at.tzinfo is None:
         starts_at = starts_at.replace(tzinfo=timezone.utc)
     starts_at = starts_at.astimezone(timezone.utc)
-    if starts_at < datetime.now(timezone.utc) - timedelta(minutes=5):
+    if starts_at < datetime.now(timezone.utc) - HOST_GRACE:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pick a time that hasn't passed yet")
 
     await freshen_host_calendars(user)
