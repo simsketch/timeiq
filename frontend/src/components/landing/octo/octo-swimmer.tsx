@@ -315,7 +315,7 @@ export function OctoSwimmer() {
               width={240}
               height={240}
               draggable={false}
-              className="pointer-events-none w-full drop-shadow-[0_10px_18px_rgba(40,30,120,0.25)]"
+              className="pointer-events-none w-full drop-shadow-[0_10px_18px_rgba(120,50,10,0.25)]"
               style={{ transform: `scaleX(${face})` }}
             />
           </button>
@@ -349,7 +349,7 @@ export function OctoSwimmer() {
       <style>{`
         .tiq-bubble{border-radius:9999px;pointer-events:none;z-index:29;
           background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.95),rgba(180,220,255,.35) 45%,rgba(120,170,255,.15) 70%);
-          box-shadow:inset 0 0 0 1px rgba(110,92,240,.25);animation:tiq-rise 3s ease-in forwards}
+          box-shadow:inset 0 0 0 1px rgba(120,170,255,.3);animation:tiq-rise 3s ease-in forwards}
         @keyframes tiq-rise{0%{transform:translate(0,0) scale(.6);opacity:0}
           15%{opacity:.9}50%{transform:translate(6px,-50px) scale(1)}
           100%{transform:translate(-4px,-110px) scale(1.1);opacity:0}}
