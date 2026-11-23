@@ -209,11 +209,35 @@ async def chat(user: User, history: list[dict[str, Any]], confirmed: bool = Fals
         "",
     ) if messages and messages[-1]["role"] == "assistant" else ""
     if pending:
+        if not reply:  # the model held a tool without saying what it does; the card needs words
+            reply = await _describe(client, system, tools, messages, pending, usage)
+            messages[-1]["content"].insert(0, {"type": "text", "text": reply})
         return {"messages": messages, "reply": reply, "steps": steps, "usage": usage, "pending": pending}
     if not reply:
         reply = "Sorry, I lost my train of thought there. Could you ask that again?"
         messages.append({"role": "assistant", "content": [{"type": "text", "text": reply}]}) if messages[-1]["role"] != "assistant" else messages[-1]["content"].append({"type": "text", "text": reply})
     return {"messages": messages, "reply": reply, "steps": steps, "usage": usage, "pending": None}
+
+
+async def _describe(client, system: str, tools: list[dict[str, Any]], messages: list[dict[str, Any]], pending: list[dict[str, Any]], usage: dict[str, Any]) -> str:
+    """One or two lines for the confirm card, written from the held tool calls."""
+    ask = ("Before the user confirms, write one or two plain lines saying exactly what these will do "
+           "(who, when, how long, in their time zone). Don't ask a question.\n" + json.dumps(pending, default=str))
+    last = messages[-2]["content"]  # the user turn the held calls answer
+    prior = [*messages[:-2], {"role": "user", "content": [
+        *(last if isinstance(last, list) else [{"type": "text", "text": last}]), {"type": "text", "text": ask}]}]
+    try:
+        response = await client.messages.create(
+            model=llm.model_id(MODEL), max_tokens=300, messages=prior, system=system,
+            tools=tools, tool_choice={"type": "none"},
+            output_config={"effort": "low"}, extra_body=llm.extra_body(),
+        )
+        usage["input_tokens"] += response.usage.input_tokens or 0
+        usage["output_tokens"] += response.usage.output_tokens or 0
+        text = "".join(b.text for b in response.content if b.type == "text").strip()
+    except Exception:
+        text = ""
+    return text or "Here's what I'd do: " + "; ".join(p["tool"].replace("_", " ") for p in pending) + "."
 
 
 async def _run_tool(mcp_server, name: str, args: dict[str, Any]) -> tuple[bool, str]:

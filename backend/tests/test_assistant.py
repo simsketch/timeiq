@@ -276,3 +276,19 @@ async def test_older_apps_run_tools_after_a_text_yes(held):
     assert held["ran"] == ["book_meeting"]
     system = held["calls"][0]["system"][0]["text"]
     assert "Shall I go ahead?" in system and "Confirm and Cancel" not in system
+
+
+async def test_a_silent_hold_still_gets_words_on_the_card(held, monkeypatch):
+    silent = _tool_call("cancel_booking", {"booking_id": "b1"})
+    silent.content = [b for b in silent.content if b.type == "tool_use"]
+    replies = [silent, _reply("Cancel your 2:00 PM with Emad today.")]
+
+    async def create(**kwargs):
+        held["calls"].append(kwargs)
+        return replies.pop(0)
+
+    monkeypatch.setattr(llm, "client", lambda: SimpleNamespace(messages=SimpleNamespace(create=create)))
+    body = (await held["send"]([{"role": "user", "content": "cancel emad"}])).json()
+    assert body["reply"] == "Cancel your 2:00 PM with Emad today." and body["pending"]
+    assert body["messages"][-1]["content"][0] == {"type": "text", "text": body["reply"]}
+    assert held["calls"][-1]["tool_choice"] == {"type": "none"} and held["ran"] == []
