@@ -16,6 +16,7 @@ import json
 import logging
 import secrets
 import time
+import uuid
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -209,9 +210,12 @@ async def chat(user: User, history: list[dict[str, Any]], confirmed: bool = Fals
         "",
     ) if messages and messages[-1]["role"] == "assistant" else ""
     if pending:
-        if not reply:  # the model held a tool without saying what it does; the card needs words
-            reply = await _describe(client, system, tools, messages, pending, usage)
+        # The card shows what Confirm will actually do; the model's own words can drift from its tool call.
+        described = await _describe(user, pending)
+        if not reply:
+            reply = described or "Here's what I'd do: " + "; ".join(p["tool"].replace("_", " ") for p in pending) + "."
             messages[-1]["content"].insert(0, {"type": "text", "text": reply})
+        reply = described or reply
         return {"messages": messages, "reply": reply, "steps": steps, "usage": usage, "pending": pending}
     if not reply:
         reply = "Sorry, I lost my train of thought there. Could you ask that again?"
@@ -219,25 +223,48 @@ async def chat(user: User, history: list[dict[str, Any]], confirmed: bool = Fals
     return {"messages": messages, "reply": reply, "steps": steps, "usage": usage, "pending": None}
 
 
-async def _describe(client, system: str, tools: list[dict[str, Any]], messages: list[dict[str, Any]], pending: list[dict[str, Any]], usage: dict[str, Any]) -> str:
-    """One or two lines for the confirm card, written from the held tool calls."""
-    ask = ("Before the user confirms, write one or two plain lines saying exactly what these will do "
-           "(who, when, how long, in their time zone). Don't ask a question.\n" + json.dumps(pending, default=str))
-    last = messages[-2]["content"]  # the user turn the held calls answer
-    prior = [*messages[:-2], {"role": "user", "content": [
-        *(last if isinstance(last, list) else [{"type": "text", "text": last}]), {"type": "text", "text": ask}]}]
-    try:
-        response = await client.messages.create(
-            model=llm.model_id(MODEL), max_tokens=300, messages=prior, system=system,
-            tools=tools, tool_choice={"type": "none"},
-            output_config={"effort": "low"}, extra_body=llm.extra_body(),
-        )
-        usage["input_tokens"] += response.usage.input_tokens or 0
-        usage["output_tokens"] += response.usage.output_tokens or 0
-        text = "".join(b.text for b in response.content if b.type == "text").strip()
-    except Exception:
-        text = ""
-    return text or "Here's what I'd do: " + "; ".join(p["tool"].replace("_", " ") for p in pending) + "."
+async def _describe(user: User, pending: list[dict[str, Any]]) -> str:
+    """The confirm card's text, built from the held calls themselves so it always matches what
+    Confirm will do. Empty when a held tool isn't one this knows how to describe."""
+    from app.database import async_session
+    from app.models import Booking
+
+    zone = ZoneInfo(user.timezone or "UTC")
+
+    def when(value: Any) -> str:
+        try:
+            moment = value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
+            return moment.astimezone(zone).strftime("%a %b %-d, %-I:%M %p")
+        except ValueError:
+            return str(value)
+
+    async def booking(booking_id: Any) -> Booking | None:
+        try:
+            async with async_session() as db:
+                return (await db.execute(select(Booking).where(
+                    Booking.id == uuid.UUID(str(booking_id)), Booking.host_user_id == user.id))).scalar_one_or_none()
+        except ValueError:
+            return None
+
+    lines = []
+    for p in pending:
+        a, tool = p.get("input") or {}, p["tool"]
+        if tool == "book_meeting":
+            who = f"{a['name']} ({a.get('email')})" if a.get("name") else a.get("email")
+            length = f" for {a['duration_minutes']} minutes" if a.get("duration_minutes") else ""
+            lines.append(f"Book {who} on {when(a.get('starts_at'))}{length}. They get a calendar invite.")
+        elif tool in ("reschedule_booking", "cancel_booking") and (b := await booking(a.get("booking_id"))):
+            if tool == "cancel_booking":
+                lines.append(f"Cancel {b.visitor_name}'s meeting on {when(b.starts_at)}. They're emailed.")
+            else:
+                lines.append(f"Move {b.visitor_name}'s meeting from {when(b.starts_at)} to "
+                             f"{when(a.get('starts_at'))}. Their calendar invite moves too.")
+        elif tool == "find_time_with":
+            lines.append(f"Email {', '.join(a.get('emails') or [])} a link to pick a time for "
+                         f"\"{a.get('title')}\" ({a.get('duration_minutes') or 30} minutes).")
+        else:
+            return ""
+    return "\n".join(lines)
 
 
 async def _run_tool(mcp_server, name: str, args: dict[str, Any]) -> tuple[bool, str]:

@@ -35,6 +35,7 @@ const STEP_LABEL: Record<string, string> = {
   list_bookings: "Looked at your bookings",
   cancel_booking: "Cancelled a booking",
   book_meeting: "Booked the meeting",
+  reschedule_booking: "Moved the booking",
   find_time_with: "Sent a find-a-time invite",
   list_group_meetings: "Looked at group meetings",
   get_group_meeting: "Checked a group meeting",

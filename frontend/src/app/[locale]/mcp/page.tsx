@@ -35,7 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
 // Keep these names and descriptions aligned with backend/app/mcp_server.py.
 // Descriptions live in messages under mcp.toolDescriptions.<name>.
 const TOOL_GROUPS = [
-  { id: "availability", icon: CalendarDays, tools: ["get_profile", "get_free_times", "list_event_types", "list_bookings", "cancel_booking"] },
+  { id: "availability", icon: CalendarDays, tools: ["get_profile", "get_free_times", "list_event_types", "list_bookings", "book_meeting", "reschedule_booking", "cancel_booking"] },
   {
     id: "group",
     icon: Users,

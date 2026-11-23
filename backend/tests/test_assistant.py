@@ -238,7 +238,7 @@ async def test_outward_tools_wait_for_confirm(held):
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["pending"] == [{"tool": "book_meeting", "input": {"email": "sam@example.com", "starts_at": "2030-01-07T14:00:00-05:00"}}]
-    assert body["reply"].startswith("I'll book") and held["ran"] == []
+    assert body["reply"].startswith("Book sam@example.com on ") and held["ran"] == []
 
     r = await held["send"](body["messages"], "confirm")
     assert r.status_code == 200, r.text
@@ -278,17 +278,35 @@ async def test_older_apps_run_tools_after_a_text_yes(held):
     assert "Shall I go ahead?" in system and "Confirm and Cancel" not in system
 
 
-async def test_a_silent_hold_still_gets_words_on_the_card(held, monkeypatch):
-    silent = _tool_call("cancel_booking", {"booking_id": "b1"})
+async def test_the_card_says_what_confirm_will_do(held, monkeypatch):
+    """Built from the held call, even when the model wrote nothing: moving Emad from 2 PM to 1 PM."""
+    import uuid
+    from datetime import datetime, timezone
+    from app.database import async_session
+    from app.models import Booking, EventType
+
+    user = held["user"]
+    async with async_session() as db:
+        event = EventType(user_id=user.id, name="Call", slug="call-move", duration_minutes=30)
+        db.add(event)
+        await db.flush()
+        booking = Booking(id=uuid.uuid4(), event_type_id=event.id, host_user_id=user.id, visitor_name="Emad",
+                          visitor_email="emad@example.com", starts_at=datetime(2030, 1, 7, 19, tzinfo=timezone.utc),
+                          ends_at=datetime(2030, 1, 7, 19, 30, tzinfo=timezone.utc), timezone="UTC", status="confirmed",
+                          cancel_token=uuid.uuid4().hex)
+        db.add(booking)
+        await db.commit()
+    silent = _tool_call("reschedule_booking", {"booking_id": str(booking.id), "starts_at": "2030-01-07T18:00:00+00:00"})
     silent.content = [b for b in silent.content if b.type == "tool_use"]
-    replies = [silent, _reply("Cancel your 2:00 PM with Emad today.")]
+    replies = [silent]
 
     async def create(**kwargs):
         held["calls"].append(kwargs)
         return replies.pop(0)
 
     monkeypatch.setattr(llm, "client", lambda: SimpleNamespace(messages=SimpleNamespace(create=create)))
-    body = (await held["send"]([{"role": "user", "content": "cancel emad"}])).json()
-    assert body["reply"] == "Cancel your 2:00 PM with Emad today." and body["pending"]
+    body = (await held["send"]([{"role": "user", "content": "move emad to 1pm"}])).json()
+    zone = user.timezone or "UTC"
+    assert body["reply"].startswith("Move Emad's meeting from Mon Jan 7, ") and body["pending"], (zone, body["reply"])
     assert body["messages"][-1]["content"][0] == {"type": "text", "text": body["reply"]}
-    assert held["calls"][-1]["tool_choice"] == {"type": "none"} and held["ran"] == []
+    assert held["ran"] == [] and len(held["calls"]) == 1

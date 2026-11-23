@@ -130,7 +130,7 @@ async def test_mcp_lists_tools_and_calls_them_as_the_token_owner(env):
     names = {t["name"] for t in tools}
     assert {"get_profile", "get_free_times", "find_time_with", "import_schedule_text", "log_time", "send_invoice"} <= names
     outward = {t["name"] for t in tools if (t.get("annotations") or {}).get("destructiveHint")}
-    assert {"send_invoice", "book_group_meeting", "cancel_booking", "find_time_with", "book_meeting"} <= outward
+    assert {"send_invoice", "book_group_meeting", "cancel_booking", "find_time_with", "book_meeting", "reschedule_booking"} <= outward
 
     called = (await _rpc(env, token, "tools/call", {"name": "get_profile", "arguments": {}})).json()["result"]
     profile = json.loads(called["content"][0]["text"])
