@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { apiFetch } from "@/lib/api";
 import { AdminAdPerformance } from "@/components/admin-ad-performance";
+import { AdminChatLog } from "@/components/admin-chat-log";
 import { Button } from "@/components/ui/button";
 
 type Analytics = {
@@ -12,7 +13,7 @@ type Analytics = {
   signups: { date: string; count: number }[];
   activity: Record<string, number>;
   acquisition: { source: string | null; campaign: string | null; ad: string | null; users: number }[];
-  recent_users: { name: string | null; email: string; username: string; created_at: string; subscription_status: string; signup_attribution?: { utm_source: string; utm_campaign?: string; utm_content?: string } | null }[];
+  recent_users: { name: string | null; email: string; username: string; created_at: string; subscription_status: string; signup_attribution?: { utm_source: string; utm_campaign?: string; utm_content?: string } | null; created_types: number; availability_days: number; calendars: number; bookings: number; chats: number; last_chat: string | null }[];
 };
 
 const activityLabels: Record<string, string> = {
@@ -20,6 +21,11 @@ const activityLabels: Record<string, string> = {
   users_with_calendars: "Users with calendars",
   calendars_needing_attention: "Calendars needing attention",
   active_booking_types: "Active booking types",
+  users_created_types: "Users who made their own meeting type",
+  users_set_availability: "Users who set availability",
+  users_with_bookings: "Users with a booking",
+  users_used_chat: "Users who used Ask TimeIQ",
+  chat_turns_30d: "Ask TimeIQ messages · last 30 days",
   bookings: "Bookings · all time",
   bookings_30d: "Bookings · last 30 days",
   upcoming_bookings: "Upcoming confirmed bookings",
@@ -107,24 +113,27 @@ export default function AdminPage() {
         </section>
         <section className="rounded-2xl border bg-background/70 p-5">
           <h2 className="text-lg font-semibold">Latest registered users</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Most recent 50 accounts. Website visits and ad clicks do not create accounts.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Most recent 50 accounts. Own meeting types leave out the two every account starts with; availability days count only once someone saves their hours.</p>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead><tr className="border-b text-muted-foreground">{["User", "Email", "Joined", "Subscription", "First ad source"].map((title) => <th key={title} scope="col" className="p-3 font-medium">{title}</th>)}</tr></thead>
+              <thead><tr className="border-b text-muted-foreground">{["User", "Email", "Joined", "Subscription", "First ad source", "Own meeting types", "Availability days", "Calendars", "Bookings", "Chats"].map((title) => <th key={title} scope="col" className="p-3 font-medium">{title}</th>)}</tr></thead>
               <tbody>{data.recent_users.map((user) => <tr key={user.username} className="border-b last:border-0">
                 <td className="p-3">{user.name || user.username}<span className="block text-xs text-muted-foreground">@{user.username}</span></td>
                 <td className="p-3">{user.email}</td><td className="whitespace-nowrap p-3">{new Date(user.created_at).toLocaleDateString()}</td><td className="p-3">{user.subscription_status}</td><td className="p-3">{user.signup_attribution ? [user.signup_attribution.utm_source, user.signup_attribution.utm_campaign, user.signup_attribution.utm_content].filter(Boolean).join(" / ") : "Unknown"}</td>
+                {([user.created_types, user.availability_days, user.calendars, user.bookings] as const).map((n, i) => <td key={i} className={n ? "p-3 tabular-nums" : "p-3 tabular-nums text-muted-foreground"}>{n}</td>)}
+                <td className={user.chats ? "whitespace-nowrap p-3 tabular-nums" : "p-3 tabular-nums text-muted-foreground"}>{user.chats}{user.last_chat && <span className="block text-xs text-muted-foreground">last {new Date(user.last_chat).toLocaleDateString()}</span>}</td>
               </tr>)}</tbody>
             </table>
           </div>
         </section>
+        <AdminChatLog />
         <section className="rounded-2xl border bg-background/70 p-5">
           <h2 className="text-lg font-semibold">Sign-ups by first ad source · all time</h2>
           <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm">
             <thead><tr className="border-b text-muted-foreground">{["Source", "Campaign", "Ad", "Users"].map((label) => <th key={label} scope="col" className="p-3 font-medium">{label}</th>)}</tr></thead>
             <tbody>{data.acquisition?.map((source, index) => <tr key={index} className="border-b last:border-0"><td className="p-3">{source.source || "Unknown"}</td><td className="p-3">{source.campaign || "—"}</td><td className="p-3">{source.ad || "—"}</td><td className="p-3">{source.users}</td></tr>)}</tbody>
           </table></div>
-          <p className="mt-3 text-xs text-muted-foreground">Top 100 source combinations. Unknown includes older accounts, untagged links, and visits where tracking was unavailable. Chatbot usage is not recorded yet.</p>
+          <p className="mt-3 text-xs text-muted-foreground">Top 100 source combinations. Unknown includes older accounts, untagged links, and visits where tracking was unavailable.</p>
         </section>
       </>}
     </div>

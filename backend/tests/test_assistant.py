@@ -151,6 +151,7 @@ async def test_turn_records_token_usage_and_caches_the_prompt(chat):
     assert r.json()["reply"] == "Done." and "usage" not in r.json()
     [row] = await _rows(chat["user"])
     assert (row.input_tokens, row.output_tokens, row.model) == (1017, 34, "claude-sonnet-5-5")
+    assert (row.prompt, row.reply) == ("hi", "Done.") and row.transcript[-1]["role"] == "assistant"
     [call] = chat["calls"]
     assert call["model"] == "claude-sonnet-5-5" and call["extra_body"] is None
     assert call["system"][0]["cache_control"] == {"type": "ephemeral"}
@@ -244,6 +245,11 @@ async def test_outward_tools_wait_for_confirm(held):
     assert r.status_code == 200, r.text
     assert r.json()["reply"] == "Booked." and r.json()["pending"] is None
     assert held["ran"] == ["book_meeting"]
+    rows = sorted(await _rows(held["user"]), key=lambda t: t.created_at)
+    assert [t.prompt for t in rows] == ["book sam tomorrow at 2", "[Confirmed]"]
+    # The admin log keeps which tool ran but never what it returned (users' calendar data).
+    results = [b for m in rows[-1].transcript if isinstance(m["content"], list) for b in m["content"] if b["type"] == "tool_result"]
+    assert results == [{"type": "tool_result", "tool_use_id": "tu_1"}]
 
 
 async def test_cancel_skips_the_tool_and_the_model(held):

@@ -7,7 +7,7 @@ export const metadata = {
   description: "What TimeIQ collects, why, and how to remove it.",
 };
 
-const UPDATED = "November 17, 2026";
+const UPDATED = "November 26, 2026";
 const CONTACT = "simsketch@gmail.com";
 
 export default function PrivacyPage() {
@@ -63,7 +63,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="AI features">
-            TimeIQ uses Anthropic&apos;s Claude models, through Anthropic&apos;s commercial API, for three features: the Ask TimeIQ assistant, reading schedules you forward or paste, and replies to meeting emails. When you use the assistant, it can read your calendar events, including events synced from Google Calendar, to answer your question. Anthropic does not use data sent through its commercial API to train its models. TimeIQ does not use, transfer, or sell Google user data, whether raw, aggregated, or derived, to create, train, or improve any machine learning or AI model, including generalized or foundational models. We send AI providers only the data a request needs.
+            TimeIQ uses Anthropic&apos;s Claude models, through Anthropic&apos;s commercial API, for three features: the Ask TimeIQ assistant, reading schedules you forward or paste, and replies to meeting emails. When you use the assistant, it can read your calendar events, including events synced from Google Calendar, to answer your question. Anthropic does not use data sent through its commercial API to train its models. TimeIQ keeps the messages you send the assistant and its replies, and the TimeIQ team reviews them to fix mistakes and improve how it answers. We do not keep the calendar data the assistant reads to answer you. They are deleted when you delete your account. TimeIQ does not use, transfer, or sell Google user data, whether raw, aggregated, or derived, to create, train, or improve any machine learning or AI model, including generalized or foundational models. We send AI providers only the data a request needs.
           </Section>
 
           <Section title="How we protect your data">

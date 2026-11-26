@@ -45,6 +45,15 @@ def _held(message: dict[str, Any] | None) -> bool:
         isinstance(b, dict) and b.get("type") == "tool_use" for b in message["content"])
 
 
+def without_tool_results(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The conversation for the admin log, minus what tools returned: those hold users' calendar
+    data, which Google's Limited Use rules keep away from human review."""
+    return [{**m, "content": [
+        {"type": "tool_result", "tool_use_id": b.get("tool_use_id")} if isinstance(b, dict) and b.get("type") == "tool_result" else b
+        for b in m["content"]
+    ]} if isinstance(m.get("content"), list) else m for m in messages]
+
+
 @router.post("", response_model=ChatOut)
 async def chat(
     payload: ChatIn,
@@ -83,4 +92,7 @@ async def chat(
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "The assistant hit a problem. Try again in a moment.")
     usage = result.pop("usage")
     turn.input_tokens, turn.output_tokens, turn.model = usage["input_tokens"], usage["output_tokens"], usage["model"][:100]
+    turn.prompt = "[Confirmed]" if payload.decision == "confirm" else last["content"]
+    turn.reply = result["reply"]
+    turn.transcript = without_tool_results(result["messages"])
     return result

@@ -47,6 +47,7 @@ async def test_admin_refuses_other_unverified_or_secondary_email(env, monkeypatc
     assert r.status_code == 403
     assert "recent_users" not in r.text
     assert (await env.client.get("/api/admin/ads")).status_code == 403
+    assert (await env.client.get("/api/admin/chats")).status_code == 403
 
 
 @pytest.mark.asyncio
@@ -65,6 +66,11 @@ async def test_admin_verified_owner_counts_and_private_response(env, monkeypatch
     assert data["activity"]["connected_calendars"] >= 0
     assert any(u["email"] == env.users[0].email for u in data["recent_users"])
     assert "clerk_id" not in r.text and "booking_logo" not in r.text
+    assert {"created_types", "availability_days", "calendars", "bookings", "chats", "last_chat"} <= set(data["recent_users"][0])
+    assert data["activity"]["users_used_chat"] >= 0
+    r = await env.client.get("/api/admin/chats")
+    assert r.status_code == 200 and r.headers["cache-control"] == "private, no-store", r.text
+    assert isinstance(r.json(), list)
 
 
 @pytest.mark.asyncio

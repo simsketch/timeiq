@@ -10,7 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_user_unrestricted, require_session_auth
 from app.config import settings
 from app.database import get_db
-from app.models import Booking, CalendarSource, EmailImport, EventType, GroupMeeting, User
+from app.models import AssistantTurn, AvailabilityRule, Booking, CalendarSource, EmailImport, EventType, GroupMeeting, User
+
+STARTER_SLUGS = ("30-minute-meeting", "1-hour-meeting")  # every account starts with these
 
 ADMIN_EMAIL = "simsketch@gmail.com"
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -63,10 +65,24 @@ async def analytics(response: Response, db: AsyncSession = Depends(get_db)):
     daily = dict((await db.execute(select(signup_day, func.count()).where(
         User.created_at >= today - timedelta(days=29)
     ).group_by(signup_day))).all())
-    recent = (await db.execute(select(
-        User.name, User.email, User.username, User.created_at, User.subscription_status, User.signup_attribution
-    ).order_by(User.created_at.desc()).limit(50))).mappings().all()
     calendars = (CalendarSource.is_active.is_(True), CalendarSource.type.not_in(("email", "meetings")))
+    custom_types = (EventType.slug.not_in(STARTER_SLUGS),)
+
+    def per_user(model, column, *conditions):
+        return select(func.count()).select_from(model).where(column == User.id, *conditions).scalar_subquery()
+
+    recent = (await db.execute(select(
+        User.name, User.email, User.username, User.created_at, User.subscription_status, User.signup_attribution,
+        per_user(EventType, EventType.user_id, *custom_types).label("created_types"),
+        per_user(AvailabilityRule, AvailabilityRule.user_id).label("availability_days"),
+        per_user(CalendarSource, CalendarSource.user_id, *calendars).label("calendars"),
+        per_user(Booking, Booking.host_user_id).label("bookings"),
+        per_user(AssistantTurn, AssistantTurn.user_id).label("chats"),
+        select(func.max(AssistantTurn.created_at)).where(AssistantTurn.user_id == User.id).scalar_subquery().label("last_chat"),
+    ).order_by(User.created_at.desc()).limit(50))).mappings().all()
+
+    async def users_with(column, *conditions):
+        return await db.scalar(select(func.count(func.distinct(column))).where(*conditions)) or 0
     return {
         "generated_at": now,
         "users": dict(users),
@@ -76,6 +92,11 @@ async def analytics(response: Response, db: AsyncSession = Depends(get_db)):
             "users_with_calendars": await db.scalar(select(func.count(func.distinct(CalendarSource.user_id))).where(*calendars)) or 0,
             "calendars_needing_attention": await count(CalendarSource, *calendars, CalendarSource.sync_status != "ok"),
             "active_booking_types": await count(EventType, EventType.is_active.is_(True)),
+            "users_created_types": await users_with(EventType.user_id, *custom_types),
+            "users_set_availability": await users_with(AvailabilityRule.user_id),
+            "users_with_bookings": await users_with(Booking.host_user_id),
+            "users_used_chat": await users_with(AssistantTurn.user_id),
+            "chat_turns_30d": await count(AssistantTurn, AssistantTurn.created_at >= now - timedelta(days=30)),
             "bookings": await count(Booking),
             "bookings_30d": await count(Booking, Booking.created_at >= now - timedelta(days=30)),
             "upcoming_bookings": await count(Booking, Booking.status == "confirmed", Booking.starts_at > now),
@@ -123,3 +144,15 @@ async def ads(response: Response, days: Literal["0", "7", "30"] = Query(default=
         ))
     report["totals"]["attributed_users"] = sum(ad["attributed_users"] for ad in report["ads"])
     return report
+
+
+@router.get("/chats", dependencies=[Depends(require_admin)])
+async def chats(response: Response, db: AsyncSession = Depends(get_db)):
+    """Every Ask TimeIQ turn, newest first."""
+    response.headers["Cache-Control"] = "private, no-store"
+    # shortcut: newest 200 turns only, add paging once there are more to read
+    rows = (await db.execute(select(
+        AssistantTurn.created_at, AssistantTurn.prompt, AssistantTurn.reply, AssistantTurn.transcript,
+        AssistantTurn.input_tokens, AssistantTurn.output_tokens, User.name, User.email, User.username,
+    ).join(User, User.id == AssistantTurn.user_id).order_by(AssistantTurn.created_at.desc()).limit(200))).mappings()
+    return [dict(row) for row in rows]
